@@ -20,7 +20,7 @@ Current work is in [TODO](../../TODO.md); current architecture is in
 | S6 | Notifications (§9) | Built: `af261fc` |
 | S7 | README and implemented-design entries | Built: `faafbba`, `73ccfde` |
 | F5 | Every run holds the lease; joining a run in progress (§5.1) | Built: `3d38f76`, `ae1a086`, `dc527f5`, `12d875e` |
-| -- | Review Folder's Publish/Commit honour the lease | Open: [W3](../../TODO.md#w3--review-folder-honours-the-lease) |
+| -- | Review Folder's Publish/Commit honour the lease | Open: [W3](../worklist-w3.md) |
 
 Tests: `test_pipeline_library_selection.py`, `test_pipeline_library_year.py`,
 `test_pipeline_service_*.py`, `test_pipeline_library_inbox.py`, the joining

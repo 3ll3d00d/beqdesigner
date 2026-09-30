@@ -59,23 +59,23 @@ When the run ends, the list is read again and the results are listed.
 
 ### Failures and Retry failed
 
-If extraction or design fails for a title (the file was not found because of a wrong [path mapping](../ui/preferences.md#jriver), the designer was unreachable), the run carries on with the others. A **Failures (N)** tab appears under the list with the title, source, stage and the reason.
+If extraction or design fails for a title (for example a wrong [path mapping](../ui/preferences.md#jriver) or an unreachable designer), the run carries on with the others. The failure stays in the title’s indexed detail. Failed extraction remains **Extract**; failed design becomes **Attention**. The Attention chip also lists other problems, so use the title’s detail to see what failed.
 
-A title whose **extraction** failed stays under **Extract**, with the reason in its detail, and the next **Extract & design** you press tries it again. (The service's [schedule](service.md) and a command-line `run --unattended` leave it alone until its source file or the settings change, so a nightly job does not repeat the failure.) *Revise...* is not offered for it: there is nothing to send back.
+Select failed titles and press **Retry N failed extraction**, **Retry N failed design**, or **Retry N failed extraction/design** for a mixed selection. With no selection, Retry acts on failed titles in the current filtered list and asks for confirmation. It retries even when neither the source nor settings changed. A normal interactive extraction can retry a failed extraction; unattended runs leave remembered failures alone until the source/settings change or retry is explicitly requested.
 
-A title whose **design** failed becomes **Attention** and is **not tried again** until its source file or the settings change. A transient problem, such as the designer being down, therefore stays failed until you say so. Once you have fixed it, press **Retry N failed**, which runs the titles in the panel again even though nothing changed. Select rows in the panel first and the button reads *Retry N selected*.
+Use **Open** to inspect a failed title. Its **Failures** tab shows the full persisted, multiline reason in a read-only text box. Select text to copy it or press **Copy failure**. The title page’s Retry button names the failed stage. If no design exists yet, there is nothing to revise.
 
-Note that the panel lists every failed title in the library, not just those in the current view, so retrying all of them asks for confirmation (*Retry N failed titles?*).
+During a retry, the table’s Detail cell shows the current attempt, while its tooltip and the title page’s Failures tab retain the **Previous indexed failure**. The page shows the current attempt separately. That prior failure remains until the run’s refreshed index result is read: success clears it, another failure replaces it, and cancellation retains whatever failure the index still records.
 
-### The Last run tab
+### Run Details and results
 
-After a run, a **Last run (N)** tab shows what happened to each title, one line each, problems first: *Designed*, *Already designed*, *Failed* (with the reason), *Not retried*, *Published*, *Refused*, *Committed*, *Pushed*, *Not run* and *Skipped*. A commit adds a line per repository. Select a line to see all of its detail underneath, and hover for the full text. The summary is also in the line above the buttons: *Extract & design finished: 38 designed, 2 failed, 4 skipped*.
+The table’s **Run details** cell and the title page’s **Run Details** button open the same per-title dialog. Indexed failure text is shown separately from current run events. Events include redacted ffmpeg commands, output and exit codes; cache reuse explicitly says **cache hit** and **no command ran**. Use **Copy all** or select individual lines. A persisted failure can be inspected even when no run events remain.
 
-![Last run](../img/library_worklist_lastrun.png)
+Run event history is saved for reopening the window. Starting a new run expires the previous run’s history across all titles, including titles outside the new selection; their indexed failures remain available. Failure text and copied commands mask credentials.
 
-The tab is also where [bulk accept](review.md#bulk-accept) and [revising](revise.md) report what they did. It is replaced by the next thing you do.
+The current run’s progress and outcomes are shown on each title’s row. When it ends, the list reads the refreshed index and the summary states the outcome, for example *Extract & design finished: 38 designed, 2 failed, 4 skipped*. Repository-wide failures are shown in full in the status-line tooltip. Bulk acceptance and revision also report on that status line.
 
-If a run itself fails (not a title), the window says so in red and points at `Help > Logs`. Titles that finished before that are kept.
+If a run itself fails, the window says so in red and points at `Help > Logs`. Titles finished before that failure are kept.
 
 ### Other buttons
 

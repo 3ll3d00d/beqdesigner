@@ -33,13 +33,13 @@ not:
 | Work-list feedback F1-F5 | Built | F1 `de45afe`, F2 `7420a54`, F3 `49bbf34`, F4 `c58a4b4`, F5 `3d38f76` `ae1a086` `dc527f5` `12d875e` | [Implemented design](../implemented.md); agreed design in [archive](../archive/library-sync/worklist-feedback.md) |
 | Pipeline service S0-S7 | Built | per chunk in [§11](../pipeline-service.md#11-status) | [Pipeline service](../pipeline-service.md) |
 | Rejected designs (designer contract 1.1) | Built | contract `8818b10`, queue `13cda02`, title page `3497c43` | [Implemented design](../implemented.md#design-and-review) |
-| Review Folder's lease check (service §5.1 gap) | Open | -- | [W3](../TODO.md#w3--review-folder-honours-the-lease) |
+| Review Folder's lease check (service §5.1 gap) | Open | -- | [W3](worklist-w3.md) |
 | S5 image: amd64 build and smoke | Verified | image `80cab0d`, smoke run at `7db992d` | [Docker image](../pipeline-service.md#10-docker-image) |
 | S5 image: arm64 build and GHCR publish | Not yet run | -- | [C1](../TODO.md#c1--arm64-image-and-ghcr-publish) |
 | 3/30, 31 | Waiting for live JRiver and acceptance evidence | -- | [E1-E2](../TODO.md#e1--jriver-response-fixture) |
 | 32-33, 37 | Not started; evidence dependent | -- | [E3-E5](../TODO.md#e1--jriver-response-fixture) |
 | 40 | Not started beyond a first-stream stub | -- | [J2](../TODO.md#j2--resolve-jrivers-selected-audio-stream) |
-| 45a | Partial: decline shown as designer commentary built | `063c922` | [W1](../TODO.md#w1--retry-failures-and-title-page-details) |
+| 45a | Partial: decline shown as designer commentary built | `063c922` | [W1](worklist-w1.md) |
 | 45b | Partial: codec/channel requests, automatic audio type and rescan backfill built | `62270b4`, `cb9456f` | [W2](../TODO.md#w2--stream-evidence-and-truthful-stages) |
 | Designer requests by reference (beqforge R2, contract 1.2) | Built | D1.1 `bfff8e5`, D1.2 `4053773`, D1.3 `a303d20`, D1.4 `8f026ff` | [Implemented design](../implemented.md#design-and-review), [design](designer-by-reference.md) |
 | Catalogue as input (D6), reviewer policy (former §9) | Product decisions | -- | [O1, O2](../TODO.md#o1--catalogue-as-input) |

@@ -16,6 +16,8 @@ from typing import Callable, Dict, List, Optional
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, QSortFilterProxyModel, Qt
 from qtpy.QtGui import QBrush, QColor, QGuiApplication, QPalette
 
+from model.execution_events import redact_text
+from model.worklist_failure import failed_stage, failure_text
 from pipeline.library.index import TitleRow
 from pipeline.library.selection import CHIP_NEW, CHIPS
 
@@ -104,7 +106,7 @@ def detail_text(row: TitleRow) -> str:
 def current_detail(row: TitleRow, run_state: dict) -> str:
     '''Show this attempt while it runs; the indexed detail becomes current again after refresh.'''
     if run_state.get('attempting'):
-        return run_state.get('attempt_detail') or run_state.get('text') or 'Updating result...'
+        return redact_text(run_state.get('attempt_detail') or run_state.get('text') or 'Updating result...')
     return detail_text(row)
 
 
@@ -116,7 +118,7 @@ def _tooltip(row: TitleRow, column: int) -> Optional[str]:
         return '\n'.join(lines)
     if column == COL_DETAIL:
         text = detail_text(row)
-        return text if not row.failure or row.failure in text else f'{text}\n{row.failure}'
+        return redact_text(text if not row.failure or row.failure in text else f'{text}\n{row.failure}')
     if column == COL_WAITING:
         return time.strftime('In this state since %Y-%m-%d %H:%M', time.localtime(row.state_since)) + \
             ('\nNew in the latest scan' if row.is_new else '')
@@ -204,7 +206,11 @@ class WorkListModel(QAbstractTableModel):
                 self.dataChanged.emit(self.index(row, COL_NEEDS), self.index(row, COL_RUN_DETAILS))
 
     def run_state(self, title_id: str) -> dict:
-        return dict(self.__run_state.get(title_id, {}))
+        state = dict(self.__run_state.get(title_id, {}))
+        row = self.__row_of.get(title_id)
+        if row is not None and failed_stage(self.__rows[row]):
+            state['has_details'] = True
+        return state
 
     def is_working(self, title_id: str) -> bool:
         ''' Whether the run has this title queued or in hand: what the Working chip lists. '''
@@ -266,7 +272,9 @@ class WorkListModel(QAbstractTableModel):
             return f'new \u00b7 {waiting}' if row.is_new else waiting
         if role == Qt.ItemDataRole.ToolTipRole:
             if column == COL_DETAIL and run_state.get('attempting'):
-                return current_detail(row, run_state)
+                previous = run_state.get('previous_failure', {})
+                prior = failure_text(previous.get('stage', ''), previous.get('message', ''), True)
+                return '\n\n'.join(part for part in (current_detail(row, run_state), prior) if part)
             return _tooltip(row, column)
         if role == ROW_ROLE:
             return row
@@ -279,7 +287,7 @@ class WorkListModel(QAbstractTableModel):
         if role == RUNNING_ROLE:
             return running
         if role == RUN_STATE_ROLE:
-            return self.__run_state.get(row.id, {})
+            return self.run_state(row.id)
         if role == SORT_ROLE:
             return self.__sort_key(row, column)
         if role == Qt.ItemDataRole.BackgroundRole and (running or row.is_new):

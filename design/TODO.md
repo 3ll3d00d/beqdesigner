@@ -10,8 +10,8 @@ under observation; none is claimed complete. Architecture and contracts are
 backlogs. The caller’s by-reference implementation and live acceptance are
 complete; its three follow-ons are retained below as D2–D4.
 
-Order is recommended execution priority: repository concurrency first, then
-review and stream correctness, external acceptance and disc behavior, release
+Order is recommended execution priority: stream correctness, external
+acceptance and disc behavior, release
 verification, test health, and optional improvements/product decisions. A
 blocked item does not prevent starting the next independent item. E1 supplies
 evidence needed by J2 and the disc items and may be captured alongside them.
@@ -22,45 +22,23 @@ Do not keep a second status table in a design reference.
 
 | Priority | ID | Previous IDs | Status | Depends on |
 |---|---|---|---|---|
-| 1 | W1 | chunk 45a | Partially implemented: retry labels and failure/detail views missing | None |
-| 2 | J2 | chunk 40 | Not started beyond the seam: the resolver returns the first audio stream | Sanitised Playback Info and ffprobe evidence |
-| 3 | W2 | chunk 45b | Partial in `62270b4`: codec, channels and stream count are requested | J2 for automatic stream selection; manual override already exists |
-| 4 | E1 | chunk 3/30, T5-T6 | Waiting for authorised JRiver capture | Real MCWS server |
-| 5 | E2 | chunk 31, T2-T4 | Waiting for manual acceptance | E1; real designer, media and disposable repositories |
-| 6 | E3 | chunk 32, T7 | Not started; evidence dependent | E1; DVD fixture |
-| 7 | E4 | chunk 33, T8 | Not started; evidence dependent | E1; Blu-ray playlist fixture |
-| 8 | E5 | chunk 37, T15 | Waiting for a product decision | E2; representative season media |
-| 9 | C1 | chunk S5 | amd64 build and smoke verified; arm64 build and GHCR publish not yet run | The first tag push |
-| 10 | T1 | -- | Watch; not reproduced | Recurrence with a stack dump |
-| 11 | T2 | -- | Watch; seen twice | Recurrence with its failure message |
-| 12 | D4 | by-reference §5 | Planned; not started | Designer build identity policy |
-| 13 | D2 | by-reference §5 | Planned; optional, not started | beqforge loader coordination |
-| 14 | D3 | by-reference §5 | Planned; optional, not started | Contract addition; beqforge coordination |
-| 15 | O2 | former §9 reviewer questions | Behavior exists; acceptance decision missing | Real reviewer feedback |
-| 16 | O1 | D6 | Optional idea; no implementation decision | Product decision |
+| 1 | J2 | chunk 40 | Not started beyond the seam: the resolver returns the first audio stream | Sanitised Playback Info and ffprobe evidence |
+| 2 | W2 | chunk 45b | Partial in `62270b4`: codec, channels and stream count are requested | J2 for automatic stream selection; manual override already exists |
+| 3 | E1 | chunk 3/30, T5-T6 | Waiting for authorised JRiver capture | Real MCWS server |
+| 4 | E2 | chunk 31, T2-T4 | Waiting for manual acceptance | E1; real designer, media and disposable repositories |
+| 5 | E3 | chunk 32, T7 | Not started; evidence dependent | E1; DVD fixture |
+| 6 | E4 | chunk 33, T8 | Not started; evidence dependent | E1; Blu-ray playlist fixture |
+| 7 | E5 | chunk 37, T15 | Waiting for a product decision | E2; representative season media |
+| 8 | C1 | chunk S5 | amd64 build and smoke verified; arm64 build and GHCR publish not yet run | The first tag push |
+| 9 | T1 | -- | Watch; not reproduced | Recurrence with a stack dump |
+| 10 | T2 | -- | Watch; seen twice | Recurrence with its failure message |
+| 11 | D4 | by-reference §5 | Planned; not started | Designer build identity policy |
+| 12 | D2 | by-reference §5 | Planned; optional, not started | beqforge loader coordination |
+| 13 | D3 | by-reference §5 | Planned; optional, not started | Contract addition; beqforge coordination |
+| 14 | O2 | former §9 reviewer questions | Behavior exists; acceptance decision missing | Real reviewer feedback |
+| 15 | O1 | D6 | Optional idea; no implementation decision | Product decision |
 
 ## Work in priority order
-
-### W1 — Retry, failures and title-page details
-
-The current attempt appears in the row while it runs; unplanned progress is
-rejected, exceptions are logged with tracebacks, and ffmpeg
-command-preparation failures emit events. A decline is shown as designer
-commentary on its title page. The title page shows no failure text, and the
-Failures tab has one Reason column. Complete the visible workflow:
-
-- Label Retry by the failed stage and distinguish the previous indexed
-  failure from the active attempt on the row and title page. Keep the old
-  failure visible until an index refresh confirms success.
-- Show full persisted, multiline failure text in selectable, copyable views
-  on the Failures tab and title page. Expose the existing per-title Run
-  Details dialog there, including redacted ffmpeg commands and an explicit
-  cache-hit message when no command ran.
-- Test extract and design retry, another failure, success, cancellation,
-  disjoint later runs, multiline copy and redaction. Update `docs/library/work.md`.
-
-**Done when:** those user paths work in real-widget tests and the persisted
-failure remains distinct from one-run event history.
 
 ### J2 — Resolve JRiver's selected audio stream
 

@@ -133,6 +133,7 @@ class WorkListTitles:
                                revise_context=lambda: revise_context(self._setup), revise_blocked=self._revise_blocked,
                                run_design=self._run_redesigned_title,
                                retry_failed=lambda title_id: self.retry_failed([title_id]),
+                               failure_info=self._failure_info, open_run_details=self._open_run_details,
                                open_jriver_preferences=self.preferences_requested.emit,
                                choose_audio_stream=self._choose_audio_stream)
             self._title_page = TitlePage(self, self._preferences, self._title_queue_dir, self._rows_by_id,

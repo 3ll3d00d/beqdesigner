@@ -22,6 +22,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 from qtpy.QtCore import Signal
 from qtpy.QtWidgets import QHBoxLayout, QLabel, QMenu, QPushButton, QToolButton, QVBoxLayout, QWidget
 
+from model.worklist_failure import FailurePanel, failed_stage, retry_label
 from model.worklist_model import warning_colour
 from model.worklist_projects import EDITED_TOOLTIP, LEVEL_WARN, MONO, MULTICHANNEL, ProjectState, badge, \
     project_states
@@ -60,6 +61,8 @@ class TitleHooks:
     run_design: Optional[Callable[[str], bool]] = None
     commit_state: Optional[Callable[[str], str]] = None
     retry_failed: Optional[Callable[[str], bool]] = None
+    failure_info: Optional[Callable[[str], dict]] = None
+    open_run_details: Optional[Callable[[str], None]] = None
     open_jriver_preferences: Optional[Callable[[], None]] = None
     choose_audio_stream: Optional[Callable[[str], bool]] = None
 
@@ -102,8 +105,10 @@ class TitleActionsBar(QWidget):
         self.audioStreamAction = menu.addAction('Choose audio stream...')
         self.reviseButton.setMenu(menu)
         self.retryButton = QPushButton('Retry failed extraction')
+        self.detailsButton = QPushButton('Run Details')
         self.jriverPreferencesButton = QPushButton('Open JRiver path mappings')
-        for button in (self.monoButton, self.multichannelButton, self.retryButton, self.jriverPreferencesButton):
+        for button in (self.monoButton, self.multichannelButton, self.retryButton,
+                       self.jriverPreferencesButton, self.detailsButton):
             button.setAutoDefault(False)   # Enter in a field must never press one (design.md §12.1)
         self.monoButton.clicked.connect(lambda: self.open_requested.emit(MONO))
         self.multichannelButton.clicked.connect(lambda: self.open_requested.emit(MULTICHANNEL))
@@ -112,7 +117,7 @@ class TitleActionsBar(QWidget):
         self.audioStreamAction.triggered.connect(lambda: self.audio_stream_requested.emit())
         self.retryButton.clicked.connect(self.retry_requested.emit)
         self.jriverPreferencesButton.clicked.connect(self.jriver_preferences_requested.emit)
-        for widget in (self.reviseButton, self.retryButton, self.jriverPreferencesButton):
+        for widget in (self.reviseButton, self.retryButton, self.jriverPreferencesButton, self.detailsButton):
             workflow.addWidget(widget)
         self.messageLabel = QLabel()
         self.messageLabel.setWordWrap(True)
@@ -159,6 +164,11 @@ class TitleActions:
         self._revised_here: Dict[str, str] = {}    # id -> how far it was sent back, on this page since the rows were read
         self._revised_stamp: Dict[str, tuple] = {}   # id -> the design as the revise left it (`_design_stamp`)
         self._bar = TitleActionsBar(self)
+        self.failurePanel = FailurePanel(self)
+        self._failure_tab = self.rightTabs.addTab(self.failurePanel, 'Failures')
+        self.rightTabs.setTabVisible(self._failure_tab, False)
+        self._bar.detailsButton.clicked.connect(lambda: self._hooks.open_run_details(self._title_id)
+                                                if self._hooks.open_run_details else None)
         self.titleRootLayout.insertWidget(self.titleRootLayout.indexOf(self.noticeLabel) + 1, self._bar)
         self.filterTabLayout.addWidget(self._bar.projects)      # beside the chart the projects edit
         self.decisionLayout.insertWidget(0, self._bar.workflow)  # with the other steps that change what happens to the title
@@ -270,8 +280,16 @@ class TitleActions:
         self._bar.reviseAction.setEnabled(not blocked)
         self._bar.reviseAction.setToolTip(revise_tip)
         row = self._rows().get(self._title_id)
-        failed = row is not None and (row.extract_state == 'failed' or row.design_state == 'failed')
-        can_retry = failed and self._hooks.retry_failed is not None and self._title_id not in self._running()
+        info = self._hooks.failure_info(self._title_id) if self._hooks.failure_info else {
+            'stage': failed_stage(row), 'message': (row.failure or row.detail) if failed_stage(row) else ''}
+        failed = bool(info.get('message'))
+        self.failurePanel.show_failure(info)
+        self.rightTabs.setTabVisible(self._failure_tab, failed)
+        self._bar.retryButton.setText(retry_label([info.get('stage', '')]))
+        self._bar.detailsButton.setVisible(self._hooks.open_run_details is not None)
+        self._bar.detailsButton.setEnabled(bool(info.get('has_details') or failed))
+        can_retry = failed and self._hooks.retry_failed is not None and not info.get('attempting') \
+            and self._title_id not in self._running()
         self._bar.retryButton.setVisible(failed)
         self._bar.retryButton.setEnabled(can_retry)
         self._bar.retryButton.setToolTip('Run this failed title again.' if can_retry else

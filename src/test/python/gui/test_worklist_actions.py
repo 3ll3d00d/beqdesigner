@@ -912,7 +912,7 @@ def test_titles_that_fail_are_listed_in_the_failures_panel_with_the_reason_and_t
     assert failed['x-fury'].reason == 'RuntimeError: no audio stream' and failed['x-fury'].stage == 'extract'
     assert failed['x-fury'].title == 'Fury'
     window.select_ids(['x-fury', 'x-gravity'])
-    assert window.retryButton.text() == 'Retry 1 failed' and window.retryButton.isVisibleTo(window)
+    assert window.retryButton.text() == 'Retry 1 failed extraction' and window.retryButton.isVisibleTo(window)
     # ... and what the run said about each title
     outcomes = {line.id: (line.outcome, line.detail, line.level) for line in window.results}
     assert outcomes['x-fury'] == ('Failed', 'RuntimeError: designer returned 503', 'error')
@@ -930,7 +930,7 @@ def test_retry_is_hidden_when_nothing_failed(qtbot, tmp_path):
 
 def test_retry_failed_runs_the_failed_titles_again_and_nothing_else(qtbot, tmp_path):
     window, pipeline = _window(qtbot, tmp_path)
-    assert window.retryButton.text() == 'Retry 2 failed' and window.retryButton.isEnabled()
+    assert window.retryButton.text() == 'Retry 2 failed extraction/design' and window.retryButton.isEnabled()
 
     # an ordinary run does not retry a failure (it is "failed before"); Retry failed does, by ids, with the flag
     _answer(True, [])   # every failed title listed is as big as a whole view: it asks first
@@ -962,7 +962,8 @@ def test_retry_detail_shows_the_current_attempt_until_the_index_has_its_result(q
     _wait_for(qtbot, entered, timeout=5000)
     try:
         qtbot.waitUntil(lambda: _cell(window, title_id, COL_DETAIL) == 'Extracting', timeout=5000)
-        assert 'file not found' not in _cell(window, title_id, COL_DETAIL, Qt.ItemDataRole.ToolTipRole)
+        assert 'Previous indexed failure (extract)' in _cell(window, title_id, COL_DETAIL, Qt.ItemDataRole.ToolTipRole)
+        assert 'file not found' in _cell(window, title_id, COL_DETAIL, Qt.ItemDataRole.ToolTipRole)
         assert window.model.run_state(title_id)['attempting']
         window._on_execution_event(window._job,
                                    ExecutionEvent('retry', title_id, 'extract', 'stage_completed', NOW + 1))
@@ -984,7 +985,7 @@ def test_retry_failed_works_on_the_failed_titles_selected_in_the_list(qtbot, tmp
     assert window.retryButton.text() == 'Retry 0 failed' and not window.retryButton.isEnabled()
     assert window.retry_failed() is False and pipeline.calls == []
     window.select_ids(['a-failed-d', 'x-gravity'])
-    assert window.retryButton.text() == 'Retry 1 failed'
+    assert window.retryButton.text() == 'Retry 1 failed design'
 
     with qtbot.waitSignal(window.run_finished, timeout=10000):
         _click(qtbot, window.retryButton)

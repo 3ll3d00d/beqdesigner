@@ -21,6 +21,7 @@ from qtpy.QtWidgets import QDialog, QLabel
 
 from model.preferences import WORKLIST_PUSH
 from model.execution_events import ExecutionEvent
+from model.worklist_failure import retry_label
 from model.worklist_confirm import ConfirmDialog, commit_text, machine_text, publish_text, retry_text
 from model.worklist_model import warning_colour
 from model.worklist_run import LEVEL_ERROR, LEVEL_OK, FailedTitle, ResultLine, RunJob, RunRequest, \
@@ -160,7 +161,7 @@ class WorkListActions:
                 button.setToolTip('Commit the written titles: one commit per repository, images first, then push. '
                                   'Titles committed earlier without a push are only pushed.')
         retry = self._retry_ids()
-        self.retryButton.setText(_button_text(f'Retry {len(retry):,} failed'))
+        self.retryButton.setText(_button_text(retry_label([f.stage for f in self._failed if f.id in retry], len(retry))))
         self.retryButton.setVisible(bool(self._failed))
         self.retryButton.setEnabled(ready and bool(retry))
         self.retryButton.setToolTip('Extract and design the failed titles again, even though nothing changed: the selected '
@@ -372,7 +373,8 @@ class WorkListActions:
         for planned in new:
             self._run_outcomes[planned.row.id] = 'queued'
             self._model.set_run_state(planned.row.id, active=False, queued=True, stage='', text='Queued', current=None,
-                                      total=None, has_details=False, attempting=True, attempt_detail='')
+                                      total=None, has_details=False, attempting=True, attempt_detail='',
+                                      previous_failure=self._failure_info(planned.row.id))
         self._update_run_progress()
         self._update_run_summary()
 
@@ -443,7 +445,8 @@ class WorkListActions:
         self._model.clear_run_states()
         for title_id in request.ids:
             self._model.set_run_state(title_id, active=False, queued=True, stage='', text='Queued', current=None,
-                                      total=None, has_details=False, attempting=True, attempt_detail='')
+                                      total=None, has_details=False, attempting=True, attempt_detail='',
+                                      previous_failure=self._failure_info(title_id))
         self._run_context = _RunContext(request, plan, rows, skipped_text,
                                          [p.row.id for p in plan.with_stage('commit')])
         self.cancelButton.setVisible(True)
@@ -595,7 +598,10 @@ class WorkListActions:
         '''Reveal refreshed index details only after this run's result has been read.'''
         if context is not None:
             for title_id in context.request.ids:
-                self._model.set_run_state(title_id, attempting=False, attempt_detail='')
+                self._model.set_run_state(title_id, attempting=False, attempt_detail='', previous_failure={})
+                dialog = self._detail_dialogs.get(title_id)
+                if dialog is not None:
+                    dialog.set_text(self._run_details_text(title_id))
 
     def _on_run_finished(self, source_job, report: StagesReport) -> None:
         if self._job is None or source_job is not self._job:
@@ -628,7 +634,7 @@ class WorkListActions:
                                       has_details=True)
             dialog = self._detail_dialogs.get(title_id)
             if dialog is not None:
-                dialog.set_text(buffer.text())
+                dialog.set_text(self._run_details_text(title_id))
         # The report is authoritative for the final aggregate, including
         # failures and titles cancelled before dispatch.
         for title_id in self._run_outcomes:
@@ -639,6 +645,13 @@ class WorkListActions:
                 self._run_outcomes[title_id] = 'failed'
             elif title_id in report.attempted or any(item.get('id') == title_id for item in report.published):
                 self._run_outcomes[title_id] = 'succeeded'
+        for stage, ids in (('extract', report.run.cached), ('design', report.run.design_cached)):
+            for title_id in ids:
+                if title_id in planned_ids:
+                    buffer = self._event_buffers.setdefault(title_id, EventBuffer())
+                    buffer.append(ExecutionEvent(self._active_run_id, title_id, stage, 'cache_hit', time.time(),
+                                                 f'{stage.capitalize()} cache hit: reused cached result; no command ran.'))
+                    self._model.set_run_state(title_id, has_details=True)
         self._remember_run_details()
         self._update_run_progress(context)
         self._update_run_summary()

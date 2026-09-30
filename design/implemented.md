@@ -306,3 +306,19 @@ failure-text, and stream-stage presentation work remains under **W1/W2**.
 Review Folder checks the library profile’s work-directory lease before and
 after Publish/Commit confirmation and holds it while its worker writes. A
 fresh holder is named on refusal; stale leases do not block the operation.
+
+Failed extraction and design have stage-specific Retry labels in the work list
+and title page. A title’s Failures tab shows the full redacted indexed failure,
+with selection and Copy failure, separately from the current attempt. During a
+retry, the previous indexed failure remains on that tab and in the table’s
+Detail tooltip until the run’s refreshed result is read; intermediate extraction
+refreshes do not drop it. Success removes it, a new failure replaces it, and
+cancellation leaves the index’s failure available.
+
+The title page’s Run Details button and the table’s Details cell open the same
+copyable dialog. Persisted failure text is separate from one-run event history,
+so a failed title remains inspectable after a disjoint run expires its events.
+Cache hits explicitly say a cached result was reused and no command ran. The
+old separate Failures/Last run panels are not restored: failures are listed in
+the main table, inspected on the title page, and outcomes appear on the rows
+and status line.

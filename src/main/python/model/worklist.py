@@ -62,6 +62,7 @@ from model.worklist_model import ALL_CHIPS, CHIP_ALL, CHIP_DONE, CHIP_WORKING, C
 from model.worklist_edit import discovery_changed
 from model.worklist_profile import WorkListSetup, load_setup
 from model.execution_events import ExecutionEvent
+from model.worklist_failure import failure_text
 from model.worklist_run import FailedTitle, ResultLine, RunJob, failed_titles
 from model.worklist_run_details import EventBuffer, RunDetailsDialog, RunStatusDelegate, load_run_details
 from model.worklist_settings import SettingsDrawer
@@ -673,13 +674,13 @@ class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkL
         self._sources_seen, self._last_scan_at, self._generation = sources, last_scan, generation
         self._populate_sources(sources)
         self._model.set_rows(rows)  # the proxy's modelReset refreshes the strip and the empty state
+        self._failed = failed_titles(rows, failures)
         for row in rows:
             if row.id in self._saved_details and not self._model.run_state(row.id).get('has_details'):
                 self._model.set_run_state(row.id, has_details=True)
         if selected:
             self.select_ids(selected)
         self.workTable.verticalScrollBar().setValue(scroll)
-        self._failed = failed_titles(rows, failures)
         self._drawer.set_rows(rows)
         self._refresh_failures()
         self._refresh_actions()
@@ -826,7 +827,7 @@ class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkL
             self._refresh_view()        # the Working chip's number
         dialog = self._detail_dialogs.get(event.title_id)
         if dialog is not None:
-            dialog.set_text(buffer.text())
+            dialog.set_text(self._run_details_text(event.title_id))
         self._update_run_progress()
         self._update_run_summary()
 
@@ -839,6 +840,25 @@ class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkL
                  ('queued', 'active', 'succeeded', 'failed', 'cancelled') if counts[name]]
         self.runCountsLabel.setText(' · '.join(parts) or 'Run complete')
 
+    def _failure_info(self, title_id: str) -> dict:
+        state = self._model.run_state(title_id)
+        failure = next((f for f in self._failed if f.id == title_id), None)
+        info = dict(state.get('previous_failure') or {}) if state.get('attempting') else {}
+        if not info and failure is not None:
+            info.update(stage=failure.stage, message=failure.reason)
+        info.update(attempting=bool(state.get('attempting')),
+                    attempt=state.get('attempt_detail') or state.get('text', ''),
+                    has_details=bool(state.get('has_details')))
+        return info
+
+    def _run_details_text(self, title_id: str) -> str:
+        info = self._failure_info(title_id)
+        persisted = failure_text(info.get('stage', ''), info.get('message', ''), info.get('attempting', False))
+        buffer = self._event_buffers.get(title_id)
+        history = buffer.text() if buffer else self._saved_details.get(title_id, '')
+        return '\n\n'.join(part for part in (persisted, 'Current run events:' if history else
+                                               'No run events retained for this title.', history) if part)
+
     def _open_run_details(self, title_id: str) -> None:
         row = next((r for r in self._model.rows if r.id == title_id), None)
         title = row.title or row.display_name or title_id if row else title_id
@@ -847,8 +867,7 @@ class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkL
             dialog = RunDetailsDialog(title, title_id, self)
             self._detail_dialogs[title_id] = dialog
             dialog.finished.connect(lambda _result, key=title_id: self._detail_dialogs.pop(key, None))
-        buffer = self._event_buffers.get(title_id)
-        dialog.set_text(buffer.text() if buffer else self._saved_details.get(title_id, ''))
+        dialog.set_text(self._run_details_text(title_id))
         dialog.show()
         dialog.raise_()
         dialog.activateWindow()
