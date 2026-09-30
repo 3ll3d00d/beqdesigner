@@ -415,3 +415,58 @@ def test_design_sends_no_channels_when_the_kept_file_is_mono(qtbot, recording_de
 
     assert len(recording_designer) == 1
     assert recording_designer[0].channels is None
+
+
+@pytest.mark.requires_ffmpeg
+def test_design_names_the_wavs_it_loaded_for_a_designer_that_takes_arrays_by_reference(qtbot, tmp_path):
+    '''
+    design/designer-by-reference.md D1.3: the batch path hands a designer that takes sources the mono WAV and the kept
+    multichannel WAV, one label per column -- and both are at the request's rate and length, so the by-reference binding
+    can send them instead of the samples (the extraction/design parity rule).
+    '''
+    import soundfile as sf
+    from pipeline.designer.sources import AudioSources
+    seen = []
+
+    def by_reference(request, sources=None):
+        seen.append((request, sources))
+        return _fake_designer(request)
+
+    register_designer('test.batch_by_reference', by_reference, takes_sources=True)
+    try:
+        d = BatchExtractDialog(None, _make_preferences(tmp_path))
+        qtbot.addWidget(d)
+        source = str(tmp_path / 'in' / 'ready-player-five.wav')
+        os.makedirs(os.path.dirname(source), exist_ok=True)
+        _write_synthetic_wav(source)
+        output_dir = str(tmp_path / 'out')
+        os.makedirs(output_dir, exist_ok=True)
+        d.outputDir.setText(output_dir)
+        d.monoMix.setChecked(False)
+        d.designEnabled.setChecked(True)
+        d.designerCombo.setCurrentText('test.batch_by_reference')
+        d.queueDirEdit.setText(str(tmp_path / 'queue'))
+        d.filter.setText(str(tmp_path / 'in' / '*.wav'))
+
+        d.search()
+        qtbot.waitUntil(lambda: d.extractButton.isEnabled(), timeout=15000)
+        d.extract()
+        qtbot.waitUntil(lambda: d.review_window is not None, timeout=30000)
+        qtbot.addWidget(d.review_window)
+    finally:
+        unregister_designer('test.batch_by_reference')
+
+    [(request, sources)] = seen
+    assert len(request.channels) == 6
+    multichannel = {s.path for s in sources.channels.values()}
+    assert len(multichannel) == 1
+    assert sources == AudioSources.from_wavs(sources.mono.path, multichannel.pop(), list(request.channels))
+    fourth = list(request.channels)[3]
+    for path, columns in ((sources.mono.path, 1), (sources.channels[fourth].path, 6)):
+        info = sf.info(path)
+        assert (info.samplerate, info.frames, info.channels) == (request.fs, len(request.mono_mix), columns)
+    data, _ = sf.read(sources.channels[fourth].path, dtype='float64', always_2d=True)
+    assert sources.channels[fourth].channel == 3
+    assert data[:, 3].tobytes() == request.channels[fourth].tobytes()
+    mono, _ = sf.read(sources.mono.path, dtype='float64', always_2d=True)
+    assert mono[:, 0].tobytes() == request.mono_mix.tobytes()

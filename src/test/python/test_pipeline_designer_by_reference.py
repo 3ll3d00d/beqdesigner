@@ -197,6 +197,22 @@ def test_a_wav_that_cannot_be_the_array_unchanged_goes_inline(designer, title, t
     assert all('data_base64' in body['mono_mix'] for body in handler.bodies)
 
 
+def test_a_wave_format_extensible_file_goes_by_reference(designer, title):
+    ''' What ffmpeg writes for more than two channels -- libsndfile calls it WAVEX -- is a WAV like any other. '''
+    url, handler = designer
+    request, sources, root = title
+    path = os.path.join(root, 't_1', 'extensible.wav')
+    data, _ = sf.read(sources.channels['L'].path, dtype='float64', always_2d=True)
+    sf.write(path, data, FS, subtype='PCM_24', format='WAVEX')
+    assert sf.info(path).format == 'WAVEX'
+    extensible = AudioSources.from_wavs(sources.mono.path, path, ['L', 'R', 'LFE'])
+
+    response = http_designer(url, shared_root=root)(request, sources=extensible)
+
+    assert all('file' in v for v in handler.bodies[0]['channels'].values())
+    assert response.candidates[0].commentary == _inline_digests(request)
+
+
 def test_a_request_mixes_forms_when_only_some_arrays_have_a_source(designer, title):
     url, handler = designer
     request, sources, root = title
@@ -299,3 +315,111 @@ def test_sources_from_wavs_name_each_label_by_its_column():
                                 'LFE': ArraySource('/w/mc.wav', 2)}
     assert AudioSources.from_wavs('/w/mono.wav', None, ['L']).channels == {}
     assert AudioSources.from_wavs(None).mono is None
+
+
+def _spy_by_reference(name, url, root, requests_seen):
+    ''' Registers `name` as the real by-reference binding, remembering each request and its sources on the way. '''
+    inner = http_designer(url, shared_root=root)
+
+    def spy(request, sources=None):
+        requests_seen.append((request, sources))
+        return inner(request, sources=sources)
+
+    register_designer(name, spy, takes_sources=True)
+
+
+class _Decoding(_Designer):
+    ''' Keeps what it decoded from each file, for a test to compare with the request. '''
+    decoded = None
+
+    def do_POST(self):
+        length = int(self.headers['Content-Length'])
+        raw = self.rfile.read(length)
+        body = json.loads(raw)
+        arrays = {'mono_mix': body['mono_mix'], **(body.get('channels') or {})}
+        self.decoded.append({k: (_decode(v, self.root), v.get('file')) for k, v in arrays.items()})
+        self.bodies.append(body)
+        self._send(200, {'contract_version': body['contract_version'], 'decline_reason': 'no_rolloff_detected',
+                         'decline_message': 'decoded'})
+
+
+@pytest.mark.requires_ffmpeg
+def test_the_library_path_sends_its_extraction_by_reference_and_the_designer_decodes_what_inline_would_carry(tmp_path):
+    '''
+    AGENTS.md's extraction/design parity rule, for arrays by reference: a short synthetic 5.1 source through
+    run_library's extraction and design, to a by-reference designer sharing the work directory. Every array is sent by
+    reference, and decodes byte-identical to the request's own (so to its inline encoding), at the same rate and frame
+    count for mono and every channel.
+    '''
+    from test_pipeline_library_extract_cache import _mono_item, _write_synthetic_wav
+    from pipeline.config import AnalysisConfig
+    from pipeline.library.run import LibraryRunConfig, run_library
+    work = tmp_path / 'work'
+    work.mkdir()
+    handler = type('Handler', (_Decoding,), {'root': str(work), 'bodies': [], 'gets': [], 'decoded': [],
+                                             'health': {'contract_version': '1.2', 'shared_root': True}})
+    server = http.server.HTTPServer(('127.0.0.1', 0), handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    source_path = str(tmp_path / 'source.wav')
+    _write_synthetic_wav(source_path, fs=48000, duration_s=0.5)
+    item = _mono_item(source_path)
+
+    class Source:
+        def list_items(self, **query):
+            return [item]
+
+    seen = []
+    _spy_by_reference('test.library_by_reference', f'http://127.0.0.1:{server.server_address[1]}/design', str(work), seen)
+    try:
+        report = run_library(Source(), LibraryRunConfig(
+            work_dir=str(work), queue_dir=str(tmp_path / 'queue'), designer='test.library_by_reference',
+            config=AnalysisConfig(target_fs=1000), keep_multichannel=True))
+    finally:
+        unregister_designer('test.library_by_reference')
+        server.shutdown()
+        server.server_close()
+
+    assert report.failed == [] and report.designed == ['title-1']
+    [(request, _)] = seen
+    [decoded] = handler.decoded
+    [body] = handler.bodies
+    assert body['contract_version'] == '1.2'
+    assert decoded['mono_mix'][1] == {'path': 'title-1/mono.wav', 'channel': 0}
+    assert len(request.channels) == 6
+    expected = {'mono_mix': request.mono_mix, **request.channels}
+    assert set(decoded) == set(expected)
+    for name, (samples, file) in decoded.items():
+        assert file is not None, f'{name} went inline'
+        assert samples.tobytes() == np.ascontiguousarray(expected[name], dtype='<f8').tobytes(), name
+        assert len(samples) == len(request.mono_mix)
+    assert {v[1]['path'] for k, v in decoded.items() if k != 'mono_mix'} == {'title-1/multichannel.wav'}
+    assert request.fs == 1000
+    assert sf.info(str(work / 'title-1' / 'mono.wav')).samplerate == \
+        sf.info(str(work / 'title-1' / 'multichannel.wav')).samplerate == request.fs
+
+
+def test_design_and_queue_names_the_wavs_its_arrays_came_from(title, tmp_path):
+    from pipeline.config import AnalysisConfig
+    from pipeline.orchestrate import Session
+    from pipeline.review import design_and_queue
+    request, sources, root = title
+    mc_path = sources.channels['L'].path
+    channels = Session(AnalysisConfig(target_fs=FS)).load_channels(mc_path)
+    seen = []
+
+    def designer(req, sources=None):
+        seen.append(sources)
+        return DesignResponse(contract_version='1.1', decline_reason='no_rolloff_detected', decline_message='-')
+
+    register_designer('test.names_wavs', designer, takes_sources=True)
+    try:
+        design_and_queue(Session(AnalysisConfig(target_fs=FS)), 't_1', sources.mono.path, 'test.names_wavs',
+                         str(tmp_path / 'queue'), channels=channels, multichannel_wav_path=mc_path)
+        design_and_queue(Session(AnalysisConfig(target_fs=FS)), 't_1', sources.mono.path, 'test.names_wavs',
+                         str(tmp_path / 'queue'), channels=dict(list(channels.items())[:2]), multichannel_wav_path=mc_path)
+    finally:
+        unregister_designer('test.names_wavs')
+
+    assert seen[0] == AudioSources.from_wavs(sources.mono.path, mc_path, list(channels))
+    # two labels for a three-column file: no label may name another column, so the channels have no sources
+    assert seen[1] == AudioSources.from_wavs(sources.mono.path)

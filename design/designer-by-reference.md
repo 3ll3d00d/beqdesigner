@@ -1,8 +1,8 @@
 # Designer requests by reference — design, not built
 
 **Status:** being built, unparked 2026-09-30 when beqforge started on its
-side of R2b (its R2a is done, `7951cc0`). Progress: D1.1 and D1.2 done. D1.3-D1.4 not
-started, so until they land nothing supplies sources and the caller still sends
+side of R2b (its R2a is done, `7951cc0`). Progress: D1.1-D1.3 done. D1.4 not started,
+so nothing registers a by-reference designer yet and the caller still sends
 every array inline.
 Agreed with beqforge (§6, their `e96129a`). Answers beqforge's R2 ("a
 shared-filesystem mode with beqdesigner", beqforge `IMPROVEMENT_PLAN.md`,
@@ -216,7 +216,22 @@ sent relative and one outside it goes inline; the digest equals SHA-256 of
 the exact bytes §3 names, and of what would have gone inline; a 400 or 422
 raises `HttpDesignerError` carrying the body's array and reason.
 
-**D1.3 — sources from the library and batch paths.** `pipeline.review.design_and_queue`
+**D1.3 — sources from the library and batch paths. Done.**
+`design_and_queue` works out the sources itself
+(`pipeline.designer.sources.sources_for`): the mono WAV it loads, and the
+multichannel WAV that `channels` was split from. Library runs already pass
+that path, and batch's `DesignJob` now passes it too (it writes no project
+from it, having no `project_dir`). The channels get no sources unless there
+is one label for every column of the file, so a label can never name
+another column's samples. Found while building this: ffmpeg writes
+`WAVE_FORMAT_EXTENSIBLE` (libsndfile calls it `WAVEX`) for more than two
+channels. The binding accepts it, and the contract and conformance row 7.19
+now name it, since a designer's decoder must read it too. Tests: the library
+parity test in `test_pipeline_designer_by_reference.py` (real ffmpeg; every
+array goes by reference and decodes byte-identical to the request, at one
+rate and frame count), and
+`gui/test_batch_extract_design.py::test_design_names_the_wavs_it_loaded_for_a_designer_that_takes_arrays_by_reference`.
+As first planned: `pipeline.review.design_and_queue`
 and the library `stages` already hold the wav paths they loaded. Thread them
 through as `AudioSources`. Batch Extract / Design goes through the same call,
 which keeps the extraction/design parity contract (AGENTS.md). Test (under

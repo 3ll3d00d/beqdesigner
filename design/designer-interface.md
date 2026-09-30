@@ -767,7 +767,9 @@ carried, and nothing after decoding may tell the two apart. The rules:
   `..` segment. The designer refuses a path whose real path, after
   resolving symlinks, lies outside its root's real path — a symlink under
   the root that points out of it included.
-- **The file is a WAV**: PCM of 16, 24 or 32 bits, or IEEE float. The
+- **The file is a WAV** (RIFF WAVE, including `WAVE_FORMAT_EXTENSIBLE`,
+  which ffmpeg writes for more than two channels): PCM of 16, 24 or 32
+  bits, or IEEE float. The
   decoded array is defined by its arithmetic, not by a library: an integer
   sample `s` of `b` bits becomes `s / 2**(b-1)` as float64; a float sample
   is widened to float64. `channel` is the zero-based column and must be

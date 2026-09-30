@@ -33,6 +33,8 @@ logger = logging.getLogger('pipeline.designer.http_binding')
 
 BY_REFERENCE_VERSION = '1.2'
 _ERROR_DETAIL_LIMIT = 500
+# libsndfile's names for RIFF WAVE, plain and WAVE_FORMAT_EXTENSIBLE (what ffmpeg writes for more than two channels)
+_WAV_FORMATS = ('WAV', 'WAVEX')
 
 _ARRAY_DTYPE = 'float64'
 
@@ -104,7 +106,7 @@ def _ndarray_by_reference(arr: np.ndarray, source: Optional[ArraySource], shared
         logger.info(f"{source.path} cannot be read ({e}), sending it inline")
         return None
     as_f64 = np.ascontiguousarray(arr, dtype='<f8')
-    if info.format.upper() != 'WAV' or info.samplerate != fs or info.frames != as_f64.shape[0] \
+    if info.format.upper() not in _WAV_FORMATS or info.samplerate != fs or info.frames != as_f64.shape[0] \
             or not 0 <= source.channel < info.channels:
         logger.info(f"{source.path} column {source.channel} is not the array as held ({info.format} "
                     f"{info.samplerate} Hz x {info.frames} x {info.channels} against {fs} Hz x {as_f64.shape[0]}), "

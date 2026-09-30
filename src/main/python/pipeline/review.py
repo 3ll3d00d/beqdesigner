@@ -277,7 +277,8 @@ def design_and_queue(session: Session, entry_id: str, wav_path: str, designer: s
     human-facing legend. None keeps compatibility with callers that cannot know it.
     :param multichannel_wav_path: the kept extraction, when it's multichannel (design/library-sync-
         pipeline-plan.md §3.3) -- if given (together with project_dir), a linked multichannel `.beq`
-        project is written alongside the mono one.
+        project is written alongside the mono one. It is also the file `channels` was decomposed from, so a
+        designer that takes arrays by reference can be sent it and wav_path instead of the samples.
     :param channel_layout_name: the source's ffmpeg channel layout name, forwarded to
         Session.load_channel_signals() for the multichannel project's channel labels.
     :param project_dir: if given, writes output 1's `.beq` project file(s)
@@ -290,8 +291,12 @@ def design_and_queue(session: Session, entry_id: str, wav_path: str, designer: s
     '''
     from model.codec import xydata_to_json
 
+    from pipeline.designer.sources import sources_for
     sig = session.load(wav_path, name=entry_id)
-    outcome = session.design(sig, designer, coverage=coverage, bass_management=bass_management, channels=channels)
+    # where the arrays came from, for a designer that takes them by reference (design/designer-interface.md §7.1)
+    sources = sources_for(wav_path, multichannel_wav_path, channels)
+    outcome = session.design(sig, designer, coverage=coverage, bass_management=bass_management, channels=channels,
+                             sources=sources)
     curve = xydata_to_json(session.curves(sig, kind='avg', filtered=False))
     peak_curve = xydata_to_json(session.curves(sig, kind='peak', filtered=False))
     entry = _outcome_to_entry(entry_id, sig.signal.fs, meta or {}, curve, outcome, peak_curve=peak_curve)

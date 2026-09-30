@@ -1018,8 +1018,11 @@ class DesignJob(QRunnable):
                 if self.__multichannel_wav_path is not None:
                     channels = self.__session.load_channels(self.__multichannel_wav_path,
                                                              channel_layout_name=self.__channel_layout_name)
+            # the multichannel file too, so a designer that takes arrays by reference can be sent it; with no
+            # project_dir, no projects are written from it
             entry = design_and_queue(self.__session, self.__entry_id, wav_path, self.__designer,
-                                     self.__queue_dir, channels=channels, audio_stream=self.__audio_stream_idx)
+                                     self.__queue_dir, channels=channels, audio_stream=self.__audio_stream_idx,
+                                     multichannel_wav_path=self.__multichannel_wav_path if channels else None)
             self.signals.finished.emit(entry)
         except Exception as e:
             logger.exception(f"Design {self.__entry_id} failed")

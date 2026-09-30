@@ -33,3 +33,21 @@ class AudioSources:
         channels = {label: ArraySource(multichannel_path, column) for column, label in enumerate(labels)} \
             if multichannel_path else {}
         return cls(mono=mono, channels=channels)
+
+
+def sources_for(mono_path: Optional[str], multichannel_path: Optional[str] = None,
+                channels: Optional[Mapping] = None) -> AudioSources:
+    '''
+    The sources of a request built the usual way: mono_mix loaded from `mono_path`, and `channels` decomposed from
+    `multichannel_path` by Session.load_channels(), one label per column in order. The channels are left without sources
+    unless there is one label for every column of the file, so a label can never name another column's samples.
+    '''
+    labels = list(channels or {})
+    if multichannel_path and labels:
+        import soundfile as sf
+        try:
+            if sf.info(multichannel_path).channels != len(labels):
+                multichannel_path = None
+        except (RuntimeError, OSError):
+            multichannel_path = None
+    return AudioSources.from_wavs(mono_path, multichannel_path, labels)

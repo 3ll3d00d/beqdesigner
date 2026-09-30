@@ -222,7 +222,7 @@ Skip this section entirely for an in-process-only binding.
 | 7.16 | a `channel` at or above the file's channel count | `422` | §7.1 |
 | 7.17 | a WAV whose sample rate differs from `fs`, or whose frame count differs from `shape[0]` | `422`; never resampled or truncated | §7.1 |
 | 7.18 | a `file` sent to a designer with no shared root configured | `422` saying so | §7.1 |
-| 7.19 | a 24-bit PCM WAV | decodes to `s / 2**23` per sample, so its digest matches the caller's (a decoder that returns left-justified int32 must divide by `2**31` instead) | §7.1 |
+| 7.19 | a 24-bit PCM WAV, plain or `WAVE_FORMAT_EXTENSIBLE` (a 6- or 8-channel `multichannel.wav` from ffmpeg is the latter) | decodes to `s / 2**23` per sample, so its digest matches the caller's (a decoder that returns left-justified int32 must divide by `2**31` instead) | §7.1 |
 | 7.20 | `GET /health` | `200`, `{"contract_version": "1.2", "shared_root": <bool>}` at least; `shared_root` is `false` when no root is configured | §7.1 |
 | 7.21 | *(caller side)* a `422` | raised as an implementation failure, never read as a decline, never retried inline | §1, §7.1 |
 | 7.22 | *(caller side)* a designer whose `/health` is below 1.2 or has `shared_root: false` | nothing is sent by reference to it; the design fails with that answer in its message | §7.1 |
