@@ -361,3 +361,72 @@ def test_the_summary_of_a_published_title_in_the_folder_counts_as_in_the_catalog
     assert ReviseSummary.of([('published', 'committed')]).in_catalogue == 1
     assert ReviseSummary.of([('published', 'uncommitted')]).in_catalogue == 0
     assert ReviseSummary.of([('published', 'unknown')]).in_catalogue == 0
+
+
+@pytest.mark.parametrize('operation,status', [('publish_accepted', 'accepted'), ('commit_published', 'published')])
+@pytest.mark.parametrize('kind', ['service-job', 'cli-other', 'worklist-other'])
+def test_repository_actions_refuse_a_fresh_foreign_lease(qtbot, tmp_path, repos, monkeypatch, operation, status, kind):
+    from pipeline.service.lease import WorkDirLease
+    window = _repo_window(qtbot, tmp_path, repos)
+    for entry_id in window.entry_ids:
+        update_entry(_queue(tmp_path), entry_id, status=status)
+    window.refresh()
+    called = []
+    for name in ('publish_library', 'commit_library'):
+        monkeypatch.setattr(review_module, name, lambda *a, **k: called.append(True))
+    with WorkDirLease(window._setup.settings.work_dir, kind, host='other-host', pid=99999):
+        button = window.publishButton if status == 'accepted' else window.commitButton
+        button.click()
+        assert not window.is_busy and called == []
+        assert 'other-host' in window.statusLabel.text() and 'try again' in window.statusLabel.text()
+        assert getattr(window, operation)() is False
+
+
+@pytest.mark.parametrize('operation,status,signal', [('publish_accepted', 'accepted', 'published'),
+                                                    ('commit_published', 'published', 'committed')])
+def test_stale_lease_does_not_block_repository_actions_and_the_worker_holds_its_own(
+        qtbot, tmp_path, repos, monkeypatch, operation, status, signal):
+    from pipeline.service.lease import WorkDirLease, read_lease
+    window = _repo_window(qtbot, tmp_path, repos)
+    if status == 'published':
+        _Answer(True)
+        with qtbot.waitSignal(window.published, timeout=60000):
+            window.publish_accepted()
+    work_dir = window._setup.settings.work_dir
+    name = 'publish_library' if status == 'accepted' else 'commit_library'
+    real = getattr(review_module, name)
+    holders = []
+
+    def record(*a, **k):
+        holders.append(read_lease(work_dir))
+        return real(*a, **k)
+
+    monkeypatch.setattr(review_module, name, record)
+    with WorkDirLease(work_dir, 'old-job', host='dead-host', pid=99999, clock=lambda: 0):
+        _Answer(True, tick=False if status == 'published' else None)
+        with qtbot.waitSignal(getattr(window, signal), timeout=60000):
+            assert getattr(window, operation)() is True
+    assert holders and all(h and h.job_id.startswith('worklist-') for h in holders)
+    assert read_lease(work_dir) is None
+
+
+@pytest.mark.parametrize('operation,status', [('publish_accepted', 'accepted'), ('commit_published', 'published')])
+def test_lease_taken_during_confirmation_is_rechecked(qtbot, tmp_path, repos, monkeypatch, operation, status):
+    from model.worklist_confirm import ConfirmDialog
+    from pipeline.service.lease import WorkDirLease
+    window = _repo_window(qtbot, tmp_path, repos)
+    for entry_id in window.entry_ids:
+        update_entry(_queue(tmp_path), entry_id, status=status)
+    window.refresh()
+    lease = WorkDirLease(window._setup.settings.work_dir, 'new-job', host='new-host', pid=99999)
+
+    def accept_with_lease(dialog):
+        lease.__enter__()
+        return ConfirmDialog.DialogCode.Accepted
+
+    monkeypatch.setattr(ConfirmDialog, 'exec', accept_with_lease)
+    try:
+        assert getattr(window, operation)() is False
+        assert not window.is_busy and 'new-host' in window.statusLabel.text()
+    finally:
+        lease.__exit__(None, None, None)

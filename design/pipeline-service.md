@@ -199,8 +199,10 @@ work **joins it** instead of being refused:
   index) or, for anything else, waits for the lease; cancelled while it waits,
   it ends without running.
 
-The Review Folder window's Publish/Commit do not check the lease
-([W3](TODO.md#w3--review-folder-honours-the-lease)).
+Review Folder refuses Publish/Commit while a fresh lease is held, naming its
+holder. It checks before and after confirmation, then its worker takes and
+holds the work-directory lease until the operation ends. Stale leases are
+ignored and replaced as for other runs.
 
 ## 6. HTTP interface
 

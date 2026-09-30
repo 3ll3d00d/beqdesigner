@@ -302,3 +302,7 @@ failure-text, and stream-stage presentation work remains under **W1/W2**.
 - Catalogue-as-input, which would apply an existing published BEQ without
   extracting or designing, was never part of the delivered pipeline. It is
   an optional future feature in **O1**.
+
+Review Folder checks the library profile’s work-directory lease before and
+after Publish/Commit confirmation and holds it while its worker writes. A
+fresh holder is named on refusal; stale leases do not block the operation.

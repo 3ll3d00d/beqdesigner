@@ -22,37 +22,24 @@ Do not keep a second status table in a design reference.
 
 | Priority | ID | Previous IDs | Status | Depends on |
 |---|---|---|---|---|
-| 1 | W3 | pipeline-service §5.1 gap | Not started | None |
-| 2 | W1 | chunk 45a | Partially implemented: retry labels and failure/detail views missing | None |
-| 3 | J2 | chunk 40 | Not started beyond the seam: the resolver returns the first audio stream | Sanitised Playback Info and ffprobe evidence |
-| 4 | W2 | chunk 45b | Partial in `62270b4`: codec, channels and stream count are requested | J2 for automatic stream selection; manual override already exists |
-| 5 | E1 | chunk 3/30, T5-T6 | Waiting for authorised JRiver capture | Real MCWS server |
-| 6 | E2 | chunk 31, T2-T4 | Waiting for manual acceptance | E1; real designer, media and disposable repositories |
-| 7 | E3 | chunk 32, T7 | Not started; evidence dependent | E1; DVD fixture |
-| 8 | E4 | chunk 33, T8 | Not started; evidence dependent | E1; Blu-ray playlist fixture |
-| 9 | E5 | chunk 37, T15 | Waiting for a product decision | E2; representative season media |
-| 10 | C1 | chunk S5 | amd64 build and smoke verified; arm64 build and GHCR publish not yet run | The first tag push |
-| 11 | T1 | -- | Watch; not reproduced | Recurrence with a stack dump |
-| 12 | T2 | -- | Watch; seen twice | Recurrence with its failure message |
-| 13 | D4 | by-reference §5 | Planned; not started | Designer build identity policy |
-| 14 | D2 | by-reference §5 | Planned; optional, not started | beqforge loader coordination |
-| 15 | D3 | by-reference §5 | Planned; optional, not started | Contract addition; beqforge coordination |
-| 16 | O2 | former §9 reviewer questions | Behavior exists; acceptance decision missing | Real reviewer feedback |
-| 17 | O1 | D6 | Optional idea; no implementation decision | Product decision |
+| 1 | W1 | chunk 45a | Partially implemented: retry labels and failure/detail views missing | None |
+| 2 | J2 | chunk 40 | Not started beyond the seam: the resolver returns the first audio stream | Sanitised Playback Info and ffprobe evidence |
+| 3 | W2 | chunk 45b | Partial in `62270b4`: codec, channels and stream count are requested | J2 for automatic stream selection; manual override already exists |
+| 4 | E1 | chunk 3/30, T5-T6 | Waiting for authorised JRiver capture | Real MCWS server |
+| 5 | E2 | chunk 31, T2-T4 | Waiting for manual acceptance | E1; real designer, media and disposable repositories |
+| 6 | E3 | chunk 32, T7 | Not started; evidence dependent | E1; DVD fixture |
+| 7 | E4 | chunk 33, T8 | Not started; evidence dependent | E1; Blu-ray playlist fixture |
+| 8 | E5 | chunk 37, T15 | Waiting for a product decision | E2; representative season media |
+| 9 | C1 | chunk S5 | amd64 build and smoke verified; arm64 build and GHCR publish not yet run | The first tag push |
+| 10 | T1 | -- | Watch; not reproduced | Recurrence with a stack dump |
+| 11 | T2 | -- | Watch; seen twice | Recurrence with its failure message |
+| 12 | D4 | by-reference §5 | Planned; not started | Designer build identity policy |
+| 13 | D2 | by-reference §5 | Planned; optional, not started | beqforge loader coordination |
+| 14 | D3 | by-reference §5 | Planned; optional, not started | Contract addition; beqforge coordination |
+| 15 | O2 | former §9 reviewer questions | Behavior exists; acceptance decision missing | Real reviewer feedback |
+| 16 | O1 | D6 | Optional idea; no implementation decision | Product decision |
 
 ## Work in priority order
-
-### W3 — Review Folder honours the lease
-
-The Review Folder window's *Publish accepted* and *Commit published* call
-`publish_library`/`commit_library` without checking the work-directory lease,
-so they can write the repositories while a service job, a CLI run or another
-work list's run holds it. Make them wait or refuse as the work list's Publish
-and Commit do ([pipeline-service.md §5.1](pipeline-service.md#51-the-work-directory-lease-and-joining-a-run)),
-naming the holder, with a real-widget test over a held lease.
-
-**Done when:** neither button writes while another process's fresh lease is
-held, and a stale lease does not block them.
 
 ### W1 — Retry, failures and title-page details
 

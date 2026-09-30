@@ -129,3 +129,8 @@ The window has the title page on the right, exactly as above, and on the left a 
 * **Publish accepted (N)** and **Commit published (N)** at the bottom right publish and commit exactly as the work list does, [with the confirmations described there](publish.md), and use **the repositories of your library profile** (the ones in the work list's [Settings](setup.md#the-two-repositories)). Set those first. An entry that also has a folder in that profile's work directory (because the work list designed it) is published from its `.beq` project, so a hand edit is what ships; one designed by Batch Extract has none and is published from the candidate you accepted.
 * There is no discovery here, so no *Needs*, no scanning and no running: a folder is not a library. It also has no *Ignore*, no *Retry failed* and no *extract only*. *Reopen / Revise...* works, but *Redesign* means running Batch Extract & Design on the title again and pressing *Refresh*.
 * Only one Review Folder window is used at a time, and it is shown again when you open it from the menu or from a run.
+
+Publish and Commit refuse to start while a service job, command-line run or
+Library Work List run holds this profile’s work directory. The message names
+the holder; try again when it finishes. Review Folder holds the same lease
+while its own Publish or Commit runs.

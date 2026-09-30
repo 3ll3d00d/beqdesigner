@@ -27,6 +27,7 @@ stand in git (`worklist_folder_state.commit_states`), so the revise question tel
 
 It is a `QMainWindow`, one per app (`BeqDesigner.showReviewFolderWindow`), remembering the folder in `DESIGNER_QUEUE_DIR`.
 '''
+from contextlib import nullcontext
 import logging
 import os
 import time
@@ -50,6 +51,7 @@ from model.worklist_title_text import REDO_IN_FOLDER
 from pipeline.library.commit import CatalogueCommit
 from pipeline.library.index import TitleRow
 from pipeline.library.sync import commit_library, publish_library
+from pipeline.service.lease import WORKLIST, LeaseHeld, read_lease, run_lease
 from pipeline.publish.catalogue import category_for_metadata
 from pipeline.review import QueueEntry, describe_publish_error, read_entry, read_queue, split_publish_results
 
@@ -498,6 +500,8 @@ class ReviewFolderWindow(QMainWindow):
         if self._job is not None or not self._page.flush():
             return False
         self._reload_setup()
+        if self._lease_blocked():
+            return False
         ids = self._ids_with('accepted')
         problem = publish_problem(self._setup)
         if problem or not ids:
@@ -542,6 +546,8 @@ class ReviewFolderWindow(QMainWindow):
         if self._job is not None or not self._page.flush():
             return False
         self._reload_setup()
+        if self._lease_blocked():
+            return False
         ids = self._ids_with('published')
         problem = publish_problem(self._setup)
         if problem or not ids:
@@ -567,9 +573,28 @@ class ReviewFolderWindow(QMainWindow):
         return self._start(commit, 'Commit', f'Committing {len(ids):,} title{"" if len(ids) == 1 else "s"}...',
                            self._on_committed, {i: 'commit' for i in ids})
 
+    def _lease_blocked(self) -> bool:
+        holder = read_lease(self._setup.settings.work_dir if self._setup.settings else None)
+        if holder is not None:
+            self._say(f'Cannot start: {holder.describe()}.', True)
+            return True
+        return False
+
     def _start(self, work: Callable[[], object], what: str, message: str, done: Callable,
                working_on: Dict[str, str]) -> bool:
-        job = _CallJob(work, what)
+        # Recheck after the confirmation, then acquire in the worker so the lease spans every write.
+        if self._lease_blocked():
+            return False
+        work_dir = self._setup.settings.work_dir or None
+
+        def leased_work():
+            holder = read_lease(work_dir)
+            if holder is not None:
+                raise LeaseHeld(holder.describe())
+            with run_lease(work_dir, WORKLIST) if work_dir else nullcontext():
+                return work()
+
+        job = _CallJob(leased_work, what)
         job.signals.finished.connect(done)
         job.signals.errored.connect(self._on_failed)
         self._job, self._working_on = job, dict(working_on)
