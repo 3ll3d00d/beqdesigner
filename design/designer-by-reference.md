@@ -4,6 +4,14 @@
 when beqforge started on its side of R2b (its R2a is done, `7951cc0`). A
 designer declared `by_reference: true` in a profile is sent the extracted
 WAVs by path; every other designer is sent every array inline, as before.
+**Checked end to end on 2026-09-30** against beqforge `38ef5a0`
+(`serve-designer --shared-root --cache-dir`), using *Black Bag* (1.56 h,
+5.1(side), 1 kHz) through `Session.design`. The request by reference went
+first, cold, and took 44.5 s. The same request inline then reused the
+`analysis` and `parametric` stages cached by the first, so both forms have
+the same key, and it took 26.7 s. Both returned the same design: four
+filters, confidence 0.622, `non_parametric`. `/health` also carries
+`"status": "ok"`, which the caller ignores.
 Agreed with beqforge (§6, their `e96129a`). Answers beqforge's R2 ("a
 shared-filesystem mode with beqdesigner", beqforge `IMPROVEMENT_PLAN.md`,
 `3d5db14`), which asks for

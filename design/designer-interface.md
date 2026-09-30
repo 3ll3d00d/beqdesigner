@@ -794,7 +794,9 @@ carried, and nothing after decoding may tell the two apart. The rules:
   configuration fault (a wrong mount, a stale file) to show, not to hide.
 - **`GET /health`**, on the same origin as the design endpoint, answers
   `200` with at least `{"contract_version": "1.2", "shared_root": true}`
-  from a designer that can take arrays by reference. The caller reads it
+  from a designer that can take arrays by reference. Other fields are
+  allowed and ignored (beqforge also sends `"status": "ok"`, for monitors
+  that already poll it). The caller reads it
   once, before its first request by reference to that designer, and sends
   none — failing the design with the answer in its message — when the
   version is below 1.2 or `shared_root` is not `true`.
