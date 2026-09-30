@@ -1,10 +1,13 @@
-# BEQ filter designer interface — v1.1
+# BEQ filter designer interface — v1.2
 
 **Status:** CONTRACT, fully implemented on this repo's side, 1.1's `rejected`
 included (reviewed, and overridable by a person, on the title page) — both bindings
 (in-process callable and HTTP, `§7.1`) exist; see
 [`src/main/python/pipeline/README.md`](../src/main/python/pipeline/README.md#the-designer-contract)
-for where. This document remains the thing both sides build to and stays
+for where. 1.2's arrays by reference (§7.1) are specified here, and the caller
+side is being built in steps D1.2-D1.4 of
+[`designer-by-reference.md`](designer-by-reference.md). Until those land, the caller sends
+every array inline. This document remains the thing both sides build to and stays
 authoritative for the field-level contract; it is not a plan. Delivered
 caller behavior is in [`implemented.md`](implemented.md); open work is in
 [`outstanding.md`](outstanding.md).
@@ -38,6 +41,13 @@ fields and behaves exactly as before.*
 *The caller side of `candidates` — running design over many titles
 unattended and letting a human pick one per title before anything
 publishes — is described in [`implemented.md`](implemented.md).*
+
+*v1.2, HTTP binding only and opt-in (§7.1, "Arrays by reference"): an
+array may name a column of a WAV under a root both sides see, with the
+SHA-256 of its decoded samples, instead of carrying the samples inline; and
+`GET /health` reports whether a designer can take one. The data model (§2)
+does not change, and a caller sends an array by reference only to a designer
+it was configured to send them to, so a 1.0/1.1 designer never sees one.*
 
 *A test checklist for whoever implements this contract, extracted from two
 independent implementations' test suites (this repo's caller side and
@@ -675,7 +685,10 @@ what is marked 1.1 (`rejected`, `rejection_reasons`), which a 1.1 caller
 sends as `"1.1"`. Echo the request's version back in the response unchanged
 — it lets the caller notice a mismatch rather than silently misinterpret a
 field. A designer may return the 1.1 fields to a `"1.0"` request: a 1.0
-caller ignores them (below), which is exactly why they are a separate list. Changes within `1.x`
+caller ignores them (below), which is exactly why they are a separate list.
+1.2 changes only the HTTP wire (§7.1, "Arrays by reference"): a caller sends
+`"1.2"` exactly when the body holds an array by reference, and `"1.1"`
+otherwise, so a request with every array inline is unchanged. Changes within `1.x`
 will be additive-only (new optional fields, defaulting to `None`/absent);
 you can ignore fields you don't recognise on the request side, and the
 caller does the same for the response. A breaking change bumps to `2.0` and
@@ -729,6 +742,62 @@ Either may add `"rejected": [...]` (1.1), each entry a candidate object with
 No binary encoding on this side at all — a `BiquadSpec` carries no
 sample-rate-bound data by design (§5), so nothing in a response needs it.
 
+**Arrays by reference (1.2).** Each array (`mono_mix`, and each value of
+`channels`) may instead name one column of a WAV file, when caller and
+designer see the same files:
+
+```json
+"mono_mix": {"dtype": "float64", "shape": [N],
+             "file": {"path": "t_1234/mono.wav", "channel": 0},
+             "sha256": "<hex SHA-256 of the decoded column's little-endian float64 bytes>"},
+"channels": {"LFE": {"dtype": "float64", "shape": [N],
+                     "file": {"path": "t_1234/multichannel.wav", "channel": 3},
+                     "sha256": "..."}, "...": "..."}
+```
+
+It is another wire form for the same field (§7), not a new field: the
+designer decodes it into exactly the array the inline form would have
+carried, and nothing after decoding may tell the two apart. The rules:
+
+- **One of `data_base64` or `file` per array, never both.** A request may mix
+  them, and holds `"contract_version": "1.2"` when it has at least one `file`.
+- **`path` is relative to a shared root** that each side configures for
+  itself (the caller: its work directory; the designer: wherever it sees the
+  same files). It is POSIX-style, never absolute, has no backslash and no
+  `..` segment. The designer refuses a path whose real path, after
+  resolving symlinks, lies outside its root's real path — a symlink under
+  the root that points out of it included.
+- **The file is a WAV**: PCM of 16, 24 or 32 bits, or IEEE float. The
+  decoded array is defined by its arithmetic, not by a library: an integer
+  sample `s` of `b` bits becomes `s / 2**(b-1)` as float64; a float sample
+  is widened to float64. `channel` is the zero-based column and must be
+  below the file's channel count. The file's sample rate must equal `fs` —
+  a file at any other rate is refused, **never resampled** — and its frame
+  count must equal `shape[0]`.
+- **`sha256` is required with `file`**: the lower-case hex SHA-256 of the
+  decoded column as a C-contiguous little-endian float64 1-D array of
+  `shape[0]` elements, i.e. exactly the bytes `data_base64` would have
+  carried. The designer checks it **before using the array**. It is a
+  check, not a cache key the contract promises anything about: a designer
+  keys its own caches however it likes.
+- **Channel labels stay as `channels`' keys**, set by the caller. The
+  designer never works them out from the file.
+- **Errors.** `400` for a body that does not parse or fails the schema, as
+  for any request. `422` for a well-formed `file` the designer cannot
+  honour: a bad or escaping path, a missing or unreadable file, a file that
+  is not a WAV of the kinds above, a channel out of range, a rate or frame
+  count that differs, a digest that differs, or **no shared root configured
+  on this designer**. The body is JSON and names the array (`mono_mix` or the
+  channel label) and the reason. Both are implementation failures (below),
+  never a decline. The caller does not retry inline: a `422` is a
+  configuration fault (a wrong mount, a stale file) to show, not to hide.
+- **`GET /health`**, on the same origin as the design endpoint, answers
+  `200` with at least `{"contract_version": "1.2", "shared_root": true}`
+  from a designer that can take arrays by reference. The caller reads it
+  once, before its first request by reference to that designer, and sends
+  none — failing the design with the answer in its message — when the
+  version is below 1.2 or `shared_root` is not `true`.
+
 **Errors are not declines.** A non-2xx status, a connection failure or
 timeout, or a body that doesn't parse into a `DesignResponse` are all
 implementation failures per §1 — the caller's HTTP binding raises rather
@@ -737,8 +806,8 @@ that fails §3-§5 validation is unaffected by which binding produced it —
 that check happens after either binding hands back a `DesignResponse`, not
 as part of decoding one.
 
-**Formal spec:** `docs/schema/http_designer_request.schema.json` and
-`http_designer_response.schema.json` — the machine-checkable version of the
+**Formal spec:** `docs/schema/http_designer_request.schema.json`,
+`http_designer_response.schema.json` and (1.2) `http_designer_health.schema.json` — the machine-checkable version of the
 shapes above, meant for implementers in any language (unlike the rest of
 this document, which only needs to match this repo's own Python).
 
@@ -760,7 +829,10 @@ this document, which only needs to match this repo's own Python).
   precision. v1.0 mandates float64 for both (§2) for simplicity, but if
   memory becomes a real constraint on your side, float32 halves this with
   no meaningful loss at 1 kHz — flag it if you need that, since it would be
-  a contract change (§7), not something to do unilaterally.
+  a contract change (§7), not something to do unilaterally. Over HTTP,
+  that is 931 MB of JSON for a 2.7-hour title with 8 channels (about 8 s
+  to encode, send and decode on one host); arrays by reference (§7.1, 1.2)
+  cut it to the hashing, about 2 s.
 - You will not be asked to redesign against feedback from a previous call
   for the same title — each call is independent; there is no session state
   to leak between titles.

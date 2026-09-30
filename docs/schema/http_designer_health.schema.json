@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/3ll3d00d/beqdesigner/main/docs/schema/http_designer_health.schema.json",
+  "title": "HTTP designer health (1.2)",
+  "description": "The body of GET /health on an HTTP-bound designer's origin -- design/designer-interface.md §7.1, \"Arrays by reference\". Required from a designer that accepts arrays by reference; the caller reads it once, before its first request by reference, and sends none if it does not match.",
+  "type": "object",
+  "properties": {
+    "contract_version": {
+      "type": "string",
+      "description": "the highest contract version the designer implements, e.g. \"1.2\""
+    },
+    "shared_root": {
+      "type": "boolean",
+      "description": "true when the designer is configured with a shared root, so it can honour an array sent by reference"
+    }
+  },
+  "required": [
+    "contract_version",
+    "shared_root"
+  ],
+  "additionalProperties": true
+}

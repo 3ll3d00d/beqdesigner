@@ -1,4 +1,4 @@
-# Designer conformance test spec — v1.1
+# Designer conformance test spec — v1.2
 
 **Status:** a checklist, not a contract. [`designer-interface.md`](designer-interface.md)
 is the contract; this document is a test spec extracted from two independent
@@ -209,6 +209,23 @@ Skip this section entirely for an in-process-only binding.
 | 7.8 | a **decline** response body | omits (or nulls) the `candidates` key; a **success** body omits (or nulls) `decline_reason`/`decline_message` | §3, §7.1 |
 | 7.9 | your own mapping produces a `DesignResponse` that fails your own §2-§5 validation | the server responds `5xx` with the violation described — **never** silently reshaped into a decline and never sent as if valid. This is your bug to report loudly, not the caller's problem to guess at (`interface §1`: "the caller treats an exception as an implementation failure") | §1, §3-§5 |
 | 7.10 | at least one of the tests above | runs against a **real socket** (real `http.server`/framework request handling), not only against your in-process `design()` function directly | — |
+
+**Arrays by reference (1.2, `interface §7.1`)** — only if you accept them.
+
+| # | Given | Then | ref |
+|---|---|---|---|
+| 7.11 | a request mixing an inline `mono_mix` with `channels` sent by reference (or the reverse) | decoded arrays are byte-identical to the all-inline request for the same audio; the response is the same | §7.1 |
+| 7.12 | an array with both `data_base64` and `file`, or `file` without `sha256` | `400` (schema), not a guess at which one was meant | §7.1 |
+| 7.13 | a `file` whose decoded column hashes to something other than `sha256` (e.g. the file was rewritten after the caller hashed it) | `422`, the body naming the array; the array is never used | §7.1 |
+| 7.14 | a `path` that is absolute, has a backslash or a `..` segment | refused (`400` or `422`), no file opened | §7.1 |
+| 7.15 | a relative `path` under your root that is a symlink to a file outside it | `422`: containment is judged on the real path, not the text | §7.1 |
+| 7.16 | a `channel` at or above the file's channel count | `422` | §7.1 |
+| 7.17 | a WAV whose sample rate differs from `fs`, or whose frame count differs from `shape[0]` | `422`; never resampled or truncated | §7.1 |
+| 7.18 | a `file` sent to a designer with no shared root configured | `422` saying so | §7.1 |
+| 7.19 | a 24-bit PCM WAV | decodes to `s / 2**23` per sample, so its digest matches the caller's (a decoder that returns left-justified int32 must divide by `2**31` instead) | §7.1 |
+| 7.20 | `GET /health` | `200`, `{"contract_version": "1.2", "shared_root": <bool>}` at least; `shared_root` is `false` when no root is configured | §7.1 |
+| 7.21 | *(caller side)* a `422` | raised as an implementation failure, never read as a decline, never retried inline | §1, §7.1 |
+| 7.22 | *(caller side)* a designer whose `/health` is below 1.2 or has `shared_root: false` | nothing is sent by reference to it; the design fails with that answer in its message | §7.1 |
 
 On 7.10: everything else in this document can be — and, for speed, mostly
 should be — tested without a socket. But a transport-layer bug (a wrong

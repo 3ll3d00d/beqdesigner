@@ -6,8 +6,8 @@
   "type": "object",
   "properties": {
     "contract_version": {
-      "enum": ["1.0", "1.1"],
-      "description": "echo this back unchanged in the response; 1.1 adds only response fields (rejected, rejection_reasons)"
+      "enum": ["1.0", "1.1", "1.2"],
+      "description": "echo this back unchanged in the response; 1.1 adds only response fields (rejected, rejection_reasons); 1.2 adds an array sent by reference (#/$defs/ndarray_file), and a caller sends \"1.2\" only when the body holds one"
     },
     "fs": {
       "type": "integer",
@@ -57,6 +57,52 @@
   "additionalProperties": true,
   "$defs": {
     "ndarray": {
+      "description": "one array, inline (every version) or, from 1.2, by reference -- never both",
+      "oneOf": [
+        { "$ref": "#/$defs/ndarray_inline" },
+        { "$ref": "#/$defs/ndarray_file" }
+      ]
+    },
+    "ndarray_file": {
+      "description": "1.2: a 1-D float64 array named by reference -- one column of a WAV under a root both sides see -- instead of carried inline (design/designer-interface.md §7.1, \"Arrays by reference\"). Sent only to a designer configured for it.",
+      "type": "object",
+      "properties": {
+        "dtype": { "const": "float64" },
+        "shape": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 0 },
+          "minItems": 1,
+          "maxItems": 1,
+          "description": "a single-element array: the WAV's frame count, which must match"
+        },
+        "file": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!(.*/)?\\.\\.(/|$)).+$",
+              "description": "POSIX-style, relative to the shared root the designer is configured with: never absolute, no backslash, no '..' segment. The designer also refuses a path whose real path (symlinks resolved) is outside its root."
+            },
+            "channel": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "zero-based column of the WAV; must be below its channel count"
+            }
+          },
+          "required": ["path", "channel"],
+          "additionalProperties": false
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "lower-case hex SHA-256 of the decoded column as a C-contiguous little-endian float64 1-D array of shape[0] elements -- the exact bytes data_base64 would have carried. Checked before the array is used."
+        }
+      },
+      "required": ["dtype", "shape", "file", "sha256"],
+      "additionalProperties": false
+    },
+    "ndarray_inline": {
       "description": "A 1-D float64 array, base64-encoded as raw little-endian bytes -- not a JSON number array (a 2-hour, 1kHz mono_mix is ~58MB as float64; JSON text bloats that 3-5x for no benefit on a same-machine/LAN call).",
       "type": "object",
       "properties": {

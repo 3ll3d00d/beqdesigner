@@ -1,8 +1,9 @@
 # Designer requests by reference — design, not built
 
-**Status:** design, not built. Agreed with beqforge (§6, their `e96129a`);
-**parked** until beqforge's R2a warm-request timings show the transfer
-matters, or the designer moves to another host. Answers beqforge's R2 ("a
+**Status:** being built, unparked 2026-09-30 when beqforge started on its
+side of R2b (its R2a is done, `7951cc0`). Progress: D1.1 done. D1.2-D1.4 not
+started, so until they land the caller still sends every array inline.
+Agreed with beqforge (§6, their `e96129a`). Answers beqforge's R2 ("a
 shared-filesystem mode with beqdesigner", beqforge `IMPROVEMENT_PLAN.md`,
 `3d5db14`), which asks for
 part of the change here, since [`designer-interface.md`](designer-interface.md)
@@ -169,7 +170,12 @@ The rules (beqforge's amendments from §6 Q5 are folded in):
 The steps are in order, and each is its own commit with its tests (AGENTS.md).
 None starts until R2b is unparked (Status).
 
-**D1.1 — contract text and schema.** Revise `designer-interface.md` to 1.2
+**D1.1 — contract text and schema. Done.** `designer-interface.md` is now
+v1.2. Its §7.1 gains "Arrays by reference", and the caller sends `"1.2"`
+only when a body holds a `file`, so inline requests are unchanged. The
+request schema's array is a `oneOf` of inline and `file`. The new
+`http_designer_health.schema.json` covers `/health`. Conformance rows are
+7.11-7.22. Tests are in `test_designer_http_schemas.py`. As first planned: Revise `designer-interface.md` to 1.2
 (§7.1, §8's size note, `GET /health`) and add the array's `oneOf` to
 `docs/schema/http_designer_request.schema.json`, plus a small
 `http_designer_health.schema.json`. In `designer-conformance-tests.md`, add
