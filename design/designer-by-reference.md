@@ -1,8 +1,9 @@
 # Designer requests by reference — design, not built
 
 **Status:** being built, unparked 2026-09-30 when beqforge started on its
-side of R2b (its R2a is done, `7951cc0`). Progress: D1.1 done. D1.2-D1.4 not
-started, so until they land the caller still sends every array inline.
+side of R2b (its R2a is done, `7951cc0`). Progress: D1.1 and D1.2 done. D1.3-D1.4 not
+started, so until they land nothing supplies sources and the caller still sends
+every array inline.
 Agreed with beqforge (§6, their `e96129a`). Answers beqforge's R2 ("a
 shared-filesystem mode with beqdesigner", beqforge `IMPROVEMENT_PLAN.md`,
 `3d5db14`), which asks for
@@ -187,7 +188,23 @@ treated as a decline. Tests: the request schema accepts both forms and
 rejects `file` and `data_base64` together, a missing `sha256`, and an
 absolute path; the health schema.
 
-**D1.2 — the binding.** Change `http_designer(url, ..., shared_root=None)`.
+**D1.2 — the binding. Done.** Where the code differs from the plan below:
+
+- A by-reference binding checks `/health` once, just before its first request
+  by reference, not at registration. The work list registers designers
+  whenever it reads the profile, on the GUI thread, and a network call there
+  would block. A mismatched server therefore shows up as a failed first
+  design whose message quotes the `/health` answer, and nothing is sent to it.
+- An array also goes inline when its WAV's header shows it cannot be the
+  array unchanged: another rate, another length, a missing column, or a
+  format other than WAV. This covers a resampled or trimmed load, and makes a
+  422 mean a file that changed or a wrong mount.
+- The registry flag is `register_designer(..., takes_sources=True)`, and
+  sources live in `pipeline/designer/sources.py`.
+- Tests are in `test_pipeline_designer_by_reference.py`, against a fake
+  by-reference designer on a real socket.
+
+As first planned: change `http_designer(url, ..., shared_root=None)`.
 When `shared_root` is set and the caller supplies where each array came from,
 encode it as `file` + `sha256`; otherwise send it inline as today. How the
 paths reach the binding without changing `DesignRequest`: `Session.design`
@@ -212,10 +229,8 @@ request, with the same `fs` and frame count for mono and every channel.
 `by_reference: true` (the service's `BEQ_DESIGNER_*` environment variables and
 the work-list Settings follow `register_declared_designers`). The shared root
 is always the run's `work_dir`, so there is no second path to get wrong.
-Registering a by-reference designer calls its `GET /health`. It refuses
-registration, with a message naming the designer, when the answer is below
-`"1.2"` or has `shared_root: false`. Tests: parsing the profile; a designer
-without the flag never gets `file`; each refused health answer.
+Tests: parsing the profile, and that a designer without the flag never gets
+`file`. The `/health` check is in the binding (D1.2).
 
 **Fallback, decided (agreed, §6 Q5):** none. A 422 is a configuration error
 (wrong mount, stale file) and should show as a failed design with its message. Retrying

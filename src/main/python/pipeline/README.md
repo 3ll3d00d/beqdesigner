@@ -150,6 +150,13 @@ Two bindings exist:
   / `http_designer_response.schema.json`. A non-2xx/timeout/malformed body
   raises `HttpDesignerError`; a well-formed-but-invalid `DesignResponse`
   goes through the same validation as any other binding.
+  `http_designer(url, shared_root=work_dir)`, registered with
+  `takes_sources=True`, also takes `sources=` (`pipeline/designer/sources.py`,
+  the WAV column each array was loaded from), and sends each array whose WAV
+  is under the root by reference (contract 1.2: a relative path plus the
+  SHA-256 of the samples). Before its first such request it checks the
+  designer's `/health`. Everything else still goes inline, and a `422` is an
+  `HttpDesignerError`, never retried inline.
 
 In the GUI, **Preferences → Designers** (`model/preferences.py`) maintains
 a durable list of `{name, url, headers}` HTTP endpoints, registered under a

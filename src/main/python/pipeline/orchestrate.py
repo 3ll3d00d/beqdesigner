@@ -61,8 +61,9 @@ from model.xy import MagnitudeData
 from pipeline.config import AnalysisConfig
 from pipeline.designer.contract import ChannelScope, Coverage, build_request
 from pipeline.designer.convert import alternative_filters, rejected_filters, to_complete_filter
-from pipeline.designer.registry import get_designer
+from pipeline.designer.registry import get_designer, takes_sources
 from pipeline.designer.manual import MANUAL_DESIGNER, manual_response
+from pipeline.designer.sources import AudioSources
 from pipeline.filters import FilterSpec, create_filter
 from pipeline.metadata import BeqMetadata, tmdb_lookup
 from pipeline.publish.catalogue import aggregate_path
@@ -358,7 +359,8 @@ class Session:
         return signals
 
     def design(self, sig: SingleChannelSignalData, designer: str, coverage: Coverage = 'complete_programme',
-              bass_management: Optional[dict] = None, channels: Optional[dict] = None) -> DesignOutcome:
+              bass_management: Optional[dict] = None, channels: Optional[dict] = None,
+              sources: Optional[AudioSources] = None) -> DesignOutcome:
         '''
         Invokes a registered designer (pipeline.designer.registry) with a
         DesignRequest built from sig, validates and converts its response
@@ -380,10 +382,18 @@ class Session:
             diagnostic decomposition of the same signal sig was mixed down from, if the caller has one
             (see load_channels()). Optional; None if the source was mono to begin with, or the caller
             chose not to supply it.
+        :param sources: the WAV columns mono_mix and channels were loaded from (pipeline.designer.sources), if known --
+            passed on only to a designer registered as taking them, which may then send the arrays by reference
+            (design/designer-interface.md §7.1, 1.2). Every other designer gets the request alone.
         '''
         request = build_request(mono_mix=sig.signal.samples, fs=sig.signal.fs, coverage=coverage,
                                 channels=channels, bass_management=bass_management)
-        response = manual_response() if designer == MANUAL_DESIGNER else get_designer(designer)(request)
+        if designer == MANUAL_DESIGNER:
+            response = manual_response()
+        elif sources is not None and takes_sources(designer):
+            response = get_designer(designer)(request, sources=sources)
+        else:
+            response = get_designer(designer)(request)
         fs = sig.signal.fs
         rejected = tuple(_design_of(candidate, rejected_filter)
                          for candidate, rejected_filter in zip(response.rejected or [], rejected_filters(response, fs)))
