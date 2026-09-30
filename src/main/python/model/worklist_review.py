@@ -48,6 +48,7 @@ from model.worklist_run import build_publish_settings, publish_problem
 from model.worklist_title import TitlePage
 from model.worklist_title_actions import TitleHooks
 from model.worklist_title_text import REDO_IN_FOLDER
+from pipeline.config import AnalysisConfig
 from pipeline.library.commit import CatalogueCommit
 from pipeline.library.index import TitleRow
 from pipeline.library.sync import commit_library, publish_library
@@ -138,6 +139,7 @@ class ReviewFolderWindow(QMainWindow):
         self._setup_read = clock()
         self._build()
         hooks = TitleHooks(open_project=open_project, work_dir=self._work_dir, revise_context=self._revise_context,
+                           analysis_config=lambda: self._setup.settings.config if self._setup.settings else AnalysisConfig(),
                            revise_blocked=self._revise_blocked, ask_revise=ask_revise, redo=REDO_IN_FOLDER,
                            commit_state=self._commit_state)
         self._page = TitlePage(self, preferences, lambda: self._queue_dir, lambda: self._rows, lambda: self._working_on,

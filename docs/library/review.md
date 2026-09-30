@@ -134,3 +134,18 @@ Publish and Commit refuse to start while a service job, command-line run or
 Library Work List run holds this profile’s work directory. The message names
 the holder; try again when it finishes. Review Folder holds the same lease
 while its own Publish or Commit runs.
+
+### Spectrum comparison
+
+The title page’s **Spectrum comparison** tab shows the same time/frequency
+comparison as the published heatmap image: filtered mono audio on the left,
+unfiltered on the right, both reaching 40 Hz, with your saved Analyse Signal
+settings. It is generated when you open the tab and follows the highlighted
+design. Saved mono or multichannel project edits take precedence just as they
+do when publishing; conflicting edits must be resolved first. The line above
+the image tells you whether it uses the selected design or saved project edits.
+
+The comparison needs the extracted `mono.wav` in the library work directory.
+A title without that audio shows how to make it available. **Refresh comparison**
+reads the audio, projects and current analysis preferences again. Rendering runs
+in the background; moving to another title discards an earlier title’s result.

@@ -30,6 +30,7 @@ from model.worklist_model import COL_RUN_DETAILS, ID_ROLE
 from model.worklist_revise import revise_context
 from model.worklist_title import TitlePage
 from model.worklist_title_actions import TitleHooks
+from pipeline.config import AnalysisConfig
 from pipeline.library.index import LibraryIndex
 from pipeline.library.profile import Profile
 from pipeline.library.status import ScanSettings
@@ -130,6 +131,7 @@ class WorkListTitles:
             return False
         if self._title_page is None:
             hooks = TitleHooks(open_project=self._open_project, work_dir=self._title_work_dir,
+                               analysis_config=lambda: self._setup.settings.config if self._setup.settings else AnalysisConfig(),
                                revise_context=lambda: revise_context(self._setup), revise_blocked=self._revise_blocked,
                                run_design=self._run_redesigned_title,
                                retry_failed=lambda title_id: self.retry_failed([title_id]),

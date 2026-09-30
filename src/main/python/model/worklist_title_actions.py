@@ -29,6 +29,7 @@ from model.worklist_projects import EDITED_TOOLTIP, LEVEL_WARN, MONO, MULTICHANN
 from model.worklist_title_text import REDO_IN_WORK_LIST
 from model.worklist_revise import ReviseContext, ReviseDialog, ReviseSummary, revise_problem, revise_titles, \
     summarise_outcome
+from pipeline.config import AnalysisConfig
 from pipeline.review import QueueEntry, read_entry
 
 logger = logging.getLogger('worklist')
@@ -54,6 +55,7 @@ class TitleHooks:
     '''
     open_project: Optional[Callable[[str], Optional[bool]]] = None
     work_dir: Callable[[], str] = lambda: ''
+    analysis_config: Callable[[], AnalysisConfig] = AnalysisConfig
     revise_context: Callable[[], Optional[ReviseContext]] = lambda: None
     revise_blocked: Callable[[str, str], str] = lambda title_id, status: ''
     ask_revise: Optional[AskRevise] = None
@@ -226,6 +228,7 @@ class TitleActions:
         can_open = self._hooks.open_project is not None
         self._bar.show_projects(self.project_states() if self._title_id else [], can_open,
                                 'Opening a project needs the main window: use the Library Work List from Tools.')
+        self._refresh_spectrum()
 
     def open_project(self, kind: str) -> bool:
         '''

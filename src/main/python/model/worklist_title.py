@@ -50,6 +50,7 @@ from qtpy.QtWidgets import QAbstractSpinBox, QApplication, QComboBox, QLineEdit,
     QPlainTextEdit, QTextEdit, QWidget
 
 from model.magnitude import MagnitudeModel
+from model.worklist_spectrum import SpectrumPanel, comparison_request
 from model.worklist_metadata import MetadataPanel, badge_alarms, badge_text, ok_colour
 from model.worklist_model import warning_colour
 from model.worklist_title_actions import TitleActions, TitleHooks
@@ -136,6 +137,11 @@ class TitlePage(TitleDecisions, TitleActions, QWidget, Ui_titlePage):
         self.skipButton.clicked.connect(lambda: self.skip())
         self.rejectButton.clicked.connect(lambda: self.reject())
         self.candidateList.currentRowChanged.connect(self._on_candidate_picked)
+        self.spectrumPanel = SpectrumPanel(self)
+        self._spectrum_preferences = preferences
+        self.rightTabs.addTab(self.spectrumPanel, 'Spectrum comparison')
+        self.spectrumPanel.refresh_requested.connect(lambda: self._refresh_spectrum(force=True))
+        self.rightTabs.currentChanged.connect(lambda _: self._refresh_spectrum())
         self._install_shortcuts()
 
     def _install_shortcuts(self) -> None:
@@ -343,6 +349,7 @@ class TitlePage(TitleDecisions, TitleActions, QWidget, Ui_titlePage):
         self.candidateList.blockSignals(False)
         self._render_commentary()
         self._magnitude.redraw()
+        self._refresh_spectrum()
 
     def _picked_rejected(self) -> bool:
         ''' The highlighted design is one the designer rejected: accepting it is an override. '''
@@ -396,6 +403,7 @@ class TitlePage(TitleDecisions, TitleActions, QWidget, Ui_titlePage):
         self._metadata.refresh_enabled()
         self._render_decisions(self._rows())
         self._render_revise()
+        self._refresh_spectrum()
 
     # --- editing: what the panel tells the page ---------------------------------------------------------------------------
 
@@ -422,6 +430,7 @@ class TitlePage(TitleDecisions, TitleActions, QWidget, Ui_titlePage):
         '''
         if self._flushed_or_discarded():
             self._metadata.leave()      # a lookup still on its way is no longer wanted
+            self.spectrumPanel.unavailable('Open a title to view its spectrum comparison.')
             return True
         return False
 
@@ -476,6 +485,7 @@ class TitlePage(TitleDecisions, TitleActions, QWidget, Ui_titlePage):
             rows = self._rows()
             self._entry = fresh      # the design on screen is the one decided on, so only the parts an edit touches change
             self._render_header(rows)
+            self._refresh_spectrum()
             self._metadata.show_entry(title_id, fresh, self._kind(rows), keep_edits=True, error='')
             self._problems = self._metadata.problems()
             self._render_badge()
@@ -501,6 +511,23 @@ class TitlePage(TitleDecisions, TitleActions, QWidget, Ui_titlePage):
             self._render_commentary()
             self._render_decisions(self._rows())   # the Accept button says whether it is an override
             self._magnitude.redraw()
+        self._refresh_spectrum()
+
+    def _refresh_spectrum(self, force=False) -> None:
+        if not hasattr(self, 'spectrumPanel'):
+            return
+        if self._title_id in self._running():
+            self.spectrumPanel.unavailable('A run is updating this title. The comparison is available when it finishes.')
+            return
+        row = self._rows().get(self._title_id)
+        title = entry_title(self._entry, row, self._title_id, prefer_entry=True)
+        try:
+            request = comparison_request(self._hooks.work_dir(), self._entry, self._picked, title,
+                                         self._hooks.analysis_config(), self._spectrum_preferences)
+        except (ValueError, OSError) as error:
+            self.spectrumPanel.unavailable(str(error))
+        else:
+            self.spectrumPanel.set_request(request, force=force)
 
     def _chart_data(self, reference=None) -> list:
         return chart_data(self._entry, self._picked)
