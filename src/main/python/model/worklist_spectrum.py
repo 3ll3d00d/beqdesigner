@@ -1,7 +1,8 @@
-"""Lazy title-page spectrum comparison, rendered exactly like the publication heatmap."""
+"""Precomputed title-page spectrum comparison, rendered exactly like the publication heatmap."""
 import json
 import logging
 import os
+import time
 from dataclasses import dataclass
 from typing import Optional
 
@@ -81,8 +82,11 @@ class _ComparisonJob(QRunnable):
         self.signals = _ComparisonSignals()
 
     def run(self):
+        started = time.perf_counter()
         try:
             png, note = render_comparison(self.request)
+            logger.info("Spectrum comparison for %s generated in %.2f seconds",
+                        self.request.title_id, time.perf_counter() - started)
             self.signals.finished.emit(self.request, png, note)
         except Exception as error:
             logger.exception('Could not render spectrum comparison for %s', self.request.title_id)
@@ -90,13 +94,14 @@ class _ComparisonJob(QRunnable):
 
 
 class SpectrumPanel(QWidget):
-    """One worker and one cached image; changed titles/candidates coalesce and late results are discarded."""
+    """Precompute on one worker, retaining up to four images; changed requests coalesce."""
     refresh_requested = Signal()
     ready = Signal(bytes)
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._request = self._cached = self._job = None
+        self._images = []
         self.png = b''
         layout = QVBoxLayout(self)
         controls = QHBoxLayout()
@@ -125,11 +130,22 @@ class SpectrumPanel(QWidget):
             self._cached = None
             self.png = b''
             self.image.set_image(QPixmap())
-            self.statusLabel.setText('Open this tab to generate the spectrum comparison.')
+            self.statusLabel.setText('Generating spectrum comparison…')
+        if force:
+            self._images = [item for item in self._images if item[0] != request]
+        else:
+            if request == self._cached:
+                return
+            for item in self._images:
+                if item[0] == request:
+                    self._images.remove(item)
+                    self._images.append(item)
+                    self._display(*item)
+                    return
         self._start()
 
     def _start(self):
-        if self._job is not None or self._request is None or self._request == self._cached or not self.isVisible():
+        if self._job is not None or self._request is None or self._request == self._cached:
             return
         self.statusLabel.setText('Generating spectrum comparison…')
         self.refreshButton.setEnabled(False)
@@ -138,19 +154,26 @@ class SpectrumPanel(QWidget):
         self._job.signals.failed.connect(self._failed)
         QThreadPool.globalInstance().start(self._job)
 
+    def _display(self, request, png, note):
+        image = QPixmap()
+        if not image.loadFromData(png, 'PNG'):
+            self.statusLabel.setText('The spectrum comparison image could not be read. Try Refresh comparison.')
+            return False
+        self._cached = request
+        self.png = png
+        self.image.set_image(image)
+        self.statusLabel.setText(note)
+        self.ready.emit(png)
+        return True
+
     def _finished(self, request, png, note):
         self._job = None
         self.refreshButton.setEnabled(True)
         if request == self._request:
-            image = QPixmap()
-            if image.loadFromData(png, 'PNG'):
-                self._cached = request
-                self.png = png
-                self.image.set_image(image)
-                self.statusLabel.setText(note)
-                self.ready.emit(png)
-            else:
-                self.statusLabel.setText('The spectrum comparison image could not be read. Try Refresh comparison.')
+            if self._display(request, png, note):
+                self._images = [item for item in self._images if item[0] != request]
+                self._images.append((request, png, note))
+                self._images = self._images[-4:]
         else:
             self._start()
 

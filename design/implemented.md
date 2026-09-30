@@ -323,12 +323,15 @@ old separate Failures/Last run panels are not restored: failures are listed in
 the main table, inspected on the title page, and outcomes appear on the rows
 and status line.
 
-The title page’s Spectrum comparison tab lazily renders the publication heatmap
-on a `QRunnable`, using the profile’s analysis config and the same
+The title page precomputes the Spectrum comparison image as soon as a title or
+candidate is selected, on a `QRunnable` even while another tab is visible. It
+uses the profile’s analysis config and the same
 `heatmap_for`/`spec_from_preferences` functions (filtered left, unfiltered right,
 40 Hz on both panes). `preview_published_projects` gives saved edits the same
 precedence as publication, without writing projects. The selected candidate,
-settings and audio/project file stamps identify the single cached image.
+settings and audio/project file stamps identify cached images. A page retains
+up to four PNGs in least-recently-used order for revisited titles/candidates;
+Refresh bypasses that cache. Generation duration is recorded in the app logs.
 Changed requests coalesce behind one worker; results for a title left behind
 are discarded. Missing audio and project conflicts are shown on the tab.
 

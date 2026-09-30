@@ -45,16 +45,18 @@ def _show(page):
     page.rightTabs.setCurrentWidget(page.spectrumPanel)
 
 
-def test_opening_the_tab_renders_the_exact_publication_image_and_uses_preferences(qtbot, tmp_path):
+def test_title_open_precomputes_the_exact_publication_image_before_the_tab_is_shown(qtbot, tmp_path):
     _audio(tmp_path, 'r-alien')
     window = _window(qtbot, tmp_path, entries=REVIEWABLE)
     window._preferences.set(AUDIO_ANALYSIS_MARKER_TYPE, SPECTROGRAM_FLAT)
     window._preferences.set(AUDIO_ANALYSIS_COLOUR_MIN, -55)
     page = _open(qtbot, window, 'r-alien')
     assert page.rightTabs.tabText(page.rightTabs.indexOf(page.spectrumPanel)) == 'Spectrum comparison'
-    assert page.spectrumPanel._job is None and page.spectrumPanel.png == b''
-    _show(page)
+    assert page.rightTabs.currentWidget() is not page.spectrumPanel
     qtbot.waitUntil(lambda: bool(page.spectrumPanel.png), timeout=15000)
+    cached_png = page.spectrumPanel.png
+    _show(page)
+    assert page.spectrumPanel.png == cached_png and page.spectrumPanel._job is None
     entry = read_entry(str(tmp_path / 'queue'), 'r-alien')
     signal = Session(window._setup.settings.config).load(str(tmp_path / 'work' / 'r-alien' / 'mono.wav'))
     expected = heatmap_for(signal, filter_from_json(entry.offered[0].filters), spec_from_preferences(window._preferences),
@@ -70,7 +72,6 @@ def test_opening_the_tab_renders_the_exact_publication_image_and_uses_preference
 def test_rendering_runs_on_a_worker_and_follows_candidates_without_writing_projects(qtbot, tmp_path, monkeypatch):
     _audio(tmp_path, 'r-alien')
     window = _window(qtbot, tmp_path, entries=REVIEWABLE)
-    page = _open(qtbot, window, 'r-alien')
     calls = []
     real = spectrum.render_comparison
 
@@ -79,6 +80,7 @@ def test_rendering_runs_on_a_worker_and_follows_candidates_without_writing_proje
         return real(request)
 
     monkeypatch.setattr(spectrum, 'render_comparison', record)
+    page = _open(qtbot, window, 'r-alien')
     _show(page)
     qtbot.waitUntil(lambda: bool(page.spectrumPanel.png), timeout=15000)
     first = page.spectrumPanel.png
@@ -90,6 +92,14 @@ def test_rendering_runs_on_a_worker_and_follows_candidates_without_writing_proje
     assert page.pick_candidate(1)
     qtbot.wait(20)
     assert len(calls) == 2  # same candidate/spec/files reuse the current image
+    assert page.pick_candidate(0)
+    assert page.spectrumPanel.png == first and len(calls) == 2
+    assert page.show_title('r-arrival')
+    assert page.show_title('r-alien')
+    assert page.spectrumPanel.png == first and len(calls) == 2
+    page.spectrumPanel.refreshButton.click()
+    qtbot.waitUntil(lambda: page.spectrumPanel._job is None, timeout=15000)
+    assert len(calls) == 3  # explicit refresh bypasses the cache
 
 
 @pytest.mark.parametrize('edited_side', ['mono', 'multichannel'])
@@ -230,3 +240,29 @@ def test_the_profile_analysis_config_and_missing_setup_are_supported(qtbot, tmp_
     page._refresh_spectrum()
     assert 'No work directory' in page.spectrumPanel.statusLabel.text()
     assert page.spectrumPanel._request is None
+
+
+def test_preview_cache_is_bounded_and_evicts_the_least_recently_used_image(qtbot, tmp_path, monkeypatch):
+    from test_worklist_title import _prefs
+    from worklist_title_fixture import write_entry
+    _audio(tmp_path, 'r-alien')
+    write_entry(str(tmp_path / 'queue'), 'r-alien')
+    request = spectrum.comparison_request(str(tmp_path / 'work'), read_entry(str(tmp_path / 'queue'), 'r-alien'),
+                                          0, 'Alien', AnalysisConfig(), _prefs(tmp_path))
+    panel = spectrum.SpectrumPanel()
+    qtbot.addWidget(panel)
+    monkeypatch.setattr(panel, '_start', lambda: None)
+    buffer = io.BytesIO()
+    Image.new('RGB', (2, 2)).save(buffer, format='PNG')
+    png = buffer.getvalue()
+    requests = [replace(request, title=f'Title {index}') for index in range(5)]
+    for item in requests[:4]:
+        panel.set_request(item)
+        panel._finished(item, png, 'Ready')
+    panel.set_request(requests[0])  # this revisit makes the first image the newest
+    assert panel.png == png
+    panel.set_request(requests[4])
+    panel._finished(requests[4], png, 'Ready')
+    assert [item[0] for item in panel._images] == [requests[2], requests[3], requests[0], requests[4]]
+    panel.set_request(requests[1])
+    assert panel.png == b''  # evicted image requires fresh background generation
