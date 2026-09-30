@@ -1,9 +1,9 @@
 # Pipeline service — HTTP control plane, auto mode and Docker image
 
-> **Historical archive:** original path `design/pipeline-service.md` before the 2026-09-27 sweep: the chunked plan (S0-S7) with its "As built" notes. Not the current status; see [pipeline-service](../../pipeline-service.md) and [outstanding](../../outstanding.md).
+> **Historical archive:** original path `design/pipeline-service.md` before the 2026-09-27 sweep: the chunked plan (S0-S7) with its "As built" notes. Not the current status; see [pipeline-service](../../pipeline-service.md) and [outstanding](../../TODO.md).
 
 **Status: S0-S7 implemented; image build/smoke awaits first CI run** (§11 has each chunk's state;
-each built chunk has an "As built" note). See the [index](../../library-sync-pipeline-plan.md). The Docker image and chunk S0 are in
+each built chunk has an "As built" note). See the [index](../../README.md). The Docker image and chunk S0 are in
 [`pipeline-service/docker.md`](docker.md). Branch: `pipeline-service`.
 
 ## 1. Goal

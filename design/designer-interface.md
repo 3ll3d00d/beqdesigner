@@ -6,10 +6,10 @@ included (reviewed, and overridable by a person, on the title page) — both bin
 [`src/main/python/pipeline/README.md`](../src/main/python/pipeline/README.md#the-designer-contract)
 for where. 1.2's arrays by reference (§7.1) are implemented on this repo's side too. They
 are sent only to a designer declared `by_reference: true` in a profile
-([`designer-by-reference.md`](designer-by-reference.md)). This document remains the thing both sides build to and stays
+([`archive/designer-by-reference.md`](archive/designer-by-reference.md)). This document remains the thing both sides build to and stays
 authoritative for the field-level contract; it is not a plan. Delivered
 caller behavior is in [`implemented.md`](implemented.md); open work is in
-[`outstanding.md`](outstanding.md).
+[`TODO.md`](TODO.md).
 
 **Audience:** whoever implements a filter designer — beqanalyser first, but
 nothing here is beqanalyser-specific. **Read this document alone; it does

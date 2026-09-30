@@ -1,5 +1,7 @@
 # Implemented design
 
+**Document type:** Architecture reference — delivered behavior.
+
 This is the account of the headless pipeline, candidate review, the library
 work list and the pipeline service as they are built: it describes the code at
 `HEAD`, not the history of how it got there. The authoritative API
@@ -7,7 +9,7 @@ and user instructions are in [`pipeline/README.md`](../src/main/python/pipeline/
 and [`docs/library/`](../docs/library/). The designer's external protocol
 remains in [`designer-interface.md`](designer-interface.md); its conformance
 checklist remains in [`designer-conformance-tests.md`](designer-conformance-tests.md).
-Only unfinished work is listed in [`outstanding.md`](outstanding.md).
+Only unfinished work is listed in [`TODO.md`](TODO.md).
 
 ## Headless pipeline
 
@@ -93,7 +95,7 @@ delivery outcomes without URLs or headers. The Qt-free Docker image has
 ffmpeg, git and SSH; CI builds and smoke-tests it on pushes and before
 publishing amd64/arm64 release tags. The amd64 image build and smoke run are
 verified; the arm64 build and GHCR publish have not yet run
-([C1](outstanding.md#c1--arm64-image-and-ghcr-publish)).
+([C1](TODO.md#c1--arm64-image-and-ghcr-publish)).
 
 ## Design and review
 
@@ -140,7 +142,7 @@ state and decision lines. A redesign that changes only the rejected designs is
 still a changed design, and is not accepted blind.
 
 A designer declared `by_reference: true` in the profile (contract 1.2, §7.1;
-[`designer-by-reference.md`](designer-by-reference.md)) is sent each array
+[`archive/designer-by-reference.md`](archive/designer-by-reference.md)) is sent each array
 whose WAV is under the run's `work_dir` as a relative path, a column and the
 SHA-256 of the samples, rather than the samples themselves. `design_and_queue`
 names the mono WAV and the kept multichannel WAV it loaded

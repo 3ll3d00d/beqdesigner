@@ -1,6 +1,6 @@
 # Library work list -- bounded parallel runs
 
-> **Historical archive:** original path `design/library-sync/worklist-parallel-runs.md`. This is the pre-sweep design record, not the current status. See [implemented](../../implemented.md) and [outstanding](../../outstanding.md) for the maintained account.
+> **Historical archive:** original path `design/library-sync/worklist-parallel-runs.md`. This is the pre-sweep design record, not the current status. See [implemented](../../implemented.md) and [outstanding](../../TODO.md) for the maintained account.
 
 
 > Part of the library sync plan -- start at

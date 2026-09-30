@@ -1,6 +1,6 @@
 # Work-list run state follow-up
 
-> **Historical archive:** original path `design/library-sync/worklist-run-followup.md`. This is the pre-sweep design record, not the current status. See [implemented](../../implemented.md) and [outstanding](../../outstanding.md) for the maintained account.
+> **Historical archive:** original path `design/library-sync/worklist-run-followup.md`. This is the pre-sweep design record, not the current status. See [implemented](../../implemented.md) and [outstanding](../../TODO.md) for the maintained account.
 
 
 > **Implemented.** Fix 44a is committed as `9761873`; fix 44b is committed as `c790f19` and clears the full row-state generation at run start while discarding removed ids. This is §16 of the library sync plan, scheduled as chunk 44. Chunk 43 and its acceptance coverage are recorded in

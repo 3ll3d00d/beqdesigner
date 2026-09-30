@@ -1,6 +1,6 @@
 # Pipeline service — Docker image and the Qt-free extraction path
 
-> **Historical archive:** original path `design/pipeline-service/docker.md` before the 2026-09-27 sweep, with the S0/S5 "As built" notes. Not the current status; see [docker](../../pipeline-service/docker.md).
+> **Historical archive:** original path `design/pipeline-service/docker.md` before the 2026-09-27 sweep, with the S0/S5 "As built" notes. Not the current status; see [docker](../../pipeline-service.md#10-docker-image).
 
 **Status: S5 implemented in `80cab0d`; CI image smoke has not run yet.** Part of the [pipeline service design](plan.md);
 section numbers continue that file's.

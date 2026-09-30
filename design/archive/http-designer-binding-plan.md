@@ -1,6 +1,6 @@
 # Implementation plan — HTTP designer binding
 
-> **Historical archive:** original path `design/http-designer-binding-plan.md`. This is the pre-sweep design record, not the current status. See [implemented](../implemented.md) and [outstanding](../outstanding.md) for the maintained account.
+> **Historical archive:** original path `design/http-designer-binding-plan.md`. This is the pre-sweep design record, not the current status. See [implemented](../implemented.md) and [outstanding](../TODO.md) for the maintained account.
 
 
 **Status: done.** All four phases below shipped. For the current wire

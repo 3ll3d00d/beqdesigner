@@ -1,5 +1,7 @@
 # Designer conformance test spec — v1.2
 
+**Document type:** Reference test specification — not a backlog.
+
 **Status:** a checklist, not a contract. [`designer-interface.md`](designer-interface.md)
 is the contract; this document is a test spec extracted from two independent
 implementations of it — this repo's caller side

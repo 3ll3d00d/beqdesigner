@@ -1,6 +1,6 @@
 # Work-list feedback remediation
 
-> **Historical archive:** original path `design/library-sync/worklist-feedback-remediation.md`. This is the pre-sweep design record, not the current status. See [implemented](../../implemented.md) and [outstanding](../../outstanding.md) for the maintained account.
+> **Historical archive:** original path `design/library-sync/worklist-feedback-remediation.md`. This is the pre-sweep design record, not the current status. See [implemented](../../implemented.md) and [outstanding](../../TODO.md) for the maintained account.
 
 
 > **Partly built.** This is §17 of the library sync plan. Chunk 45a has a

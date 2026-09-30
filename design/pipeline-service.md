@@ -1,13 +1,14 @@
 # Pipeline service — HTTP control plane, auto mode and Docker image
 
+**Document type:** Architecture reference — delivered behavior.
+
 This is the design of the pipeline service as it is built: `pipeline/service/`,
 the Docker image in `docker/`, and the work-directory lease the service shares
 with the work list and the CLI. The user guide is
 [`docs/library/service.md`](../docs/library/service.md); the wire interface is
 [`docs/schema/service.openapi.json`](../docs/schema/service.openapi.json). The
-image and the Qt-free boundary it depends on are in
-[`pipeline-service/docker.md`](pipeline-service/docker.md). Open work is in
-[`outstanding.md`](outstanding.md) (W3, C1). Section numbers are cited by
+image and the Qt-free boundary it depends on are described in §10 below. Open work is in
+[`TODO.md`](TODO.md) (W3, C1). Section numbers are cited by
 source comments, so they are kept stable.
 
 ## 1. Goal
@@ -199,7 +200,7 @@ work **joins it** instead of being refused:
   it ends without running.
 
 The Review Folder window's Publish/Commit do not check the lease
-([W3](outstanding.md#w3--review-folder-honours-the-lease)).
+([W3](TODO.md#w3--review-folder-honours-the-lease)).
 
 ## 6. HTTP interface
 
@@ -390,29 +391,84 @@ the target's environment override.
 
 ## 10. Docker image
 
-In [`pipeline-service/docker.md`](pipeline-service/docker.md): the image, its
-CI smoke test and GHCR publishing (§10), and the Qt-free boundary the image
-depends on (§10.1).
+- **Files:** `docker/Dockerfile`, `docker/compose.example.yaml`,
+  `docker/service.example.yaml`, `docker/smoke.py`, `.dockerignore`.
+- **Base:** `python:3.13-slim` (the project's `requires-python`), with `ffmpeg`
+  from Debian (including the `dvdvideo` demuxer the README asks for DVDs; the
+  build asserts `ffmpeg -demuxers` lists it), `git` and `openssh-client`. No
+  graphviz and no Qt or its X/GL libraries (§10.1).
+- **Install:** multi-stage. A pinned uv binary runs
+  `uv sync --frozen --no-dev --group service` into `/opt/venv`; the source is
+  copied to `/app/src/main/python` with `PYTHONPATH` set to it. Swagger UI and
+  ReDoc are fetched as pinned npm packages and served locally
+  (`BEQ_SERVICE_STATIC`), so the try-it-out page works without internet access.
+  The runtime stage has no uv.
+- **Dependency groups:** the desktop's Qt packages are the default `desktop`
+  group in `pyproject.toml`, so a normal `uv sync` installs the app, while the
+  image installs only the runtime list and the `service` group.
+- **User:** a non-root `beq` user; `PUID`/`PGID` build args (or `user:` in
+  compose) so files written to the mounts belong to the host user.
+- **Volumes:** `/config` (ro: `profile.yaml` and `service.yaml`), `/work` (work
+  directory, index, service state), `/queue` (review queue), the media mounts at
+  the paths the profile names (ro), and, only when repository writes are
+  enabled, the repository clones and `/home/beq/.ssh` (ro: key and
+  `known_hosts`) -- git uses the credentials mounted for the container user.
+  Git identity comes from `GIT_AUTHOR_NAME`/`GIT_AUTHOR_EMAIL`/`GIT_COMMITTER_*`.
+  The compose example shows the mounts and the token as a Docker secret.
+- **Entrypoint:** `python -m pipeline.service --profile /config/profile.yaml
+  --service-config /config/service.yaml`; `HEALTHCHECK` requests `/health`.
+- **Smoke test:** `docker/smoke.py` starts the built image against a fixture
+  profile with a filesystem source over a short synthetic six-channel WAV and
+  a stub HTTP designer on the host, waits for `/ready`, submits a run of that
+  title through `design`, polls the job to `succeeded` and asserts a queue
+  entry exists. It runs in `.github/workflows/test.yaml` on every push (Linux
+  only) and in `create-image.yaml` before publishing.
+  `test_pipeline_service_docker.py` loads `docker/smoke.py` by path and runs
+  the same fixture through the real local service, ffmpeg and HTTP designer
+  without Docker.
+- **Publishing:** on a pushed tag (the trigger `create-app.yaml` uses for the
+  desktop release), `create-image.yaml` builds `linux/amd64` and `linux/arm64`,
+  runs the smoke test, and pushes `ghcr.io/3ll3d00d/beqdesigner-pipeline:<tag>`
+  with `GITHUB_TOKEN` (`packages: write`). `latest` is applied only to a tag
+  without a pre-release suffix (`-alpha`/`-beta`/`-rc`). The image carries OCI
+  labels (source, revision, version), and `src/main/python/VERSION` is written
+  before the build so `/health` reports the release.
 
-## 11. Status
+## 10.1 The Qt-free boundary
 
-| Chunk | Content | Status |
-|---|---|---|
-| S0 | Qt-free extraction path (docker.md §10.1) | Built: `55c3425`, `5d136d3`, `579f542`, `4929e93`, `f9d66e5`; port fix `a217bec` |
-| S1 | `Selection.kind`/`year`, shared `year.py`, index SQL, CLI `--kind`/`--year` (§3) | Built: `ceabb76` |
-| S2 | Config, per-job profile context, `JobManager`, history, lease (§4, §5) | Built: `8f6ff97`, `bc7afd3`, `ca43161`, `cb9f371` |
-| S3 | FastAPI app, models, routes, auth, SSE, committed OpenAPI document, user page (§6) | Built: `99d2071` |
-| S4 | Auto scheduler and `/v1/schedule` (§8) | Built: `df93b2a` |
-| S5 | Docker image, compose example, CI smoke, GHCR publish on tag (docker.md §10) | Built: `80cab0d`, local smoke fixture `622d197`; image build and smoke verified locally at `7db992d`; arm64 and GHCR publish open as [C1](outstanding.md#c1--arm64-image-and-ghcr-publish) |
-| S6 | Notifications (§9) | Built: `af261fc` |
-| S7 | README and implemented-design entries | Built: `faafbba`, `73ccfde` |
-| F5 | Every run holds the lease; joining a run in progress (§5.1) | Built: `3d38f76`, `ae1a086`, `dc527f5`, `12d875e` |
-| -- | Review Folder's Publish/Commit honour the lease | Open: [W3](outstanding.md#w3--review-folder-honours-the-lease) |
+Nothing under `pipeline/` reaches `qtpy`, `PyQt6`, `qtawesome`, `pyqtgraph` or
+`ui.*`, even indirectly. The `model/` modules the pipeline uses keep a Qt-free
+core, with their Qt halves in sibling modules that import it:
 
-Tests: `test_pipeline_library_selection.py`, `test_pipeline_library_year.py`,
-`test_pipeline_service_*.py`, `test_pipeline_library_inbox.py`, the joining
-tests in `test_pipeline_library_stages.py`/`test_pipeline_library_cli.py`, and
-the lease tests in `gui/test_worklist_actions.py`.
+| Qt-free core | Qt half |
+|---|---|
+| `model/preferences.py` | `model/preferences_dialog.py` |
+| `model/limits.py` | `model/limits_dialog.py` |
+| `model/minidsp.py` | `model/minidsp_qt.py` |
+| `model/ffmpeg.py` (`Executor`, `run_sync()`) | `model/ffmpeg_qt.py` (`AudioExtractor`, which `Executor.execute()` imports for the GUI) |
+| `model/signal.py` (`Signal`, `SignalData`, `AutoWavLoader`) | `model/signal_qt.py` (table models, dialogs, their loaders, the smoother) |
+| `model/dsp_type.py` (a plain enum) | re-exported by `model/merge.py` |
+
+`model.magnitude` imports its dialogs only where it shows them.
+`model.xy.interp()` called without `smooth=` reads the desktop's smooth-graphs
+preference; with no Qt available it uses that preference's default, so a
+container run matches a desktop left at the default.
+
+The ffmpeg progress bridge's UDP port is picked by the operating system, so two processes
+extracting at once do not collide.
+
+**Tests:** `test_qt_free_modules.py` imports every `pipeline/` module, and the
+`model/` modules it uses, in a fresh interpreter with Qt blocked by a
+`sys.meta_path` finder, and completes a whole `Session` run there;
+`test_pipeline_qt_boundary.py` scans imports and checks no `QApplication` is
+constructed. A module the pipeline starts to use is added to
+`test_qt_free_modules.py`'s list.
+
+## 11. Delivery history
+
+Completed chunks and their commit hashes are in the
+[archived delivery record](archive/pipeline-service/completion-record.md).
+Current work is tracked only in [TODO](TODO.md).
 
 ## 12. Decisions
 
@@ -425,6 +481,6 @@ Settled on 2026-09-26 and 2026-09-27:
 | 3 | Year filter shape | The ignore-rule expression string, one grammar for ignore rules, CLI and API (§3, §6.5) |
 | 4 | Auth | One static bearer token (§6.7) |
 | 5 | Notifications | Outbound webhooks (§9) |
-| 6 | Image distribution | Built and pushed to GHCR by GitHub Actions when a tag is pushed (docker.md §10) |
-| 7 | Qt in the image | None: the pipeline is Qt-free (docker.md §10.1) |
+| 6 | Image distribution | Built and pushed to GHCR by GitHub Actions when a tag is pushed (§10) |
+| 7 | Qt in the image | None: the pipeline is Qt-free (§10.1) |
 | 8 | Work asked for during a run | Extract/design joins the run in progress; the CLI hands its titles over and waits (§5.1) |

@@ -1,3 +1,10 @@
+# Historical record — designer requests by reference
+
+Archived on 2026-09-30 from `design/designer-by-reference.md`. Implementation
+and acceptance evidence below are complete. Proposals and open questions are
+historical; the remaining follow-ons are D2–D4 in [TODO](../TODO.md).
+The current protocol is the [designer contract](../designer-interface.md).
+
 # Designer requests by reference
 
 **Status:** built on this repo's side (D1.1 `bfff8e5`, D1.2 `4053773`, D1.3 `a303d20`, D1.4 `8f026ff`; 2026-09-30), unparked
@@ -15,8 +22,8 @@ filters, confidence 0.622, `non_parametric`. `/health` also carries
 Agreed with beqforge (§6, their `e96129a`). Answers beqforge's R2 ("a
 shared-filesystem mode with beqdesigner", beqforge `IMPROVEMENT_PLAN.md`,
 `3d5db14`), which asks for
-part of the change here, since [`designer-interface.md`](designer-interface.md)
-is this repo's contract. Recorded as built in [`implemented.md`](implemented.md#design-and-review) (formerly outstanding item D1).
+part of the change here, since [`designer-interface.md`](../designer-interface.md)
+is this repo's contract. Recorded as built in [`implemented.md`](../implemented.md#design-and-review) (formerly outstanding item D1).
 The contract itself is `designer-interface.md` v1.2, §7.1 "Arrays by
 reference". Where this document and the contract differ, the contract wins.
 

@@ -8,7 +8,7 @@ implementation in another process or language entirely.
 
 The current delivered design is in
 [`design/implemented.md`](../../../../design/implemented.md); the deduplicated
-backlog is [`design/outstanding.md`](../../../../design/outstanding.md).
+backlog is [`design/TODO.md`](../../../../design/TODO.md).
 The formal designer contract remains in `design/designer-interface.md`.
 Library publishing writes version-1 JSON filter records. The separate XML export API remains available.
 Profiles use `sync.filter_repo` and `sync.filter_dir`; the legacy `sync.xml_repo` and `sync.xml_dir` keys still load, but a save rewrites them to the current keys. Conflicting old and new values are refused. The old CLI flags remain hidden aliases.
@@ -617,7 +617,7 @@ run that extracts and designs a synthetic six-channel source.
 ## Design decisions (resolved)
 
 Kept here as a short historical index; delivered behavior is summarized in
-`design/implemented.md` and unfinished work in `design/outstanding.md`.
+`design/implemented.md` and unfinished work in `design/TODO.md`.
 
 | | Decision | Resolution |
 |---|---|---|
@@ -626,7 +626,7 @@ Kept here as a short historical index; delivered behavior is summarized in
 | D3 | beqcatalogue repo conventions | The JSON reader globs individual `**/*.json` records and skips the derived `database.json`. Filter records and images use separate repositories; images use GitHub raw-content URLs. |
 | D4 | Does the report need to be pixel-identical to the GUI's? | No — a spec-driven render (fixed size/layout) of the existing "pixel perfect" mode, not a port of the dialog's layout code. |
 | D5 | CLI vs service (whose git credentials?) | Runs as the invoking user's own git/SSH config — see `pipeline/publish/git.py`'s module docstring. |
-| D6 | Catalogue-as-input (`CatalogueEntry.iir_filters()` → apply an existing published BEQ) | Tracked as O1 in `design/outstanding.md`. |
+| D6 | Catalogue-as-input (`CatalogueEntry.iir_filters()` → apply an existing published BEQ) | Tracked as O1 in `design/TODO.md`. |
 | D7 | Does designer provenance reach the report? | Yes. The published JSON record carries the review note; BEQCatalogue derives `filterAuthor` for the public database. |
 | D8 | How does a designer bind to the pipeline? | In-process callable first, HTTP binding added later (`design/archive/http-designer-binding-plan.md`) once cross-process/cross-language use actually needed it. |
 
@@ -639,5 +639,5 @@ form and the Review Folder window) follow.
 
 ## Open / not built
 
-See [`design/outstanding.md`](../../../../design/outstanding.md) for the
+See [`design/TODO.md`](../../../../design/TODO.md) for the
 deduplicated backlog and completion criteria.

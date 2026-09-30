@@ -1,6 +1,6 @@
 # Implementation plan — headless BEQ pipeline
 
-> **Historical archive:** original path `design/pipeline-implementation-plan.md`. This is the pre-sweep design record, not the current status. See [implemented](../implemented.md) and [outstanding](../outstanding.md) for the maintained account.
+> **Historical archive:** original path `design/pipeline-implementation-plan.md`. This is the pre-sweep design record, not the current status. See [implemented](../implemented.md) and [outstanding](../TODO.md) for the maintained account.
 
 
 **Status: done.** All six phases below shipped. For the current architecture,

@@ -1,6 +1,6 @@
 # BEQCatalogue JSON output migration
 
-> **Historical archive:** original path `design/library-sync/catalogue-json-output.md`. This is the pre-sweep design record, not the current status. See [implemented](../../implemented.md) and [outstanding](../../outstanding.md) for the maintained account.
+> **Historical archive:** original path `design/library-sync/catalogue-json-output.md`. This is the pre-sweep design record, not the current status. See [implemented](../../implemented.md) and [outstanding](../../TODO.md) for the maintained account.
 
 
 > The output contract is owned by

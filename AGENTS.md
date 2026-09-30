@@ -201,8 +201,9 @@ and the work, over `pipeline.library.revise`), `worklist_bulk.py` (the `WorkList
 `WORKLIST_ACCEPT_THRESHOLD` preference, *Revise...* on the selected rows, and the "settings changed since N titles were designed" banner over
 `pipeline/library/drift.py`), `worklist_review.py` (the Review folder window: it holds the work list's interlocks while its own Publish or Commit runs, and reads the library profile again on activation and at each decision), `worklist_folder_state.py` (what it works out with no widgets: the made-up row, where a published title's files stand in git, and which accepted entries can be published from their projects), `worklist_title_decide.py` (Accept / Skip / Reject and "next", a mixin of the page). Tests `gui/test_worklist_projects.py`, `test_worklist_revise.py`,
 `test_worklist_bulk.py`, `test_worklist_review.py`, `test_worklist_review_fixes.py`, `test_pipeline_library_drift.py`. `gui/conftest.py` answers the title page's "Discard what you typed?" question without a dialog in every gui test (a stray modal at teardown hangs the suite); a test about the question takes `real_ask_discard`.
-The current design is `design/implemented.md` and `design/outstanding.md`, indexed by
-`design/library-sync-pipeline-plan.md`; historical chunk specifications are in `design/archive/`. Tests:
+Current architecture is in `design/implemented.md`; all unfinished work is in
+`design/TODO.md`, indexed by
+`design/README.md`; historical chunk specifications are in `design/archive/`. Tests:
 `src/test/python/gui/test_worklist_*.py`, over a fixture index (`gui/worklist_fixture.py`) and a fake `run_stages`; `test_worklist_real_pipeline.py` drives
 Publish then Commit through the real `run_stages`, index and temp git repos.
 
@@ -306,24 +307,20 @@ can be reviewed and reverted on its own.
 
 ## Working from a plan
 
-Multi-commit work is tracked in a plan under `design/` (for example
-`design/library-sync-pipeline-plan.md`). A large plan can be an **index plus topic
-files**: the index (that file) holds the goal, the chunk-status table and a map
-from each `§` to the file that holds it, and the design lives in topic files
-under a same-named folder. The library-sync plan now uses a consolidated
-implemented design and a deduplicated outstanding list; its former topics
-are in `design/archive/`. Read the index first, then the current document
-you need; keep every active plan file under ~500 lines and split rather than
-append. Keep the plan accurate as you go:
+Multi-commit work is tracked in `design/TODO.md`; `design/README.md`
+indexes current architecture and contract references. Keep unfinished work only
+in TODO, in priority order with status and completion criteria. Keep active
+documents under ~500 lines and split reference documents rather than append
+implementation plans to them. Completed plans and evidence belong in
+`design/archive/`.
 
-- **After every commit, update the active plan with the new status** --
-  before starting the next piece of work. Mark the chunk or item done with
-  the commit hash, and record anything the commit changed about the design
-  (a deviation, a newly found gap, a follow-up). If the plan lists the item
-  as an open gap, remove or reword it.
-- Put the plan update **in the same commit** when you can (amend before
-  pushing); otherwise make it a separate commit straight after. Never leave
-  a commit whose effect the plan still describes as unbuilt.
+- **After every commit, update TODO with the new status** before starting
+  the next piece of work. Archive completed items with the implementation
+  commit and evidence; remove them from TODO. Record lasting behavior in the
+  appropriate architecture or contract reference, including deviations.
+- Put the documentation update **in the same commit** when possible (amend
+  before pushing); otherwise commit it straight after. Never leave a commit
+  whose effect the current documents still describe as unbuilt.
 - The plan is descriptive of the code at `HEAD`, not aspirational: when the
   code and the plan disagree, verify against the code and correct the plan.
   Agreed forward design is allowed, but it lives in its own file, is labelled
@@ -369,7 +366,7 @@ leaving it in the dialog, but a real dialog can now be tested directly too
 is a separate, Qt-free headless pipeline mirroring parts of the app for
 API/scripted use — see `src/main/python/pipeline/README.md` for the
 architecture, `design/implemented.md` for the delivered design,
-`design/outstanding.md` for remaining work, and `design/designer-interface.md`
+`design/TODO.md` for remaining work, and `design/designer-interface.md`
 for the external contract. Historical rationale is in `design/archive/`.
 
 **Testing real dialogs — `pytest-qt`.** `src/test/python/gui/` constructs

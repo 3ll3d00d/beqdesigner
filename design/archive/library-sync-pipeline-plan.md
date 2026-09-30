@@ -1,6 +1,6 @@
 # Library sync pipeline -- plan
 
-> **Historical archive:** original path `design/library-sync-pipeline-plan.md`. This is the pre-sweep design record, not the current status. See [implemented](../implemented.md) and [outstanding](../outstanding.md) for the maintained account.
+> **Historical archive:** original path `design/library-sync-pipeline-plan.md`. This is the pre-sweep design record, not the current status. See [implemented](../implemented.md) and [outstanding](../TODO.md) for the maintained account.
 
 
 Status: **chunks 1-2 and 4-28 are built; 1,902 tests passed in the 2026-09-21
@@ -69,7 +69,7 @@ the design lives. It is usually all you need to decide what to do next. The desi
 | §16 | [`library-sync/worklist-run-followup.md`](library-sync/worklist-run-followup.md) | commit-wide event accounting and complete runtime-row expiry | implemented: 44a (`9761873`), 44b (`c790f19`) |
 | §17 | [`library-sync/worklist-feedback-remediation.md`](library-sync/worklist-feedback-remediation.md) | investigated feedback, root causes and minimal remediation for retry/error UX, streams/stages and bass-managed projects | 45a partially built (`8abfa83`); 45b not started; 45c built (`0a0ee37`) |
 | JSON output migration | [`library-sync/catalogue-json-output.md`](library-sync/catalogue-json-output.md) | BEQCatalogue filter-record output contract and migration scope | chunk 39 in progress |
-| Appendix A-D | [`library-sync/archive/`](../library-sync/archive) | handoff specs for chunks 1, 2, 4, 5 | built, archival |
+| Appendix A-D | [`library-sync/archive/`](library-sync/archive) | handoff specs for chunks 1, 2, 4, 5 | built, archival |
 
 **Which file for which task**
 

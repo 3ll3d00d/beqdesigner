@@ -1,6 +1,6 @@
 # Headless BEQ filter creation and publishing
 
-> **Historical archive:** original path `design/api-headless-pipeline.md`. This is the pre-sweep design record, not the current status. See [implemented](../implemented.md) and [outstanding](../outstanding.md) for the maintained account.
+> **Historical archive:** original path `design/api-headless-pipeline.md`. This is the pre-sweep design record, not the current status. See [implemented](../implemented.md) and [outstanding](../TODO.md) for the maintained account.
 
 
 **Status: done.** This was the original analysis — what already ran
