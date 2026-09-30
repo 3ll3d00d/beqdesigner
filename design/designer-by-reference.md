@@ -1,6 +1,6 @@
 # Designer requests by reference
 
-**Status:** built on this repo's side (D1.1-D1.4, 2026-09-30), unparked
+**Status:** built on this repo's side (D1.1 `bfff8e5`, D1.2 `4053773`, D1.3 `a303d20`, D1.4 `8f026ff`; 2026-09-30), unparked
 when beqforge started on its side of R2b (its R2a is done, `7951cc0`). A
 designer declared `by_reference: true` in a profile is sent the extracted
 WAVs by path; every other designer is sent every array inline, as before.
