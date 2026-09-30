@@ -63,8 +63,9 @@ def register_designers(values: Mapping[str, Any], config: Mapping[str, Any]) -> 
     '''
     A library run needs the designer registered in this process, and unlike the GUI (which registers the endpoints
     saved in Preferences at startup) nothing else does it here. Designers come from the file's `designers` mapping
-    (name -> URL, or name -> {url, timeout, headers}) and `designer_urls` (`NAME=URL` entries, as --designer-url gives
-    them); the latter wins for a name in both. A `designer` that is itself an http(s) URL is registered under that URL.
+    (name -> URL, or name -> {url, timeout, headers, by_reference}) and `designer_urls` (`NAME=URL` entries, as
+    --designer-url gives them); the latter wins for a name in both. A `designer` that is itself an http(s) URL is
+    registered under that URL. A `by_reference` designer shares the run's `work_dir` (design/designer-interface.md §7.1).
     '''
     declared: dict[str, Any] = dict(config.get('designers') or {})
     for entry in values.get('designer_urls') or []:
@@ -75,7 +76,7 @@ def register_designers(values: Mapping[str, Any], config: Mapping[str, Any]) -> 
     designer = values.get('designer')
     if designer and designer.lower().startswith(('http://', 'https://')) and designer not in declared:
         declared[designer] = designer
-    register_declared_designers(declared)
+    register_declared_designers(declared, shared_root=values.get('work_dir') or None)
 
 
 def run_profile(config: Mapping[str, Any], values: dict[str, Any]) -> Profile:

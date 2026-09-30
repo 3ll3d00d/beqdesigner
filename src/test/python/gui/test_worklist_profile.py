@@ -197,3 +197,20 @@ def test_a_missing_profile_file_returns_to_preferences_and_clears_its_stale_path
 
     assert setup.profile is not None and setup.origin == ORIGIN_PREFERENCES and not setup.error
     assert prefs.get(LIBRARY_PROFILE_PATH) == ''
+
+
+def test_a_by_reference_designer_in_the_profile_shares_its_work_dir(tmp_path):
+    ''' design/designer-by-reference.md D1.4: the work list registers it on the profile's work_dir; without one it says so. '''
+    from model.worklist_profile import register_profile_designers
+    from pipeline.designer.registry import takes_sources
+    from pipeline.library.profile import profile_from_config
+    declared = {'test.shared': {'url': 'http://designer.local/design', 'by_reference': True}}
+    sources = [{'name': 'disk', 'kind': 'filesystem', 'globs': ['/media/films']}]
+
+    problems = register_profile_designers(profile_from_config(
+        {'sources': sources, 'designers': declared, 'run': {'work_dir': str(tmp_path)}}))
+
+    assert problems == [] and takes_sources('test.shared')
+    unregister_designer('test.shared')
+    [problem] = register_profile_designers(profile_from_config({'sources': sources, 'designers': declared}))
+    assert 'no work directory to share' in problem

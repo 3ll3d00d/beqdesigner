@@ -388,8 +388,11 @@ publish=, retry_failed=, should_cancel=, on_progress=)` (`Progress(done, total, 
 `run --designer NAME` needs the designer registered in the process. The GUI does this from Preferences; the CLI
 declares them itself, in the config file's `designers:` or with `--designer-url NAME=URL` (repeatable, wins over
 the file), or you can pass an `http(s)://` URL as `--designer`. A designer is an HTTP endpoint speaking the
-contract in `design/designer-interface.md`; the config form also takes a `timeout` (seconds, default 300) and
-`headers` (e.g. a bearer token). An unknown name stops the run before anything is extracted.
+contract in `design/designer-interface.md`; the config form also takes a `timeout` (seconds, default 300),
+`headers` (e.g. a bearer token) and `by_reference: true`. With `by_reference`, the designer is sent the extracted
+WAVs under the run's `work_dir` by path, not the samples (contract 1.2, §7.1). The designer must see the same
+directory, mounted as its shared root, and answer `/health` with `shared_root: true`. A `422` from it fails the
+design; nothing is retried inline. An unknown name stops the run before anything is extracted.
 
 ### Config file
 
@@ -418,6 +421,7 @@ sources:                         # a source's own settings; the run section may 
 designers:                       # config only for timeout/headers; see Designers above
   rolloff: http://designer.local:8080/design
   private: {url: 'https://designer.example/design', timeout: 600, headers: {Authorization: 'Bearer TOKEN'}}
+  local: {url: 'http://127.0.0.1:8420/design', by_reference: true}   # sees work_dir itself: sent paths, not samples
 
 run:
   source: jriver                 # or filesystem

@@ -423,3 +423,75 @@ def test_design_and_queue_names_the_wavs_its_arrays_came_from(title, tmp_path):
     assert seen[0] == AudioSources.from_wavs(sources.mono.path, mc_path, list(channels))
     # two labels for a three-column file: no label may name another column, so the channels have no sources
     assert seen[1] == AudioSources.from_wavs(sources.mono.path)
+
+
+# --- configuration (D1.4): `by_reference: true` under a profile's `designers:` -------------------------------------
+
+def test_a_declared_by_reference_designer_shares_the_work_dir_and_takes_sources(monkeypatch):
+    from pipeline.designer import http_binding
+    made = {}
+    monkeypatch.setattr(http_binding, 'http_designer', lambda url, **options: made.setdefault(url, options) and None
+                        or (lambda request, sources=None: None))
+
+    names = http_binding.register_declared_designers({
+        'shared': {'url': 'http://s/design', 'by_reference': True, 'timeout': 60},
+        'plain': 'http://p/design', 'off': {'url': 'http://o/design', 'by_reference': False}}, shared_root='/work')
+
+    assert names == ['shared', 'plain', 'off']
+    assert made['http://s/design'] == {'timeout': 60.0, 'headers': None, 'shared_root': '/work'}
+    assert 'shared_root' not in made['http://p/design'] and 'shared_root' not in made['http://o/design']
+    assert takes_sources('shared') and not takes_sources('plain') and not takes_sources('off')
+
+
+@pytest.mark.parametrize('declared, root, message', [
+    ({'url': 'http://s/design', 'by_reference': True}, None, 'no work directory to share'),
+    ({'url': 'http://s/design', 'by_reference': 'yes'}, '/work', 'by_reference must be true or false'),
+])
+def test_a_by_reference_designer_needs_a_work_dir_and_a_boolean(declared, root, message):
+    from pipeline.designer.http_binding import register_declared_designers
+    with pytest.raises(ValueError, match=message):
+        register_declared_designers({'shared': declared}, shared_root=root)
+
+
+def test_a_designer_declared_without_the_flag_never_gets_a_file(designer, title):
+    ''' Even with the sources in hand and the WAVs under the work directory, a plain declaration sends everything inline. '''
+    from pipeline.config import AnalysisConfig
+    from pipeline.designer.http_binding import register_declared_designers
+    from pipeline.orchestrate import Session
+    from model.signal import Signal, SingleChannelSignalData
+    url, handler = designer
+    request, sources, root = title
+    register_declared_designers({'test.plain': url, 'test.shared': {'url': url, 'by_reference': True}}, shared_root=root)
+    session = Session(AnalysisConfig(target_fs=FS))
+    sig = SingleChannelSignalData(name='t', signal=Signal('t', request.mono_mix, fs=FS))
+
+    session.design(sig, 'test.plain', channels=request.channels, sources=sources)
+    session.design(sig, 'test.shared', channels=request.channels, sources=sources)
+
+    plain, shared = handler.bodies
+    assert plain['contract_version'] == '1.1'
+    assert all('data_base64' in v for v in [plain['mono_mix'], *plain['channels'].values()])
+    assert shared['contract_version'] == '1.2'
+    assert all('file' in v for v in [shared['mono_mix'], *shared['channels'].values()])
+
+
+def test_a_run_config_registers_a_by_reference_designer_on_its_work_dir(designer, title):
+    from pipeline.library.setup import run_config_from_values
+    url, handler = designer
+    request, sources, root = title
+    config = {'sources': [{'name': 'disk', 'kind': 'filesystem', 'globs': ['/media/films']}],
+              'designers': {'test.run': {'url': url, 'by_reference': True}}}
+
+    run_config_from_values({'work_dir': root, 'queue_dir': '/q', 'designer': 'test.run'}, config)
+
+    assert takes_sources('test.run')
+    from pipeline.designer.registry import get_designer
+    get_designer('test.run')(request, sources=sources)
+    assert handler.bodies[0]['mono_mix']['file'] == {'path': 't_1/mono.wav', 'channel': 0}
+
+
+def test_the_service_keeps_by_reference_when_it_adds_headers_from_the_environment():
+    from pipeline.service.context import apply_secrets
+    applied = apply_secrets({'designers': {'d': {'url': 'http://d', 'by_reference': True}}},
+                            {'BEQ_DESIGNER_HEADERS_D': '{"A": "1"}'})
+    assert applied['designers']['d'] == {'url': 'http://d', 'by_reference': True, 'headers': {'A': '1'}}

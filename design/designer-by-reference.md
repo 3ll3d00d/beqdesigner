@@ -1,16 +1,16 @@
-# Designer requests by reference — design, not built
+# Designer requests by reference
 
-**Status:** being built, unparked 2026-09-30 when beqforge started on its
-side of R2b (its R2a is done, `7951cc0`). Progress: D1.1-D1.3 done. D1.4 not started,
-so nothing registers a by-reference designer yet and the caller still sends
-every array inline.
+**Status:** built on this repo's side (D1.1-D1.4, 2026-09-30), unparked
+when beqforge started on its side of R2b (its R2a is done, `7951cc0`). A
+designer declared `by_reference: true` in a profile is sent the extracted
+WAVs by path; every other designer is sent every array inline, as before.
 Agreed with beqforge (§6, their `e96129a`). Answers beqforge's R2 ("a
 shared-filesystem mode with beqdesigner", beqforge `IMPROVEMENT_PLAN.md`,
 `3d5db14`), which asks for
 part of the change here, since [`designer-interface.md`](designer-interface.md)
-is this repo's contract. Tracked as [D1](outstanding.md#d1--designer-requests-by-reference).
-Nothing here changes the contract until a chunk below is built and
-`designer-interface.md` is revised with it.
+is this repo's contract. Recorded as built in [`implemented.md`](implemented.md#design-and-review) (formerly outstanding item D1).
+The contract itself is `designer-interface.md` v1.2, §7.1 "Arrays by
+reference". Where this document and the contract differ, the contract wins.
 
 ## 1. What R2 asks, and what it already has
 
@@ -240,7 +240,17 @@ library path to a fake by-reference designer, which decodes each `file` as
 §3 says; its arrays are byte-identical to the inline encoding of the same
 request, with the same `fs` and frame count for mono and every channel.
 
-**D1.4 — configuration.** The profile's `designers:` entry gains
+**D1.4 — configuration. Done.** A `designers:` entry takes
+`by_reference: true`, and the run's `work_dir` is its shared root:
+`register_declared_designers(..., shared_root=)` from `run_config_from_values`
+(the CLI and the service) and from `register_profile_designers` (the work
+list). A `by_reference` entry with no work directory, or a non-boolean
+value, is refused with a message. The service's
+`BEQ_DESIGNER_HEADERS_<NAME>` keeps the flag. GUI Preferences' designers stay
+inline. User docs: `docs/library/unattended.md` and the pipeline README.
+Tests are in `test_pipeline_designer_by_reference.py` (parsing, a plain
+designer never gets `file`, the run config, the service) and
+`gui/test_worklist_profile.py`. As first planned: the profile's `designers:` entry gains
 `by_reference: true` (the service's `BEQ_DESIGNER_*` environment variables and
 the work-list Settings follow `register_declared_designers`). The shared root
 is always the run's `work_dir`, so there is no second path to get wrong.

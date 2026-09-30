@@ -4,10 +4,9 @@
 included (reviewed, and overridable by a person, on the title page) — both bindings
 (in-process callable and HTTP, `§7.1`) exist; see
 [`src/main/python/pipeline/README.md`](../src/main/python/pipeline/README.md#the-designer-contract)
-for where. 1.2's arrays by reference (§7.1) are specified here, and the caller
-side is being built in steps D1.2-D1.4 of
-[`designer-by-reference.md`](designer-by-reference.md). Until those land, the caller sends
-every array inline. This document remains the thing both sides build to and stays
+for where. 1.2's arrays by reference (§7.1) are implemented on this repo's side too. They
+are sent only to a designer declared `by_reference: true` in a profile
+([`designer-by-reference.md`](designer-by-reference.md)). This document remains the thing both sides build to and stays
 authoritative for the field-level contract; it is not a plan. Delivered
 caller behavior is in [`implemented.md`](implemented.md); open work is in
 [`outstanding.md`](outstanding.md).

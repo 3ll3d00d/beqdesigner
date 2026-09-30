@@ -35,7 +35,7 @@ not:
 | 40 | Not started beyond a first-stream stub | -- | [J2](outstanding.md#j2--resolve-jrivers-selected-audio-stream) |
 | 45a | Partial: decline shown as designer commentary built | `063c922` | [W1](outstanding.md#w1--retry-failures-and-title-page-details) |
 | 45b | Partial: codec/channel requests, automatic audio type and rescan backfill built | `62270b4`, `cb9456f` | [W2](outstanding.md#w2--stream-evidence-and-truthful-stages) |
-| Designer requests by reference (beqforge R2) | Not started; design, not built | -- | [D1](outstanding.md#d1--designer-requests-by-reference), [design](designer-by-reference.md) |
+| Designer requests by reference (beqforge R2, contract 1.2) | Built | D1.1 `bfff8e5`, D1.2 `4053773`, D1.3 `a303d20`, D1.4 8f61498 | [Implemented design](implemented.md#design-and-review), [design](designer-by-reference.md) |
 | Catalogue as input (D6), reviewer policy (former §9) | Product decisions | -- | [O1, O2](outstanding.md#optional-idea) |
 | Intermittent test failures | Watching | -- | [T1, T2](outstanding.md#test-health) |
 

@@ -139,6 +139,18 @@ button reads *Override & accept...*. Accepting one asks first, with the reasons
 state and decision lines. A redesign that changes only the rejected designs is
 still a changed design, and is not accepted blind.
 
+A designer declared `by_reference: true` in the profile (contract 1.2, §7.1;
+[`designer-by-reference.md`](designer-by-reference.md)) is sent each array
+whose WAV is under the run's `work_dir` as a relative path, a column and the
+SHA-256 of the samples, rather than the samples themselves. `design_and_queue`
+names the mono WAV and the kept multichannel WAV it loaded
+(`pipeline.designer.sources`), and the binding sends an array inline when the
+WAV's header shows it cannot be that array unchanged. Before the first request
+by reference, the binding checks the designer's `/health` once. A `422` fails
+the design with the designer's reason and is never retried inline. Every
+other designer, and every array without a usable source, is sent inline as
+in 1.1, and such a request still says `"1.1"`.
+
 Every extracted library title has mono and, with a kept multichannel
 extraction, diagnostic multichannel `.beq` project files: the run writes any
 that are missing, flat, as soon as the title is extracted, and design replaces

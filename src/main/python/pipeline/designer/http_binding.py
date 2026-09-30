@@ -258,12 +258,16 @@ def http_designer(url: str, timeout: float = 300.0, headers: Optional[dict] = No
     return _call
 
 
-def register_declared_designers(declared: Optional[Mapping[str, Any]]) -> list:
+def register_declared_designers(declared: Optional[Mapping[str, Any]], shared_root: Optional[str] = None) -> list:
     '''
     Registers the HTTP designers a configuration file declares under `designers:` -- name -> URL, or name -> {url, timeout,
-    headers} -- so that a run can find them. The CLI does it for its config file, and the work list for its profile.
+    headers, by_reference} -- so that a run can find them. The CLI does it for its config file, and the work list for its
+    profile.
+    :param shared_root: the run's work directory: the root a designer declared `by_reference: true` shares with this
+        side (designer-interface.md §7.1, 1.2). Such a designer is sent each array whose WAV is under it by reference.
     :return: the names registered.
-    :raises ValueError: if an entry has no URL (nothing after it is registered).
+    :raises ValueError: if an entry has no URL, or is by_reference with no work directory to share (nothing after it is
+        registered).
     '''
     names = []
     for name, spec in (declared or {}).items():
@@ -271,7 +275,14 @@ def register_declared_designers(declared: Optional[Mapping[str, Any]]) -> list:
             spec = {'url': spec}
         if not isinstance(spec, Mapping) or not spec.get('url'):
             raise ValueError(f"designer {name!r} needs a url")
-        register_designer(name, http_designer(spec['url'], timeout=float(spec.get('timeout', 300.0)),
-                                              headers=spec.get('headers') or None))
+        options = {'timeout': float(spec.get('timeout', 300.0)), 'headers': spec.get('headers') or None}
+        by_reference = spec.get('by_reference', False)
+        if not isinstance(by_reference, bool):
+            raise ValueError(f"designer {name!r}: by_reference must be true or false, not {by_reference!r}")
+        if by_reference:
+            if not shared_root:
+                raise ValueError(f"designer {name!r} is by_reference, but there is no work directory to share with it")
+            options['shared_root'] = shared_root
+        register_designer(name, http_designer(spec['url'], **options), takes_sources=by_reference)
         names.append(name)
     return names

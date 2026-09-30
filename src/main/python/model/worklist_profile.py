@@ -166,7 +166,7 @@ def register_profile_designers(profile: Profile) -> List[str]:
     '''
     from pipeline.designer.http_binding import register_declared_designers
     try:
-        register_declared_designers(profile.config.get('designers'))
+        register_declared_designers(profile.config.get('designers'), shared_root=profile.work_dir or None)
     except (ValueError, TypeError, AttributeError) as error:
         return [f"The profile's `designers:` section is not usable: {error}"]
     return []
