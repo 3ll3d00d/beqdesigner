@@ -282,3 +282,22 @@ def test_catalogue_failure_and_refresh_recovery_are_visible(qtbot, tmp_path, mon
     qtbot.waitUntil(lambda: pane.entryChoice.count() == 1)
     assert 'Catalogue updated' in pane.statusLabel.text()
     assert all(thread is not threading.main_thread() for thread in calls)
+
+
+def test_controls_and_track_details_share_a_column_beside_the_image(qtbot, tmp_path):
+    from test_worklist_title import _prefs
+    view = published.PublishedPanel(_prefs(tmp_path))
+    qtbot.addWidget(view)
+    view.resize(1000, 600)
+    view.show()
+    qtbot.waitUntil(lambda: view.image.width() > 1)
+    assert view.splitter.orientation() == Qt.Orientation.Horizontal
+    assert view.splitter.count() == 2
+    assert view.splitter.widget(0) is view.controlsColumn
+    assert view.splitter.widget(1) is view.image
+    for widget in (view.otherTracks, view.refreshButton, view.statusLabel, view.entryChoice,
+                   view.imageChoice, view.catalogueButton, view.details):
+        assert view.controlsColumn.isAncestorOf(widget)
+    assert view.image.geometry().left() >= view.controlsColumn.geometry().right()
+    assert view.image.height() == view.controlsColumn.height()
+    assert view.details.height() > 130

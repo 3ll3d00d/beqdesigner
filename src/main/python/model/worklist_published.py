@@ -6,9 +6,9 @@ import os
 import tempfile
 
 import requests
-from qtpy.QtCore import QObject, QRunnable, QThreadPool, QUrl, Signal
+from qtpy.QtCore import QObject, QRunnable, QThreadPool, Qt, QUrl, Signal
 from qtpy.QtGui import QDesktopServices, QPixmap
-from qtpy.QtWidgets import QCheckBox, QComboBox, QHBoxLayout, QLabel, QPlainTextEdit, QPushButton, QVBoxLayout, QWidget
+from qtpy.QtWidgets import QCheckBox, QComboBox, QHBoxLayout, QLabel, QPlainTextEdit, QPushButton, QSplitter, QVBoxLayout, QWidget
 
 from model.catalogue import CatalogueEntry, DatabaseDownloader, load_catalogue
 from model.execution_events import redact_text
@@ -102,7 +102,7 @@ class _LookupJob(QRunnable):
 
 
 class PublishedPanel(QWidget):
-    """Author/entry and image selectors above one image, with lazy lookup and stale-image protection."""
+    """Controls and track details beside one image, with lazy lookup and stale-image protection."""
     def __init__(self, preferences, parent=None):
         super().__init__(parent)
         self._preferences = preferences
@@ -110,41 +110,47 @@ class PublishedPanel(QWidget):
         self._wanted_url = ''
         self._note = ''
         self.png = b''
-        layout = QVBoxLayout(self)
-        controls = QHBoxLayout()
+        layout = QHBoxLayout(self)
+        self.splitter = QSplitter(Qt.Orientation.Horizontal, self)
+        layout.addWidget(self.splitter)
+        self.controlsColumn = QWidget(self.splitter)
+        column = QVBoxLayout(self.controlsColumn)
+        controls = QVBoxLayout()
         self.otherTracks = QCheckBox('Include other tracks / editions', self)
         self.otherTracks.toggled.connect(self._populate)
         controls.addWidget(self.otherTracks)
-        controls.addStretch()
         self.refreshButton = QPushButton('Refresh catalogue', self)
         self.refreshButton.setAutoDefault(False)
         self.refreshButton.clicked.connect(lambda: self._load(refresh=True))
         controls.addWidget(self.refreshButton)
-        layout.addLayout(controls)
+        column.addLayout(controls)
         self.statusLabel = QLabel(self)
         self.statusLabel.setWordWrap(True)
-        layout.addWidget(self.statusLabel)
-        selectors = QHBoxLayout()
+        column.addWidget(self.statusLabel)
+        selectors = QVBoxLayout()
         self.entryChoice = QComboBox(self)
         self.entryChoice.setMinimumContentsLength(15)
         self.entryChoice.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.entryChoice.currentIndexChanged.connect(self._select_entry)
-        selectors.addWidget(self.entryChoice, 2)
+        selectors.addWidget(self.entryChoice)
         self.imageChoice = QComboBox(self)
         self.imageChoice.currentIndexChanged.connect(self._select_image)
         self.imageChoice.activated.connect(self._select_image)
-        selectors.addWidget(self.imageChoice, 1)
+        selectors.addWidget(self.imageChoice)
         self.catalogueButton = QPushButton('Open catalogue page', self)
         self.catalogueButton.setAutoDefault(False)
         self.catalogueButton.clicked.connect(self._open_catalogue)
         selectors.addWidget(self.catalogueButton)
-        layout.addLayout(selectors)
+        column.addLayout(selectors)
         self.details = QPlainTextEdit(self)
         self.details.setReadOnly(True)
-        self.details.setMaximumHeight(130)
-        layout.addWidget(self.details)
+        column.addWidget(self.details, 1)
         self.image = ScaledImage(self)
-        layout.addWidget(self.image, 1)
+        self.splitter.addWidget(self.controlsColumn)
+        self.splitter.addWidget(self.image)
+        self.splitter.setStretchFactor(0, 1)
+        self.splitter.setStretchFactor(1, 2)
+        self.splitter.setSizes([320, 640])
         self.set_target(None)
 
     def set_target(self, target):

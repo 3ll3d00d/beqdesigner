@@ -341,8 +341,9 @@ fallback, then audio and known edition/language/source and TV episode metadata.
 An explicit checkbox broadens to other tracks/editions of the same title.
 `worklist_published` shares Browse Catalogue’s `database.json` cache, performs
 bounded downloads and atomic replacements on a worker, and keeps cached entries
-available after refresh failures. Author/entry and image selectors show metadata
-and one aspect-preserving chart/heatmap in the pane. Images have validated caches
+available after refresh failures. A resizable horizontal split places all
+controls, selectors and track details in the left column, with one
+aspect-preserving chart/heatmap filling the right column. Images have validated caches
 keyed by complete URL; pending requests coalesce and stale image results are
 ignored after title/selection changes or leaving. This is read-only browsing,
 with an explicit browser link, not an audio-identity check or filter import.
