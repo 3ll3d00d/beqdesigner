@@ -266,7 +266,7 @@ def test_double_clicking_a_row_opens_the_page_in_place_of_the_table(qtbot, tmp_p
     assert page.titleLabel.text() == 'Arrival (2001)'
     assert page.subtitleLabel.text() == 'films \u00b7 movie'
     assert page.stateLabel.text() == 'Waiting for a decision. conf 0.90 - 2 candidates'
-    assert page.positionLabel.text() == f'{row + 1} of {len(window.listed_ids())}'
+    assert page.positionLabel.text() == '2 of 3'
 
 
 def test_enter_on_the_table_opens_the_current_title_but_enter_in_the_search_box_does_not(qtbot, tmp_path):
@@ -949,3 +949,23 @@ def test_header_wraps_long_titles_and_errors_and_keeps_action_errors_inline(qtbo
     assert page.actions_bar.isVisibleTo(page)
     page.actions_bar.show_message('')
     assert page.actions_bar.isHidden()
+
+
+def test_review_session_counts_only_review_titles_even_when_opened_from_all(qtbot, tmp_path):
+    review_ids = [f'review-{i:02d}' for i in range(16)]
+    rows = [_row(item, item, 'review', i + 1, review_state='pending') for i, item in enumerate(review_ids)]
+    rows += [_row(f'extract-{i}', f'Extract {i}', 'extract', 1) for i in range(30)]
+    window = _window(qtbot, tmp_path, [(item, {}) for item in review_ids], rows=rows)
+    assert len(window.listed_ids()) == 46
+    assert window.open_title(review_ids[4])
+    page = window.title_page
+    assert len(page.ids) == 16 and set(page.ids) == set(review_ids)
+    assert page.positionLabel.text() == f'{page.ids.index(review_ids[4]) + 1} of 16'
+    assert page.previousButton.isHidden() and page.nextButton.isHidden()
+    assert page.skipButton.isVisibleTo(page) and page.acceptButton.isVisibleTo(page)
+    assert page.actions_bar.reviseButton.text() == 'More...'
+    assert page.navLayout.indexOf(page.decisionLayout) >= 0
+    assert page.titleRootLayout.indexOf(page.decisionLayout) == -1
+    assert page.accept()
+    assert page.current_id in review_ids and page.positionLabel.text().endswith('of 16')
+    assert not page.decisionLabel.isVisibleTo(page)

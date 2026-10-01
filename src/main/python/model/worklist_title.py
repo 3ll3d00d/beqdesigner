@@ -107,6 +107,7 @@ class TitlePage(TitleDecisions, TitleActions, QWidget, Ui_titlePage):
         self.confirm_override = confirm_override or self._ask_override
         self._offered_at_row: List[Optional[int]] = []   # the candidate list's rows: an index into `offered`, None for a heading
         self._ids: List[str] = []
+        self._review_session = False
         self._title_id = ''
         self._entry: Optional[QueueEntry] = None
         self._error = ''
@@ -210,6 +211,11 @@ class TitlePage(TitleDecisions, TitleActions, QWidget, Ui_titlePage):
     def open(self, title_id: str, ids: Sequence[str]) -> None:
         ''' Shows `title_id`, with `ids` (the work list's filtered and sorted titles) to walk through. '''
         self._ids = list(ids) if title_id in ids else [title_id, *ids]
+        rows = self._rows()
+        self._review_session = bool(self._ids) and all(
+            rows.get(item) is not None and rows[item].needs == 'review' for item in self._ids)
+        self.previousButton.setVisible(not self._review_session)
+        self.nextButton.setVisible(not self._review_session)
         self.show_title(title_id)
 
     def forget_decisions(self, revised: bool = True) -> None:
@@ -403,6 +409,10 @@ class TitlePage(TitleDecisions, TitleActions, QWidget, Ui_titlePage):
             waiting = sum(1 for i in self._ids if self._probably_waiting(i, rows))
             text = f'{waiting:,} in this list waiting for a decision.' if waiting else ''
         self.decisionLabel.setText(text)
+        self.decisionLabel.setToolTip(text)
+        self.decisionLabel.hide()
+        for button, decision in ((self.acceptButton, 'accept'), (self.rejectButton, 'reject')):
+            button.setToolTip(blocked[decision] or text)
         self.decisionLabel.setStyleSheet(f'color: {warning_colour().name()}' if reason else '')
 
     def refresh_decisions(self) -> None:
@@ -512,6 +522,9 @@ class TitlePage(TitleDecisions, TitleActions, QWidget, Ui_titlePage):
 
     def _say(self, text: str, problem: bool = False) -> None:
         self.decisionLabel.setText(text)
+        self.decisionLabel.setToolTip(text)
+        self.decisionLabel.hide()
+        self._bar.show_message(text, problem)
         self.decisionLabel.setStyleSheet(f'color: {warning_colour().name()}' if problem else '')
 
     def _on_candidate_picked(self, row: int) -> None:

@@ -266,9 +266,14 @@ bulk accept or revise wait and start in order when it ends, and Cancel drops
 them (see *Runs, the lease and joining* below). A
 title page replaces the table in the same window and preserves selection and
 scroll position when closed. Its header places navigation, the title and
-notices/action messages left to right in one compact row; title and notice text
+notices/action messages and decision/workflow controls left to right in one
+compact row; title and notice text
 wraps when space is tight. The duplicate title breadcrumb is hidden, and source,
 status and metadata readiness live in Metadata rather than above the charts.
+Opening a review title scopes navigation and the position count to the review
+titles in the current filtered list, held fixed for that session. Review
+sessions show Accept & next, Skip and Reject instead of Previous/Next, with
+revision and stream choices under More; browsing other states retains Previous/Next.
 The Metadata tab validates required fields,
 autosaves edits, reloads TMDB data on a worker, and handles poster downloads.
 Publish and Commit ask for the target repositories and interlock with running

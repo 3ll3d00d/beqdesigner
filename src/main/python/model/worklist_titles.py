@@ -129,6 +129,11 @@ class WorkListTitles:
                 or (ids[0] if ids else None)
         if title_id is None or title_id not in ids:
             return False
+        # A title needing a decision opens a review session, within the current
+        # search/source/column filters, rather than walking the entire library.
+        rows = self._rows_by_id()
+        if rows.get(title_id) is not None and rows[title_id].needs == 'review':
+            ids = [item for item in ids if rows[item].needs == 'review']
         if self._title_page is None:
             hooks = TitleHooks(open_project=self._open_project, work_dir=self._title_work_dir,
                                analysis_config=lambda: self._setup.settings.config if self._setup.settings else AnalysisConfig(),

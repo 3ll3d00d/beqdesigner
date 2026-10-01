@@ -304,6 +304,9 @@ class TitleActions:
         self._bar.jriverPreferencesButton.setVisible(mapping_problem)
         self._bar.jriverPreferencesButton.setEnabled(mapping_problem and self._hooks.open_jriver_preferences is not None)
         can_choose_stream = self._hooks.choose_audio_stream is not None and self._title_id not in self._running()
+        self._bar.reviseButton.setText('More...' if self._review_session else 'Reopen / Revise...')
+        self._bar.reviseButton.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup if self._review_session
+                                          else QToolButton.ToolButtonPopupMode.MenuButtonPopup)
         self._bar.audioStreamAction.setVisible(self._hooks.choose_audio_stream is not None)
         self._bar.audioStreamAction.setEnabled(can_choose_stream)
         self._bar.audioStreamAction.setToolTip('Choose the source audio stream, then re-extract and redesign this title.'

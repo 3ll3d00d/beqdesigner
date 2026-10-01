@@ -285,13 +285,14 @@ def test_the_project_buttons_never_take_enter_from_a_field(qtbot, tmp_path):
     assert isinstance(bar.reviseButton, QToolButton)    # a tool button is never a default button
 
 
-def test_the_buttons_are_grouped_moving_at_the_top_and_what_happens_to_the_title_at_the_bottom(qtbot, tmp_path):
-    ''' They were in four places. Moving (Previous, Next, Skip) is the top row; Revise and its menu, Reject and Accept are
-        the bottom row; the project buttons are under the chart they edit. '''
+def test_navigation_and_decision_buttons_share_the_top_row(qtbot, tmp_path):
+    ''' Navigation and decisions share the top row; project buttons stay with their chart. '''
     _, page = _page(qtbot, tmp_path, _Opener())
     bar = page.actions_bar
     assert all(page.navLayout.indexOf(b) >= 0 for b in (page.previousButton, page.nextButton, page.skipButton))
-    assert page.decisionLayout.indexOf(bar.workflow) == 0 and page.decisionLayout.indexOf(page.skipButton) < 0
+    assert page.navLayout.indexOf(page.decisionLayout) >= 0
+    assert page.titleRootLayout.indexOf(page.decisionLayout) == -1
+    assert page.decisionLayout.indexOf(bar.workflow) == 0
     assert page.filterTabLayout.indexOf(bar.projects) >= 0
     assert bar.reviseButton.menu().actions() == [bar.reviseAction, bar.audioStreamAction]
 
