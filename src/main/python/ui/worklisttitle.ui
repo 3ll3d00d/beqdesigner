@@ -11,18 +11,24 @@
     <layout class="QHBoxLayout" name="navLayout">
      <item><widget class="QPushButton" name="backButton"><property name="toolTip"><string>Back to the work list (Esc)</string></property><property name="text"><string>← Back to work list</string></property></widget></item>
      <item><widget class="QLabel" name="crumbLabel"><property name="textFormat"><enum>Qt::PlainText</enum></property><property name="text"><string/></property></widget></item>
-     <item><spacer name="navSpacer"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+     <item>
+      <widget class="QWidget" name="headerPanel">
+       <layout class="QHBoxLayout" name="headerLayout">
+        <property name="leftMargin"><number>0</number></property>
+        <property name="topMargin"><number>0</number></property>
+        <property name="rightMargin"><number>0</number></property>
+        <property name="bottomMargin"><number>0</number></property>
+        <item><widget class="QLabel" name="titleLabel"><property name="wordWrap"><bool>true</bool></property><property name="textFormat"><enum>Qt::PlainText</enum></property><property name="text"><string/></property></widget></item>
+        <item><widget class="QLabel" name="noticeLabel"><property name="wordWrap"><bool>true</bool></property><property name="textFormat"><enum>Qt::PlainText</enum></property><property name="text"><string/></property></widget></item>
+       </layout>
+      </widget>
+     </item>
      <item><widget class="QPushButton" name="previousButton"><property name="toolTip"><string>The previous title in the list (Alt+Left)</string></property><property name="text"><string>Previous</string></property></widget></item>
      <item><widget class="QLabel" name="positionLabel"><property name="text"><string/></property></widget></item>
      <item><widget class="QPushButton" name="nextButton"><property name="toolTip"><string>The next title in the list (Alt+Right)</string></property><property name="text"><string>Next</string></property></widget></item>
      <item><widget class="QPushButton" name="skipButton"><property name="toolTip"><string>Go to the next title waiting for a decision, leaving this one as it is (S)</string></property><property name="text"><string>Skip</string></property></widget></item>
     </layout>
    </item>
-   <item><widget class="QLabel" name="titleLabel"><property name="textFormat"><enum>Qt::PlainText</enum></property><property name="text"><string/></property></widget></item>
-   <item><widget class="QLabel" name="subtitleLabel"><property name="textFormat"><enum>Qt::PlainText</enum></property><property name="text"><string/></property></widget></item>
-   <item><widget class="QLabel" name="stateLabel"><property name="wordWrap"><bool>true</bool></property><property name="textFormat"><enum>Qt::PlainText</enum></property><property name="text"><string/></property></widget></item>
-   <item><widget class="QLabel" name="badgeLabel"><property name="toolTip"><string>Whether the metadata is complete enough to publish (the same test the work list applies): the title, the year and at least one audio type</string></property><property name="wordWrap"><bool>true</bool></property><property name="textFormat"><enum>Qt::PlainText</enum></property><property name="text"><string/></property></widget></item>
-   <item><widget class="QLabel" name="noticeLabel"><property name="wordWrap"><bool>true</bool></property><property name="textFormat"><enum>Qt::PlainText</enum></property><property name="text"><string/></property></widget></item>
    <item>
     <widget class="QSplitter" name="titleSplitter">
      <property name="orientation"><enum>Qt::Horizontal</enum></property>
@@ -57,7 +63,11 @@
       </widget>
       <widget class="QWidget" name="metadataTab">
        <attribute name="title"><string>Metadata</string></attribute>
-       <layout class="QVBoxLayout" name="metadataTabLayout"/>
+       <layout class="QVBoxLayout" name="metadataTabLayout">
+        <item><widget class="QLabel" name="subtitleLabel"><property name="textFormat"><enum>Qt::PlainText</enum></property><property name="text"><string/></property></widget></item>
+        <item><widget class="QLabel" name="stateLabel"><property name="wordWrap"><bool>true</bool></property><property name="textFormat"><enum>Qt::PlainText</enum></property><property name="text"><string/></property></widget></item>
+        <item><widget class="QLabel" name="badgeLabel"><property name="toolTip"><string>Whether the metadata is complete enough to publish (the same test the work list applies): the title, the year and at least one audio type</string></property><property name="wordWrap"><bool>true</bool></property><property name="textFormat"><enum>Qt::PlainText</enum></property><property name="text"><string/></property></widget></item>
+       </layout>
       </widget>
      </widget>
     </widget>

@@ -152,6 +152,7 @@ class TitleActionsBar(QWidget):
     def show_message(self, text: str, problem: bool = False) -> None:
         self.messageLabel.setText(text)
         self.messageLabel.setVisible(bool(text))
+        self.setVisible(bool(text))
         self.messageLabel.setStyleSheet(f'color: {warning_colour().name()}' if problem else '')
 
 
@@ -171,7 +172,8 @@ class TitleActions:
         self.rightTabs.setTabVisible(self._failure_tab, False)
         self._bar.detailsButton.clicked.connect(lambda: self._hooks.open_run_details(self._title_id)
                                                 if self._hooks.open_run_details else None)
-        self.titleRootLayout.insertWidget(self.titleRootLayout.indexOf(self.noticeLabel) + 1, self._bar)
+        self.headerLayout.addWidget(self._bar)
+        self._bar.hide()
         self.filterTabLayout.addWidget(self._bar.projects)      # beside the chart the projects edit
         self.decisionLayout.insertWidget(0, self._bar.workflow)  # with the other steps that change what happens to the title
         self._bar.open_requested.connect(lambda kind: self.open_project(kind))

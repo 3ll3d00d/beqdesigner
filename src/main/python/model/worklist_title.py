@@ -116,8 +116,10 @@ class TitlePage(TitleDecisions, TitleActions, QWidget, Ui_titlePage):
         self._problems: List[str] = []
         font = self.titleLabel.font()
         font.setBold(True)
-        font.setPointSize(font.pointSize() + 4)
         self.titleLabel.setFont(font)
+        self.crumbLabel.hide()
+        self.navLayout.setStretch(2, 1)
+        self.headerLayout.setStretch(1, 1)
         self.titleSplitter.setStretchFactor(0, 0)
         self.titleSplitter.setStretchFactor(1, 1)
         self.titleSplitter.setSizes([440, 660])   # a candidate's line is long: give the list room to read it
@@ -292,7 +294,7 @@ class TitlePage(TitleDecisions, TitleActions, QWidget, Ui_titlePage):
         heading = f'{title} ({year})' if year else title
         self.crumbLabel.setText(f'› {heading}')
         self.titleLabel.setText(heading)
-        self.titleLabel.setToolTip(self._title_id)
+        self.titleLabel.setToolTip('\n'.join(p for p in (self._title_id, row.path if row else '') if p))
         parts = [row.source, row.kind, *row.flags] if row is not None else []
         self.subtitleLabel.setText(' · '.join(p for p in parts if p))
         self.subtitleLabel.setToolTip(row.path if row is not None and row.path else '')

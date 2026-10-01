@@ -265,7 +265,11 @@ button and *Retry failed* add extract/design work to it; Publish, Commit and a
 bulk accept or revise wait and start in order when it ends, and Cancel drops
 them (see *Runs, the lease and joining* below). A
 title page replaces the table in the same window and preserves selection and
-scroll position when closed. The Metadata tab validates required fields,
+scroll position when closed. Its header places navigation, the title and
+notices/action messages left to right in one compact row; title and notice text
+wraps when space is tight. The duplicate title breadcrumb is hidden, and source,
+status and metadata readiness live in Metadata rather than above the charts.
+The Metadata tab validates required fields,
 autosaves edits, reloads TMDB data on a worker, and handles poster downloads.
 Publish and Commit ask for the target repositories and interlock with running
 work. Review Folder uses the same title and publish/commit behavior over a

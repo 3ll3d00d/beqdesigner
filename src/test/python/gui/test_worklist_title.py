@@ -914,3 +914,38 @@ def test_accepting_on_the_page_moves_the_titles_from_review_to_publish_once_the_
     assert needs() == {'fs-a': 'publish', 'fs-b': 'publish'}
     assert window.publishButton.text() == 'Publish 2'
     assert QApplication.activeModalWidget() is None
+
+
+def test_header_uses_one_title_row_and_moves_duplicate_details_into_metadata(qtbot, tmp_path):
+    window = _window(qtbot, tmp_path, REVIEWABLE)
+    page = _open(qtbot, window, 'r-alien')
+    qtbot.wait(10)
+    assert page.crumbLabel.isHidden()
+    assert page.navLayout.indexOf(page.headerPanel) >= 0
+    assert page.titleRootLayout.indexOf(page.headerPanel) == -1
+    assert page.titleLabel.parentWidget() is page.headerPanel
+    assert page.noticeLabel.parentWidget() is page.headerPanel
+    assert page.titleLabel.wordWrap() and page.noticeLabel.wordWrap()
+    assert page.headerPanel.height() <= page.titleLabel.fontMetrics().height() * 2
+    for label in (page.subtitleLabel, page.stateLabel, page.badgeLabel):
+        assert label.parentWidget() is page.metadataTab
+        assert not label.isVisibleTo(page)
+    page.rightTabs.setCurrentWidget(page.metadataTab)
+    assert page.badgeLabel.isVisibleTo(page)
+
+
+def test_header_wraps_long_titles_and_errors_and_keeps_action_errors_inline(qtbot, tmp_path):
+    window = _window(qtbot, tmp_path, REVIEWABLE)
+    page = _open(qtbot, window, 'r-alien')
+    page.titleLabel.setText('A very long movie title with an extended edition name ' * 4)
+    page._error = 'The queue entry could not be read: ' + 'a useful error explanation ' * 8
+    page._render_header({})
+    page.titleLabel.setText('A very long movie title with an extended edition name ' * 4)
+    assert page.noticeLabel.isVisibleTo(page) and 'could not be read' in page.noticeLabel.text()
+    assert page.headerLayout.hasHeightForWidth()
+    assert page.headerLayout.heightForWidth(400) > page.headerLayout.heightForWidth(1400)
+    page.actions_bar.show_message('Could not open the project.', problem=True)
+    assert page.actions_bar.parentWidget() is page.headerPanel
+    assert page.actions_bar.isVisibleTo(page)
+    page.actions_bar.show_message('')
+    assert page.actions_bar.isHidden()
