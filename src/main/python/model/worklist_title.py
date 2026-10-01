@@ -525,6 +525,7 @@ class TitlePage(TitleDecisions, TitleActions, QWidget, Ui_titlePage):
     def _refresh_published(self) -> None:
         if hasattr(self, 'publishedPanel'):
             self.publishedPanel.set_target(catalogue_target(self._entry, self._rows().get(self._title_id), self._defaults()))
+            self.publishedPanel.set_our_filter(self._chart_data(), f'Selected design {self._picked + 1}')
 
     def _refresh_spectrum(self, force=False) -> None:
         if not hasattr(self, 'spectrumPanel'):

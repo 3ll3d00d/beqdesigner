@@ -292,12 +292,42 @@ def test_controls_and_track_details_share_a_column_beside_the_image(qtbot, tmp_p
     view.show()
     qtbot.waitUntil(lambda: view.image.width() > 1)
     assert view.splitter.orientation() == Qt.Orientation.Horizontal
-    assert view.splitter.count() == 2
+    assert view.splitter.count() == 3
+    assert view.ourPane.isHidden()
     assert view.splitter.widget(0) is view.controlsColumn
     assert view.splitter.widget(1) is view.image
     for widget in (view.otherTracks, view.refreshButton, view.statusLabel, view.entryChoice,
-                   view.imageChoice, view.catalogueButton, view.details):
+                   view.imageChoice, view.catalogueButton, view.compareOurFilter, view.details):
         assert view.controlsColumn.isAncestorOf(widget)
     assert view.image.geometry().left() >= view.controlsColumn.geometry().right()
     assert view.image.height() == view.controlsColumn.height()
     assert view.details.height() > 130
+
+
+def test_our_filter_can_be_shown_beside_the_published_image_and_follows_the_candidate(qtbot, tmp_path, monkeypatch):
+    from test_worklist_title import REVIEWABLE
+    monkeypatch.setattr(published, 'published_catalogue', lambda *_: ([entry(title='r-alien', year=2001, theMovieDB='', images=['https://images/chart.png'])], 'Ready'))
+    monkeypatch.setattr(published, 'published_image', lambda *_: png())
+    window = _window(qtbot, tmp_path, entries=REVIEWABLE)
+    page = _open(qtbot, window, 'r-alien')
+    page.rightTabs.setCurrentWidget(page.publishedPanel)
+    pane = page.publishedPanel
+    pane.otherTracks.setChecked(True)
+    qtbot.waitUntil(lambda: bool(pane.png))
+    before = pane.png
+    assert pane.ourPane.isHidden()
+    qtbot.mouseClick(pane.compareOurFilter, Qt.MouseButton.LeftButton)
+    assert pane.ourPane.isVisible() and pane.image.isVisible()
+    assert pane.ourChart.canvas.figure.axes[0].get_legend() is None
+    assert pane.splitter.widget(1) is pane.image and pane.splitter.widget(2) is pane.ourPane
+    first = pane._our_curves[-1].y.copy()
+    assert page.pick_candidate(1)
+    assert pane.ourStatus.text() == 'Selected design 2'
+    import numpy as np
+    assert not np.array_equal(first, pane._our_curves[-1].y)
+    qtbot.waitUntil(lambda: bool(pane.png))
+    assert pane.png == before
+    qtbot.mouseClick(pane.compareOurFilter, Qt.MouseButton.LeftButton)
+    assert pane.ourPane.isHidden() and pane.image.isVisible()
+    assert window.close_title()
+    assert pane._our_curves == [] and 'No design' in pane.ourStatus.text()

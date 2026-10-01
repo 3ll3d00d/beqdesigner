@@ -16,6 +16,8 @@ from model.preferences import BEQ_DOWNLOAD_DIR
 from model.worklist_artwork import ArtworkError, cache_path, check_local_image, download_artwork
 from model.worklist_catalogue import matching_entries
 from model.worklist_image import ScaledImage
+from model.magnitude import MagnitudeModel
+from mpl import MplWidget
 
 logger = logging.getLogger('worklist')
 MAX_DATABASE_BYTES = 100 * 1024 * 1024
@@ -119,6 +121,8 @@ class PublishedPanel(QWidget):
         self.otherTracks = QCheckBox('Include other tracks / editions', self)
         self.otherTracks.toggled.connect(self._populate)
         controls.addWidget(self.otherTracks)
+        self.compareOurFilter = QCheckBox('Show our filter alongside', self)
+        controls.addWidget(self.compareOurFilter)
         self.refreshButton = QPushButton('Refresh catalogue', self)
         self.refreshButton.setAutoDefault(False)
         self.refreshButton.clicked.connect(lambda: self._load(refresh=True))
@@ -151,12 +155,43 @@ class PublishedPanel(QWidget):
         self.splitter.setStretchFactor(0, 1)
         self.splitter.setStretchFactor(1, 2)
         self.splitter.setSizes([320, 640])
+        self.ourPane = QWidget(self.splitter)
+        own_layout = QVBoxLayout(self.ourPane)
+        own_layout.addWidget(QLabel('Our filter', self.ourPane))
+        self.ourStatus = QLabel(self.ourPane)
+        self.ourStatus.setWordWrap(True)
+        own_layout.addWidget(self.ourStatus)
+        self.ourChart = MplWidget(self.ourPane)
+        own_layout.addWidget(self.ourChart, 1)
+        self._our_curves = []
+        self._our_magnitude = MagnitudeModel('published-our-filter', self.ourChart, preferences,
+                                             lambda reference=None: self._our_curves, 'Filter', fill_primary=False,
+                                             show_legend=lambda: False)
+        self.splitter.addWidget(self.ourPane)
+        self.splitter.setStretchFactor(2, 2)
+        self.ourPane.hide()
+        self.compareOurFilter.toggled.connect(self._toggle_our_filter)
+        self.set_our_filter([])
         self.set_target(None)
+
+    def set_our_filter(self, curves, note='Selected design'):
+        self._our_curves = curves
+        self.ourStatus.setText(note if curves else 'No design to compare yet.')
+        if self.ourPane.isVisible():
+            self._our_magnitude.redraw()
+
+    def _toggle_our_filter(self, enabled):
+        self.ourPane.setVisible(enabled)
+        if enabled:
+            self.splitter.setSizes([250, 500, 500])
+            self._our_magnitude.redraw()
 
     def set_target(self, target):
         if target == self._target and target is not None:
             return
         self._target = target
+        if target is None:
+            self.set_our_filter([])
         self._populate()
         if self.isVisible():
             self._load()

@@ -343,7 +343,10 @@ An explicit checkbox broadens to other tracks/editions of the same title.
 bounded downloads and atomic replacements on a worker, and keeps cached entries
 available after refresh failures. A resizable horizontal split places all
 controls, selectors and track details in the left column, with one
-aspect-preserving chart/heatmap filling the right column. Images have validated caches
+aspect-preserving chart/heatmap filling the right column. “Show our filter
+alongside” adds a resizable third pane containing the current design’s average
+and peak curves before and after filtering; candidate changes update it and
+leaving the title clears it. Images have validated caches
 keyed by complete URL; pending requests coalesce and stale image results are
 ignored after title/selection changes or leaving. This is read-only browsing,
 with an explicit browser link, not an audio-identity check or filter import.
