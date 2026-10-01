@@ -9,7 +9,7 @@ import re
 from typing import Callable, Mapping, Optional, Sequence
 
 from model.codec import filter_from_json, xydata_from_json
-from model.preferences import get_avg_colour, get_peak_colour
+from model.preferences import AVG_SPECLAB_COLOURS, PEAK_SPECLAB_COLOURS
 from pipeline.library.index import TitleRow
 from pipeline.review import DECLINED_METHOD, QueueEntry
 
@@ -196,9 +196,9 @@ def chart_data(entry: Optional[QueueEntry], picked: int) -> list:
         return []
     track = 'audio track (all channels mixed)' if entry.audio_stream is None \
         else f'audio track {entry.audio_stream + 1} (all channels mixed)'
-    source_curves = [('Average', xydata_from_json(entry.curve), get_avg_colour(0))]
+    source_curves = [('Average', xydata_from_json(entry.curve), AVG_SPECLAB_COLOURS[0])]
     if entry.peak_curve:
-        source_curves.append(('Peak', xydata_from_json(entry.peak_curve), get_peak_colour(0)))
+        source_curves.append(('Peak', xydata_from_json(entry.peak_curve), PEAK_SPECLAB_COLOURS[0]))
     has_filter = 0 <= picked < len(entry.offered)
     result = []
     for kind, source, colour in source_curves:

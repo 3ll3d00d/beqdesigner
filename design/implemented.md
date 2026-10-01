@@ -345,7 +345,9 @@ available after refresh failures. A resizable horizontal split places all
 controls, selectors and track details in the left column, with one
 aspect-preserving chart/heatmap filling the right column. “Show our filter
 alongside” adds a resizable third pane containing the current design’s average
-and peak curves before and after filtering; candidate changes update it and
+and peak curves before and after filtering, without a legend. Both library
+charts always use Speclab average/peak colours irrespective of master
+preferences; candidate changes update the side-by-side chart and
 leaving the title clears it. Images have validated caches
 keyed by complete URL; pending requests coalesce and stale image results are
 ignored after title/selection changes or leaving. This is read-only browsing,

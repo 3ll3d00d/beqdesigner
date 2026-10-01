@@ -143,13 +143,13 @@ def test_the_next_waiting_title_is_after_this_one_and_wraps_round():
     assert next_waiting_id(ids, 'gone', lambda i: i == 'c') == 'c'     # not in the list: from the top
 
 
-def test_chart_data_shows_average_and_peak_before_and_after_the_filter(tmp_path, monkeypatch):
-    from model import worklist_title_text
+@pytest.mark.parametrize('speclab', [False, True])
+def test_chart_data_shows_average_and_peak_before_and_after_the_filter(tmp_path, monkeypatch, speclab):
+    from model import preferences
+    monkeypatch.setattr(preferences, 'singleton', SimpleNamespace(get=lambda key: speclab))
     write_entry(str(tmp_path), 'a')
     entry = read_entry(str(tmp_path), 'a')
-    avg_colour, peak_colour = (0.2, 0.1, 0.0), (0.0, 0.2, 0.1)
-    monkeypatch.setattr(worklist_title_text, 'get_avg_colour', lambda index: avg_colour)
-    monkeypatch.setattr(worklist_title_text, 'get_peak_colour', lambda index: peak_colour)
+    avg_colour, peak_colour = preferences.AVG_SPECLAB_COLOURS[0], preferences.PEAK_SPECLAB_COLOURS[0]
 
     curves = chart_data(entry, 1)
 
