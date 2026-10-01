@@ -48,6 +48,8 @@
        <property name="bottomMargin"><number>0</number></property>
        <item><widget class="QLabel" name="candidatesHeading"><property name="text"><string>Candidates (1-9 to pick one)</string></property></widget></item>
        <item><widget class="QListWidget" name="candidateList"><property name="minimumSize"><size><width>260</width><height>0</height></size></property></widget></item>
+       <item><widget class="QLabel" name="proposedFiltersHeading"><property name="text"><string>Proposed filters</string></property></widget></item>
+       <item><widget class="QTableView" name="proposedFilterView"><property name="editTriggers"><set>QAbstractItemView::NoEditTriggers</set></property><property name="maximumSize"><size><width>16777215</width><height>180</height></size></property></widget></item>
        <item><widget class="QLabel" name="commentaryHeading"><property name="text"><string>Commentary</string></property></widget></item>
        <item>
         <widget class="QTextBrowser" name="commentaryText">

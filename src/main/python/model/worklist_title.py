@@ -47,7 +47,7 @@ from typing import Callable, List, Mapping, Optional, Sequence, Set
 from qtpy.QtCore import Qt, Signal
 from qtpy.QtGui import QKeySequence, QShortcut
 from qtpy.QtWidgets import QAbstractSpinBox, QApplication, QComboBox, QLineEdit, QListWidgetItem, QMessageBox, \
-    QPlainTextEdit, QTextEdit, QWidget
+    QPlainTextEdit, QTextEdit, QWidget, QHeaderView
 
 from model.magnitude import MagnitudeModel
 from model.worklist_spectrum import SpectrumPanel, comparison_request
@@ -102,6 +102,12 @@ class TitlePage(TitleDecisions, TitleActions, QWidget, Ui_titlePage):
         super().__init__(parent)
         self.setupUi(self)
         self._configure_title_actions(hooks)
+        from model.filter import FilterModel, FilterTableModel
+        self._proposed_filters = FilterModel(self.proposedFilterView, preferences)
+        self.proposedFilterView.setModel(FilterTableModel(self._proposed_filters, self.proposedFilterView))
+        self.proposedFilterView.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        self.proposedFilterView.horizontalHeader().setStretchLastSection(True)
+        self.proposedFilterView.verticalHeader().hide()
         self._queue_dir, self._rows, self._running, self._defaults = queue_dir, rows, running, meta_defaults
         self.confirm_discard = confirm_discard or self._ask_discard
         self.confirm_override = confirm_override or self._ask_override
@@ -371,6 +377,10 @@ class TitlePage(TitleDecisions, TitleActions, QWidget, Ui_titlePage):
 
     def _render_commentary(self) -> None:
         entry = self._entry
+        from model.codec import filter_from_json
+        selected = entry.offered[self._picked] if entry is not None and 0 <= self._picked < len(entry.offered) else None
+        self._proposed_filters.filter = filter_from_json(selected.filters) if selected else None
+        self.proposedFiltersHeading.setText(f'Proposed filters — design {self._picked + 1}' if selected else 'No proposed filters')
         commentary = {}
         rejected = self._picked_rejected()
         declined = entry is not None and bool(entry.decline_reason) and not rejected

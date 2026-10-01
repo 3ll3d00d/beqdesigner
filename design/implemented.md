@@ -275,7 +275,10 @@ sessions show Accept & next, Skip and Reject instead of Previous/Next, with
 revision and stream choices under More; browsing other states retains Previous/Next.
 Open project is a single top-bar dropdown with mono/multichannel choices, enabled
 per readable file and main-window availability. Its tooltip carries project-edit
-status; unavailable choices explain why in their tooltips.
+status; unavailable choices explain why in their tooltips. The candidate pane
+always shows the selected proposed filters in a read-only table (type, frequency,
+Q, S, gain and biquad count), including rejected candidates; switching right-hand
+tabs leaves it visible. Missing designs clear the table.
 The Metadata tab validates required fields,
 autosaves edits, reloads TMDB data on a worker, and handles poster downloads.
 Publish and Commit ask for the target repositories and interlock with running

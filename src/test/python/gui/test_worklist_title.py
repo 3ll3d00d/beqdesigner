@@ -969,3 +969,26 @@ def test_review_session_counts_only_review_titles_even_when_opened_from_all(qtbo
     assert page.accept()
     assert page.current_id in review_ids and page.positionLabel.text().endswith('of 16')
     assert not page.decisionLabel.isVisibleTo(page)
+
+
+def test_proposed_filter_table_is_visible_and_tracks_the_selected_design(qtbot, tmp_path):
+    window = _window(qtbot, tmp_path, [('r-alien', {'rejected': 1}), ('r-arrival', {})])
+    page = _open(qtbot, window, 'r-alien')
+    table = page.proposedFilterView
+    assert table.isVisibleTo(page)
+    assert table.model().rowCount() == 1
+    assert table.model().index(0, 0).data() == 'LS'
+    assert table.model().index(0, 1).data() == 20
+    assert table.model().index(0, 4).data() == 4.5
+    assert page.pick_candidate(1)
+    assert table.model().index(0, 0).data() == 'PEQ'
+    assert table.model().index(0, 1).data() == 100
+    assert table.model().index(0, 4).data() == -3
+    assert page.pick_candidate(2)
+    assert table.model().index(0, 4).data() == 16
+    assert page.proposedFiltersHeading.text() == 'Proposed filters — design 3'
+    page.rightTabs.setCurrentWidget(page.metadataTab)
+    assert table.isVisibleTo(page)
+    assert page.show_title('x-gravity')
+    assert table.model().rowCount() == 0
+    assert page.proposedFiltersHeading.text() == 'No proposed filters'
