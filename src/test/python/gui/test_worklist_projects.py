@@ -143,8 +143,8 @@ def test_a_title_with_no_project_has_the_buttons_disabled_and_says_why(qtbot, tm
     opener = _Opener()
     _, page = _page(qtbot, tmp_path, opener)
     bar = page.actions_bar
-    assert not bar.monoButton.isEnabled() and not bar.multichannelButton.isVisible()
-    assert 'no mono project yet' in bar.monoButton.toolTip().lower()
+    assert not bar.monoAction.isEnabled() and not bar.multichannelAction.isVisible()
+    assert 'no mono project yet' in bar.monoAction.toolTip().lower()
     assert bar.projectBadge.text().startswith('No project yet')
     assert page.open_project('mono') is False and opener.opened == []
     assert 'no mono project' in bar.messageLabel.text().lower()
@@ -155,10 +155,11 @@ def test_the_mono_project_opens_through_the_callable_and_the_page_says_how_to_ke
     mono, _ = write_projects(_work(tmp_path), 'r-alien')
     _, page = _page(qtbot, tmp_path, opener)
     bar = page.actions_bar
-    assert bar.monoButton.isEnabled() and not bar.multichannelButton.isVisible()
+    assert bar.monoAction.isEnabled() and not bar.multichannelAction.isVisible()
     assert bar.projectBadge.text() == 'Projects as designed'
 
-    qtbot.mouseClick(bar.monoButton, __import__('qtpy.QtCore', fromlist=['Qt']).Qt.MouseButton.LeftButton)
+    assert bar.openProjectButton.isEnabled()
+    bar.monoAction.trigger()
 
     assert opener.opened == [mono]
     assert 'Opened the mono project' in bar.messageLabel.text() and mono in bar.messageLabel.text()
@@ -183,8 +184,9 @@ def test_the_multichannel_project_is_offered_for_a_multichannel_title_and_opens_
     mono, mc = write_projects(_work(tmp_path), 'r-alien', multichannel=True)
     _, page = _page(qtbot, tmp_path, opener)
     bar = page.actions_bar
-    assert bar.monoButton.isEnabled() and bar.multichannelButton.isVisible() and bar.multichannelButton.isEnabled()
-    assert page.open_project('multichannel') is True
+    assert bar.monoAction.isEnabled() and bar.multichannelAction.isVisible() and bar.multichannelAction.isEnabled()
+    bar.multichannelAction.trigger()
+    assert opener.opened[-1] == mc
     assert opener.opened == [mc]
     assert page.open_project('mono') is True and opener.opened == [mc, mono]
 
@@ -196,9 +198,9 @@ def test_the_multichannel_button_is_disabled_until_its_project_is_written(qtbot,
     os.remove(mc)
     _, page = _page(qtbot, tmp_path, opener)
     bar = page.actions_bar
-    assert bar.multichannelButton.isVisible() and not bar.multichannelButton.isEnabled()
+    assert bar.multichannelAction.isVisible() and not bar.multichannelAction.isEnabled()
     assert page.open_project('multichannel') is False and opener.opened == []
-    assert bar.monoButton.isEnabled()
+    assert bar.monoAction.isEnabled()
 
 
 @pytest.mark.parametrize('edit, expected', [
@@ -225,7 +227,7 @@ def test_an_unreadable_project_is_said_and_cannot_be_opened(qtbot, tmp_path):
     _, page = _page(qtbot, tmp_path, opener)
     bar = page.actions_bar
     assert bar.projectBadge.text().startswith('The mono project could not be read')
-    assert not bar.monoButton.isEnabled() and 'could not be read' in bar.monoButton.toolTip()
+    assert not bar.monoAction.isEnabled() and 'could not be read' in bar.monoAction.toolTip()
     assert page.open_project('mono') is False and opener.opened == []
     assert 'could not be read' in bar.messageLabel.text()
 
@@ -234,7 +236,7 @@ def test_without_a_route_to_the_main_window_the_buttons_are_disabled_and_say_so(
     write_projects(_work(tmp_path), 'r-alien')
     window = _window(qtbot, tmp_path, REVIEWABLE)       # no open_project given
     page = _open(qtbot, window, 'r-alien')
-    assert not page.actions_bar.monoButton.isEnabled() and 'main window' in page.actions_bar.monoButton.toolTip()
+    assert not page.actions_bar.monoAction.isEnabled() and 'main window' in page.actions_bar.monoAction.toolTip()
     assert page.open_project('mono') is False and 'main window' in page.actions_bar.messageLabel.text()
 
 
@@ -280,8 +282,9 @@ def test_the_project_buttons_never_take_enter_from_a_field(qtbot, tmp_path):
     ''' Every button is non-default, as on the rest of the page (design.md §12.1): Enter in a box presses none. '''
     _, page = _page(qtbot, tmp_path, _Opener())
     bar = page.actions_bar
-    assert not any(b.autoDefault() for b in (bar.monoButton, bar.multichannelButton, bar.retryButton,
+    assert not any(b.autoDefault() for b in (bar.retryButton,
                                              bar.jriverPreferencesButton))
+    assert isinstance(bar.openProjectButton, QToolButton)
     assert isinstance(bar.reviseButton, QToolButton)    # a tool button is never a default button
 
 
@@ -293,7 +296,9 @@ def test_navigation_and_decision_buttons_share_the_top_row(qtbot, tmp_path):
     assert page.navLayout.indexOf(page.decisionLayout) >= 0
     assert page.titleRootLayout.indexOf(page.decisionLayout) == -1
     assert page.decisionLayout.indexOf(bar.workflow) == 0
-    assert page.filterTabLayout.indexOf(bar.projects) >= 0
+    assert page.navLayout.indexOf(bar.projects) >= 0
+    assert page.filterTabLayout.indexOf(bar.projects) == -1
+    assert bar.openProjectButton.menu().actions() == [bar.monoAction, bar.multichannelAction]
     assert bar.reviseButton.menu().actions() == [bar.reviseAction, bar.audioStreamAction]
 
 

@@ -112,14 +112,13 @@ heading per key, `;`-separated notes as a list; for a declined title, the
 decline reason and message laid out the same way, over its measured curves --
 the only place the decline is told; the notice and state lines do not repeat it),
 metadata,
-and artwork. Its top row moves (Previous, Next, and Skip, which goes to the next
-title waiting for a decision and writes nothing); its bottom row changes what
-happens to the title (Revise, a split button whose menu also chooses another
-audio stream, plus Retry and the JRiver path mappings for a failed title,
-Reject, and Accept & next -- neither is offered for a title whose last extraction
-or design failed, where Retry is what it needs); the buttons that open the title's mono or
-multichannel project in the main app sit under the chart they edit, and their
-"opened" note goes when the page shows another title. In a narrow metadata
+and artwork. Its top row combines navigation and decisions: review sessions
+show Skip (movement only), Reject and Accept & next, with revision and stream
+choices under More. Browsing other title states also offers Previous/Next.
+Neither decision is offered for a title whose last extraction or design failed,
+where Retry is what it needs. Open project is one dropdown for mono or
+multichannel in the same bar; its "opened" note clears when the page changes.
+In a narrow metadata
 column every label goes above its field. Batch Extract & Design can queue
 its results, and Review Folder presents the same page over a queue directory.
 
@@ -274,6 +273,9 @@ Opening a review title scopes navigation and the position count to the review
 titles in the current filtered list, held fixed for that session. Review
 sessions show Accept & next, Skip and Reject instead of Previous/Next, with
 revision and stream choices under More; browsing other states retains Previous/Next.
+Open project is a single top-bar dropdown with mono/multichannel choices, enabled
+per readable file and main-window availability. Its tooltip carries project-edit
+status; unavailable choices explain why in their tooltips.
 The Metadata tab validates required fields,
 autosaves edits, reloads TMDB data on a worker, and handles poster downloads.
 Publish and Commit ask for the target repositories and interlock with running

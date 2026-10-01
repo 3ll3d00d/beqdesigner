@@ -71,9 +71,9 @@ class TitleHooks:
 
 class TitleActionsBar(QWidget):
     '''
-    The title page's buttons, in two groups the page places (no logic, it reports clicks): `projects` (open the mono or
-    multichannel project, and the badge) goes under the chart they edit; `workflow` (Revise, with Choose audio stream in its
-    menu, and the fixes for a failed title) goes at the left of the decision bar. The bar itself is the message line.
+    The title page's top controls (no logic, it reports clicks): `projects` is one dropdown for the mono or
+    multichannel project; `workflow` contains Revise, Choose audio stream and failure fixes. The bar itself is the
+    inline message. Project-edit status is in the dropdown's tooltip.
     '''
     open_requested = Signal(str)     # `mono` or `multichannel`
     revise_requested = Signal()
@@ -88,14 +88,16 @@ class TitleActionsBar(QWidget):
         self.projects = QWidget(parent)
         projects = QHBoxLayout(self.projects)
         projects.setContentsMargins(0, 0, 0, 0)
-        self.projectsLabel = QLabel('Projects:')
-        self.monoButton = QPushButton('Open mono project')
-        self.multichannelButton = QPushButton('Open multichannel project')
-        self.projectBadge = QLabel()
-        self.projectBadge.setWordWrap(True)
-        for widget in (self.projectsLabel, self.monoButton, self.multichannelButton):
-            projects.addWidget(widget)
-        projects.addWidget(self.projectBadge, 1)
+        self.openProjectButton = QToolButton(self.projects)
+        self.openProjectButton.setText('Open project')
+        self.openProjectButton.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        project_menu = QMenu(self.openProjectButton)
+        self.monoAction = project_menu.addAction('Mono project')
+        self.multichannelAction = project_menu.addAction('Multichannel project')
+        self.openProjectButton.setMenu(project_menu)
+        self.projectBadge = QLabel(self.projects)
+        self.projectBadge.hide()
+        projects.addWidget(self.openProjectButton)
         self.workflow = QWidget(parent)
         workflow = QHBoxLayout(self.workflow)
         workflow.setContentsMargins(0, 0, 0, 0)
@@ -109,11 +111,11 @@ class TitleActionsBar(QWidget):
         self.retryButton = QPushButton('Retry failed extraction')
         self.detailsButton = QPushButton('Run Details')
         self.jriverPreferencesButton = QPushButton('Open JRiver path mappings')
-        for button in (self.monoButton, self.multichannelButton, self.retryButton,
+        for button in (self.retryButton,
                        self.jriverPreferencesButton, self.detailsButton):
             button.setAutoDefault(False)   # Enter in a field must never press one (design.md §12.1)
-        self.monoButton.clicked.connect(lambda: self.open_requested.emit(MONO))
-        self.multichannelButton.clicked.connect(lambda: self.open_requested.emit(MULTICHANNEL))
+        self.monoAction.triggered.connect(lambda: self.open_requested.emit(MONO))
+        self.multichannelAction.triggered.connect(lambda: self.open_requested.emit(MULTICHANNEL))
         self.reviseButton.clicked.connect(lambda: self.revise_requested.emit())
         self.reviseAction.triggered.connect(lambda: self.revise_requested.emit())
         self.audioStreamAction.triggered.connect(lambda: self.audio_stream_requested.emit())
@@ -126,8 +128,8 @@ class TitleActionsBar(QWidget):
         self.messageLabel.setVisible(False)
         outer.addWidget(self.messageLabel)
 
-    def button_for(self, kind: str) -> QPushButton:
-        return self.monoButton if kind == MONO else self.multichannelButton
+    def button_for(self, kind: str):
+        return self.monoAction if kind == MONO else self.multichannelAction
 
     def show_projects(self, states: List[ProjectState], can_open: bool, why_not: str) -> None:
         by_kind = {s.kind: s for s in states}
@@ -146,8 +148,8 @@ class TitleActionsBar(QWidget):
         self.projectBadge.setToolTip(EDITED_TOOLTIP if level == LEVEL_WARN and 'Modified' in text else '')
         colour = warning_colour().name()
         self.projectBadge.setStyleSheet(f'color: {colour}' if level == LEVEL_WARN else '')
-        self.projectsLabel.setVisible(bool(states))
-        self.projectBadge.setVisible(bool(text))
+        self.openProjectButton.setEnabled(any(action.isEnabled() for action in (self.monoAction, self.multichannelAction)))
+        self.openProjectButton.setToolTip(text + ('\n' + EDITED_TOOLTIP if level == LEVEL_WARN else ''))
 
     def show_message(self, text: str, problem: bool = False) -> None:
         self.messageLabel.setText(text)
@@ -174,7 +176,7 @@ class TitleActions:
                                                 if self._hooks.open_run_details else None)
         self.headerLayout.addWidget(self._bar)
         self._bar.hide()
-        self.filterTabLayout.addWidget(self._bar.projects)      # beside the chart the projects edit
+        self.navLayout.insertWidget(self.navLayout.indexOf(self.positionLabel) + 1, self._bar.projects)
         self.decisionLayout.insertWidget(0, self._bar.workflow)  # with the other steps that change what happens to the title
         self._bar.open_requested.connect(lambda kind: self.open_project(kind))
         self._bar.revise_requested.connect(lambda: self.revise())
