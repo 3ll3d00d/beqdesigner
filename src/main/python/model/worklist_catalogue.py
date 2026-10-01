@@ -15,6 +15,14 @@ def _audio(value):
             'dolbydigitalplus': 'dd+', 'dolbydigital': 'dd'}.get(text, text)
 
 
+def _audio_set(values):
+    """Codec sets accept catalogue lists and combined metadata strings, preserving DD+."""
+    if isinstance(values, str):
+        values = [values]
+    return {_audio(codec) for value in (values or [])
+            for codec in re.split(r'[,;/|]|\s+\+\s+', str(value)) if codec.strip()}
+
+
 def _tmdb(value):
     text = str(value or '').strip().rstrip('/')
     if text.isdecimal():
@@ -84,7 +92,8 @@ def matches_title(target, entry):
 
 
 def matches_track(target, entry):
-    if target.audio_types and not {_audio(a) for a in target.audio_types}.intersection(_audio(a) for a in entry.audio_types):
+    expected_audio = _audio_set(target.audio_types)
+    if expected_audio and not expected_audio.intersection(_audio_set(entry.audio_types)):
         return False
     for field in ('edition', 'language', 'source'):
         expected, actual = getattr(target, field), getattr(entry, field)

@@ -331,3 +331,24 @@ def test_our_filter_can_be_shown_beside_the_published_image_and_follows_the_cand
     assert pane.ourPane.isHidden() and pane.image.isVisible()
     assert window.close_title()
     assert pane._our_curves == [] and 'No design' in pane.ourStatus.text()
+
+
+@pytest.mark.parametrize('target_audio,published_audio', [
+    (('Atmos', 'TrueHD'), ['Atmos']),
+    (('Atmos',), ['Dolby Atmos', 'DTS-HD MA']),
+    (('Dolby Atmos / TrueHD',), ['Atmos']),
+    (('Atmos',), ['TrueHD, Dolby Atmos']),
+    (('DD+',), 'Dolby Digital Plus / Atmos'),
+    (('DD+ + Atmos',), ['Dolby Digital Plus']),
+])
+def test_audio_codec_sets_match_any_intersection(target_audio, published_audio):
+    target = replace(TARGET, audio_types=target_audio)
+    shared = entry(audioTypes=published_audio)
+    disjoint = entry(audioTypes=['DTS-HD MA'])
+    assert matching_entries(target, [shared, disjoint]) == [shared]
+    assert matching_entries(target, [shared, disjoint], True) == [shared, disjoint]
+
+
+def test_missing_audio_constraint_and_empty_published_set():
+    assert matching_entries(replace(TARGET, audio_types=()), [entry(audioTypes=[])])
+    assert not matching_entries(TARGET, [entry(audioTypes=[])])

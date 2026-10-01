@@ -338,7 +338,9 @@ are discarded. Missing audio and project conflicts are shown on the tab.
 The title page’s Published BEQs tab uses `worklist_catalogue` to match the
 aggregate catalogue by TMDB identity (movie/TV separately), with title/year
 fallback, then audio and known edition/language/source and TV episode metadata.
-An explicit checkbox broadens to other tracks/editions of the same title.
+Audio codecs match when their normalized sets intersect, accepting lists or
+comma/slash/semicolon/pipe-separated strings and preserving DD+. An explicit
+checkbox broadens to other tracks/editions of the same title.
 `worklist_published` shares Browse Catalogue’s `database.json` cache, performs
 bounded downloads and atomic replacements on a worker, and keeps cached entries
 available after refresh failures. A resizable horizontal split places all
