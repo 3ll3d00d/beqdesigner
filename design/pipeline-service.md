@@ -8,7 +8,7 @@ with the work list and the CLI. The user guide is
 [`docs/library/service.md`](../docs/library/service.md); the wire interface is
 [`docs/schema/service.openapi.json`](../docs/schema/service.openapi.json). The
 image and the Qt-free boundary it depends on are described in §10 below. Open work is in
-[`TODO.md`](TODO.md) (W3, C1). Section numbers are cited by
+[`TODO.md`](TODO.md) (its initial release milestone, and C1). Section numbers are cited by
 source comments, so they are kept stable.
 
 ## 1. Goal

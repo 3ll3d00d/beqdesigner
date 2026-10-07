@@ -2,7 +2,8 @@
 
 ## Status
 
-Reviewed on **2026-09-30**. This is the **only current backlog** for the
+Reviewed on **2026-10-07**, against beqdesigner `b325752` and beqforge
+`934dff8`. This is the **only current backlog** for the
 pipeline and library work. Items are unbuilt, partial, awaiting evidence, or
 under observation; none is claimed complete. Architecture and contracts are
 [design references](README.md); completed plans and delivery records live in
@@ -10,35 +11,173 @@ under observation; none is claimed complete. Architecture and contracts are
 backlogs. The caller’s by-reference implementation and live acceptance are
 complete; its three follow-ons are retained below as D2–D4.
 
-Order is recommended execution priority: stream correctness, external
-acceptance and disc behavior, release
-verification, test health, and optional improvements/product decisions. A
-blocked item does not prevent starting the next independent item. E1 supplies
-evidence needed by J2 and the disc items and may be captured alongside them.
+Order is recommended execution priority: first the **initial release**
+milestone below, then disc behavior, test health, and optional
+improvements/product decisions. A blocked item does not prevent starting the
+next independent item. E1 supplies evidence needed by J2 and the disc items
+and may be captured alongside them.
 
 When an item is completed, archive its result and evidence, update the lasting
 design description if necessary, and remove it here in the same commit.
 Do not keep a second status table in a design reference.
 
-| Priority | ID | Previous IDs | Status | Depends on |
-|---|---|---|---|---|
-| 1 | J2 | chunk 40 | Not started beyond the seam: the resolver returns the first audio stream | Sanitised Playback Info and ffprobe evidence |
-| 2 | W2 | chunk 45b | Partial in `62270b4`: codec, channels and stream count are requested | J2 for automatic stream selection; manual override already exists |
-| 3 | E1 | chunk 3/30, T5-T6 | Waiting for authorised JRiver capture | Real MCWS server |
-| 4 | E2 | chunk 31, T2-T4 | Waiting for manual acceptance | E1; real designer, media and disposable repositories |
-| 5 | E3 | chunk 32, T7 | Not started; evidence dependent | E1; DVD fixture |
-| 6 | E4 | chunk 33, T8 | Not started; evidence dependent | E1; Blu-ray playlist fixture |
-| 7 | E5 | chunk 37, T15 | Waiting for a product decision | E2; representative season media |
-| 8 | C1 | chunk S5 | amd64 build and smoke verified; arm64 build and GHCR publish not yet run | The first tag push |
-| 9 | T1 | -- | Watch; not reproduced | Recurrence with a stack dump |
-| 10 | T2 | -- | Watch; seen twice | Recurrence with its failure message |
-| 11 | D4 | by-reference §5 | Planned; not started | Designer build identity policy |
-| 12 | D2 | by-reference §5 | Planned; optional, not started | beqforge loader coordination |
-| 13 | D3 | by-reference §5 | Planned; optional, not started | Contract addition; beqforge coordination |
-| 14 | O2 | former §9 reviewer questions | Behavior exists; acceptance decision missing | Real reviewer feedback |
-| 15 | O1 | D6 | Optional idea; no implementation decision | Product decision |
+### Initial release milestone
+
+**Definition:** the published Docker image, with a documented beqforge
+designer beside it, can be deployed and left to extract and design an entire
+catalogue unattended, and the results reviewed from the desktop app. Publish
+and commit stay a person's decision in the app; the schedule never goes past
+design.
+
+The milestone is the rows marked **R** in the table: priorities 1–15. The
+service and image themselves work (C1's amd64 smoke); what is missing is
+behavior that only matters at catalogue scale and over days: transient
+failures, the designer deployment, timeouts, disk use, remote review, stream
+choice, and an acceptance run. Two beqforge items are recorded in its own
+`TODO.md`, not here: #1 "Playback contract" (the designer side of R8) and
+#13 "Residual reporting" (the reported fit error and band do not match the
+fit's). Neither blocks the milestone, but R8 and the user guide must state
+what they mean for a reviewer. beqforge's F2 device check, optimiser, E10/E1
+validation and steep-filter default are outside it.
+
+| Priority | ID | R | Previous IDs | Status | Depends on |
+|---|---|---|---|---|---|
+| 1 | R1 | R | -- | Not started; every failure is remembered as permanent | -- |
+| 2 | R2 | R | -- | Not started; `/ready` checks only that a designer is declared | -- |
+| 3 | R3 | R | -- | Not started; no designer image, compose service or guide | beqforge packaging |
+| 4 | R4 | R | -- | Not started; risk inferred from code, not observed | R3 |
+| 5 | R7 | R | -- | `main` CI red on Windows since `b325752` | -- |
+| 6 | C1 | R | chunk S5 | amd64 build and smoke verified; arm64 build and GHCR publish not yet run | R7; the first tag push |
+| 7 | J2 | R | chunk 40 | Not started beyond the seam: the resolver returns the first audio stream | Sanitised Playback Info and ffprobe evidence |
+| 8 | W2 | R | chunk 45b | Partial in `62270b4`: codec, channels and stream count are requested | J2 for automatic stream selection; manual override already exists |
+| 9 | E1 | R | chunk 3/30, T5-T6 | Waiting for authorised JRiver capture | Real MCWS server |
+| 10 | R8 | R | -- | Not started; the library never sends bass management | beqforge TODO #1 for the designer side |
+| 11 | D4 | R | by-reference §5 | Planned; not started. Release needs only the per-entry record | Designer build identity policy (full drift behavior only) |
+| 12 | R5 | R | -- | Not started; no retention or free-space check | Product decision on kept audio |
+| 13 | R6 | R | -- | Not started; the supported layout is undefined | R3 |
+| 14 | R9 | R | -- | Not started | -- |
+| 15 | E2 | R | chunk 31, T2-T4 | Waiting for manual acceptance | R1–R9, E1; real designer, media and disposable repositories |
+| 16 | E3 | | chunk 32, T7 | Not started; evidence dependent | E1; DVD fixture |
+| 17 | E4 | | chunk 33, T8 | Not started; evidence dependent | E1; Blu-ray playlist fixture |
+| 18 | E5 | | chunk 37, T15 | Waiting for a product decision | E2; representative season media |
+| 19 | T1 | | -- | Watch; not reproduced | Recurrence with a stack dump |
+| 20 | T2 | | -- | Watch; seen twice | Recurrence with its failure message |
+| 21 | R10 | | -- | Not started | -- |
+| 22 | D2 | | by-reference §5 | Planned; optional, not started | beqforge loader coordination |
+| 23 | D3 | | by-reference §5 | Planned; optional, not started | Contract addition; beqforge coordination |
+| 24 | O2 | | former §9 reviewer questions | Behavior exists; acceptance decision missing | Real reviewer feedback |
+| 25 | O1 | | D6 | Optional idea; no implementation decision | Product decision |
+
+E3 and E4 are outside the milestone only if E2's sample shows the documented
+main-title fallback is truthful for the catalogue's discs; if it silently
+duplicates or picks the wrong playlist, they move into it.
 
 ## Work in priority order
+
+### R1 — Transient failures must not become remembered failures
+
+`_remember_failure` (`pipeline/library/run.py`) records every exception
+against the source fingerprint and settings, and an unattended run does not
+retry a remembered failure without `retry_failed`. A designer that is down or
+times out, a dropped media mount, or a JRiver outage therefore marks every
+title in that tick failed, and the schedule never comes back to them.
+Classify failures: a dependency that was unavailable (connection refused or
+reset, timeout, HTTP 5xx, a missing mount root, a JRiver that does not answer)
+is reported for the run but not remembered; a failure of the title itself
+(undecodable stream, a designer 4xx/decline, an ffmpeg error on a readable
+file) is remembered as now. Stop the run after a configurable number of
+consecutive dependency failures, leaving the rest of the selection untouched
+and saying why, instead of failing the remaining titles one by one. Keep the
+work list's and the CLI's behavior identical (one `run_stages` path).
+
+**Done when:** tests show a designer timeout, a connection error and a missing
+mount are not remembered, the next tick runs those titles again, consecutive
+dependency failures stop the run with a stated reason, and a genuine title
+failure is still remembered and not retried.
+
+### R2 — Check the designer before a run
+
+`/ready` reports the designer as ready once it is declared (`api.py`); nothing
+asks it whether it is up. Before a scheduled tick (and a service run job),
+ask the designer's `/health`; if it does not answer, skip the tick with a
+recorded reason (as for `busy`) and notify `failed` once, not every tick.
+Report reachability in `/ready` and `/v1/status`, keeping `/ready` usable as a
+liveness gate for the container (a designer outage should not get the
+pipeline container restarted). For a `by_reference` designer, confirm its
+shared root as `check_takes_references` already does.
+
+**Done when:** tests with a stub designer show a tick skipped and reported
+while it is down, resumed when it is back, and `/ready`/`/v1/status` saying
+which.
+
+### R3 — Deploy the designer beside the service
+
+The compose example runs only the pipeline. beqforge is published to PyPI
+(0.1.0) and as executables, with no image, no compose service and nothing in
+either repository describing the two together. Provide, with beqforge:
+
+- a designer container: an image built from beqforge, or a documented
+  `pip install "beqforge[designer]"` service on a pinned Python image;
+- `docker/compose.example.yaml` running both, the work directory mounted into
+  the designer at its `--shared-root` and the profile's designer declared with
+  `by_reference: true`, so audio is not sent over HTTP;
+- a volume for the designer's `--cache-dir` (and `--record-dir` if wanted) so
+  restarts do not lose the stage cache;
+- the profile's `designers:` section in the example config: the container does
+  not read Preferences, so a profile that names a Preferences designer
+  (`http:<name>`) must be changed; say so in `docs/library/service.md`;
+- a pinned designer version in the example, so a catalogue run is not mixed
+  across designer releases by an image pull (see D4).
+
+Extend `docker/smoke.py` (or a second smoke) to start both containers and
+design one title by reference.
+
+**Done when:** the compose example starts both services, the smoke test
+designs a title through the real designer by reference, and the user guide
+describes the set-up and the profile changes.
+
+### R4 — Designer timeouts versus design parallelism
+
+beqforge's server is single-threaded on purpose (its fitter forks), and a
+2-hour 8-channel title takes about 110 s cold. The HTTP binding's default
+timeout is 300 s, and `run.parallelism.design` allows up to 4. Requests beyond
+the first queue at the server, so a long title behind another can time out
+while the designer still works on it; with R1 unbuilt that title is then
+permanently failed. Measure the designer's time on the longest titles in E2's
+sample. Then either make the service default to one design at a time per
+single-threaded designer, or derive the timeout from the queue depth, and
+document the choice beside `run.parallelism`. A timed-out request must be
+reported as a timeout, not as a design failure.
+
+**Done when:** a test with a slow single-threaded stub and `design: 2` shows
+no timeout-induced failure under the chosen policy, and the guide states it.
+
+### R7 — Windows CI failure in the publish aggregate test
+
+Since `b325752`, `test_pipeline_publish_readable.py::
+test_titles_in_several_letter_folders_share_one_aggregate_in_their_category_folder`
+fails on `windows-2022` and `windows-2025`: `Élite` reads back as `�lite`.
+The test opens `database.json` without `encoding=`, so Windows decodes it with
+the locale encoding. Confirm the publisher writes UTF-8 explicitly (if it
+does not, that is the bug, and Windows desktop publishing is affected), then
+make the reads explicit. C1's tag should not be cut from a red `main`.
+
+**Done when:** `main` CI is green on all three platforms and, if the writer
+was at fault, a test pins UTF-8 output.
+
+### C1 — arm64 image and GHCR publish
+
+On 2026-09-27 the push-CI job's two commands were run locally at `7db992d`
+(Docker 29.8.1, linux/x86_64): `docker build -f docker/Dockerfile` succeeded,
+including its `dvdvideo` demuxer check, and `docker/smoke.py` passed (ready,
+run job through design, `succeeded`, queue entry present). The image runs as
+`beq` and reports the `VERSION` file copied into it. What has not run is the
+rest of `create-image.yaml`: the `linux/arm64` build under QEMU/buildx, the
+`latest`-tag rule, and the push to GHCR. These are left to CI: the first
+tag's `create-image.yaml` run exercises all of them (no local QEMU set-up).
+
+**Done when:** the first tag's workflow run builds both architectures, passes
+the smoke test and publishes them to GHCR with the expected tags.
 
 ### J2 — Resolve JRiver's selected audio stream
 
@@ -92,6 +231,83 @@ and partial live observations, not a sanitised reusable fixture.
 **Done when:** the fixture and adjacent tests prove the MCWS shape and the
 duplicate-node behavior, with a dated account of capture and sanitisation.
 
+### R8 — Send bass management to the designer
+
+The contract carries `bass_management`, and `design_if_needed` accepts it,
+but the library's `_design` (`pipeline/library/run.py`) never passes it and
+the profile has no place to declare it; Batch Design's `DesignJob` omits it
+too. The designer's clipping and headroom advice is therefore made on an
+assumed playback chain. Add a profile setting (crossover, LFE gain,
+headroom type) and pass it on both paths. beqforge's own TODO #1 records that
+it consumes only the crossover today; until that lands, the title page and
+user guide must say which fields were modelled and which were assumed.
+
+**Done when:** a request from the library and from Batch Design carries the
+profile's bass management (tests over the request body), and the reviewer can
+see whether the clipping figures used it.
+
+### D4 — Surface designer revision drift
+
+The design fingerprint does not include the designer build or startup
+parameters, so a catalogue run lasting days can mix designer builds without
+saying so. **For the release:** record the response's `beqforge_revision` (or
+the designer's reported build) in each queue entry and show it in the title
+page's Details; that is enough to tell which titles came from which build.
+**After it:** define how the caller detects and presents a changed revision,
+decide cache and redesign semantics, and test the changed-revision banner and
+unchanged-revision behavior.
+
+**Done when (release):** every newly designed entry records its designer
+build, with a test. **Done when (full):** the agreed drift behavior is
+documented and implemented with regression coverage.
+
+### R5 — Work-directory size and retention
+
+With `keep_multichannel: true` a title's work folder is 150–250 MB (observed
+on 17 real titles: `multichannel.wav` is about 165 MB for a 2-hour 7.1 title,
+`mono.wav` about 20 MB). A catalogue of 1,000 titles is about 200 GB, and
+nothing prunes or compresses it. Decide what is kept after design, after
+acceptance and after publish (for example, drop or compress `multichannel.wav`
+once a title is published, keeping what revise and the multichannel project
+need, or replan extraction on demand). Check free space before each
+extraction and stop the run with a clear reason below a configurable floor,
+rather than failing titles one by one (an R1 dependency failure).
+
+**Done when:** the retention policy is documented and implemented with tests,
+and a run stops cleanly when the floor is reached.
+
+### R6 — Reviewing the container's work from the desktop
+
+The service guide says the work directory is exported to the reviewer, but
+the supported layout is not defined. The profile's paths are container paths,
+so the desktop needs its own profile naming the same work and queue folders
+by its paths, and nothing pairs the two. Queue entries store absolute media
+paths (for example `art_path: /media/films/...`). The SQLite index (default
+journal mode) would be read over SMB or NFS while the container writes it, and
+the work-directory lease is not atomic across machines. Choose one supported
+layout, make queue entries free of host-specific paths (or translate them),
+document the desktop profile and the mount, and verify concurrent reading of
+the index across the chosen network filesystem.
+
+**Done when:** the layout is in the user guide, queue entries open on the
+desktop from a container-written work directory (tested with differing roots),
+and E2 records the cross-machine review working while a run goes.
+
+### R9 — Operating an unattended catalogue run
+
+- **TMDB:** without `TMDB_API_KEY` the service designs with library metadata
+  only and says nothing; the desktop has a built-in key, so this is
+  surprising. Report it in `/ready` and `/v1/status`, and in the guide.
+- **Progress:** at about two minutes or more per title, a catalogue takes
+  days. Report the run's throughput and an estimate of the time remaining in
+  `/v1/status` and the job's progress.
+- **First run:** document how to seed a large catalogue (filtered batches by
+  year or source, `scan` first, checking the first results before enabling
+  the schedule) and what a restart mid-run does.
+
+**Done when:** status and readiness report both, with tests, and the guide
+has the first-run procedure.
+
 ### E2 — End-to-end acceptance record
 
 Write a versioned runbook, then exercise the running app with a real JRiver
@@ -102,8 +318,17 @@ Publish/Commit against disposable real repositories. Run CLI `scan`, `run`,
 Record app/OS/MC versions, commands, exit codes and observed pass/fail results
 without private data. Return any discovered defect to a focused code change.
 
+Also, for the initial release, deploy the published image and designer from
+R3's compose example and run them, scheduled, over a sample of about 50
+titles that covers every codec, channel layout, Blu-ray folder, DVD and TV
+season present in the catalogue. Record per-title extract and design times
+(R4's measurement and R9's estimate), work-directory growth (R5), stream
+choices (J2/W2), disc fallbacks (E3/E4), a designer restart and a media mount
+dropped mid-run (R1/R2), and review from the desktop while the run goes (R6).
+
 **Done when:** the GUI, season and CLI claims formerly called T2-T4 have
-dated observed results; a test stub alone is insufficient.
+dated observed results, and the container sample run has a dated record with
+no unexplained failure; a test stub alone is insufficient.
 
 ### E3 — DVD title selection
 
@@ -141,20 +366,6 @@ user guide and close it as an accepted boundary.
 **Done when:** the evidence and decision are recorded; an approved new
 behavior is complete only after its implementation and tests land.
 
-### C1 — arm64 image and GHCR publish
-
-On 2026-09-27 the push-CI job's two commands were run locally at `7db992d`
-(Docker 29.8.1, linux/x86_64): `docker build -f docker/Dockerfile` succeeded,
-including its `dvdvideo` demuxer check, and `docker/smoke.py` passed (ready,
-run job through design, `succeeded`, queue entry present). The image runs as
-`beq` and reports the `VERSION` file copied into it. What has not run is the
-rest of `create-image.yaml`: the `linux/arm64` build under QEMU/buildx, the
-`latest`-tag rule, and the push to GHCR. These are left to CI: the first
-tag's `create-image.yaml` run exercises all of them (no local QEMU set-up).
-
-**Done when:** the first tag's workflow run builds both architectures, passes
-the smoke test and publishes them to GHCR with the expected tags.
-
 ### T1 — Intermittent hang in the parallel suite
 
 On 2026-09-26 two of three `pytest -n auto -v src/test/python` runs stopped
@@ -186,11 +397,20 @@ extracts a 1 s synthetic wav and needs at least one progress report with
 assertion that failed; if the cause is confirmed, lengthen the source or
 accept a run whose only report comes at the end, rather than retrying.
 
-### D4 — Surface designer revision drift
+### R10 — Configuration-folder hygiene
 
-The design fingerprint does not include the designer build or startup parameters. Define how the caller detects and presents a changed designer revision, using the response’s existing `beqforge_revision` commentary where appropriate. Decide cache and redesign semantics, then test the changed-revision banner and unchanged-revision behavior.
+Two things write `library-profile.yaml` where they should not.
+`worklist_settings.py` offers the file in `QStandardPaths`'
+`AppConfigLocation`; run from source with no application name set, that is
+`~/.config/app.py/`. And a gui test run left
+`~/.config/pytest-qt-qapp/library-profile.yaml` in the real configuration
+folder, so a test reaches the real location instead of a temp directory. Set
+the application and organisation names before the location is read, and make
+the gui tests redirect it (for example `QStandardPaths.setTestModeEnabled`
+in `gui/conftest.py`).
 
-**Done when:** the agreed behavior is documented and implemented with regression coverage.
+**Done when:** a test pins the offered folder to the application's name and
+the gui suite writes nothing under the real configuration folder.
 
 ### D2 — Export a reusable request file
 
@@ -223,4 +443,3 @@ it without extraction, design or metadata lookup. This was outside the
 delivered pipeline's scope and has no approved implementation plan. If wanted,
 specify the catalogue identity, target signal and output semantics before
 building it; otherwise record that it is intentionally out of scope.
-
