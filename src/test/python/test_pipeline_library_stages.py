@@ -112,6 +112,63 @@ def test_through_design_on_an_extracted_title_only_designs(env, work):
     assert _needs(env, 'fs-a')[0] == 'review'
 
 
+def test_a_design_only_title_whose_audio_is_current_skips_the_extract_stage_entirely(env, work, monkeypatch):
+    ''' W2: no "Extracting" event, and no extract worker -- it is designed while another title holds the only one. '''
+    ready, slow = _item('ready'), _item('slow')
+    _extracted(env, ready)
+    _scan(env, ready, slow)
+    extracting = threading.Event()
+    designed = threading.Event()
+    real_extract = __import__('pipeline.library.run', fromlist=['extract_if_needed']).extract_if_needed
+
+    def extract(session, item, item_dir, config, mono_mix=True, force=False, on_progress=None):
+        extracting.set()
+        assert designed.wait(10), 'the design-only title waited for the extract worker'
+        return real_extract(session, item, item_dir, config, mono_mix=mono_mix, force=force, on_progress=on_progress)
+
+    def design(session, item, wav_path, designer, queue_dir, config, **kwargs):
+        if item.id == 'fs-ready':
+            assert extracting.wait(10)   # the slow title holds the extract worker while this one is designed
+            designed.set()
+        work.calls.append(('design', item.id))
+        _entry(env, item, confidence=0.95)
+        return type('R', (), {'designed': True, 'project_edit_preserved': False})()
+    monkeypatch.setattr('pipeline.library.run.extract_if_needed', extract)
+    monkeypatch.setattr('pipeline.library.run.design_if_needed', design)
+    events = []
+
+    report = _go(env, Selection(), 'design', on_event=events.append)
+
+    assert sorted(report.run.designed) == ['fs-ready', 'fs-slow'] and 'fs-ready' in report.run.cached
+    ready_events = [(e.stage, e.kind) for e in events if e.title_id == 'fs-ready']
+    assert not any(stage == 'extract' for stage, _ in ready_events), ready_events
+    assert ('design', 'stage_started') in ready_events
+
+
+def test_audio_gone_since_the_scan_is_extracted_again_and_says_why(env, work):
+    item = _item('a')
+    _extracted(env, item)
+    _scan(env, item)
+    os.remove(os.path.join(env.work, item.id, 'mono.wav'))   # after the scan said "needs design"
+    events = []
+
+    report = _go(env, Selection(), 'design', on_event=events.append)
+
+    assert work.calls == [('extract', 'fs-a'), ('design', 'fs-a')] and report.run.designed == ['fs-a']
+    assert any(e.title_id == 'fs-a' and e.stage == 'extract' and e.kind == 'stage_queued' and
+               e.message == 'Extracting again: the extracted audio is missing' for e in events)
+
+
+def test_a_cancel_before_it_starts_drops_a_title_routed_straight_to_design(env, work):
+    item = _item('a')
+    _extracted(env, item)
+    _scan(env, item)
+
+    report = _go(env, Selection(), 'design', should_cancel=lambda: True)
+
+    assert work.calls == [] and report.cancelled and report.not_run == ['fs-a']
+
+
 def test_only_machine_titles_run_and_the_rest_are_skipped_with_the_reason(env, work):
     todo, waiting, skipped_by_person = _item('todo'), _item('waiting'), _item('rejected')
     for item in (waiting, skipped_by_person):

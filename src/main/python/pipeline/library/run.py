@@ -418,6 +418,36 @@ def run_unit(session: Session, unit, run_config: LibraryRunConfig, report: Libra
         return None
 
 
+def cached_unit_work(unit, run_config: LibraryRunConfig) -> tuple[Optional[UnitWork], str]:
+    '''
+    What a design needs of a title whose extraction is already current, read without extracting anything: a title that
+    only needs design then goes straight to design (no extract stage, no extract worker). Reads the work folder's
+    manifest and checks the wavs are there; never runs ffmpeg and never touches the source.
+    :return: (the work, '') -- or (None, why it must be extracted again) when the audio is missing or out of date, or
+        the unit is a season (its joined track is rebuilt by the extract stage) or extraction is forced.
+    '''
+    if isinstance(unit, SeasonGroup):
+        return None, 'a season is joined by the extract stage'
+    if run_config.force_extract:
+        return None, 'extraction is forced'
+    item = unit
+    item_dir = item_directory(run_config.work_dir, item)
+    try:
+        mono = extract_status(item, item_dir, run_config.config, True)
+    except OSError as error:   # no fingerprint of its own, and the source cannot be read: let extraction say why
+        return None, f'the source cannot be read ({error.strerror or error})'
+    if not mono.current:
+        return None, 'the extracted audio is missing' if mono.state == 'none' else 'the extracted audio is out of date'
+    multichannel, layout = None, 'unknown'
+    if run_config.keep_multichannel and read_source_channel_count(item_dir) != 1:
+        kept = extract_status(item, item_dir, run_config.config, False, fingerprint=mono.fingerprint)
+        if not kept.current:
+            return None, 'the kept multichannel audio is missing' if kept.state == 'none' else \
+                'the kept multichannel audio is out of date'
+        multichannel, layout = kept.wav_path, read_channel_layout_name(item_dir)
+    return UnitWork(item, item, mono.wav_path, item_dir, multichannel, layout), ''
+
+
 def design_unit_work(work: UnitWork, run_config: LibraryRunConfig,
                      index: Optional[LibraryIndex] = None,
                      on_stage: Optional[Callable[[str, str], None]] = None) -> LibraryRunReport:

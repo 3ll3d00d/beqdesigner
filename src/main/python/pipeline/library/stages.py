@@ -29,7 +29,8 @@ from pipeline.library.commit import CatalogueCommit
 from pipeline.library.index import LibraryIndex
 from pipeline.library.join import JoinQueue
 from pipeline.library.profile import Profile
-from pipeline.library.run import LibraryRunConfig, LibraryRunReport, UnavailableStreak, design_unit_work, run_unit
+from pipeline.library.run import LibraryRunConfig, LibraryRunReport, UnavailableStreak, cached_unit_work, \
+    design_unit_work, run_unit
 from pipeline.library.selection import Selection, Skipped, plan_stages
 from pipeline.library.status import ScanSettings
 from pipeline.library.season import conflicting_units
@@ -357,19 +358,47 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
                                         on_stage=lambda progress_id, stage: emit(
                                             stage, progress_id, titles.get(progress_id, progress_id)))
 
-        pending = list(eligible)
         extracting: Dict[Future, object] = {}
         designing: Dict[Future, object] = {}
-        design_pending = []
+        design_pending = []   # extracted in this run: in hand, so designed even after a cancel
+        design_ready = []     # routed straight to design: not started, so a cancel or a stop drops them
+
+        def route(titles) -> list:
+            '''
+            A title that only needs design, and whose extracted audio is still current, goes straight to design: no
+            extract stage, no extract worker (W2). One whose audio is missing or out of date is said to be extracted
+            again and goes to extraction. :return: what goes to extraction.
+            '''
+            to_extract = []
+            for planned, unit, retry in titles:
+                if planned.stages[0] != 'design':
+                    to_extract.append((planned, unit, retry))
+                    continue
+                work, why = cached_unit_work(unit, run_config)
+                title_id = planned.row.id
+                if work is None:
+                    with event_scope(title_id=title_id, stage='extract'):
+                        emit_execution_event('stage_queued', message=f'Extracting again: {why}')
+                    to_extract.append((planned, unit, retry))
+                    continue
+                report.run.cached.append(title_id)
+                with event_scope(title_id=title_id, stage='design'):
+                    emit_execution_event('stage_queued', message='Waiting for design slot')
+                design_ready.append((planned, work))
+            return to_extract
+
+        pending = route(eligible)
         with ThreadPoolExecutor(max_workers=run_config.extract_parallelism,
                                 thread_name_prefix='library-extract') as extract_pool, \
                 ThreadPoolExecutor(max_workers=run_config.design_parallelism,
                                    thread_name_prefix='library-design') as design_pool:
             while True:
                 cancel_requested = halted()
+                if cancel_requested:
+                    design_ready.clear()   # not started: left in not_run
                 if join is not None and not cancel_requested:
-                    pending.extend(admit(join.take()))
-                if not (pending or extracting or designing or design_pending):
+                    pending.extend(route(admit(join.take())))
+                if not (pending or extracting or designing or design_pending or design_ready):
                     break
                 if not cancel_requested:
                     while pending and len(extracting) < run_config.extract_parallelism:
@@ -378,14 +407,15 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
                         extracting[future] = planned
                 elif not report.stopped:
                     report.cancelled = True
-                while design_pending and len(designing) < run_config.design_parallelism and not report.stopped:
-                    planned, work = design_pending.pop(0)
+                while (design_pending or design_ready) and len(designing) < run_config.design_parallelism \
+                        and not report.stopped:
+                    planned, work = (design_pending or design_ready).pop(0)
                     design_future = design_pool.submit(copy_context().run, design_task, planned, work)
                     designing[design_future] = planned
-                if not extracting and not designing and (not design_pending or report.stopped) and \
+                if not extracting and not designing and (not (design_pending or design_ready) or report.stopped) and \
                         (not pending or halted()):
                     if join is not None and not halted():   # one last look before the machine phase ends
-                        more = admit(join.take())
+                        more = route(admit(join.take()))
                         if more:
                             pending.extend(more)
                             continue

@@ -44,7 +44,7 @@ validation and steep-filter default are outside it.
 |---|---|---|---|---|---|
 | 6 | C1 | R | chunk S5 | amd64 build and smoke verified; arm64 build and GHCR publish not yet run | A green `main`; the first tag push |
 | 7 | J2 | R | chunk 40 | Not started beyond the seam; Playback Info captured (E1), ffprobe of the same files missing | ffprobe of the fixture's titles (the media share mounted) |
-| 8 | W2 | R | chunk 45b | Partial: codec, channels, sample rate, bitrate, language and title per stream, in words in the chooser | J2 for automatic stream selection; manual override already exists |
+| 8 | W2 | R | chunk 45b | Partial: streams described in full; a design-only cache hit skips the extract stage. Left: ffprobe fallback, the choice shown before work and in Details | J2 for automatic stream selection; manual override already exists |
 | 10 | R8 | R | -- | Not started; the library never sends bass management | beqforge TODO #1 for the designer side |
 | 11 | D4 | R | by-reference §5 | Planned; not started. Release needs only the per-entry record | Designer build identity policy (full drift behavior only) |
 | 12 | R5 | R | -- | Not started; no retention or free-space check | Product decision on kept audio |
@@ -120,10 +120,13 @@ as `pipeline.library.streams.describe_stream()` says it ("2: AC-3 5.1, French,
 not supply a useful list, ffprobe only that title's
 mapped local source on a worker; explain a missing/unplayable file with the
 title and path. Show the chosen stream, actual channel count and Keep
-multichannel setting before work and in Details. A true design-only cache hit
-should enter design without an “Extracting” event or extract worker slot;
-stale/missing audio must explicitly replan extraction. Keep selection and
-cache invalidation in the existing index/queue path.
+multichannel setting before work and in Details. **Done:** a title that only
+needs design and whose audio is still current (`run.cached_unit_work()`, the
+manifest and wavs only) goes straight to design in `run_stages`, with no
+extract event or extract worker; a cancel drops it if it has not started.
+Audio missing or out of date since the scan is extracted again with a
+`stage_queued` "Extracting again: <why>" event. Seasons still go through the
+extract stage, which joins their track.
 
 Use a short synthetic multistream/multichannel fixture to verify the chosen
 stream's mono mix and diagnostic arrays share the analysis rate and frame
