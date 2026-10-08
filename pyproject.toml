@@ -1,6 +1,6 @@
 [project]
 name = "beqdesigner"
-version = "2.1.6"
+dynamic = ["version"]   # the app is never built as a package: its version is src/main/python/VERSION, written from the tag by CI
 description = "A Qt based app for designing BassEQ filters"
 authors = [{ name = "3ll3d00d", email = "mattkhan+beqdesigner@gmail.com" }]
 license = "MIT"

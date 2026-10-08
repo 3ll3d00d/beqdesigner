@@ -291,8 +291,10 @@ renders the notes.
   tracebacks.
 - **Generated UI.** `.ui` → `.py` with `pyuic6` (`ui/convert.sh`). Edit the
   `.ui`, regenerate, commit both.
-- **Version** comes from `src/main/python/VERSION`, written by CI; from
-  source it falls back to `0.0.0-alpha.1`.
+- **Version** comes from `src/main/python/VERSION`, which CI writes from the
+  release tag; from source it falls back to `0.0.0-alpha.1`. `pyproject.toml`
+  declares the version `dynamic` and keeps no number of its own (the app is
+  never built as a package), so nothing has to be bumped by hand.
 - Optional external tools: `ffmpeg`/`ffprobe` (extraction, remux, analysis),
   `graphviz` (JRiver filter pipeline rendering), `minidsp-rs` (pushing to a
   connected minidsp). All are degraded-gracefully, not hard dependencies.
