@@ -15,7 +15,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
-from pipeline.library.jriver import BrowseNode, JRiverLibrarySource, list_browse_children
+from pipeline.library.jriver import _BLURAY_PSEUDO_FILE, BrowseNode, JRiverLibrarySource, list_browse_children
 from pipeline.library.pathmap import PathMapping
 
 FIXTURE = pathlib.Path(__file__).parent / 'fixtures' / 'jriver'
@@ -219,3 +219,30 @@ def test_the_server_names_itself_by_its_friendly_name():
         server = MediaServer(f'{host}:{port}')
         server.authenticate()
     assert server.friendly_name == 'MEDIA-SERVER'
+
+
+def test_a_disc_carries_the_playlist_mc_plays_and_its_length(items):
+    ''' E4: Playback Info's `BlurayPlaylist`, and `Duration`, for a title whose playlist is not named. '''
+    from pipeline.library.extract_cache import title_hint
+    listed, _ = items
+    by_key = {item.id.rpartition('-')[2]: item for item in listed}
+    for row in ROWS:
+        item = by_key[str(row['Key'])]
+        named = re.search(r'\(\d+:BlurayPlaylist\)\(\d+:(\d+)\.mpls\)', row.get('Playback Info', ''))
+        disc = bool(_BLURAY_PSEUDO_FILE.match(row['Filename']))   # index.bdmv, index.bluray;N, index.bluray3d;N
+        playlist_file = re.search(r'PLAYLIST\\(\d{5})\.mpls$', row['Filename'], re.IGNORECASE)
+        expected = playlist_file.group(1) if playlist_file else (named.group(1) if named and disc else None)
+        assert item.playlist_name == expected, row['Name']
+        assert item.duration_s == (float(row['Duration']) if row.get('Duration') else None)
+    star = next(item for item in listed if item.title == 'A Star Is Born')
+    assert (star.playlist_name, star.duration_s) == ('00100', 10577.0)
+    assert title_hint(star).first_audio == 'DTS-HD MA'
+
+
+def test_an_entry_that_is_a_playlist_file_is_its_disc_with_that_playlist(items):
+    ''' E4: MC lists a short on another film's disc as the disc's `BDMV\\PLAYLIST\\00305.mpls`. '''
+    listed, _ = items
+    row = next(row for row in ROWS if row['Filename'].lower().endswith('.mpls'))
+    item = next(item for item in listed if item.id.endswith(f"-{row['Key']}"))
+
+    assert item.source_path == os.path.join(FILMS, 'Cinderella 2015') and item.playlist_name == '00305'

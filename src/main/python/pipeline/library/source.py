@@ -37,6 +37,8 @@ class LibraryItem:
     # Playback Info `Streams`) -- resolved to an audio ordinal when the file is probed; () if the source says nothing.
     selected_streams: tuple = ()
     playlist_name: Optional[str] = None      # BD only, forwarded to Session.extract()
+    duration_s: Optional[float] = None       # the title's length as the source knows it: a BD's playlist is the one
+                                              # this long, when no playlist_name says which (model.bdmv)
     art_path: Optional[str] = None           # a local poster/cover file the source already has, if any
                                               # (§3.1.3)
     art_candidates: tuple = ()               # where such a file might be, in order of preference, for a source

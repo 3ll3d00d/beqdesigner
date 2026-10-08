@@ -16,7 +16,7 @@ The *Search* button will change to display *Searching...* and the list should gr
 
 #### Blu-ray and DVD rips
 
-A folder that is a Blu-ray disc rip (it contains `BDMV/index.bdmv`) or a DVD rip (it contains `VIDEO_TS/VIDEO_TS.IFO`, and a match on the `VIDEO_TS` folder itself is also taken as the disc) is added as **one** file, however many files it holds. Other folders are ignored. Its main feature is chosen for you, because a batch run has nobody to ask: the longest playlist for a Blu-ray and the longest title for a DVD. The input is shown as the title's name followed by the disc folder in square brackets.
+A folder that is a Blu-ray disc rip (it contains `BDMV/index.bdmv`) or a DVD rip (it contains `VIDEO_TS/VIDEO_TS.IFO`, and a match on the `VIDEO_TS` folder itself is also taken as the disc) is added as **one** file, however many files it holds. Other folders are ignored. Its main feature is chosen for you, because a batch run has nobody to ask: the longest playlist for a Blu-ray and the longest title for a DVD. A short clip at the start or end of a Blu-ray title whose audio differs from the feature's (a studio logo) is left out, so the audio streams offered are the feature's. The input is shown as the title's name followed by the disc folder in square brackets.
 
 * You cannot pick another title here. A DVD that holds several episodes often has "play all" as its longest title, so look at what was chosen. For a single Blu-ray you can choose any playlist with the disc button in [Extract Audio](./extract_audio.md).
 * Reading a DVD needs an ffmpeg that was built with the `dvdvideo` demuxer. If yours was not, the extraction fails with a message that says so. Encrypted (CSS) discs cannot be read, rips are normally already decrypted.

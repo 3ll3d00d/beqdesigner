@@ -42,13 +42,13 @@ def _write_mpls(path, play_items):
         f.write(_build_mpls_bytes(play_items))
 
 
-def _write_m2ts_clip(path, tone_hz, duration_s):
+def _write_m2ts_clip(path, tone_hz, duration_s, codec='mp2', channels=1):
     ''' A real, ffprobe/ffmpeg-decodable BDAV-style mpegts clip -- a synthetic wav is not a valid BD clip. '''
     if not shutil.which('ffmpeg') or not shutil.which('ffprobe'):
         pytest.skip('ffmpeg and ffprobe are optional')
     subprocess.run(['ffmpeg', '-hide_banner', '-loglevel', 'error', '-f', 'lavfi',
-                    '-i', f"sine=frequency={tone_hz}:duration={duration_s}",
-                    '-c:a', 'mp2', '-f', 'mpegts', path, '-y'], check=True)
+                    '-i', f"sine=frequency={tone_hz}:duration={duration_s}", '-ac', str(channels),
+                    '-c:a', codec, '-f', 'mpegts', path, '-y'], check=True)
 
 
 @pytest.fixture
@@ -138,3 +138,22 @@ def test_extract_still_handles_a_plain_file_unchanged(tmp_path):
 
     assert os.path.isfile(output_path)
     assert os.path.basename(output_path).startswith('plain_')
+
+
+def test_a_title_opening_with_a_logo_of_other_audio_is_extracted_from_the_feature(tmp_path):
+    '''
+    E4, "A Star Is Born": a short intro with stereo AC-3 before a 5.1 feature. Joined, ffmpeg took the streams from the
+    intro and the feature's 5.1 was read as stereo AC-3; the intro is now left out.
+    '''
+    root = tmp_path / 'disc'
+    stream_dir = root / 'BDMV' / 'STREAM'
+    stream_dir.mkdir(parents=True)
+    (root / 'BDMV' / 'PLAYLIST').mkdir(parents=True)
+    (root / 'BDMV' / 'index.bdmv').write_bytes(b'INDX0100')
+    _write_m2ts_clip(str(stream_dir / '00064.m2ts'), 500, 1.0, codec='ac3', channels=2)
+    _write_m2ts_clip(str(stream_dir / '00020.m2ts'), 40, 3.0, codec='ac3', channels=6)
+    _write_mpls(str(root / 'BDMV' / 'PLAYLIST' / '00100.mpls'), [('00064', 0, 45000), ('00020', 0, 45000 * 3)])
+
+    streams = Session(AnalysisConfig()).probe_audio_streams(str(root))
+
+    assert [s['channels'] for s in streams] == [6]   # the feature's, not the intro's stereo

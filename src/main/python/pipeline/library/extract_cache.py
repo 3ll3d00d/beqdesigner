@@ -16,6 +16,7 @@ from typing import Callable, Optional, Tuple
 import numpy as np
 import soundfile as sf
 
+from model.bdmv import TitleHint
 from pipeline.config import AnalysisConfig
 from pipeline.library.source import LibraryItem
 from pipeline.orchestrate import Session
@@ -28,6 +29,14 @@ def source_fingerprint(item: LibraryItem) -> str:
         return item.fingerprint
     stat = os.stat(item.source_path)
     return f"{stat.st_mtime_ns}:{stat.st_size}"
+
+
+def title_hint(item: LibraryItem) -> Optional[TitleHint]:
+    ''' What the source knows of a disc title -- its length and first audio codec -- to choose its playlist. '''
+    if not item.duration_s:
+        return None
+    first = item.audio_stream_details[0].get('codec') if item.audio_stream_details else None
+    return TitleHint(item.duration_s, first or None)
 
 
 def extract_params_hash(item: LibraryItem, config: AnalysisConfig, mono_mix: bool) -> str:
@@ -153,7 +162,8 @@ def extract_if_needed(session: Session, item: LibraryItem, target_dir: str, conf
 
     result = session.extract_with_layout(item.source_path, target_dir, audio_stream=item.audio_stream,
                                          mono_mix=mono_mix, decimate=True, playlist_name=item.playlist_name,
-                                         output_file_name=prefix, on_progress=on_progress)
+                                         output_file_name=prefix, on_progress=on_progress,
+                                         hint=title_hint(item))
     manifest[f"{prefix}_source_fingerprint"] = fingerprint
     manifest[f"{prefix}_params_hash"] = params_hash
     manifest[f"{prefix}_extracted_at"] = time.time()

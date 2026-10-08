@@ -180,3 +180,96 @@ def test_resolve_title_raises_when_clip_missing(tmp_path):
 
     with pytest.raises(FileNotFoundError):
         resolve_title(str(root), playlist)
+
+
+# --- the title a library plays, and its streams from the feature (E4) -----------------------------------------------
+
+from model.bdmv import TitleHint, codec_family, resolve_main_title  # noqa: E402
+
+S = 45000   # clock ticks a second
+
+
+def _layouts(**by_clip):
+    ''' A fake ffprobe: each clip's audio, as `codec,channels` lines. '''
+    def layout(path):
+        return by_clip.get(os.path.splitext(os.path.basename(path))[0], ('ac3,2',))
+    return layout
+
+
+def _disc_with(tmp_path, playlists):
+    clips = sorted({c for items in playlists.values() for c, _ in items})
+    root = _make_disc(tmp_path, clips)
+    for name, items in playlists.items():
+        _write_mpls(os.path.join(root, 'BDMV', 'PLAYLIST', f'{name}.mpls'), [(c, 0, int(d * S)) for c, d in items])
+    return root
+
+
+def test_a_short_intro_with_other_audio_is_left_out_so_the_streams_are_the_features(tmp_path):
+    ''' "A Star Is Born": a 22 s logo with stereo AC-3, then the DTS-HD MA feature; joined, it read as AC-3. '''
+    root = _disc_with(tmp_path, {'00100': [('00064', 22), ('00020', 10555)]})
+
+    title = resolve_main_title(root, layout=_layouts(**{'00064': ('ac3,2',), '00020': ('dts,6', 'ac3,2')}))
+
+    assert title.dropped == ['00064'] and title.ffmpeg_input.endswith('00020.m2ts')
+    assert title.duration_s == pytest.approx(10555)
+
+
+@pytest.mark.parametrize('first, seconds, dropped', [
+    (('dts,6', 'ac3,2'), 22, []),          # the same audio: a part of the feature
+    (('ac3,2',), 300, []),                 # long: not an intro
+])
+def test_a_clip_is_kept_when_its_audio_matches_or_it_is_long(tmp_path, first, seconds, dropped):
+    root = _disc_with(tmp_path, {'00100': [('00064', seconds), ('00020', 5000)]})
+    title = resolve_main_title(root, layout=_layouts(**{'00064': first, '00020': ('dts,6', 'ac3,2')}))
+    assert title.dropped == dropped
+
+
+def test_a_short_clip_at_the_end_with_other_audio_is_left_out_too(tmp_path):
+    root = _disc_with(tmp_path, {'00100': [('00020', 5000), ('00099', 10)]})
+    assert resolve_main_title(root, layout=_layouts(**{'00020': ('dts,6',), '00099': ('ac3,2',)})).dropped == ['00099']
+
+
+def test_the_playlist_the_library_names_is_the_one_resolved(tmp_path):
+    root = _disc_with(tmp_path, {'00001': [('00001', 7000)], '00034': [('00034', 6500)]})
+    layout = _layouts()
+    assert resolve_main_title(root, '00034', layout=layout).playlist.name == '00034'
+    assert resolve_main_title(root, '00034.mpls', layout=layout).playlist.name == '00034'
+    with pytest.raises(ValueError, match='No playlist named 00999'):
+        resolve_main_title(root, '00999', layout=layout)   # a person's choice is not guessed at
+
+
+def test_without_a_name_the_title_is_the_one_as_long_as_the_library_says(tmp_path):
+    ''' Wall-E: the library plays 00081 (5891.9 s), a branch of the longer 00082. '''
+    root = _disc_with(tmp_path, {'00081': [('00081', 5891.9)], '00082': [('00082', 5922.0)]})
+    assert resolve_main_title(root, duration_s=5891, layout=_layouts()).playlist.name == '00081'
+    assert resolve_main_title(root, layout=_layouts()).playlist.name == '00082'   # no hint: the longest, as before
+
+
+def test_two_titles_of_that_length_are_told_apart_by_the_first_audio_stream(tmp_path):
+    ''' Glory: a stereo AC-3 decoy 0.2 s from the TrueHD Atmos feature. '''
+    root = _disc_with(tmp_path, {'00246': [('00337', 7334.1)], '00001': [('00001', 7334.3)]})
+    layout = _layouts(**{'00337': ('ac3,2', 'ac3,2'), '00001': ('truehd,8', 'ac3,6')})
+
+    assert resolve_main_title(root, duration_s=7334, layout=layout, first_audio='TrueHD Atmos').playlist.name == '00001'
+    assert resolve_main_title(root, duration_s=7334, layout=layout).playlist.name == '00246'   # closest, unaided
+
+
+def test_a_named_playlist_missing_a_clip_falls_back_to_one_of_that_length(tmp_path):
+    root = _disc_with(tmp_path, {'00801': [('00010', 6000)], '00800': [('00011', 6000)]})
+    os.remove(os.path.join(root, 'BDMV', 'STREAM', '00010.m2ts'))
+    assert resolve_main_title(root, '00801', duration_s=6000, layout=_layouts()).playlist.name == '00800'
+
+
+def test_an_incomplete_rip_says_so_rather_than_extracting_some_other_title(tmp_path):
+    ''' RoboCop: every feature-length playlist names a missing clip; a 3-minute extra is not the film. '''
+    root = _disc_with(tmp_path, {'00800': [('01571', 6200)], '00801': [('01571', 6201)], '00302': [('00302', 180)]})
+    os.remove(os.path.join(root, 'BDMV', 'STREAM', '01571.m2ts'))
+    for kwargs in ({'playlist_name': '00801', 'duration_s': 6200}, {}):
+        with pytest.raises(ValueError, match='an incomplete rip'):
+            resolve_main_title(root, layout=_layouts(), **kwargs)
+
+
+@pytest.mark.parametrize('name, family', [('TrueHD Atmos', 'truehd'), ('DTS-HD MA + DTS:X', 'dts'), ('AC-3', 'ac3'),
+                                          ('E-AC3', 'eac3'), ('PCM_BLURAY', 'pcm_bluray'), ('ac3', 'ac3')])
+def test_a_codec_is_compared_by_its_family(name, family):
+    assert codec_family(name) == family

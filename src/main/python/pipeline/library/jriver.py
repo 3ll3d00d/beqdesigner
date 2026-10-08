@@ -20,7 +20,7 @@ from hamcws import MediaServer, get_mcws_connection
 from model.dvd import pseudo_file_root as dvd_pseudo_file_root
 from pipeline.library.pathmap import PathMapping, is_windows_absolute, translate_path, unmapped_path_problem
 from pipeline.library.source import LibraryItem
-from pipeline.library.streams import audio_types, selected_streams
+from pipeline.library.streams import audio_types, playback_records, selected_streams
 
 logger = logging.getLogger('library_jriver')
 
@@ -260,6 +260,8 @@ class JRiverLibrarySource:
             meta=_metadata(row, 0),
             audio_stream=0,
             selected_streams=selected_streams(_value(row, 'Playback Info')) or (),
+            playlist_name=_mpls_entry(filename)[1] or _bluray_playlist(row, filename),
+            duration_s=_duration(row),
             audio_stream_details=_audio_stream_details(row),
             art_candidates=self._art_candidates(_value(row, 'Image File'), source_path),
             fingerprint=fingerprint,
@@ -344,6 +346,44 @@ def _split_streams(value: str) -> list[str]:
     return [part.strip() for part in value.split(';')] if value else []
 
 
+_MPLS_FILE = re.compile(r'^(?P<root>.+?)[\\/]BDMV[\\/]PLAYLIST[\\/](?P<name>\d{5})\.mpls$', re.IGNORECASE)
+
+
+def _mpls_entry(filename: str) -> tuple[Optional[str], Optional[str]]:
+    '''
+    An entry that is a disc's playlist file (`<disc>\\BDMV\\PLAYLIST\\00305.mpls`, as MC lists a short on another film's
+    disc): (the disc folder, the playlist), which the pipeline opens as it opens any disc title; (None, None) else.
+    '''
+    match = _MPLS_FILE.match(filename)
+    if not match:
+        return None, None
+    root = match.group('root')
+    return (root + filename[len(root)] if root.endswith(':') else root), match.group('name')
+
+
+def _bluray_playlist(row: Mapping[str, Any], filename: str) -> Optional[str]:
+    '''
+    The playlist MC plays for a Blu-ray entry (Playback Info's `BlurayPlaylist`, `00100.mpls` -> `00100`), so the
+    pipeline extracts that rather than guessing the main title; None for anything that is not a disc root entry.
+    '''
+    if not _BLURAY_PSEUDO_FILE.match(filename):
+        return None
+    records = playback_records(_value(row, 'Playback Info')) or []
+    names, values = records[1::2], records[2::2]
+    if 'BlurayPlaylist' not in names:
+        return None
+    name = values[names.index('BlurayPlaylist')].strip()
+    return (name[:-5] if name.lower().endswith('.mpls') else name) or None
+
+
+def _duration(row: Mapping[str, Any]) -> Optional[float]:
+    try:
+        value = float(_value(row, 'Duration'))
+    except ValueError:
+        return None
+    return value if value > 0 else None
+
+
 def _kind(row: Mapping[str, Any]) -> str:
     '''
     'tv' or 'movie'. JRiver's Media Sub Type is authoritative when it is set ('Movie', 'TV Show', ...).
@@ -385,6 +425,9 @@ def _disc_root(filename: str) -> str:
     report that. A `BDMV\\PLAYLIST\\index.bluray;N` entry, which names a playlist
     on the disc, is left as reported: which title `N` selects is unknown.
     '''
+    mpls_root, _ = _mpls_entry(filename)
+    if mpls_root:
+        return mpls_root
     match = _BLURAY_PSEUDO_FILE.match(filename)
     if match:
         root = match.group('root')

@@ -64,6 +64,11 @@ class ResolvedDvdTitle:
     display_name: str
     input_options: Dict[str, object] = field(default_factory=dict)
 
+    @property
+    def duration_s(self) -> float:
+        ''' What is extracted, as model.bdmv.ResolvedTitle.duration_s. '''
+        return self.playlist.extraction_duration_s
+
 
 def dvd_root(path: str) -> Optional[str]:
     '''

@@ -15,7 +15,7 @@ from pipeline.library.failure import Unavailable, unavailable_reason
 from pipeline.library.retention import DEFAULT_MIN_FREE_GB, OutOfSpace, check_free_space, min_free_gb, \
     restore_multichannel
 from pipeline.library.streams import audio_ordinal, channels_found, stream_choice
-from pipeline.library.extract_cache import extract_if_needed, extract_status, mono_from_multichannel_if_needed, \
+from pipeline.library.extract_cache import extract_if_needed, title_hint, extract_status, mono_from_multichannel_if_needed, \
     read_channel_layout_name, read_source_channel_count
 from pipeline.library.index import LibraryIndex, with_audio_stream
 from pipeline.library.library_metadata import library_meta, resolve_meta
@@ -418,7 +418,7 @@ def resolve_selected_stream(session: Session, item: LibraryItem) -> tuple[Librar
         return item, ''   # extraction says what is wrong with the path
     said = ','.join(str(n) for n in item.selected_streams)
     try:
-        streams = session.probe_streams(item.source_path, item.playlist_name)
+        streams = session.probe_streams(item.source_path, item.playlist_name, title_hint(item))
     except Exception as error:
         return item, f"the file could not be probed for the source's stream selection ({type(error).__name__}), so " \
                      f"the first audio stream is used"

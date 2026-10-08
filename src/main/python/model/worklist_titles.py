@@ -34,6 +34,7 @@ from pipeline.config import AnalysisConfig
 from pipeline.library.index import LibraryIndex
 from pipeline.library.profile import Profile
 from pipeline.library.status import ScanSettings
+from pipeline.library.extract_cache import title_hint
 from pipeline.library.streams import describe_streams, details_from_ffprobe
 from pipeline.orchestrate import Session
 from pipeline.library.revise import revise_entry
@@ -88,7 +89,8 @@ class _ProbeJob(QRunnable):
                 raise ValueError(self._item.source_path_problem)
             if not os.path.exists(path):
                 raise ValueError(f'{path} cannot be found (is the media share mounted here?)')
-            streams = Session(AnalysisConfig()).probe_audio_streams(path, self._item.playlist_name)
+            streams = Session(AnalysisConfig()).probe_audio_streams(path, self._item.playlist_name,
+                                                                    title_hint(self._item))
             if not streams:
                 raise ValueError(f'{path} has no audio stream')
             self.signals.found.emit(self._title_id, details_from_ffprobe(streams))

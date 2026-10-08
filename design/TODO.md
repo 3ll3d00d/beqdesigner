@@ -47,7 +47,6 @@ validation and steep-filter default are outside it.
 | 11 | D4 | | by-reference §5 | Release part done (each entry records its designer and build); the drift behavior is not started | Designer build identity policy (full drift behavior only) |
 | 15 | E2 | R | chunk 31, T2-T4 | Waiting for manual acceptance | R1–R9, E1; real designer, media and disposable repositories |
 | 16 | E3 | | chunk 32, T7 | Not started; the captured library has no DVDs | A DVD in a JRiver library; DVD fixture |
-| 17 | E4 | | chunk 33, T8 | Premise not observed (E1); real playlist forms recorded | Product decision on `.mpls` entries and `BlurayPlaylist` |
 | 18 | E5 | | chunk 37, T15 | Waiting for a product decision | E2; representative season media |
 | 19 | T1 | | -- | Watch; not reproduced | Recurrence with a stack dump |
 | 20 | T2 | | -- | Watch; seen twice | Recurrence with its failure message |
@@ -58,9 +57,9 @@ validation and steep-filter default are outside it.
 | 24 | O2 | | former §9 reviewer questions | Behavior exists; acceptance decision missing | Real reviewer feedback |
 | 25 | O1 | | D6 | Optional idea; no implementation decision | Product decision |
 
-E3 and E4 are outside the milestone only if E2's sample shows the documented
+E3 is outside the milestone only if E2's sample shows the documented DVD
 main-title fallback is truthful for the catalogue's discs; if it silently
-duplicates or picks the wrong playlist, they move into it.
+duplicates or picks the wrong title, it moves into it. (E4, Blu-ray, is done.)
 
 ## Work in priority order
 
@@ -117,31 +116,6 @@ real navigation run in E2's record.
 
 **Done when:** a person can choose a DVD title and library runs cannot
 silently duplicate a disc's main title for distinct episodes.
-
-### E4 — Blu-ray playlist pseudo-paths
-
-**E1 (2026-10-08) did not observe the premise:** the captured library has no
-`BDMV\PLAYLIST\index.bluray;N` entries. Its pseudo-paths are all
-`BDMV\index.bluray;1`. What it has instead: an entry that is a playlist file
-(`...\BDMV\PLAYLIST\00305.mpls`, a short on another film's disc, which
-`_disc_root` passes through as a file, so extraction opens the `.mpls`
-itself); 13 `Playback Info` records naming a `BlurayPlaylist` (`00801.mpls`) for
-an `index.bdmv` entry; and two disc folders listed by more than one entry.
-Decide whether a `BlurayPlaylist` should choose the playlist extracted, and
-how an `.mpls` entry is extracted, before the steps below. **J2's probe
-(2026-10-08) found one disc to look at:** for "A Star Is Born" ffprobe sees
-three AC-3 streams in the main title `model.bdmv` resolves to (the same
-`00100.mpls` JRiver plays), where JRiver lists DTS-HD MA first. The extraction
-may be reading a clip or track that is not the feature's.
-
-Determine from E1 and BDMV files what `BDMV\PLAYLIST\index.bluray;N`
-means. If `N` maps to a playlist, preserve it in `LibraryItem` and pass it
-to extraction. Otherwise report the unresolved selection and use the
-documented main-title fallback. Test known and unknown playlist numbers,
-path normalisation and ordinary BDMV roots.
-
-**Done when:** each observed pseudo-path either selects the intended
-playlist or shows a truthful fallback.
 
 ### E5 — Season fidelity decision
 

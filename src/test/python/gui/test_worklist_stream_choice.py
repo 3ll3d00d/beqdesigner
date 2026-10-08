@@ -52,7 +52,7 @@ def test_a_source_that_listed_no_streams_has_them_read_from_the_file_then_asks(q
     media.write_bytes(b'')
     probed = [{'codec_name': 'ac3', 'channels': 2, 'sample_rate': '48000'},
               {'codec_name': 'truehd', 'profile': 'Dolby TrueHD + Dolby Atmos', 'channels': 8, 'sample_rate': '48000'}]
-    monkeypatch.setattr('pipeline.orchestrate.Session.probe_audio_streams', lambda self, src, playlist_name=None: probed)
+    monkeypatch.setattr('pipeline.orchestrate.Session.probe_audio_streams', lambda self, src, playlist_name=None, hint=None: probed)
     window = _listed_without_streams(qtbot, tmp_path, str(media))
     asked = []
     monkeypatch.setattr(QInputDialog, 'getInt', staticmethod(

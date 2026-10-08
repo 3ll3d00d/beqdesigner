@@ -50,7 +50,7 @@ import os
 from dataclasses import dataclass
 from typing import Callable, List, Optional, Sequence, Tuple, Union
 
-from model.bdmv import bdmv_root_of, resolve_main_title
+from model.bdmv import TitleHint, bdmv_root_of, resolve_main_title
 from model.dvd import dvd_root, resolve_main_title as resolve_main_dvd_title
 from model.ffmpeg import Executor
 from model.iir import CompleteFilter
@@ -227,7 +227,8 @@ class Session:
     def extract_with_layout(self, src: str, target_dir: str, audio_stream: int = 0, video_stream: int = -1,
                             mono_mix: bool = True, decimate: bool = True, playlist_name: Optional[str] = None,
                             output_file_name: Optional[str] = None,
-                            on_progress: Optional[Callable[[int, int], None]] = None) -> ExtractResult:
+                            on_progress: Optional[Callable[[int, int], None]] = None,
+                            hint: Optional[TitleHint] = None) -> ExtractResult:
         '''
         Same as extract(), but (a) lets a caller fix the output filename instead of ffmpeg's auto-derived one
         (output_file_name is given *without* an extension -- Executor appends the format's own extension,
@@ -240,7 +241,8 @@ class Session:
         :raises ValueError: if src has no audio stream, or (BD input) no matching/parseable title is found.
         '''
         os.makedirs(target_dir, exist_ok=True)
-        executor, src = self.__executor(src, target_dir, playlist_name, mono_mix=mono_mix, decimate=decimate)
+        executor, src = self.__executor(src, target_dir, playlist_name, mono_mix=mono_mix, decimate=decimate,
+                                        hint=hint)
         if on_progress is not None:
             def report_ffmpeg_progress(key, value):
                 if key == 'progress' and value == 'end' and executor.duration_micros:
@@ -265,7 +267,7 @@ class Session:
                              channel_count=executor.channel_count, mono_mix_spec=executor.mono_mix_spec)
 
     def __executor(self, src: str, target_dir: str, playlist_name: Optional[str], mono_mix: bool = True,
-                   decimate: bool = True) -> Tuple[Executor, str]:
+                   decimate: bool = True, hint: Optional[TitleHint] = None) -> Tuple[Executor, str]:
         '''
         An Executor over `src`, a BD or DVD rip folder resolved to its main title (or `playlist_name`) first.
         :return: (the executor, the input it reads).
@@ -275,10 +277,11 @@ class Session:
         input_options = None
         bdmv_root = bdmv_root_of(src)
         if bdmv_root is not None:
-            resolved = resolve_main_title(bdmv_root, playlist_name=playlist_name)
+            resolved = resolve_main_title(bdmv_root, playlist_name=playlist_name, duration_s=hint.duration_s if hint else None,
+                                          first_audio=hint.first_audio if hint else None)
             src = resolved.ffmpeg_input
             display_name = resolved.display_name
-            duration_override_s = resolved.playlist.extraction_duration_s
+            duration_override_s = resolved.duration_s
         elif dvd_root(src) is not None:
             resolved = resolve_main_dvd_title(src, title_name=playlist_name)
             src = resolved.ffmpeg_input
@@ -289,17 +292,24 @@ class Session:
                         decimate_fs=self.__config.target_fs, display_name=display_name,
                         duration_override_s=duration_override_s, input_options=input_options), src
 
-    def probe_audio_streams(self, src: str, playlist_name: Optional[str] = None) -> list:
+    def probe_audio_streams(self, src: str, playlist_name: Optional[str] = None,
+                            hint: Optional[TitleHint] = None) -> list:
         '''
         ffprobe's audio streams of `src`, opened exactly as extract_with_layout() opens it (a BD or DVD rip resolved to
         the same title), in the order its `audio_stream` counts them. Writes nothing.
         :raises FileNotFoundError: if ffprobe is not installed; ffmpeg.Error if it cannot read the source.
         '''
-        return [stream for stream in self.probe_streams(src, playlist_name) if stream.get('codec_type') == 'audio']
+        return [stream for stream in self.probe_streams(src, playlist_name, hint)
+                if stream.get('codec_type') == 'audio']
 
-    def probe_streams(self, src: str, playlist_name: Optional[str] = None) -> list:
-        ''' Every stream ffprobe finds in `src` (video, audio, subtitles...), opened as probe_audio_streams() opens it. '''
-        executor, _ = self.__executor(src, os.path.dirname(os.path.abspath(src)), playlist_name)
+    def probe_streams(self, src: str, playlist_name: Optional[str] = None,
+                      hint: Optional[TitleHint] = None) -> list:
+        '''
+        Every stream ffprobe finds in `src` (video, audio, subtitles...), opened as probe_audio_streams() opens it.
+        :param hint: what the library knows of a disc title, to choose its playlist (model.bdmv.TitleHint).
+        '''
+        executor, _ = self.__executor(src, os.path.dirname(os.path.abspath(src)), playlist_name,
+                                      hint=hint)
         executor.probe_file()
         return list((executor.probe or {}).get('streams', []))
 

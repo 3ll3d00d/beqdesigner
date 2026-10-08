@@ -453,3 +453,52 @@ audio streams resolved and extracted as JRiver's second audio stream (kept by
 the next scan), plus a refused selection's fallback note. Found for E4:
 "A Star Is Born"'s resolved main title shows only AC-3 where JRiver lists
 DTS-HD MA.
+
+## E4 — Blu-ray titles: the playlist played, the feature's streams (completed)
+
+Completed on 2026-10-08, in the commit "Choose a Blu-ray's playlist as the
+library plays it, and read its streams from the feature". It started from
+"A Star Is Born" picking an AC-3 track (J2). Its playlist `00100` plays a
+22 s logo clip with stereo AC-3, then the DTS-HD MA feature. The resolver
+joined them (`concat:`), and ffmpeg takes a joined input's streams from its
+first clip, so the feature was read as the logo's AC-3. Choosing by the
+maintainer's suggestions (JRiver's duration, then its `BlurayPlaylist`), with
+a fallback for sources that have neither:
+
+- `model.bdmv.resolve_title` leaves out a clip under 2 minutes at either end
+  of a title whose audio (ffprobe's codec and channels) differs from the
+  longest clip's (`ResolvedTitle.dropped`; `duration_s` excludes it). This
+  applies to every source and to Batch and Extract Audio.
+- `resolve_main_title(playlist_name, duration_s, first_audio)` picks the
+  named playlist (JRiver's `BlurayPlaylist`, or a playlist-file entry
+  `PLAYLIST\00305.mpls`, which now opens as its disc with that playlist).
+  Failing that, the playlist within 2 s or 0.2% of the library's duration.
+  Two that close are told apart by the source's first audio codec ("Glory": a
+  stereo AC-3 decoy 0.2 s from the TrueHD Atmos feature), then the closer.
+  Otherwise the longest playlist, as before, which is all a source without
+  hints gets. A named playlist missing a clip falls back to one of that
+  length. A rip whose feature-length playlists all miss a clip ("RoboCop")
+  fails, saying it looks incomplete, instead of extracting an unrelated short
+  title. `LibraryItem` gains `duration_s`; `extract_cache.title_hint()` and
+  `model.bdmv.TitleHint` carry duration and first codec to extraction and the
+  probes.
+
+Evidence, the 76 discs of the captured library with the media mounted: 10
+choose a playlist other than the longest (7 named by JRiver, 3 by duration),
+3 drop a logo clip (A Star Is Born, Arrietty, Bande A Part), RoboCop fails as
+incomplete, and on all 74 where JRiver lists audio, ffprobe's first audio
+stream of the resolved input is JRiver's first codec (Glory too, after the
+tie-break). The `PLAYLIST\index.bluray;N` pseudo-path this item was opened
+for was not seen.
+
+Titles already extracted are not extracted again unless their playlist name
+changed (it is in the cache key: the titles with a `BlurayPlaylist` will be).
+A Star Is Born, Arrietty and Bande A Part need *Revise > Re-extract*.
+
+Tests: `model/test_bdmv.py` covers the drop rules, duration and tie-break,
+named and fallback, incomplete rips and codec families.
+`test_pipeline_orchestrate_bdmv.py` probes a real disc built with ffmpeg:
+an AC-3 stereo intro before a 5.1 feature, where the feature's 6 channels are
+read. `test_pipeline_library_jriver_fixture.py` covers playlist, duration and
+the playlist-file entry from the real rows. Full suite **2756 passed, 1
+skipped**.
