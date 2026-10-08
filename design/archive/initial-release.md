@@ -516,3 +516,16 @@ manifests and no `latest` (the prerelease rule). The amd64 image reports
 version `2.2.0-alpha.1`, labels revision `3ec6b5d`, and runs as `beq`. The
 arm64 image was built and published but not run: no runner or local machine
 had arm64 emulation.
+
+The same tag's desktop app builds (`create-app.yaml`, run `37847667915`)
+failed in their test step on all seven runners, so `2.2.0-alpha.1` has no app
+binaries. That workflow ran the suite without a Qt platform or `libpulse0`, so
+the GUI tests could not be collected on Linux. It also runs without ffmpeg,
+which exposed a real defect from E4: the Blu-ray clip check called `ffprobe`
+directly, so adding a disc to Batch Extract failed where ffmpeg is not
+installed (macOS, Windows). Fixed in "Keep Blu-ray titles working without
+ffprobe, and test releases as CI does": an unreadable or absent `ffprobe`
+leaves the title whole. The release workflow now runs the suite exactly as
+`test.yaml` does, still deliberately without ffmpeg. Locally, with ffmpeg and
+ffprobe absent from `PATH`: **2701 passed, 67 skipped**. The next tag builds
+the apps.

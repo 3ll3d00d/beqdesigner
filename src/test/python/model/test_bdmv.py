@@ -273,3 +273,24 @@ def test_an_incomplete_rip_says_so_rather_than_extracting_some_other_title(tmp_p
                                           ('E-AC3', 'eac3'), ('PCM_BLURAY', 'pcm_bluray'), ('ac3', 'ac3')])
 def test_a_codec_is_compared_by_its_family(name, family):
     assert codec_family(name) == family
+
+
+def test_without_ffprobe_a_title_resolves_and_nothing_is_left_out(tmp_path, monkeypatch):
+    ''' The release build found it: ffprobe is optional in the app, and adding a disc to Batch Extract failed without it. '''
+    import subprocess
+    from model import bdmv
+
+    def missing(*args, **kwargs):
+        raise FileNotFoundError(2, 'No such file or directory', 'ffprobe')
+    monkeypatch.setattr(subprocess, 'run', missing)
+    root = _disc_with(tmp_path, {'00100': [('00064', 22), ('00020', 5000)]})
+
+    assert bdmv.audio_layout(str(tmp_path / 'x.m2ts')) == ()
+    title = resolve_main_title(root)
+    assert title.dropped == [] and title.ffmpeg_input.startswith('concat:')
+
+
+def test_a_clip_whose_audio_cannot_be_read_is_kept(tmp_path):
+    root = _disc_with(tmp_path, {'00100': [('00064', 22), ('00020', 5000)]})
+    assert resolve_main_title(root, layout=_layouts(**{'00064': (), '00020': ('dts,6',)})).dropped == []
+    assert resolve_main_title(root, layout=_layouts(**{'00064': ('ac3,2',), '00020': ()})).dropped == []

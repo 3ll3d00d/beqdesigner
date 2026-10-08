@@ -178,10 +178,18 @@ def list_playlists(bdmv_root: str) -> List[Playlist]:
 
 
 def audio_layout(clip_path: str) -> Tuple[str, ...]:
-    ''' A clip's audio streams as ffprobe sees them, (codec:channels, ...): enough to tell a logo's from a feature's. '''
-    out = subprocess.run(['ffprobe', '-v', 'error', '-select_streams', 'a', '-show_entries',
-                          'stream=codec_name,channels', '-of', 'csv=p=0', clip_path],
-                         capture_output=True, text=True, timeout=120)
+    '''
+    A clip's audio streams as ffprobe sees them, (codec:channels, ...): enough to tell a logo's from a feature's. Empty
+    when that cannot be known -- ffprobe is not installed (the app treats it as optional) or cannot read the clip -- so
+    nothing is left out on a guess.
+    '''
+    try:
+        out = subprocess.run(['ffprobe', '-v', 'error', '-select_streams', 'a', '-show_entries',
+                              'stream=codec_name,channels', '-of', 'csv=p=0', clip_path],
+                             capture_output=True, text=True, timeout=120)
+    except (OSError, subprocess.SubprocessError) as error:
+        logger.info(f"Cannot read the audio of {clip_path} ({error}); no clip is left out of its title")
+        return ()
     return tuple(line.strip() for line in out.stdout.splitlines() if line.strip())
 
 
@@ -195,12 +203,15 @@ def _clips_to_drop(items: List[PlayItem], clip_path: Callable[[str], str],
         return []
     feature = max(items, key=lambda pi: pi.duration_s)
     expected = layout(clip_path(feature.clip_id))
+    if not expected:   # the feature's audio is unknown: nothing to compare a clip with
+        return []
     dropped = []
     for ends in (items, list(reversed(items))):
         for item in ends:
             if item is feature or item.duration_s >= INTRO_LIMIT_S or item.clip_id in dropped:
                 break
-            if layout(clip_path(item.clip_id)) == expected:
+            found = layout(clip_path(item.clip_id))
+            if not found or found == expected:   # unknown is not different
                 break
             dropped.append(item.clip_id)
     return dropped

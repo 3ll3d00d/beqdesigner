@@ -53,11 +53,16 @@ jobs:
           uv sync --locked
           if [[ "$RUNNER_OS" == "Linux" ]]
           then
-            sudo apt install -y libegl1
+            sudo apt install -y libegl1 libpulse0   # Qt's platform and multimedia libraries, as test.yaml installs
           fi
+      # As test.yaml runs the suite, except that ffmpeg is deliberately not installed: the app treats it as optional, and
+      # this is the run that checks the app still works without it (the requires_ffmpeg tests skip).
       - name: pytest
+        timeout-minutes: 20
+        env:
+          QT_QPA_PLATFORM: offscreen
         run: |
-          PYTHONPATH=./src/main/python uv run pytest --cov=./src/main/python
+          PYTHONPATH=./src/main/python QT_QPA_PLATFORM=offscreen uv run pytest src/test/python -n auto --cov=./src/main/python -o faulthandler_timeout=300
       - name: Install packaging dependencies
         run: |
           if [[ "$RUNNER_OS" == "Linux" ]]
