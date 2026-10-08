@@ -470,6 +470,27 @@ class LibraryIndex:
                               (json.dumps([item_to_json(chosen)]), title_id))
         return chosen
 
+    def set_audio_stream_details(self, title_id: str, details: Sequence[dict]) -> LibraryItem:
+        '''
+        Record a title's audio-stream list found by probing its file (streams.details_from_ffprobe()), for a source that
+        supplied none, without re-listing the source. The chosen stream is kept; a choice the list does not have is
+        reset to the first. A season's episodes are separate files, so it is refused, as select_audio_stream() is.
+        '''
+        with self.__lock, self.__db:
+            row = self.__db.execute('SELECT unit, items FROM titles WHERE id = ?', (title_id,)).fetchone()
+            if row is None:
+                raise KeyError(f'no indexed title {title_id!r}')
+            items = [item_from_json(data) for data in json.loads(row['items'])]
+            if row['unit'] == 'season' or len(items) != 1:
+                raise ValueError('a grouped season has an audio-stream list per episode, not one for the season')
+            item = items[0]
+            details = tuple(dict(detail) for detail in details)
+            chosen = replace(item, audio_stream_details=details,
+                             audio_stream=item.audio_stream if 0 <= item.audio_stream < len(details) else 0)
+            self.__db.execute('UPDATE titles SET items = ? WHERE id = ?',
+                              (json.dumps([item_to_json(chosen)]), title_id))
+        return chosen
+
     def entry_summaries(self, ids: Iterable[str]) -> Dict[str, str]:
         '''
         What the last scan read of each title's queue entry (`status.EntryFacts.to_json()`), the cache `read_entry_facts()`

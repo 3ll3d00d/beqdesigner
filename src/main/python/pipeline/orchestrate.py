@@ -48,7 +48,7 @@ test_qt_free_modules.py makes a whole run with every Qt package blocked.
 import json
 import os
 from dataclasses import dataclass
-from typing import Callable, List, Optional, Sequence, Union
+from typing import Callable, List, Optional, Sequence, Tuple, Union
 
 from model.bdmv import bdmv_root_of, resolve_main_title
 from model.dvd import dvd_root, resolve_main_title as resolve_main_dvd_title
@@ -240,24 +240,7 @@ class Session:
         :raises ValueError: if src has no audio stream, or (BD input) no matching/parseable title is found.
         '''
         os.makedirs(target_dir, exist_ok=True)
-        display_name = None
-        duration_override_s = None
-        input_options = None
-        bdmv_root = bdmv_root_of(src)
-        if bdmv_root is not None:
-            resolved = resolve_main_title(bdmv_root, playlist_name=playlist_name)
-            src = resolved.ffmpeg_input
-            display_name = resolved.display_name
-            duration_override_s = resolved.playlist.extraction_duration_s
-        elif dvd_root(src) is not None:
-            resolved = resolve_main_dvd_title(src, title_name=playlist_name)
-            src = resolved.ffmpeg_input
-            display_name = resolved.display_name
-            duration_override_s = resolved.playlist.duration_s
-            input_options = resolved.input_options
-        executor = Executor(src, target_dir, mono_mix=mono_mix, decimate_audio=decimate,
-                            decimate_fs=self.__config.target_fs, display_name=display_name,
-                            duration_override_s=duration_override_s, input_options=input_options)
+        executor, src = self.__executor(src, target_dir, playlist_name, mono_mix=mono_mix, decimate=decimate)
         if on_progress is not None:
             def report_ffmpeg_progress(key, value):
                 if key == 'progress' and value == 'end' and executor.duration_micros:
@@ -280,6 +263,41 @@ class Session:
         executor.run_sync()
         return ExtractResult(wav_path=executor.get_output_path(), channel_layout_name=executor.channel_layout_name,
                              channel_count=executor.channel_count, mono_mix_spec=executor.mono_mix_spec)
+
+    def __executor(self, src: str, target_dir: str, playlist_name: Optional[str], mono_mix: bool = True,
+                   decimate: bool = True) -> Tuple[Executor, str]:
+        '''
+        An Executor over `src`, a BD or DVD rip folder resolved to its main title (or `playlist_name`) first.
+        :return: (the executor, the input it reads).
+        '''
+        display_name = None
+        duration_override_s = None
+        input_options = None
+        bdmv_root = bdmv_root_of(src)
+        if bdmv_root is not None:
+            resolved = resolve_main_title(bdmv_root, playlist_name=playlist_name)
+            src = resolved.ffmpeg_input
+            display_name = resolved.display_name
+            duration_override_s = resolved.playlist.extraction_duration_s
+        elif dvd_root(src) is not None:
+            resolved = resolve_main_dvd_title(src, title_name=playlist_name)
+            src = resolved.ffmpeg_input
+            display_name = resolved.display_name
+            duration_override_s = resolved.playlist.duration_s
+            input_options = resolved.input_options
+        return Executor(src, target_dir, mono_mix=mono_mix, decimate_audio=decimate,
+                        decimate_fs=self.__config.target_fs, display_name=display_name,
+                        duration_override_s=duration_override_s, input_options=input_options), src
+
+    def probe_audio_streams(self, src: str, playlist_name: Optional[str] = None) -> list:
+        '''
+        ffprobe's audio streams of `src`, opened exactly as extract_with_layout() opens it (a BD or DVD rip resolved to
+        the same title), in the order its `audio_stream` counts them. Writes nothing.
+        :raises FileNotFoundError: if ffprobe is not installed; ffmpeg.Error if it cannot read the source.
+        '''
+        executor, _ = self.__executor(src, os.path.dirname(os.path.abspath(src)), playlist_name)
+        executor.probe_file()
+        return list(executor.audio_stream_data)
 
     def extract(self, src: str, target_dir: str, audio_stream: int = 0, video_stream: int = -1,
                mono_mix: bool = True, decimate: bool = True, playlist_name: Optional[str] = None) -> str:

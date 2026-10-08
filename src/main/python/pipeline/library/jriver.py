@@ -20,6 +20,7 @@ from hamcws import MediaServer, get_mcws_connection
 from model.dvd import pseudo_file_root as dvd_pseudo_file_root
 from pipeline.library.pathmap import PathMapping, translate_path, unmapped_path_problem
 from pipeline.library.source import LibraryItem
+from pipeline.library.streams import audio_types
 
 logger = logging.getLogger('library_jriver')
 
@@ -326,7 +327,7 @@ def _audio_stream_details(row: Mapping[str, Any]) -> tuple[dict, ...]:
     for i in range(count):
         codec = codecs[i] if i < len(codecs) else ''
         channel = channels[i] if i < len(channels) else ''
-        detail = {'codec': codec, 'channels': channel, 'audio_types': _audio_types(codec, channel)}
+        detail = {'codec': codec, 'channels': channel, 'audio_types': audio_types(codec, channel)}
         detail.update((key, values[i]) for key, values in extra.items() if i < len(values) and values[i])
         details.append(detail)
     return tuple(details)
@@ -334,26 +335,6 @@ def _audio_stream_details(row: Mapping[str, Any]) -> tuple[dict, ...]:
 
 def _split_streams(value: str) -> list[str]:
     return [part.strip() for part in value.split(';')] if value else []
-
-
-def _audio_types(codec: str, channels: str) -> tuple[str, ...]:
-    '''Translate the JRiver names into the same controlled choices as the metadata panel.'''
-    text, count = codec.lower(), str(channels).strip()
-    if 'atmos' in text and 'truehd' in text:
-        return ('Atmos',)
-    if 'dts:x' in text:
-        return ('DTS:X',)
-    if 'truehd' in text:
-        return (f'TrueHD {"7.1" if count in ("8", "7") else "5.1"}',)
-    if 'dts-hd' in text or 'dts hd' in text:
-        return (f'DTS-HD MA {"7.1" if count in ("8", "7") else "6.1" if count == "7" else "5.1"}',)
-    if 'e-ac3' in text or 'eac3' in text:
-        return ('DD+ Atmos' if 'atmos' in text else 'DD+',)
-    if 'ac-3' in text or 'ac3' in text:
-        return ('DD 5.1',) if count == '6' else ()
-    if 'pcm' in text:
-        return (f'LPCM {"7.1" if count in ("8", "7") else "5.1"}',) if count in ('6', '7', '8') else ()
-    return ()
 
 
 def _selected_audio_stream(row: Mapping[str, Any]) -> int:

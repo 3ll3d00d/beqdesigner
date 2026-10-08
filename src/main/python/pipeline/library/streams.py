@@ -8,6 +8,26 @@ A source lists each stream as a detail dict, in the container's audio-stream ord
 from typing import Mapping, Sequence
 
 
+def audio_types(codec: str, channels: str) -> tuple[str, ...]:
+    '''Translate a stream's codec name (JRiver's, or details_from_ffprobe()'s) into the metadata panel's choices.'''
+    text, count = codec.lower(), str(channels).strip()
+    if 'atmos' in text and 'truehd' in text:
+        return ('Atmos',)
+    if 'dts:x' in text:
+        return ('DTS:X',)
+    if 'truehd' in text:
+        return (f'TrueHD {"7.1" if count in ("8", "7") else "5.1"}',)
+    if 'dts-hd' in text or 'dts hd' in text:
+        return (f'DTS-HD MA {"7.1" if count in ("8", "7") else "6.1" if count == "7" else "5.1"}',)
+    if 'e-ac3' in text or 'eac3' in text:
+        return ('DD+ Atmos' if 'atmos' in text else 'DD+',)
+    if 'ac-3' in text or 'ac3' in text:
+        return ('DD 5.1',) if count == '6' else ()
+    if 'pcm' in text:
+        return (f'LPCM {"7.1" if count in ("8", "7") else "5.1"}',) if count in ('6', '7', '8') else ()
+    return ()
+
+
 def _channels(value: str) -> str:
     try:
         count = int(str(value).strip())
@@ -46,3 +66,39 @@ def describe_stream(detail: Mapping, ordinal: int) -> str:
 
 def describe_streams(details: Sequence[Mapping]) -> list[str]:
     return [describe_stream(detail, i) for i, detail in enumerate(details)]
+
+
+# ffprobe's codec_name -> the name JRiver uses, which audio_types() and a person read
+_CODEC_NAMES = {'truehd': 'TrueHD', 'ac3': 'AC-3', 'eac3': 'E-AC3', 'dts': 'DTS', 'aac': 'AAC', 'flac': 'FLAC',
+                'opus': 'Opus', 'mp3': 'MP3', 'pcm_bluray': 'PCM_BLURAY', 'pcm_dvd': 'PCM_DVD'}
+
+
+def details_from_ffprobe(streams: Sequence[Mapping]) -> tuple[dict, ...]:
+    '''
+    ffprobe's audio streams (`-show_streams`, already filtered to audio, in order) as the detail dicts a source lists:
+    for a title whose source supplied none, so a person still chooses from a described list.
+    '''
+    details = []
+    for stream in streams:
+        name = str(stream.get('codec_name') or '')
+        profile = str(stream.get('profile') or '')
+        codec = _CODEC_NAMES.get(name, name.upper())
+        if name == 'dts' and profile and profile.upper() != 'DTS':
+            codec = profile   # 'DTS-HD MA', 'DTS-HD HRA', 'DTS-ES'
+        if 'atmos' in profile.lower():
+            codec = f'{codec} Atmos'
+        channels = str(stream.get('channels') or '')
+        detail = {'codec': codec, 'channels': channels, 'audio_types': audio_types(codec, channels)}
+        tags = stream.get('tags') or {}
+        rate = str(stream.get('sample_rate') or '')
+        if rate:
+            detail['sample_rate'] = rate
+        try:
+            detail['bitrate'] = str(int(stream['bit_rate']) // 1000)
+        except (KeyError, TypeError, ValueError):
+            pass
+        for key in ('language', 'title'):
+            if tags.get(key):
+                detail[key] = str(tags[key])
+        details.append(detail)
+    return tuple(details)

@@ -34,7 +34,8 @@ from pipeline.config import AnalysisConfig
 from pipeline.library.index import LibraryIndex
 from pipeline.library.profile import Profile
 from pipeline.library.status import ScanSettings
-from pipeline.library.streams import describe_streams
+from pipeline.library.streams import describe_streams, details_from_ffprobe
+from pipeline.orchestrate import Session
 from pipeline.library.revise import revise_entry
 from pipeline.review import read_entry, update_entry
 
@@ -64,11 +65,47 @@ class _SyncJob(QRunnable):
             self.signals.errored.emit(f'{type(error).__name__}: {error}')
 
 
+class _ProbeSignals(QObject):
+    found = Signal(str, object)   # title id, its stream details
+    failed = Signal(str, str)     # title id, why, naming the title and its file
+
+
+class _ProbeJob(QRunnable):
+    '''
+    ffprobe one title's mapped local file for its audio streams (W2), for a source that listed none: only that title,
+    on the thread pool, opened as extraction opens it.
+    '''
+
+    def __init__(self, title_id: str, item, title: str):
+        super().__init__()
+        self.signals = _ProbeSignals()
+        self._title_id, self._item, self._title = title_id, item, title
+
+    def run(self):
+        path = self._item.source_path
+        try:
+            if self._item.source_path_problem:
+                raise ValueError(self._item.source_path_problem)
+            if not os.path.exists(path):
+                raise ValueError(f'{path} cannot be found (is the media share mounted here?)')
+            streams = Session(AnalysisConfig()).probe_audio_streams(path, self._item.playlist_name)
+            if not streams:
+                raise ValueError(f'{path} has no audio stream')
+            self.signals.found.emit(self._title_id, details_from_ffprobe(streams))
+        except Exception as error:
+            stderr = getattr(error, 'stderr', None)
+            reason = (stderr.decode('utf-8', 'replace').strip().splitlines() or [str(error)])[-1] \
+                if isinstance(stderr, bytes) else str(error)
+            logger.warning('Could not read the audio streams of %s (%s): %s', self._title, path, reason)
+            self.signals.failed.emit(self._title_id, f'{self._title}: {reason}')
+
+
 class WorkListTitles:
     '''
     The mixin: it uses `contentStack`, `tablePage`, `workTable`, `listHeader`, `listFooter`, `openButton`,
     `_proxy`, `_setup`, `_preferences`, `_rows_by_id()`, `_busy()`, `_refresh_view()`, and
-    `refresh_from_index()` of the window, and the attributes `_title_page`, `_title_open`, `_index_dirty` and `_syncing`,
+    `refresh_from_index()` of the window, and the attributes `_title_page`, `_title_open`, `_index_dirty`, `_syncing` and
+    `_probing`,
     which the window sets before anything else can call in.
     '''
 
@@ -175,8 +212,11 @@ class WorkListTitles:
             return False
         try:
             old = self._index.units([title_id]).get(title_id)
-            if old is None or not hasattr(old, 'audio_stream_details') or not old.audio_stream_details:
-                raise ValueError('this source did not provide an audio-stream list; rescan the library first')
+            if old is None or not hasattr(old, 'audio_stream_details'):
+                raise ValueError('choose an audio stream for each episode, not for a grouped season')
+            if not old.audio_stream_details:
+                # the source listed no streams: read them from the file, then ask (W2)
+                return self._probe_audio_streams(title_id, old)
             labels = describe_streams(old.audio_stream_details)
             value, accepted = QInputDialog.getInt(self, 'Choose audio stream',
                                                    'Audio stream (see the list below):\n' + '\n'.join(labels),
@@ -224,6 +264,30 @@ class WorkListTitles:
             logger.exception('Could not change audio stream for %s', title_id)
             QMessageBox.warning(self, 'Audio stream not changed', f'{type(error).__name__}: {error}')
             return False
+
+    def _probe_audio_streams(self, title_id: str, item) -> bool:
+        ''' Starts reading a title's audio streams from its file; the choice is asked for when they are known. '''
+        if title_id in self._probing:
+            return False
+        job = _ProbeJob(title_id, item, item.title or item.display_name or title_id)
+        job.signals.found.connect(self._on_audio_streams_probed)
+        job.signals.failed.connect(self._on_audio_streams_probe_failed)
+        self._probing.add(title_id)
+        QThreadPool.globalInstance().start(job)
+        return False
+
+    def _on_audio_streams_probed(self, title_id: str, details) -> None:
+        self._probing.discard(title_id)
+        try:
+            self._index.set_audio_stream_details(title_id, details)
+        except Exception as error:
+            QMessageBox.warning(self, 'Audio stream not changed', f'{type(error).__name__}: {error}')
+            return
+        self._choose_audio_stream(title_id)
+
+    def _on_audio_streams_probe_failed(self, title_id: str, reason: str) -> None:
+        self._probing.discard(title_id)
+        QMessageBox.warning(self, 'Audio streams not read', f'The audio streams could not be read. {reason}')
 
     def _revise_blocked(self, title_id: str, status: str) -> str:
         '''

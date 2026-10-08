@@ -207,6 +207,7 @@ class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkL
         self._title_open = False
         self._index_dirty = False   # a decision was made on the title page and the index has not read it yet
         self._syncing = False       # ... and it is being read now
+        self._probing = set()       # titles whose audio streams are being read from their files (worklist_titles)
         self._redesign_after_sync = []  # revised title-page ids that start once their index rows have been refreshed
         self._preferences = preferences
         self._auto_scan = auto_scan
