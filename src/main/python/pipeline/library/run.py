@@ -12,6 +12,8 @@ from pipeline.designer.contract import Coverage
 from pipeline.library.design_cache import design_if_needed
 from model.execution_events import emit_execution_event, event_scope
 from pipeline.library.failure import Unavailable, unavailable_reason
+from pipeline.library.retention import DEFAULT_MIN_FREE_GB, OutOfSpace, check_free_space, min_free_gb, \
+    restore_multichannel
 from pipeline.library.streams import channels_found, stream_choice
 from pipeline.library.extract_cache import extract_if_needed, extract_status, mono_from_multichannel_if_needed, \
     read_channel_layout_name, read_source_channel_count
@@ -82,6 +84,7 @@ class LibraryRunConfig:
     # a run stops after this many titles in a row met an unavailable dependency (a designer or media mount that is
     # not there), rather than failing the rest of its selection one by one
     stop_after_unavailable: int = DEFAULT_STOP_AFTER_UNAVAILABLE
+    min_free_gb: float = DEFAULT_MIN_FREE_GB   # below this free in the work directory, extraction stops the run (R5)
     # the playback chain sent to the designer (pipeline.library.bass, `run.bass_management`); None sends none
     bass_management: Optional[dict] = None
 
@@ -89,6 +92,7 @@ class LibraryRunConfig:
         plan_units([], self.tv_mode)  # rejects an unknown mode up front, not on the first TV item
         stage_parallelism({'extract': self.extract_parallelism, 'design': self.design_parallelism})
         stop_after_unavailable(self.stop_after_unavailable)
+        min_free_gb(self.min_free_gb)
 
 
 @dataclass(frozen=True)
@@ -103,6 +107,7 @@ class LibraryRunReport:
     # not done because something it depends on was unavailable (pipeline.library.failure): not remembered, so the next
     # run tries it again
     unavailable: list[tuple[str, str]] = field(default_factory=list)
+    halt: list[str] = field(default_factory=list)   # why no further title can be done now (the disk is full): stop at once
     meta_unresolved: list[tuple[str, str]] = field(default_factory=list)  # designed with item.meta only
     project_edit_preserved: list[str] = field(default_factory=list)  # a human-edited .beq project was kept
     seasons: dict[str, list[str]] = field(default_factory=dict)  # tv_mode='season': season id -> its episodes' ids
@@ -176,6 +181,8 @@ def _report_failure(report: LibraryRunReport, index: Optional[LibraryIndex], uni
     reason = unavailable_reason(error, item.source_path if in_extract and not isinstance(unit, SeasonGroup) else None)
     if reason is not None:
         report.unavailable.append((item.id, message))
+        if isinstance(error, OutOfSpace):
+            report.halt.append(str(error))
         emit_execution_event('failed', message=f'Unavailable ({reason}), so it is tried again next run: {message}')
         return
     report.failed.append((item.id, message))
@@ -218,6 +225,10 @@ def _run_item(session: Session, item: LibraryItem, run_config: LibraryRunConfig,
     if item.source_path_problem:
         raise ValueError(item.source_path_problem)
     item_dir = item_directory(run_config.work_dir, item, create=True)
+    with _stage('extract'):
+        check_free_space(run_config.work_dir, run_config.min_free_gb)
+        if run_config.keep_multichannel:
+            restore_multichannel(item_dir)   # a published title's, compressed (R5): the cache checks the wav itself
     if on_stage is not None:
         on_stage(item.id, 'extract')
     with event_scope(title_id=item.id, stage='extract'):
@@ -329,6 +340,7 @@ def _extract_season(session: Session, group: SeasonGroup, run_config: LibraryRun
                 report.failed_earlier.append((member.id, remembered))
                 continue
         try:
+            check_free_space(run_config.work_dir, run_config.min_free_gb)
             progress = ({'on_progress': lambda position, total: on_extract_progress(group.item.id, position, total)}
                         if on_extract_progress is not None else {})
             wav_path, cached = extract_if_needed(
@@ -361,6 +373,7 @@ def _design_work(session: Session, work: UnitWork, run_config: LibraryRunConfig,
     channels = None
     multichannel_path = work.multichannel_wav_path
     if multichannel_path:
+        restore_multichannel(os.path.dirname(multichannel_path))   # compressed once published (R5)
         channels = session.load_channels(multichannel_path, work.channel_layout_name)
         if not channels:
             multichannel_path = None
@@ -507,6 +520,9 @@ def run_library(source: LibrarySource, run_config: LibraryRunConfig,
         finally:
             if on_item_done is not None:
                 on_item_done(item.id)
+        if report.halt:
+            logger.warning('Library run stopped: %s', report.halt[-1])
+            return replace(report, stopped=f'stopped: {report.halt[-1]}')
         if len(report.unavailable) > before[0]:
             in_a_row.unavailable(report.unavailable[-1][1])
         elif len(report.failed_earlier) == before[1]:

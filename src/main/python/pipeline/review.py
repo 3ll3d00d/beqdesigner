@@ -509,8 +509,10 @@ def project_paths(work_dir: str, entry_id: str) -> Tuple[str, str, Optional[str]
     project_dir = entry_directory(work_dir, entry_id)
     mc_wav = os.path.join(project_dir, 'multichannel.wav')
     name = project_name(project_dir, entry_id)
+    # kept, or kept and compressed once published (pipeline.library.retention): restore it before reading it
+    kept = os.path.isfile(mc_wav) or os.path.isfile(os.path.join(project_dir, 'multichannel.flac'))
     return (project_dir, os.path.join(project_dir, f"{name}.mono.beq"),
-            os.path.join(project_dir, f"{name}.multichannel.beq") if os.path.isfile(mc_wav) else None, mc_wav)
+            os.path.join(project_dir, f"{name}.multichannel.beq") if kept else None, mc_wav)
 
 
 def current_publish_digest(entry: QueueEntry, *, meta_defaults: Optional[dict] = None,
@@ -690,6 +692,9 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
 
         if work_dir is not None:
             project_dir, mono_path, mc_path, mc_wav = project_paths(work_dir, entry.id)
+            if mc_path is not None:
+                from pipeline.library.retention import restore_multichannel
+                restore_multichannel(project_dir)   # a republish of a title whose audio was compressed when published
             layout = _read_channel_layout_name(project_dir)
             write_title_projects_if_safe(session, os.path.join(project_dir, 'mono.wav'), complete_filter, mono_path,
                                          multichannel_wav_path=mc_wav if mc_path else None,

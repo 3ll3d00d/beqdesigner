@@ -14,6 +14,7 @@ from pipeline.designer.manual import MANUAL_DESIGNER
 from pipeline.designer.registry import registered_designers
 from pipeline.library.bass import bass_management
 from pipeline.library.profile import Profile, profile_from_config
+from pipeline.library.retention import min_free_gb
 from pipeline.library.run import LibraryRunConfig, stage_parallelism, stop_after_unavailable
 from pipeline.library.season import DEFAULT_TV_MODE
 from pipeline.library.stages import PublishSettings
@@ -148,6 +149,7 @@ def run_config_from_values(values: Mapping[str, Any], config: Mapping[str, Any])
         extract_parallelism=parallelism['extract'], design_parallelism=parallelism['design'],
         stop_after_unavailable=stop_after_unavailable(values.get('stop_after_unavailable')),
         bass_management=bass_management(values.get('bass_management')),
+        min_free_gb=min_free_gb(values.get('min_free_gb')),
     )
 
 

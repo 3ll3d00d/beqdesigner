@@ -68,7 +68,7 @@ run:
     assert seen['config'].audio_types == ('Atmos',)
     assert seen['config'].config.target_fs == 500
     assert json.loads(capsys.readouterr().out) == {
-        'cached': [], 'design_cached': [], 'designed': ['one'], 'extracted': ['one'], 'failed': [], 'failed_earlier': [], 'meta_unresolved': [], 'project_edit_preserved': [], 'seasons': {}, 'stopped': '', 'unavailable': [],
+        'cached': [], 'design_cached': [], 'designed': ['one'], 'extracted': ['one'], 'failed': [], 'failed_earlier': [], 'meta_unresolved': [], 'project_edit_preserved': [], 'halt': [], 'seasons': {}, 'stopped': '', 'unavailable': [],
     }
 
 

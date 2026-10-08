@@ -4,6 +4,7 @@ from typing import Callable, Collection, Optional
 
 from pipeline.config import AnalysisConfig
 from pipeline.library.commit import CatalogueCommit, commit_catalogue
+from pipeline.library.retention import compress_published
 from pipeline.publish.git import RepoTarget
 from pipeline.publish.heatmap import HeatmapSpec
 from pipeline.publish.report import ReportSpec
@@ -27,13 +28,16 @@ def publish_library(queue_dir: str, xml_repo: RepoTarget, *, meta_defaults: Opti
     :param republish: also write again each already-published entry whose catalogue copy is out of date, at the same
         path (see pipeline.review.publish_reviewed_queue()).
     '''
-    return publish_reviewed_queue(
+    results = publish_reviewed_queue(
         queue_dir, xml_repo, meta_defaults=meta_defaults, images_repo=images_repo,
         image_owner=image_owner, image_repo_name=image_repo_name, xml_dir=xml_dir, image_dir=image_dir,
         category_folders=category_folders,
         report_spec=report_spec, heatmap_spec=heatmap_spec, config=config, work_dir=work_dir, push=False, ids=ids, republish=republish,
         on_entry=on_entry, should_cancel=should_cancel,
     )
+    # R5: a published title's kept multichannel audio is compressed (restored again by whatever next reads it)
+    compress_published(work_dir, [r['id'] for r in results if r.get('id') and not r.get('error')])
+    return results
 
 
 def commit_library(queue_dir: str, xml_repo: RepoTarget, *, images_repo: Optional[RepoTarget] = None,

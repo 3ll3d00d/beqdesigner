@@ -328,3 +328,35 @@ cache and redesign semantics) stays in TODO as D4.
 Tests: `test_pipeline_review_designer_build.py` (each source of the build,
 and a real `design_and_queue` recording both) and `gui/test_worklist_title.py`
 (the wording). Validation: full suite **2697 passed, 1 skipped**.
+
+## R5 — Work-directory size and retention (completed)
+
+Completed on 2026-10-08, in the commit "Compress a published title's
+multichannel audio and stop a run before the disk fills". The policy, decided
+by the maintainer that day: after publish, compress `multichannel.wav`
+losslessly to FLAC in place; keep everything else.
+
+- `pipeline/library/retention.py`: `compress_multichannel()` streams the
+  24-bit wav into `multichannel.flac` in blocks, checks the frame count,
+  notes `multichannel_compressed` in the manifest and removes the wav. A float
+  wav is left alone. `restore_multichannel()` reverses it exactly.
+  `publish_library` compresses every title it published
+  (`compress_published()`, which logs and never fails the publish).
+- Restored before every read: `_run_item` (extraction with Keep
+  multichannel), `_design_work` (a design from kept audio, including a
+  designer reading WAVs by reference) and publish's project writing (a
+  republish). `extract_status` counts the compressed file as the current
+  extraction, and `project_paths` as a kept one, so a compressed title is
+  neither extracted again nor seen as needing republishing.
+- `run.min_free_gb` (default 10, 0 off): below it, extraction raises
+  `OutOfSpace`, an R1 `Unavailable` recorded in `LibraryRunReport.halt`, which
+  stops `run_stages` and `run_library` at once, saying why, with the rest in
+  `not_run` and nothing remembered.
+
+Tests: `test_pipeline_library_retention.py` covers a sample-exact round trip,
+the float wav, the cache staying current, a real publish through `run_stages`
+compressing the title without it needing publishing again, a failed
+compression not failing the publish, a design restoring first, the floor,
+the immediate stop and the validation. Validation: full suite
+**2707 passed, 1 skipped**. The saving on real soundtracks is for E2 to
+record.

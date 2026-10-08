@@ -153,7 +153,7 @@ def _units_by_title(index: LibraryIndex, ids: List[str]):
 def _merge_run_report(target: LibraryRunReport, source: LibraryRunReport, *, include_extract: bool) -> None:
     """Merge one worker's isolated result into the coordinator-owned run report."""
     fields = ('extracted', 'cached', 'seasons') if include_extract else ()
-    fields += ('designed', 'design_cached', 'failed', 'failed_earlier', 'unavailable', 'meta_unresolved',
+    fields += ('designed', 'design_cached', 'failed', 'failed_earlier', 'unavailable', 'halt', 'meta_unresolved',
                'project_edit_preserved')
     for name in fields:
         current, incoming = getattr(target, name), getattr(source, name)
@@ -219,7 +219,11 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
 
     def outcome(local: LibraryRunReport) -> None:
         ''' Counts unavailable dependencies in a row: enough of them stop the run (report.stopped) as a cancel would. '''
-        if local.unavailable:
+        if local.halt and not report.stopped:   # the disk is full: no title can be done, so stop now
+            report.stopped = f'stopped: {local.halt[-1]}'
+            logger.warning('Library run stopped: %s', report.stopped)
+            emit_execution_event('failed', message=report.stopped)
+        elif local.unavailable:
             in_a_row.unavailable(local.unavailable[-1][1])
             if in_a_row.reason and not report.stopped:
                 report.stopped = in_a_row.reason

@@ -29,7 +29,7 @@ catalogue unattended, and the results reviewed from the desktop app. Publish
 and commit stay a person's decision in the app; the schedule never goes past
 design.
 
-The milestone is the rows marked **R** in the table: priorities 1–15 (R1–R4, R7, R8, W2, E1 and D4's release part, now [archived](archive/initial-release.md), were 1–5 and 8–11). The
+The milestone is the rows marked **R** in the table: priorities 1–15 (R1–R5, R7, R8, W2, E1 and D4's release part, now [archived](archive/initial-release.md), were 1–5 and 8–12). The
 service and image themselves work (C1's amd64 smoke); what is missing is
 behavior that only matters at catalogue scale and over days: the designer
 deployment, disk use, remote review, stream
@@ -46,7 +46,6 @@ validation and steep-filter default are outside it.
 | 6 | C1 | R | chunk S5 | amd64 build and smoke verified; arm64 build and GHCR publish not yet run | A green `main`; the first tag push |
 | 7 | J2 | R | chunk 40 | Not started beyond the seam; Playback Info captured (E1), ffprobe of the same files missing | ffprobe of the fixture's titles (the media share mounted) |
 | 11 | D4 | | by-reference §5 | Release part done (each entry records its designer and build); the drift behavior is not started | Designer build identity policy (full drift behavior only) |
-| 12 | R5 | R | -- | Not started; no retention or free-space check | Product decision on kept audio |
 | 13 | R6 | R | -- | Not started; the supported layout is undefined | R3 |
 | 14 | R9 | R | -- | Not started | -- |
 | 15 | E2 | R | chunk 31, T2-T4 | Waiting for manual acceptance | R1–R9, E1; real designer, media and disposable repositories |
@@ -123,22 +122,6 @@ on the title page. The container's designer reports `unknown+src:<digest>`
 (no git in its image); bake a stamp into the image if that is not enough.
 **Done when (full):** the agreed drift behavior is
 documented and implemented with regression coverage.
-
-### R5 — Work-directory size and retention
-
-With `keep_multichannel: true` a title's work folder is 150–250 MB (observed
-on 17 real titles: `multichannel.wav` is about 165 MB for a 2-hour 7.1 title,
-`mono.wav` about 20 MB). A catalogue of 1,000 titles is about 200 GB, and
-nothing prunes or compresses it. Decide what is kept after design, after
-acceptance and after publish (for example, drop or compress `multichannel.wav`
-once a title is published, keeping what revise and the multichannel project
-need, or replan extraction on demand). Check free space before each
-extraction and stop the run with a clear reason below a configurable floor,
-rather than failing titles one by one (raise `pipeline.library.failure.Unavailable`,
-so it is not remembered and counts towards R1's stop).
-
-**Done when:** the retention policy is documented and implemented with tests,
-and a run stops cleanly when the floor is reached.
 
 ### R6 — Reviewing the container's work from the desktop
 

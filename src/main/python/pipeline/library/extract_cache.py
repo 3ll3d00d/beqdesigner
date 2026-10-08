@@ -121,7 +121,10 @@ def extract_status(item: LibraryItem, target_dir: str, config: AnalysisConfig, m
         fingerprint = source_fingerprint(item)
     params_hash = extract_params_hash(item, config, mono_mix)
     recorded = manifest.get(f"{prefix}_source_fingerprint")
-    if recorded is None or not os.path.isfile(wav_path):
+    # a published title's kept audio is compressed (pipeline.library.retention): still extracted, restored before use
+    present = os.path.isfile(wav_path) or (not mono_mix and bool(manifest.get('multichannel_compressed')) and
+                                           os.path.isfile(os.path.join(target_dir, 'multichannel.flac')))
+    if recorded is None or not present:
         state = 'none'
     elif (fingerprint == '' or recorded == fingerprint) and manifest.get(f"{prefix}_params_hash") == params_hash:
         state = 'current'
