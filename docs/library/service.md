@@ -189,3 +189,28 @@ The service fills the review queue; you review it in the app on your desktop. On
 A title's poster is kept in its own work folder, so it shows on the desktop whatever path the container recorded, and a
 title published from the desktop is not made out of date by the difference. Project files carry their own audio and open
 from the share.
+
+### A first run over a whole catalogue
+
+At about two minutes a title, a catalogue of a thousand titles is days of work. Start it in steps you can check:
+
+1. **Check it is ready.** `GET /ready` must say `ready`. It also reports, without failing, whether the designer answers
+   (`designer_reachable`) and whether TMDB is looked up (`tmdb`). Without `TMDB_API_KEY` the service still designs, with
+   only the metadata the library has (no TMDB title, year, artwork or ids), which you then fill in on each title page;
+   set the key (see [Starting it](#starting-it)) unless that is what you want.
+2. **Scan first:** `POST /v1/jobs/scan`. `GET /v1/titles?needs=extract` then lists what a run would work on, and
+   `POST /v1/plan` shows it for a filter without running anything.
+3. **Run a small batch**, for example one year or one source:
+   `POST /v1/jobs/run` with `{"filter": {"year": "2019", "needs": ["extract", "design"]}, "through": "design"}`. Look at
+   the first results in the work list or Review Folder before going on: a wrong path mapping, stream choice or designer
+   setting shows in the first few titles, not after a thousand.
+4. **Then enable the schedule** (`PUT /v1/schedule` with `"enabled": true`). Each tick runs whatever still needs
+   extract or design, so it carries the catalogue on from where the batches left it.
+
+While a job runs, `GET /v1/status`'s `current_job.progress` says how far it has got (`done` of `total` title-stages), how
+many it finishes an hour (`per_hour`), and at that rate how long the rest will take (`remaining_seconds`) and when it
+should end (`estimated_finish`). The first titles of a run are the least reliable guide: a cold designer takes longer.
+
+**A restart mid-run** (the container stopped, or the machine) loses nothing that was finished. The job is recorded as
+`interrupted` and is not resumed: the title in hand at the time is done again from the start by the next run or tick,
+and every title already designed stays designed. A run only ever does what is still needed.

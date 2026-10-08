@@ -29,7 +29,7 @@ catalogue unattended, and the results reviewed from the desktop app. Publish
 and commit stay a person's decision in the app; the schedule never goes past
 design.
 
-The milestone is the rows marked **R** in the table: priorities 1–15 (R1–R8, W2, E1 and D4's release part, now [archived](archive/initial-release.md), were 1–5 and 8–13). The
+The milestone is the rows marked **R** in the table: priorities 1–15 (R1–R9, W2, E1 and D4's release part, now [archived](archive/initial-release.md), were 1–5 and 8–14). The
 service and image themselves work (C1's amd64 smoke); what is missing is
 behavior that only matters at catalogue scale and over days: the designer
 deployment, disk use, remote review, stream
@@ -46,7 +46,6 @@ validation and steep-filter default are outside it.
 | 6 | C1 | R | chunk S5 | amd64 build and smoke verified; arm64 build and GHCR publish not yet run | A green `main`; the first tag push |
 | 7 | J2 | R | chunk 40 | Not started beyond the seam; Playback Info captured (E1), ffprobe of the same files missing | ffprobe of the fixture's titles (the media share mounted) |
 | 11 | D4 | | by-reference §5 | Release part done (each entry records its designer and build); the drift behavior is not started | Designer build identity policy (full drift behavior only) |
-| 14 | R9 | R | -- | Not started | -- |
 | 15 | E2 | R | chunk 31, T2-T4 | Waiting for manual acceptance | R1–R9, E1; real designer, media and disposable repositories |
 | 16 | E3 | | chunk 32, T7 | Not started; the captured library has no DVDs | A DVD in a JRiver library; DVD fixture |
 | 17 | E4 | | chunk 33, T8 | Premise not observed (E1); real playlist forms recorded | Product decision on `.mpls` entries and `BlurayPlaylist` |
@@ -121,21 +120,6 @@ on the title page. The container's designer reports `unknown+src:<digest>`
 (no git in its image); bake a stamp into the image if that is not enough.
 **Done when (full):** the agreed drift behavior is
 documented and implemented with regression coverage.
-
-### R9 — Operating an unattended catalogue run
-
-- **TMDB:** without `TMDB_API_KEY` the service designs with library metadata
-  only and says nothing; the desktop has a built-in key, so this is
-  surprising. Report it in `/ready` and `/v1/status`, and in the guide.
-- **Progress:** at about two minutes or more per title, a catalogue takes
-  days. Report the run's throughput and an estimate of the time remaining in
-  `/v1/status` and the job's progress.
-- **First run:** document how to seed a large catalogue (filtered batches by
-  year or source, `scan` first, checking the first results before enabling
-  the schedule) and what a restart mid-run does.
-
-**Done when:** status and readiness report both, with tests, and the guide
-has the first-run procedure.
 
 ### E2 — End-to-end acceptance record
 

@@ -360,6 +360,21 @@ class Progress(BaseModel):
     title: str = Field(description='The title starting now.')
     stage: str
     id: str = ''
+    per_hour: Optional[float] = Field(None, description='Title-stages finished per hour so far (a running job, once one '
+                                                        'is done).')
+    remaining_seconds: Optional[float] = Field(None, description='At that rate, how long the rest will take.')
+    estimated_finish: Optional[datetime] = Field(None, description='At that rate, when it will end.')
+
+
+def with_rate(progress: Optional['Progress'], started_at: Optional[float], now: float) -> Optional['Progress']:
+    ''' A running job's progress with its rate and the time the rest will take at that rate, once a title-stage is done. '''
+    if progress is None or started_at is None or progress.done <= 0 or now <= started_at:
+        return progress
+    elapsed = now - started_at
+    remaining = elapsed / progress.done * max(progress.total - progress.done, 0)
+    return progress.model_copy(update={'per_hour': round(progress.done / elapsed * 3600, 2),
+                                       'remaining_seconds': round(remaining, 1),
+                                       'estimated_finish': timestamp(now + remaining)})
 
 
 class JobBase(BaseModel):
@@ -404,11 +419,18 @@ def _request_data(request: Any) -> Dict[str, Any]:
     return _data(request) or {}
 
 
-def job_model(job) -> Union[ScanJob, RunJob, AcceptJob]:
-    ''' A jobs.Job (live, or read back from the history) as its typed model. '''
+def job_model(job, now: Optional[float] = None) -> Union[ScanJob, RunJob, AcceptJob]:
+    '''
+    A jobs.Job (live, or read back from the history) as its typed model.
+    :param now: the time, for a running job's rate and estimate (R9); default the clock.
+    '''
+    import time
+    progress = Progress(**_data(job.progress)) if job.progress else None
+    if job.state == 'running':
+        progress = with_rate(progress, job.started_at, time.time() if now is None else now)
     common = dict(id=job.id, origin=job.origin, state=job.state, submitted_at=timestamp(job.submitted_at),
                   started_at=timestamp(job.started_at), finished_at=timestamp(job.finished_at),
-                  progress=Progress(**_data(job.progress)) if job.progress else None, error=job.error or None,
+                  progress=progress, error=job.error or None,
                   joined_to=getattr(job, 'joined_to', None))
     request = _request_data(job.request)
     finished_ok = job.result is not None
@@ -478,6 +500,8 @@ class ServiceStatus(BaseModel):
     schedule: Optional['Schedule'] = None
     notify: List['NotifyOutcome'] = Field(default_factory=list)
     designer: Optional['DesignerStatus'] = None
+    tmdb: Optional[bool] = Field(None, description='Whether a TMDB key is set (TMDB_API_KEY): without one, titles are '
+                                                   "designed with the library's own metadata only.")
 
 
 class DesignerStatus(BaseModel):

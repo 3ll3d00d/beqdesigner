@@ -155,7 +155,9 @@ def test_the_default_readiness_checks_the_profile_work_dir_ffmpeg_and_designer(p
     finally:
         manager.stop(1)
 
-    assert list(checks) == ['profile', 'work_dir', 'ffmpeg', 'designer', 'designer_reachable']
+    assert list(checks) == ['profile', 'work_dir', 'ffmpeg', 'designer', 'tmdb', 'designer_reachable']
+    assert checks['tmdb'] == {'name': 'tmdb', 'ok': False, 'required': False,
+                              'detail': "TMDB_API_KEY is not set: titles are designed with the library's own metadata only"}
     assert checks['profile']['ok'] and checks['work_dir']['ok'] and checks['designer'] == \
         {'name': 'designer', 'ok': True, 'detail': 'rolloff', 'required': True}
     assert checks['designer_reachable'] == {'name': 'designer_reachable', 'ok': True,
@@ -283,7 +285,8 @@ def test_a_run_job_takes_the_filter_and_reports_a_typed_result(service):
                                          'kind': 'movie', 'year': '2026'},
                               'through': 'design', 'scan_first': True, 'retry_failed': False}
     assert job['result']['scan']['titles'] == 3 and job['result']['attempted'] == ['x'] and job['result']['failed'] == []
-    assert job['progress'] == {'done': 1, 'total': 1, 'title': 'Alien', 'stage': 'design', 'id': 'x'}
+    assert job['progress'] == {'done': 1, 'total': 1, 'title': 'Alien', 'stage': 'design', 'id': 'x',
+                               'per_hour': None, 'remaining_seconds': None, 'estimated_finish': None}   # finished: no estimate
     assert calls[0][0].kind == 'movie' and calls[0][0].year == '2026' and calls[0][1] == 'design'
 
 

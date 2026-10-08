@@ -392,3 +392,27 @@ poster); `gui/test_worklist_portable_art.py` (the Metadata tab shows it);
 suite **2711 passed, 1 skipped**. The cross-machine run (an index read over the
 share while the container writes, Review Folder during a run) is E2's to
 record.
+
+## R9 — Operating an unattended catalogue run (completed)
+
+Completed on 2026-10-08, in the commit "Say whether TMDB is looked up, how
+fast a run goes and how to start a catalogue".
+
+- **TMDB:** `/ready` reports a `tmdb` check (`required: false`, so it never
+  makes the service unready) whose detail says titles are designed with
+  library metadata only when `TMDB_API_KEY` is unset. `/v1/status` has
+  `tmdb: bool`.
+- **Progress:** `Progress` gains `per_hour`, `remaining_seconds` and
+  `estimated_finish`, worked out by `models.with_rate()` from the job's start
+  and its done/total title-stages. They are filled only for a running job,
+  once a title-stage is done (`job_model(now=)`), and appear in
+  `/v1/status`'s `current_job` and every job read.
+- **Guide:** `docs/library/service.md`, "A first run over a whole catalogue":
+  ready check, scan, a small filtered batch checked by hand, then the
+  schedule; what progress says; and what a restart mid-run does (the job
+  `interrupted`, not resumed, nothing finished lost).
+
+Tests: `test_pipeline_service_operating.py` (the rate arithmetic, running
+jobs only, `/ready` and `/v1/status` with and without a key); the readiness
+and job expectations in `test_pipeline_service_api.py`. OpenAPI regenerated.
+Validation: full suite **2716 passed, 1 skipped**.

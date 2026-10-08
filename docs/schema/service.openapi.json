@@ -2499,6 +2499,43 @@
             "type": "string",
             "title": "Id",
             "default": ""
+          },
+          "per_hour": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Per Hour",
+            "description": "Title-stages finished per hour so far (a running job, once one is done)."
+          },
+          "remaining_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining Seconds",
+            "description": "At that rate, how long the rest will take."
+          },
+          "estimated_finish": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Finish",
+            "description": "At that rate, when it will end."
           }
         },
         "type": "object",
@@ -3368,6 +3405,18 @@
                 "type": "null"
               }
             ]
+          },
+          "tmdb": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tmdb",
+            "description": "Whether a TMDB key is set (TMDB_API_KEY): without one, titles are designed with the library's own metadata only."
           }
         },
         "type": "object",

@@ -177,11 +177,19 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
         except ValueError as error:
             found.append(models.Check(name='designer', ok=False, detail=str(error)))
             return found
+        found.append(tmdb_check(ctx))
         state = designer.current()
         if state.reachable is not None:   # a designer outage is not the service's: no restart, only a report
             found.append(models.Check(name='designer_reachable', ok=state.reachable, detail=state.detail,
                                       required=False))
         return found
+
+    def tmdb_check(ctx: JobContext) -> models.Check:
+        ''' R9: without a key the run still designs, with the library's metadata only; reported, not required. '''
+        if ctx.values.get('tmdb_api_key'):
+            return models.Check(name='tmdb', ok=True, detail='TMDB metadata is looked up', required=False)
+        return models.Check(name='tmdb', ok=False, required=False,
+                            detail="TMDB_API_KEY is not set: titles are designed with the library's own metadata only")
 
     @app.get('/ready', response_model=models.Readiness, tags=['service'], summary='Readiness',
              responses={503: {'model': models.Readiness}})
@@ -232,7 +240,8 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
         return models.ServiceStatus(version=version, index=index, queued=len(manager.queued),
                                     current_job=models.job_model(current) if current else None,
                                     schedule=models.Schedule.model_validate(scheduler.snapshot()),
-                                    notify=notifier.outcomes(), designer=designer_status())
+                                    notify=notifier.outcomes(), designer=designer_status(),
+                                    tmdb=bool(ctx.values.get('tmdb_api_key')))
 
     def designer_status() -> models.DesignerStatus:
         state = designer.current()
