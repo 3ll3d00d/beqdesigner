@@ -362,6 +362,8 @@ def test_the_machine_run_confirmation_says_it_is_everything_in_the_view():
 
     assert heading == 'Extract and design 120 titles?'
     assert 'every title that needs it in the current view' in body and 'Extract, source films' in body
+    assert 'chosen audio stream' in body and 'only its mono mix is kept' in body
+    assert '<b>multichannel</b> audio is kept too' in machine_text(2, True, 'v', keep_multichannel=True)[1]
 
 
 def test_the_commit_confirmation_for_titles_that_are_only_waiting_to_be_pushed_says_nothing_is_committed():

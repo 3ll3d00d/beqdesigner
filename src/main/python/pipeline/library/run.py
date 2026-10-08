@@ -12,6 +12,7 @@ from pipeline.designer.contract import Coverage
 from pipeline.library.design_cache import design_if_needed
 from model.execution_events import emit_execution_event, event_scope
 from pipeline.library.failure import Unavailable, unavailable_reason
+from pipeline.library.streams import channels_found, stream_choice
 from pipeline.library.extract_cache import extract_if_needed, extract_status, mono_from_multichannel_if_needed, \
     read_channel_layout_name, read_source_channel_count
 from pipeline.library.index import LibraryIndex
@@ -218,7 +219,8 @@ def _run_item(session: Session, item: LibraryItem, run_config: LibraryRunConfig,
     if on_stage is not None:
         on_stage(item.id, 'extract')
     with event_scope(title_id=item.id, stage='extract'):
-        emit_execution_event('stage_started', message='Extracting audio')
+        emit_execution_event('stage_started', message='Extracting ' + stream_choice(
+            item.audio_stream_details, item.audio_stream, run_config.keep_multichannel))
         with _stage('extract'):
             progress = ({'on_progress': lambda position, total: on_extract_progress(item.id, position, total)}
                         if on_extract_progress is not None else {})
@@ -240,8 +242,9 @@ def _run_item(session: Session, item: LibraryItem, run_config: LibraryRunConfig,
                 mono_path, extraction_cached = extract_if_needed(
                     session, item, item_dir, run_config.config, mono_mix=True, force=run_config.force_extract,
                     **progress)
-        emit_execution_event('stage_completed', message='Extraction complete' if not extraction_cached else
-                             'Extraction cache hit')
+        found = channels_found(read_source_channel_count(item_dir), channel_layout_name)
+        emit_execution_event('stage_completed', message=('Extraction complete' if not extraction_cached else
+                                                          'Extraction cache hit') + (f': {found}' if found else ''))
 
     if extraction_cached:
         report.cached.append(item.id)

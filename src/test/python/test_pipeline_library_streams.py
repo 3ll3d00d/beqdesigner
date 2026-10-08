@@ -107,3 +107,46 @@ def test_the_chosen_stream_is_extracted_and_its_mono_and_channels_share_rate_and
     assert len(mono) == channels.shape[0]
     spectrum = np.abs(np.fft.rfft(mono))
     assert abs(np.argmax(spectrum) * mono_fs / len(mono) - 40) < 2   # its 40 Hz, not the first stream's 100 Hz
+
+
+def test_what_a_run_extracts_is_said_before_it_starts():
+    from pipeline.library.streams import stream_choice
+    details = ({'codec': 'AC-3', 'channels': '2'}, {'codec': 'DTS-HD MA', 'channels': '6', 'language': 'English'})
+
+    assert stream_choice(details, 1, True) == 'audio stream 2: DTS-HD MA 5.1, English; multichannel kept'
+    assert stream_choice(details, 0, False) == 'audio stream 1: AC-3 stereo; multichannel not kept'
+    assert stream_choice((), 0, False) == 'audio stream 1 (the source lists none); multichannel not kept'
+
+
+def test_what_extraction_found_is_said_with_its_layout_when_known():
+    from pipeline.library.streams import channels_found
+
+    assert channels_found(6, '5.1(side)') == '6 channels (5.1(side))'
+    assert channels_found(1, 'unknown') == '1 channel'
+    assert channels_found(None) == ''
+
+
+@needs_ffmpeg
+def test_the_extract_stage_says_which_stream_it_takes_and_what_it_found(tmp_path):
+    from model.execution_events import execution_event_context
+    from pipeline.library.run import LibraryRunConfig, LibraryRunReport, run_unit
+    from pipeline.library.source import LibraryItem
+    from pipeline.orchestrate import Session
+
+    item = LibraryItem(id='two', source_path=_two_stream_file(tmp_path), display_name='Two', fingerprint='fp',
+                       audio_stream=1, audio_stream_details=({'codec': 'FLAC', 'channels': '2'},
+                                                             {'codec': 'FLAC', 'channels': '6', 'language': 'fre'}))
+    config = LibraryRunConfig(work_dir=str(tmp_path / 'work'), queue_dir=str(tmp_path / 'queue'), designer='none',
+                              keep_multichannel=True)
+    events = []
+    context = execution_event_context('run', events.append)
+    context.__enter__()
+    try:
+        run_unit(Session(config.config), item, config, LibraryRunReport(), through='extract')
+    finally:
+        context.__exit__(None, None, None)
+
+    said = {(e.kind, e.message) for e in events if e.stage == 'extract' and e.kind.startswith('stage_')}
+    assert ('stage_started', 'Extracting audio stream 2: FLAC 5.1, fre; multichannel kept') in said
+    assert any(kind == 'stage_completed' and message.startswith('Extraction complete: 6 channels')
+               for kind, message in said), said

@@ -29,7 +29,7 @@ catalogue unattended, and the results reviewed from the desktop app. Publish
 and commit stay a person's decision in the app; the schedule never goes past
 design.
 
-The milestone is the rows marked **R** in the table: priorities 1–15 (R1–R4, R7 and E1, now [archived](archive/initial-release.md), were 1–5 and 9). The
+The milestone is the rows marked **R** in the table: priorities 1–15 (R1–R4, R7, W2 and E1, now [archived](archive/initial-release.md), were 1–5, 8 and 9). The
 service and image themselves work (C1's amd64 smoke); what is missing is
 behavior that only matters at catalogue scale and over days: the designer
 deployment, disk use, remote review, stream
@@ -44,7 +44,6 @@ validation and steep-filter default are outside it.
 |---|---|---|---|---|---|
 | 6 | C1 | R | chunk S5 | amd64 build and smoke verified; arm64 build and GHCR publish not yet run | A green `main`; the first tag push |
 | 7 | J2 | R | chunk 40 | Not started beyond the seam; Playback Info captured (E1), ffprobe of the same files missing | ffprobe of the fixture's titles (the media share mounted) |
-| 8 | W2 | R | chunk 45b | Partial: streams described in full, read from the file when the source lists none; a design-only cache hit skips the extract stage. Left: the choice shown before work and in Details | J2 for automatic stream selection; manual override already exists |
 | 10 | R8 | R | -- | Not started; the library never sends bass management | beqforge TODO #1 for the designer side |
 | 11 | D4 | R | by-reference §5 | Planned; not started. Release needs only the per-entry record | Designer build identity policy (full drift behavior only) |
 | 12 | R5 | R | -- | Not started; no retention or free-space check | Product decision on kept audio |
@@ -106,36 +105,6 @@ that fallback. Cover malformed, missing and non-audio selections.
 **Done when:** fixture-backed tests show that JRiver's selected track is the
 one extracted. The title page's manual override and metadata update are
 already built; J2 supplies their automatic initial choice.
-
-### W2 — Stream evidence and truthful stages
-
-JRiver now requests per-stream codec, channel count and stream count, using
-the first selected codec to fill automatic audio metadata. A rescan fills an
-existing queue entry when its audio type is absent or still the prior automatic
-value; a different reviewer value is kept. Per-stream sample rate, bitrate,
-language and title are requested too (`_STREAM_FIELDS`, kept in each stream's
-detail when MC reports them), and the title page's choice lists each stream
-as `pipeline.library.streams.describe_stream()` says it ("2: AC-3 5.1, French,
-48 kHz, 640 kbps"), in source order. **Done:** when a source listed no
-streams, the chooser ffprobes that title's mapped file on the thread pool
-(`Session.probe_audio_streams()`, which opens it as extraction does), records
-the list in the index (`set_audio_stream_details()`) and then asks; a missing
-or unreadable file is explained with the title and path. Show the chosen stream, actual channel count and Keep
-multichannel setting before work and in Details. **Done:** a title that only
-needs design and whose audio is still current (`run.cached_unit_work()`, the
-manifest and wavs only) goes straight to design in `run_stages`, with no
-extract event or extract worker; a cancel drops it if it has not started.
-Audio missing or out of date since the scan is extracted again with a
-`stage_queued` "Extracting again: <why>" event. Seasons still go through the
-extract stage, which joins their track.
-
-**Done:** `test_pipeline_library_streams.py` makes a two-stream file (stereo
-100 Hz, then 5.1 at 40 Hz) and extracts stream 2 through `run_unit` with Keep
-multichannel: six channels, 40 Hz in the mono mix, and both at the analysis
-rate with the same frame count.
-
-**Done when:** a person can see and select the correct stream without an
-ineffective rescan, and the run shows only the stages actually performed.
 
 ### R8 — Send bass management to the designer
 

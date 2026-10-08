@@ -79,9 +79,12 @@ def retry_text(count: int) -> Tuple[str, str]:
     return f'Retry {_plural(count, "failed title")}?', '<br>'.join(lines)
 
 
-def machine_text(count: int, everything_in_view: bool, view: str) -> Tuple[str, str]:
+def machine_text(count: int, everything_in_view: bool, view: str, keep_multichannel: bool = False) -> Tuple[str, str]:
     lines = ['Extracts the audio and designs a filter for each. This can take a long time; you can cancel, and the title '
-             'in hand finishes first.']
+             'in hand finishes first.',
+             'Each title\'s chosen audio stream is extracted (choose it on its title page; the first unless you have), and '
+             + ('its <b>multichannel</b> audio is kept too' if keep_multichannel else 'only its mono mix is kept')
+             + ' (Settings).']
     if everything_in_view:
         lines.insert(0, f'Nothing is selected, so this works on <b>every title that needs it in the current view</b> '
                         f'({html.escape(view)}).')

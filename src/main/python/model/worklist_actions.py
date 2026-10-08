@@ -275,7 +275,8 @@ class WorkListActions:
                 return False
             if ask and len(plan.planned) > 1:
                 heading, body = (retry_text(len(plan.planned)) if retry_failed else
-                                 machine_text(len(plan.planned), True, self._view_description()))
+                                 machine_text(len(plan.planned), True, self._view_description(),
+                                              bool(self._setup.settings and self._setup.settings.keep_multichannel)))
                 dialog = ConfirmDialog(self, heading, body, f'{"Retry" if retry_failed else "Extract & design"} '
                                                             f'{len(plan.planned):,}')
                 if dialog.exec() != QDialog.DialogCode.Accepted:

@@ -102,3 +102,25 @@ def details_from_ffprobe(streams: Sequence[Mapping]) -> tuple[dict, ...]:
                 detail[key] = str(tags[key])
         details.append(detail)
     return tuple(details)
+
+
+def stream_choice(details: Sequence[Mapping], audio_stream: int, keep_multichannel: bool) -> str:
+    '''
+    What a run extracts of a title, said before it starts: "audio stream 2: DTS-HD MA 5.1, English, 48 kHz; multichannel
+    kept" -- or, for a source that listed no streams, the stream by number alone.
+    '''
+    if 0 <= audio_stream < len(details):
+        what = f'audio stream {describe_stream(details[audio_stream], audio_stream)}'
+    else:
+        what = f'audio stream {audio_stream + 1} (the source lists none)'
+    return f'{what}; multichannel {"kept" if keep_multichannel else "not kept"}'
+
+
+def channels_found(count, layout: str = '') -> str:
+    ''' What extraction found the stream to be: "6 channels (5.1(side))", or '' if it did not record it. '''
+    try:
+        number = int(count)
+    except (TypeError, ValueError):
+        return ''
+    said = f'{number} channel{"" if number == 1 else "s"}'
+    return f'{said} ({layout})' if layout and layout != 'unknown' else said

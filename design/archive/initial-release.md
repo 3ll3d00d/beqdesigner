@@ -232,3 +232,47 @@ in this library; E4's `PLAYLIST\index.bluray;N` premise was not observed, but
 Validation: the JRiver suites (`test_pipeline_library_jriver_fixture.py`,
 `test_pipeline_library_jriver.py`, `test_jriver_mcws_friendly_name.py`,
 `gui/test_browse_node_picker.py`): **95 passed**.
+
+## W2 — Stream evidence and truthful stages (completed)
+
+Completed on 2026-10-08 over four commits: "List each audio stream with its
+rate, bitrate, language and title" (`9260b48`), "Design a title whose audio
+is current without an extract stage" (`a01f5bb`), "Read a title's audio
+streams from its file when the source lists none" (`b4af2e5`) and "Say which
+stream a run extracts and what it found".
+
+- **Streams described:** JRiver is asked for `Audio Sample Rate`, `Audio
+  Bitrate` and `Audio Title` as well as codec, channels and language. They are
+  kept per stream (`_STREAM_FIELDS`), and `pipeline/library/streams.py`
+  `describe_stream()` says each one ("2: AC-3 5.1, French, 48 kHz, 640 kbps")
+  in the title page's choice. `audio_types()` moved there from `jriver.py`, to
+  be shared with ffprobe's streams.
+- **No list from the source:** the choice ffprobes that title's mapped file on
+  the thread pool (`Session.probe_audio_streams()`, which shares extraction's
+  BD/DVD resolution), records the list (`LibraryIndex.set_audio_stream_details()`)
+  and then asks. A missing or unreadable file is explained with the title and
+  path.
+- **Truthful stages:** a title that only needs design, with current audio
+  (`run.cached_unit_work()`, the manifest and wavs only), goes straight to
+  design: no extract event and no extract worker. A cancel drops it if it has
+  not started. Audio gone or stale since the scan is extracted again with
+  "Extracting again: <why>".
+- **Said before and during work:** the extract stage starts with "Extracting
+  audio stream 2: DTS-HD MA 5.1, English; multichannel kept" and ends with
+  the channels found ("Extraction complete: 6 channels (5.1(side))"), both in
+  Run Details. The multi-title confirmation says whether multichannel audio is
+  kept.
+
+Tests: `test_pipeline_library_streams.py` covers the wording, ffprobe's
+streams, and a two-stream file (stereo at 100 Hz, then 5.1 at 40 Hz) probed
+and extracted as stream 2, with six channels and 40 Hz in the mono mix, both
+at the analysis rate with one frame count (the parity contract), and its
+events. `test_pipeline_library_jriver_fixture.py` checks the per-stream
+fields of the real capture. `test_pipeline_library_stages.py` covers the
+design-only route, extraction again and the cancel.
+`gui/test_worklist_stream_choice.py` covers the chooser's list, the probe and
+a missing file. `test_pipeline_library_index.py` covers the recorded list.
+
+Validation: `PYTHONPATH=./src/main/python QT_QPA_PLATFORM=offscreen uv run
+pytest -q -n auto src/test/python`: **2676 passed, 1 skipped**. The automatic
+initial choice is J2's.
