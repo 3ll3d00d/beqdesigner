@@ -311,3 +311,20 @@ profile's values sent and recorded in the entry, or `None`);
 
 Validation: `PYTHONPATH=./src/main/python QT_QPA_PLATFORM=offscreen uv run
 pytest -q -n auto src/test/python`: **2691 passed, 1 skipped**.
+
+## D4, release part — record the designer build (completed)
+
+Completed on 2026-10-08, in the commit "Record which designer and build
+designed each entry". `QueueEntry` gains `designer` (the registered name) and
+`designer_build`. The contract has no build field, so
+`review.designer_build()` reads what the designer said: a build key in a
+design's commentary (`beqforge_revision`, or a generic `designer_revision`,
+`revision` or `build`), else the bracketed provenance closing a decline
+message. `design_and_queue` records both, and the title page's commentary
+ends with "Designed by: <designer>, <build>" (or "did not say which build").
+Older entries show nothing. The drift behavior (detecting a changed build,
+cache and redesign semantics) stays in TODO as D4.
+
+Tests: `test_pipeline_review_designer_build.py` (each source of the build,
+and a real `design_and_queue` recording both) and `gui/test_worklist_title.py`
+(the wording). Validation: full suite **2697 passed, 1 skipped**.

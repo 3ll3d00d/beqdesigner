@@ -29,7 +29,7 @@ catalogue unattended, and the results reviewed from the desktop app. Publish
 and commit stay a person's decision in the app; the schedule never goes past
 design.
 
-The milestone is the rows marked **R** in the table: priorities 1–15 (R1–R4, R7, R8, W2 and E1, now [archived](archive/initial-release.md), were 1–5 and 8–10). The
+The milestone is the rows marked **R** in the table: priorities 1–15 (R1–R4, R7, R8, W2, E1 and D4's release part, now [archived](archive/initial-release.md), were 1–5 and 8–11). The
 service and image themselves work (C1's amd64 smoke); what is missing is
 behavior that only matters at catalogue scale and over days: the designer
 deployment, disk use, remote review, stream
@@ -45,7 +45,7 @@ validation and steep-filter default are outside it.
 |---|---|---|---|---|---|
 | 6 | C1 | R | chunk S5 | amd64 build and smoke verified; arm64 build and GHCR publish not yet run | A green `main`; the first tag push |
 | 7 | J2 | R | chunk 40 | Not started beyond the seam; Playback Info captured (E1), ffprobe of the same files missing | ffprobe of the fixture's titles (the media share mounted) |
-| 11 | D4 | R | by-reference §5 | Planned; not started. Release needs only the per-entry record | Designer build identity policy (full drift behavior only) |
+| 11 | D4 | | by-reference §5 | Release part done (each entry records its designer and build); the drift behavior is not started | Designer build identity policy (full drift behavior only) |
 | 12 | R5 | R | -- | Not started; no retention or free-space check | Product decision on kept audio |
 | 13 | R6 | R | -- | Not started; the supported layout is undefined | R3 |
 | 14 | R9 | R | -- | Not started | -- |
@@ -117,8 +117,11 @@ page's Details; that is enough to tell which titles came from which build.
 decide cache and redesign semantics, and test the changed-revision banner and
 unchanged-revision behavior.
 
-**Done when (release):** every newly designed entry records its designer
-build, with a test. **Done when (full):** the agreed drift behavior is
+**Release part done** ([archived](archive/initial-release.md)):
+`QueueEntry.designer` and `designer_build` (`review.designer_build()`), shown
+on the title page. The container's designer reports `unknown+src:<digest>`
+(no git in its image); bake a stamp into the image if that is not enough.
+**Done when (full):** the agreed drift behavior is
 documented and implemented with regression coverage.
 
 ### R5 — Work-directory size and retention

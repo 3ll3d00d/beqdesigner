@@ -1004,3 +1004,14 @@ def test_the_commentary_ends_with_the_bass_management_the_designer_was_sent():
     assert 'Bass management sent to the designer' in playback_html(entry)
     assert '90 Hz crossover, low-pass before, headroom WCS' in playback_html(entry)
     assert playback_html(None) == ''
+
+
+def test_the_commentary_names_the_designer_and_its_build():
+    from model.worklist_title_text import playback_html
+    from pipeline.review import QueueEntry
+
+    said = playback_html(QueueEntry(id='x', fs=1000, meta={}, curve={}, designer='beqforge', designer_build='v0.2.0'))
+    assert '<b>Designed by</b><br>beqforge, v0.2.0' in said
+    unsaid = playback_html(QueueEntry(id='x', fs=1000, meta={}, curve={}, designer='beqforge'))
+    assert 'beqforge, did not say which build' in unsaid
+    assert 'Designed by' not in playback_html(QueueEntry(id='x', fs=1000, meta={}, curve={}))   # an older entry

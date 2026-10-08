@@ -85,7 +85,12 @@ def playback_html(entry: Optional[QueueEntry]) -> str:
     if entry is None:
         return ''
     said = describe_bass_management(entry.bass_management)
-    return f'<p style="margin-top:8px"><b>Bass management sent to the designer</b><br>{html.escape(said)}</p>'
+    designed = ''
+    if entry.designer or entry.designer_build:   # D4: which designer, and which build of it, made this design
+        build = entry.designer_build or 'did not say which build'
+        designed = (f'<p style="margin-top:8px"><b>Designed by</b><br>'
+                    f'{html.escape(entry.designer or "the designer")}, {html.escape(build)}</p>')
+    return designed + f'<p style="margin-top:8px"><b>Bass management sent to the designer</b><br>{html.escape(said)}</p>'
 
 
 def override_question(index: int, candidate) -> str:

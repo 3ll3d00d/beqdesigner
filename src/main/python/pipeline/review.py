@@ -14,6 +14,7 @@ BiquadSpec/DesignCandidate.
 import json
 import logging
 import os
+import re
 import subprocess
 import tempfile
 from dataclasses import asdict, dataclass, field, fields, replace
@@ -99,6 +100,8 @@ class QueueEntry:
                                                # file. None: published before names were readable, so under `id`
     bass_management: Optional[dict] = None    # the playback chain the designer was told about (DesignRequest.bass_management);
                                                # None: none was sent, or designed before this was recorded
+    designer: Optional[str] = None            # the registered designer that designed it; None before this was recorded
+    designer_build: Optional[str] = None      # the build it said it is (designer_build()); None if it said none
     rejected: List[CandidateSummary] = field(default_factory=list)  # designs the designer judged unfit to publish
                                                # (contract 1.1), each with rejection_reasons: for a person to review.
                                                # Nothing picks one but a person, and picking one overrides the designer
@@ -238,6 +241,24 @@ def _summary_of(design) -> CandidateSummary:
                             rejection_reasons=list(design.rejection_reasons) if design.rejection_reasons else None)
 
 
+# commentary keys in which a designer names its own build (the contract has no field for it): beqforge's, then generic
+_BUILD_KEYS = ('beqforge_revision', 'designer_revision', 'revision', 'build')
+
+
+def designer_build(entry: 'QueueEntry') -> Optional[str]:
+    '''
+    Which build of the designer answered (TODO D4), as it said in its response: a build key in a design's commentary, or
+    the bracketed provenance closing a decline message (`... [beqforge 0.2.0+src:...]`). None if it said nothing.
+    '''
+    for candidate in [*entry.candidates, *entry.rejected]:
+        for key in _BUILD_KEYS:
+            value = (candidate.commentary or {}).get(key)
+            if value:
+                return str(value).strip()
+    match = re.search(r'\[([^\[\]]+)\]\s*$', entry.decline_message or '')
+    return match.group(1).strip() if match else None
+
+
 def _outcome_to_entry(entry_id: str, fs: int, meta: dict, curve: dict, outcome: DesignOutcome,
                       peak_curve: Optional[dict] = None) -> QueueEntry:
     rejected = [_summary_of(design) for design in outcome.rejected]
@@ -304,6 +325,8 @@ def design_and_queue(session: Session, entry_id: str, wav_path: str, designer: s
     entry = _outcome_to_entry(entry_id, sig.signal.fs, meta or {}, curve, outcome, peak_curve=peak_curve)
     entry.audio_stream = audio_stream
     entry.bass_management = dict(bass_management) if bass_management else None
+    entry.designer = designer
+    entry.designer_build = designer_build(entry)
     write_queue_entry(queue_dir, entry)
     if project_dir is not None:
         from pipeline.publish.project import write_title_projects_if_safe
