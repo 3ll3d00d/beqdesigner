@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<Response Status="OK">
+<Item Name="RuntimeGUID">{00000000-0000-0000-0000-000000000000}</Item>
+<Item Name="LibraryVersion">24</Item>
+<Item Name="ProgramName">JRiver Media Center</Item>
+<Item Name="ProgramVersion">36.0.38</Item>
+<Item Name="FriendlyName">MEDIA-SERVER</Item>
+<Item Name="AccessKey">ACCESSKEY</Item>
+<Item Name="ProductVersion">36 Windows</Item>
+<Item Name="Platform">Windows</Item>
+</Response>

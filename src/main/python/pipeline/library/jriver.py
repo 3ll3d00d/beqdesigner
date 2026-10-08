@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import re
+from xml.etree import ElementTree
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Optional
@@ -101,10 +102,10 @@ def list_browse_children(host: str, port: int, node_id: int = -1, *, username: O
     '''
     The nodes directly below a browse node (-1 is the root), for choosing the node a JRiverLibrarySource reads.
 
-    hamcws parses the Browse/Children response as {Item name: Item text}; each entry is taken to be
-    (display name, node id) and an entry whose text isn't an integer is skipped. That reading is unverified
-    against a real server (design/archive/library-sync-pipeline-plan.md chunk 3), so callers must keep a way to enter an
-    id by hand.
+    The response (Version=2) is a list of `<Item Name="display name" Type=.. SchemeID=..>node id</Item>`, as a real
+    server answers it (the E1 fixture, src/test/python/fixtures/jriver). It is read in order, entry by entry, so two
+    nodes with the same name keep their own ids (hamcws's browse_children() reads it into a dict keyed by name, which
+    keeps only the last). An entry whose text isn't an integer is skipped.
     :raises RuntimeError: when called from a running event loop, as JRiverLibrarySource.list_items() does.
     '''
     try:
@@ -116,17 +117,24 @@ def list_browse_children(host: str, port: int, node_id: int = -1, *, username: O
 
 async def _browse_children(host, port, node_id, username, password, ssl, timeout) -> list[BrowseNode]:
     connection = get_mcws_connection(host, port, username=username, password=password, ssl=ssl, timeout=timeout)
-    server = MediaServer(connection)
     try:
-        response = await server.browse_children(node_id)
+        ok, nodes = await connection.get('Browse/Children', _parse_children,
+                                         params={'Version': 2, 'ErrorOnMissing': 0, 'ID': node_id})
     finally:
-        await server.close()
-    return _map_children(response)
+        await connection.close()
+    return nodes if ok else []
 
 
-def _map_children(response: Mapping[str, Any]) -> list[BrowseNode]:
+def _parse_children(text: str) -> tuple[bool, list[BrowseNode]]:
+    root = ElementTree.fromstring(text)
+    if root.attrib.get('Status') != 'OK':
+        return False, []
+    return True, _map_children((item.attrib.get('Name', ''), item.text) for item in root.iter('Item'))
+
+
+def _map_children(entries: Iterable[tuple[str, Any]]) -> list[BrowseNode]:
     nodes = []
-    for name, value in response.items():
+    for name, value in entries:
         try:
             nodes.append(BrowseNode(int(str(value).strip()), name))
         except ValueError:

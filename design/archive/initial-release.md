@@ -196,3 +196,39 @@ After publishing, `docker/smoke.py --designer-image
 ghcr.io/3ll3d00d/beqforge-designer:0.2.0` (the release workflow's step, the
 image pulled from GHCR) passed by reference. The first beqdesigner tag runs
 that step in CI (C1).
+
+## E1 — JRiver response fixture (completed)
+
+Completed on 2026-10-08, in the commit "Replay a real JRiver server's
+responses, and keep same-named browse nodes apart". With the owner's
+authorisation, `src/test/python/fixtures/jriver/capture.py` captured
+`/Alive`, `Library/Fields`, `Browse/Children` (64 nodes, three levels) and
+`Browse/Files` of the profile's browse node (1,291 rows) from JRiver MC
+36.0.38. It then wrote a sanitised fixture: the server's name, access key and
+GUID replaced; only the browse path's nodes; 132 rows covering 87 shapes;
+`Description` dropped; a display's hardware id scrubbed. The dated account of
+the capture and sanitisation, and everything the capture showed, is the
+fixture's `README.md`.
+
+`test_pipeline_library_jriver_fixture.py` replays it through a fake MCWS for
+the real `JRiverLibrarySource`, `list_browse_children` and the app's
+`MediaServer`. It covers: one request with every field; `Key` as a stable,
+server-scoped id; `Year` answered as `Date (year)`; ids from the configured
+fields and absent when unset; `w:\` and `W:\` both mapped; disc entries as
+their folders; artwork beside the media; every listed audio stream a choice;
+the browse tree in order; and `FriendlyName`.
+
+The picker fix: `list_browse_children` read `Browse/Children` through hamcws,
+which keys entries by name, so two nodes with the same name kept one id. It
+now parses the XML in order (`_parse_children`). No same-named siblings exist
+in the captured library, so the test repeats a real entry under another id;
+on the old code it returns only one of them.
+
+What the capture showed that moves other items: J2 has its `Playback Info`
+evidence but not the ffprobe half (the media was not mounted); E3 has no DVD
+in this library; E4's `PLAYLIST\index.bluray;N` premise was not observed, but
+`.mpls` entries and `BlurayPlaylist` records were (both recorded in TODO).
+
+Validation: the JRiver suites (`test_pipeline_library_jriver_fixture.py`,
+`test_pipeline_library_jriver.py`, `test_jriver_mcws_friendly_name.py`,
+`gui/test_browse_node_picker.py`): **95 passed**.

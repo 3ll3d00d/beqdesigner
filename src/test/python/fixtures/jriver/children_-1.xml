@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<Response Status="OK">
+<Item Name="Player" Type="1">1000</Item>
+<Item Name="Audio" Type="2" SchemeID="15901903">1</Item>
+<Item Name="Video" Type="2" SchemeID="13186239">3</Item>
+<Item Name="Audiobooks" Type="2" SchemeID="11783466">1001</Item>
+<Item Name="Images" Type="2" SchemeID="16465444">2</Item>
+<Item Name="Radio" Type="2" SchemeID="14700876">1002</Item>
+<Item Name="Playlists" Type="3" PlaylistID="0">4</Item>
+</Response>

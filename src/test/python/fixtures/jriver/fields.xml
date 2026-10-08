@@ -1,0 +1,34 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<Response Status="OK">
+<Fields>
+<Field Name="Filename" DataType="Path" EditType="Filename" Type="DefaultSearchField" DisplayName="Filename" />
+<Field Name="Name" DataType="String" EditType="Standard" Type="SavedInTag;DefaultSearchField" DisplayName="Name" />
+<Field Name="Artist" DataType="List" EditType="Standard" Type="SavedInTag;DefaultSearchField" DisplayName="Artist" />
+<Field Name="Album" DataType="String" EditType="Standard" Type="SavedInTag;DefaultSearchField" DisplayName="Album" />
+<Field Name="Genre" DataType="List" EditType="Standard" Type="SavedInTag;DefaultSearchField" DisplayName="Genre" />
+<Field Name="Image File" DataType="Image File" EditType="Not editable" Type="SavedInTag" DisplayName="Image File" />
+<Field Name="Rating" DataType="Integer" EditType="Five stars" Type="SavedInTag;DefaultSearchField" DisplayName="Rating" />
+<Field Name="Duration" DataType="Time" EditType="Not editable" Type="" DisplayName="Duration" />
+<Field Name="Track #" DataType="Integer" EditType="Standard" Type="SavedInTag;DefaultSearchField" DisplayName="Track #" />
+<Field Name="Media Type" DataType="String" EditType="Standard" Type="DefaultSearchField" DisplayName="Media Type" />
+<Field Name="Description" DataType="String" EditType="Large value" Type="SavedInTag;DefaultSearchField" DisplayName="Description" />
+<Field Name="Media Sub Type" DataType="String" EditType="Standard" Type="DefaultSearchField" DisplayName="Media Sub Type" />
+<Field Name="Playback Info" DataType="String" EditType="Standard" Type="" DisplayName="Playback Info" />
+<Field Name="File Size" DataType="File Size" EditType="Not editable" Type="" DisplayName="File Size" />
+<Field Name="Date Modified" DataType="Date" EditType="Not editable" Type="" DisplayName="Date Modified" />
+<Field Name="Series" DataType="String" EditType="Standard" Type="SavedInTag;DefaultSearchField" DisplayName="Series" />
+<Field Name="Season" DataType="String" EditType="Standard" Type="SavedInTag" DisplayName="Season" />
+<Field Name="Episode" DataType="String" EditType="Standard" Type="SavedInTag" DisplayName="Episode" />
+<Field Name="IMDb ID" DataType="String" EditType="Standard" Type="SavedInTag" DisplayName="IMDb ID" />
+<Field Name="Date (year)" Expression="FormatDate(Year)&amp;DataType=[Integer]" DataType="Integer" EditType="Standard" Type="" DisplayName="Year" />
+<Field Name="Dimensions" Expression="Clean([Width, 1] x [Height, 1])" DataType="String" EditType="Not editable" Type="" DisplayName="Dimensions" />
+<Field Name="TheMovieDB Series ID" DataType="Integer" EditType="Standard" Type="SavedInTag" DisplayName="TheMovieDB Series ID" />
+<Field Name="HDR Format" DataType="List" EditType="Not editable" Type="" DisplayName="HDR Format" />
+<Field Name="Audio Streams" DataType="Integer" EditType="Not editable" Type="" DisplayName="Audio Streams" />
+<Field Name="Audio Codec" DataType="List" EditType="Not editable" Type="" DisplayName="Audio Codec" />
+<Field Name="Audio Channels" DataType="List" EditType="Not editable" Type="" DisplayName="Audio Channels" />
+<Field Name="Audio Language" DataType="List" EditType="Not editable" Type="" DisplayName="Audio Language" />
+<Field Name="TheMovieDB Movie ID" DataType="Integer" EditType="Standard" Type="SavedInTag" DisplayName="TheMovieDB Movie ID" />
+<Field Name="IMDb Series ID" DataType="String" EditType="Standard" Type="SavedInTag" DisplayName="IMDb Series ID" />
+</Fields>
+</Response>

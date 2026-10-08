@@ -14,8 +14,8 @@ complete; its three follow-ons are retained below as D2–D4.
 Order is recommended execution priority: first the **initial release**
 milestone below, then disc behavior, test health, and optional
 improvements/product decisions. A blocked item does not prevent starting the
-next independent item. E1 supplies evidence needed by J2 and the disc items
-and may be captured alongside them.
+next independent item. E1's fixture (`src/test/python/fixtures/jriver/`) is
+the evidence J2 and the disc items start from.
 
 When an item is completed, archive its result and evidence, update the lasting
 design description if necessary, and remove it here in the same commit.
@@ -29,7 +29,7 @@ catalogue unattended, and the results reviewed from the desktop app. Publish
 and commit stay a person's decision in the app; the schedule never goes past
 design.
 
-The milestone is the rows marked **R** in the table: priorities 1–15 (R1–R4 and R7, now [archived](archive/initial-release.md), were 1–5). The
+The milestone is the rows marked **R** in the table: priorities 1–15 (R1–R4, R7 and E1, now [archived](archive/initial-release.md), were 1–5 and 9). The
 service and image themselves work (C1's amd64 smoke); what is missing is
 behavior that only matters at catalogue scale and over days: the designer
 deployment, disk use, remote review, stream
@@ -43,17 +43,16 @@ validation and steep-filter default are outside it.
 | Priority | ID | R | Previous IDs | Status | Depends on |
 |---|---|---|---|---|---|
 | 6 | C1 | R | chunk S5 | amd64 build and smoke verified; arm64 build and GHCR publish not yet run | A green `main`; the first tag push |
-| 7 | J2 | R | chunk 40 | Not started beyond the seam: the resolver returns the first audio stream | Sanitised Playback Info and ffprobe evidence |
+| 7 | J2 | R | chunk 40 | Not started beyond the seam; Playback Info captured (E1), ffprobe of the same files missing | ffprobe of the fixture's titles (the media share mounted) |
 | 8 | W2 | R | chunk 45b | Partial in `62270b4`: codec, channels and stream count are requested | J2 for automatic stream selection; manual override already exists |
-| 9 | E1 | R | chunk 3/30, T5-T6 | Waiting for authorised JRiver capture | Real MCWS server |
 | 10 | R8 | R | -- | Not started; the library never sends bass management | beqforge TODO #1 for the designer side |
 | 11 | D4 | R | by-reference §5 | Planned; not started. Release needs only the per-entry record | Designer build identity policy (full drift behavior only) |
 | 12 | R5 | R | -- | Not started; no retention or free-space check | Product decision on kept audio |
 | 13 | R6 | R | -- | Not started; the supported layout is undefined | R3 |
 | 14 | R9 | R | -- | Not started | -- |
 | 15 | E2 | R | chunk 31, T2-T4 | Waiting for manual acceptance | R1–R9, E1; real designer, media and disposable repositories |
-| 16 | E3 | | chunk 32, T7 | Not started; evidence dependent | E1; DVD fixture |
-| 17 | E4 | | chunk 33, T8 | Not started; evidence dependent | E1; Blu-ray playlist fixture |
+| 16 | E3 | | chunk 32, T7 | Not started; the captured library has no DVDs | A DVD in a JRiver library; DVD fixture |
+| 17 | E4 | | chunk 33, T8 | Premise not observed (E1); real playlist forms recorded | Product decision on `.mpls` entries and `BlurayPlaylist` |
 | 18 | E5 | | chunk 37, T15 | Waiting for a product decision | E2; representative season media |
 | 19 | T1 | | -- | Watch; not reproduced | Recurrence with a stack dump |
 | 20 | T2 | | -- | Watch; seen twice | Recurrence with its failure message |
@@ -87,6 +86,14 @@ example pins, by reference (R3), before publishing.
 both smoke tests and publishes them to GHCR with the expected tags.
 
 ### J2 — Resolve JRiver's selected audio stream
+
+**Evidence so far (E1, 2026-10-08):** `src/test/python/fixtures/jriver/`
+holds real `Playback Info` values. A `Streams` record's value is three
+numbers (`0,1,3`, 205 of 211) or two (`0,1`), in records whose other names
+vary and come in any order (see the fixture README). The capture machine did
+not have the media share mounted, so the ffprobe half is missing: ffprobe the
+fixture's titles (`ffprobe -show_streams -of json`), record their global
+indices beside the rows, and only then decide what the numbers mean.
 
 `Playback Info` is requested but its resolver currently returns the first
 audio stream. Capture its length-prefixed value alongside ffprobe streams
@@ -123,20 +130,6 @@ single-stream multichannel regression does not establish this choice path.
 
 **Done when:** a person can see and select the correct stream without an
 ineffective rescan, and the run shows only the stages actually performed.
-
-### E1 — JRiver response fixture
-
-Capture, with authorisation, a selected node's `Browse/Files`, its
-`Browse/Children` tree and `/Alive`, including configured external-ID and
-artwork fields. Include two same-named child nodes and an `INTERNAL` artwork
-case if present. Remove credentials, hosts, personal paths and unrelated
-metadata. Use the fixture to verify field aliases, `FriendlyName`, stable
-item identity, and the browse picker; change the picker so duplicate names
-retain distinct node IDs. The current implementation has fake-server tests
-and partial live observations, not a sanitised reusable fixture.
-
-**Done when:** the fixture and adjacent tests prove the MCWS shape and the
-duplicate-node behavior, with a dated account of capture and sanitisation.
 
 ### R8 — Send bass management to the designer
 
@@ -252,6 +245,16 @@ real navigation run in E2's record.
 silently duplicate a disc's main title for distinct episodes.
 
 ### E4 — Blu-ray playlist pseudo-paths
+
+**E1 (2026-10-08) did not observe the premise:** the captured library has no
+`BDMV\PLAYLIST\index.bluray;N` entries. Its pseudo-paths are all
+`BDMV\index.bluray;1`. What it has instead: an entry that is a playlist file
+(`...\BDMV\PLAYLIST\00305.mpls`, a short on another film's disc, which
+`_disc_root` passes through as a file, so extraction opens the `.mpls`
+itself); 13 `Playback Info` records naming a `BlurayPlaylist` (`00801.mpls`) for
+an `index.bdmv` entry; and two disc folders listed by more than one entry.
+Decide whether a `BlurayPlaylist` should choose the playlist extracted, and
+how an `.mpls` entry is extracted, before the steps below.
 
 Determine from E1 and BDMV files what `BDMV\PLAYLIST\index.bluray;N`
 means. If `N` maps to a playlist, preserve it in `LibraryItem` and pass it

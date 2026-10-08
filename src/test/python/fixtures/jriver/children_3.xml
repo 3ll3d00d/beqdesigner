@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<Response Status="OK">
+<Item Name="Movies - Unwatched" Type="2" SchemeID="13686619">1003</Item>
+<Item Name="Movies" Type="2" SchemeID="12187976">1004</Item>
+<Item Name="Shows" Type="2" SchemeID="9109398">1005</Item>
+<Item Name="DeleteMe" Type="2" SchemeID="16055228">1006</Item>
+<Item Name="Music" Type="2" SchemeID="10342366">1007</Item>
+<Item Name="Home Videos" Type="2" SchemeID="16099099">1008</Item>
+<Item Name="Other" Type="2" SchemeID="12015814">1009</Item>
+<Item Name="Disk" Type="2" SchemeID="10547216">1010</Item>
+<Item Name="Recent" Type="2" SchemeID="13708180">1011</Item>
+</Response>
