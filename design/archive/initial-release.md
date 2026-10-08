@@ -144,3 +144,55 @@ classified as unavailable. 18 concurrent repetitions all passed.
 Validation: `PYTHONPATH=./src/main/python QT_QPA_PLATFORM=offscreen uv run
 pytest -q -n auto src/test/python`: **2642 passed, 1 skipped**. The timings
 on the longest real titles remain to be recorded by E2.
+
+## R3 — Deploy the designer beside the service (completed)
+
+Completed on 2026-10-08. Built in beqforge `aaf0f21` and `62be0c0` (pushed) and beqdesigner's
+"Run the designer beside the pipeline service in the compose example".
+
+- beqforge: `packaging/designer/Dockerfile` runs `beqforge serve-designer` on
+  `0.0.0.0:8420` as uid 1000, with `BEQFORGE_SHARED_ROOT=/work` and
+  `BEQFORGE_CACHE_DIR=/cache`, and a `/health` HEALTHCHECK.
+  `build-designer-image.yml` builds it and runs `packaging/designer/smoke.py`
+  (health, one design inline, one by reference) on every change. On a
+  `vX.Y.Z` tag that matches `beq_common.__version__`, it publishes
+  linux/amd64 and linux/arm64 as `ghcr.io/3ll3d00d/beqforge-designer:<version>`
+  (and `latest`). A manual run with `publish` publishes the current version's
+  image from a later commit, and refuses unless the designer code is identical
+  to that version's tag. README section "Running the designer in a container".
+- beqdesigner: `docker/compose.example.yaml` runs `designer` beside
+  `pipeline`, pinned to `beqforge-designer:0.2.0`, with the same `./work`
+  mounted at `/work` in both, a `designer-cache` volume and the same user.
+  `docker/smoke.py --designer-image IMAGE` runs the real designer on a
+  private network, waits for `/v1/status` to report it reachable, designs a
+  30 s six-channel title, and checks from the designer's own request log that
+  the audio arrived by reference (`body 0.0 MB`). Push CI builds the designer
+  from beqforge `main` for this; the release workflow pulls the pinned image.
+  `docs/library/service.md` "The designer" covers the profile change
+  (`designers:` with `by_reference: true`, not a Preferences `http:NAME`
+  designer, the same name on the desktop) and design parallelism.
+
+Evidence, 2026-10-08 (Docker 29.8.2, linux/x86_64): both images built from
+the working trees. The designer smoke passed both requests. The pipeline
+smoke passed with the stub, and with `--designer-image` (job succeeded, a
+queue entry, designer log `body 0.0 MB`). `docker compose up` of the example,
+with local builds tagged as its images, started both services; `/v1/status`
+reported the designer reachable at `http://designer:8420/design`. With the
+designer stopped it reported `reachable: false` with the reason, and `/ready`
+stayed 200.
+
+**Image release** (decided 2026-10-08): the designer code is unchanged since
+beqforge `v0.2.0`, so its image was published as `0.2.0` by a manual run of
+the image workflow (run `37770513918`, linux/amd64 and linux/arm64), which
+checks that the code matches the tag. A version bump would have invalidated
+beqforge's bundled optimiser seed: its cache identity includes
+`beq_common.__version__`, and the uses are in `core.py`, which is itself
+hashed. Decoupling that is a beqforge follow-up for the next optimiser change
+that needs a seed rebuild anyway. The container's designer reports its build
+as `unknown+src:<digest>` (no git in the image); D4 should decide whether to
+bake a stamp.
+
+After publishing, `docker/smoke.py --designer-image
+ghcr.io/3ll3d00d/beqforge-designer:0.2.0` (the release workflow's step, the
+image pulled from GHCR) passed by reference. The first beqdesigner tag runs
+that step in CI (C1).

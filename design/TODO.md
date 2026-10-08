@@ -29,7 +29,7 @@ catalogue unattended, and the results reviewed from the desktop app. Publish
 and commit stay a person's decision in the app; the schedule never goes past
 design.
 
-The milestone is the rows marked **R** in the table: priorities 1–15 (R1, R2, R4 and R7, now [archived](archive/initial-release.md), were 1, 2, 4 and 5). The
+The milestone is the rows marked **R** in the table: priorities 1–15 (R1–R4 and R7, now [archived](archive/initial-release.md), were 1–5). The
 service and image themselves work (C1's amd64 smoke); what is missing is
 behavior that only matters at catalogue scale and over days: the designer
 deployment, disk use, remote review, stream
@@ -42,7 +42,6 @@ validation and steep-filter default are outside it.
 
 | Priority | ID | R | Previous IDs | Status | Depends on |
 |---|---|---|---|---|---|
-| 3 | R3 | R | -- | Built and verified locally; the pinned `beqforge-designer:0.2.0` image is being published | beqforge's manual image publish (run `37770513918`) |
 | 6 | C1 | R | chunk S5 | amd64 build and smoke verified; arm64 build and GHCR publish not yet run | A green `main`; the first tag push |
 | 7 | J2 | R | chunk 40 | Not started beyond the seam: the resolver returns the first audio stream | Sanitised Playback Info and ffprobe evidence |
 | 8 | W2 | R | chunk 45b | Partial in `62270b4`: codec, channels and stream count are requested | J2 for automatic stream selection; manual override already exists |
@@ -70,54 +69,6 @@ duplicates or picks the wrong playlist, they move into it.
 
 ## Work in priority order
 
-### R3 — Deploy the designer beside the service
-
-**Built** in beqforge `aaf0f21` and `62be0c0` (pushed) and beqdesigner's
-"Run the designer beside the pipeline service in the compose example".
-
-- beqforge: `packaging/designer/Dockerfile` runs `beqforge serve-designer` on
-  `0.0.0.0:8420` as uid 1000, with `BEQFORGE_SHARED_ROOT=/work` and
-  `BEQFORGE_CACHE_DIR=/cache`, and a `/health` HEALTHCHECK.
-  `build-designer-image.yml` builds it and runs `packaging/designer/smoke.py`
-  (health, one design inline, one by reference) on every change. On a
-  `vX.Y.Z` tag that matches `beq_common.__version__`, it publishes
-  linux/amd64 and linux/arm64 as `ghcr.io/3ll3d00d/beqforge-designer:<version>`
-  (and `latest`). A manual run with `publish` publishes the current version's
-  image from a later commit, and refuses unless the designer code is identical
-  to that version's tag. README section "Running the designer in a container".
-- beqdesigner: `docker/compose.example.yaml` runs `designer` beside
-  `pipeline`, pinned to `beqforge-designer:0.2.0`, with the same `./work`
-  mounted at `/work` in both, a `designer-cache` volume and the same user.
-  `docker/smoke.py --designer-image IMAGE` runs the real designer on a
-  private network, waits for `/v1/status` to report it reachable, designs a
-  30 s six-channel title, and checks from the designer's own request log that
-  the audio arrived by reference (`body 0.0 MB`). Push CI builds the designer
-  from beqforge `main` for this; the release workflow pulls the pinned image.
-  `docs/library/service.md` "The designer" covers the profile change
-  (`designers:` with `by_reference: true`, not a Preferences `http:NAME`
-  designer, the same name on the desktop) and design parallelism.
-
-Evidence, 2026-10-08 (Docker 29.8.2, linux/x86_64): both images built from
-the working trees. The designer smoke passed both requests. The pipeline
-smoke passed with the stub, and with `--designer-image` (job succeeded, a
-queue entry, designer log `body 0.0 MB`). `docker compose up` of the example,
-with local builds tagged as its images, started both services; `/v1/status`
-reported the designer reachable at `http://designer:8420/design`. With the
-designer stopped it reported `reachable: false` with the reason, and `/ready`
-stayed 200.
-
-**Left:** the pinned image is published by a manual run of beqforge's image
-workflow (decided 2026-10-08). The designer code is unchanged since `v0.2.0`,
-and a version bump would have invalidated the optimiser's bundled seed: its
-cache identity includes `beq_common.__version__`, in `core.py`, which is
-itself hashed. Decoupling that is a beqforge follow-up, best done with the
-next optimiser change that needs a seed rebuild anyway.
-The container's designer reports its build as `unknown+src:<digest>` (no git
-in the image); D4 should decide whether to bake a stamp.
-
-**Done when:** the pinned image is published and `create-image.yaml`'s
-by-reference smoke passes against it on the first beqdesigner tag (with C1).
-
 ### C1 — arm64 image and GHCR publish
 
 On 2026-09-27 the push-CI job's two commands were run locally at `7db992d`
@@ -129,8 +80,11 @@ rest of `create-image.yaml`: the `linux/arm64` build under QEMU/buildx, the
 `latest`-tag rule, and the push to GHCR. These are left to CI: the first
 tag's `create-image.yaml` run exercises all of them (no local QEMU set-up).
 
+The release workflow also smokes the image against the designer the compose
+example pins, by reference (R3), before publishing.
+
 **Done when:** the first tag's workflow run builds both architectures, passes
-the smoke test and publishes them to GHCR with the expected tags.
+both smoke tests and publishes them to GHCR with the expected tags.
 
 ### J2 — Resolve JRiver's selected audio stream
 
