@@ -23,8 +23,32 @@ services:
       # - /path/to/catalogue-repo:/catalogue  # only with repository writes enabled
       # - /path/to/xml-repo:/xml                # only with repository writes enabled
       # - ./ssh:/home/beq/.ssh:ro               # key and known_hosts, if pushing
+    depends_on:
+      - designer
     stop_grace_period: 120s
     restart: unless-stopped
+
+  # The filter designer. The profile names it (see docs/library/service.md, "The designer"):
+  #   designers: {beqforge: {url: 'http://designer:8420/design', by_reference: true}}
+  #   run: {designer: beqforge, ...}
+  # by_reference: the pipeline sends the extracted audio's file names, not the audio, so both containers mount the
+  # same work directory: the designer reads it at /work, its shared root.
+  designer:
+    # Pin the version: a catalogue designed over several days should come from one designer build.
+    image: ghcr.io/3ll3d00d/beqforge-designer:0.2.1
+    user: "${PUID:-1000}:${PGID:-1000}"  # the same user as the pipeline: it must write the work directory and cache
+    # environment:             # any `beqforge serve-designer` option, as BEQFORGE_<OPTION> (the beqforge README)
+    #   BEQFORGE_RECORD_DIR: /records
+    volumes:
+      - ./work:/work
+      - designer-cache:/cache   # the stage cache: a restart or a redesign does not repeat the analysis
+      # - ./records:/records
+    expose:
+      - "8420"                  # reachable from the pipeline only; publish it to call it from elsewhere
+    restart: unless-stopped
+
+volumes:
+  designer-cache:
 
 secrets:
   service_token:

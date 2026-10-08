@@ -27,6 +27,11 @@ jobs:
             --build-arg REVISION="${{ steps.version.outputs.revision }}" .
       - name: Extract, design and check the review queue
         run: python3 docker/smoke.py beqdesigner-pipeline:smoke
+      - name: Design by reference through the designer the compose example pins
+        run: |
+          designer="$(grep -oE 'ghcr.io/3ll3d00d/beqforge-designer:[^[:space:]]+' docker/compose.example.yaml)"
+          docker pull "$designer"
+          python3 docker/smoke.py beqdesigner-pipeline:smoke --designer-image "$designer"
       - uses: docker/setup-qemu-action@v4
       - uses: docker/setup-buildx-action@v3
       - name: Log in to GHCR

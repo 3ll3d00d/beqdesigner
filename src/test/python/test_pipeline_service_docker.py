@@ -29,7 +29,7 @@ def _load_smoke():
 
 
 _smoke = _load_smoke()
-Designer, fixture = _smoke.Designer, _smoke.fixture
+Designer, fixture, by_reference = _smoke.Designer, _smoke.fixture, _smoke.by_reference
 
 
 def test_service_lock_closure_has_no_qt(tmp_path):
@@ -61,6 +61,46 @@ def test_image_smoke_fixture_is_real_multichannel_audio_and_a_profile(tmp_path):
     assert profile['sources'][0]['globs'] == ['/media']
     assert profile['designers']['smoke'] == 'http://host.docker.internal:4321/design'
     assert profile['run']['queue_dir'] == '/queue'
+
+
+def test_with_a_real_designer_the_fixture_shares_the_work_directory_and_is_long_enough_to_tell(tmp_path):
+    fixture(tmp_path, designer_url='http://beq-smoke-designer-1:8420/design', seconds=30)
+    profile = json.loads((tmp_path / 'config' / 'profile.yaml').read_text())
+    assert profile['designers']['smoke'] == {'url': 'http://beq-smoke-designer-1:8420/design', 'by_reference': True}
+    with wave.open(str(tmp_path / 'media' / 'Smoke Movie.wav')) as source:
+        # inline, even the mono mix at the 1 kHz analysis rate would be 0.3 MB of base64: by reference it is none
+        assert source.getnframes() == 30 * 48000
+
+
+def test_by_reference_is_read_from_the_designers_own_request_log():
+    def log(*sizes):
+        return '\n'.join(f'2026-10-08 request timing: body {size} MB, read 0.00 s' for size in sizes)
+
+    assert by_reference(log('0.0', '0.0'))
+    assert not by_reference(log('0.0', '2.4'))   # one request carried its audio
+    assert not by_reference('beqforge designer server: listening')   # no request reached it
+
+
+def test_the_compose_example_runs_a_pinned_designer_sharing_the_pipelines_work_directory():
+    import yaml
+    compose = yaml.safe_load((ROOT / 'docker' / 'compose.example.yaml').read_text())
+    pipeline, designer = compose['services']['pipeline'], compose['services']['designer']
+    image, _, version = designer['image'].rpartition(':')
+    assert image == 'ghcr.io/3ll3d00d/beqforge-designer' and version not in ('', 'latest')
+    assert './work:/work' in pipeline['volumes'] and './work:/work' in designer['volumes']
+    assert 'designer-cache:/cache' in designer['volumes'] and 'designer-cache' in compose['volumes']
+    assert designer['user'] == pipeline['user'] and 'designer' in pipeline['depends_on']
+    assert "url: 'http://designer:8420/design', by_reference: true" in (ROOT / 'docs' / 'library' / 'service.md').read_text()
+
+
+def test_ci_designs_by_reference_through_the_real_designer_on_every_push_and_before_a_release():
+    ci = (ROOT / '.github' / 'workflows' / 'test.yaml').read_text()
+    release = (ROOT / '.github' / 'workflows' / 'create-image.yaml').read_text()
+    assert 'repository: 3ll3d00d/beqforge' in ci and 'beqforge/packaging/designer/Dockerfile' in ci
+    assert '--designer-image beqforge-designer:smoke' in ci
+    # the release is smoked against the designer the compose example names, before it is published
+    assert 'beqforge-designer:[^[:space:]]+\' docker/compose.example.yaml' in release
+    assert release.index('--designer-image') < release.index('docker/build-push-action')
 
 
 @pytest.mark.skipif(not shutil.which('ffmpeg') or not shutil.which('ffprobe'), reason='ffmpeg and ffprobe are optional')

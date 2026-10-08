@@ -42,8 +42,8 @@ validation and steep-filter default are outside it.
 
 | Priority | ID | R | Previous IDs | Status | Depends on |
 |---|---|---|---|---|---|
-| 3 | R3 | R | -- | Not started; no designer image, compose service or guide | beqforge packaging |
-| 4 | R4 | R | -- | Not started; risk inferred from code, not observed | R3 |
+| 3 | R3 | R | -- | Built and verified locally; the pinned designer image is not published yet | A beqforge `v0.2.1` tag (beqforge `aaf0f21` pushed first) |
+| 4 | R4 | R | -- | Not started; risk inferred from code, not observed | -- (the designer image builds locally) |
 | 6 | C1 | R | chunk S5 | amd64 build and smoke verified; arm64 build and GHCR publish not yet run | A green `main`; the first tag push |
 | 7 | J2 | R | chunk 40 | Not started beyond the seam: the resolver returns the first audio stream | Sanitised Playback Info and ffprobe evidence |
 | 8 | W2 | R | chunk 45b | Partial in `62270b4`: codec, channels and stream count are requested | J2 for automatic stream selection; manual override already exists |
@@ -73,29 +73,46 @@ duplicates or picks the wrong playlist, they move into it.
 
 ### R3 — Deploy the designer beside the service
 
-The compose example runs only the pipeline. beqforge is published to PyPI
-(0.1.0) and as executables, with no image, no compose service and nothing in
-either repository describing the two together. Provide, with beqforge:
+**Built** in beqforge `aaf0f21` (not yet pushed) and beqdesigner's "Run the
+designer beside the pipeline service in the compose example".
 
-- a designer container: an image built from beqforge, or a documented
-  `pip install "beqforge[designer]"` service on a pinned Python image;
-- `docker/compose.example.yaml` running both, the work directory mounted into
-  the designer at its `--shared-root` and the profile's designer declared with
-  `by_reference: true`, so audio is not sent over HTTP;
-- a volume for the designer's `--cache-dir` (and `--record-dir` if wanted) so
-  restarts do not lose the stage cache;
-- the profile's `designers:` section in the example config: the container does
-  not read Preferences, so a profile that names a Preferences designer
-  (`http:<name>`) must be changed; say so in `docs/library/service.md`;
-- a pinned designer version in the example, so a catalogue run is not mixed
-  across designer releases by an image pull (see D4).
+- beqforge: `packaging/designer/Dockerfile` runs `beqforge serve-designer` on
+  `0.0.0.0:8420` as uid 1000, with `BEQFORGE_SHARED_ROOT=/work` and
+  `BEQFORGE_CACHE_DIR=/cache`, and a `/health` HEALTHCHECK.
+  `build-designer-image.yml` builds it and runs `packaging/designer/smoke.py`
+  (health, one design inline, one by reference) on every change. On a
+  `vX.Y.Z` tag that matches `beq_common.__version__`, it publishes
+  linux/amd64 and linux/arm64 as `ghcr.io/3ll3d00d/beqforge-designer:<version>`
+  (and `latest`). README section "Running the designer in a container".
+- beqdesigner: `docker/compose.example.yaml` runs `designer` beside
+  `pipeline`, pinned to `beqforge-designer:0.2.1`, with the same `./work`
+  mounted at `/work` in both, a `designer-cache` volume and the same user.
+  `docker/smoke.py --designer-image IMAGE` runs the real designer on a
+  private network, waits for `/v1/status` to report it reachable, designs a
+  30 s six-channel title, and checks from the designer's own request log that
+  the audio arrived by reference (`body 0.0 MB`). Push CI builds the designer
+  from beqforge `main` for this; the release workflow pulls the pinned image.
+  `docs/library/service.md` "The designer" covers the profile change
+  (`designers:` with `by_reference: true`, not a Preferences `http:NAME`
+  designer, the same name on the desktop) and design parallelism.
 
-Extend `docker/smoke.py` (or a second smoke) to start both containers and
-design one title by reference.
+Evidence, 2026-10-08 (Docker 29.8.2, linux/x86_64): both images built from
+the working trees. The designer smoke passed both requests. The pipeline
+smoke passed with the stub, and with `--designer-image` (job succeeded, a
+queue entry, designer log `body 0.0 MB`). `docker compose up` of the example,
+with local builds tagged as its images, started both services; `/v1/status`
+reported the designer reachable at `http://designer:8420/design`. With the
+designer stopped it reported `reachable: false` with the reason, and `/ready`
+stayed 200.
 
-**Done when:** the compose example starts both services, the smoke test
-designs a title through the real designer by reference, and the user guide
-describes the set-up and the profile changes.
+**Left:** push beqforge and tag `v0.2.1` (bump `beq_common.__version__`
+first) so the pinned image exists; until then the release workflow's pull
+fails. If the release gets another version, change the compose example's tag.
+The container's designer reports its build as `unknown+src:<digest>` (no git
+in the image); D4 should decide whether to bake a stamp.
+
+**Done when:** the pinned image is published and `create-image.yaml`'s
+by-reference smoke passes against it on the first beqdesigner tag (with C1).
 
 ### R4 — Designer timeouts versus design parallelism
 
@@ -110,6 +127,9 @@ stop a run that the designer was handling. Measure the designer's time on the lo
 sample. Then either make the service default to one design at a time per
 single-threaded designer, or derive the timeout from the queue depth, and
 document the choice beside `run.parallelism`.
+
+The designer image now builds locally (R3), so the measurement can start
+before the image is published.
 
 **Done when:** a test with a slow single-threaded stub and `design: 2` shows
 no timeout-induced failure under the chosen policy, and the guide states it.

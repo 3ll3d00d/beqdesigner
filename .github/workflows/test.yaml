@@ -32,13 +32,23 @@ jobs:
   pipeline_image:
     name: Build and smoke pipeline image
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - name: Build image
         run: docker build -f docker/Dockerfile -t beqdesigner-pipeline:smoke .
       - name: Extract, design and check the review queue
         run: python3 docker/smoke.py beqdesigner-pipeline:smoke
+      - name: Check out the designer
+        uses: actions/checkout@v7
+        with:
+          repository: 3ll3d00d/beqforge
+          ref: main
+          path: beqforge
+      - name: Build the designer image
+        run: docker build -f beqforge/packaging/designer/Dockerfile -t beqforge-designer:smoke beqforge
+      - name: Design by reference through the real designer beside the service
+        run: python3 docker/smoke.py beqdesigner-pipeline:smoke --designer-image beqforge-designer:smoke
   build:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30   # a hung test must not hold a runner for hours (GitHub's default is 6)

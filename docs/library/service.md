@@ -21,6 +21,41 @@ and arm64; use a fixed tag when you need repeatable deployments. The compose
 example maps the port to loopback for a local TLS reverse proxy. Its work and
 queue mounts should be writable by the configured UID/GID.
 
+### The designer
+
+The compose example also runs the designer, `ghcr.io/3ll3d00d/beqforge-designer`, as a second
+service called `designer`. Both containers mount the same `work` folder: the designer reads it
+at `/work`, its shared root, so the pipeline sends it the names of the extracted audio files
+instead of the audio. Keep its version pinned (the example names one): a catalogue designed
+over several days should come from one designer build, and pulling `latest` in the middle of a
+run would mix two. Its `designer-cache` volume keeps the designer's stage cache across
+restarts. Both run as the same user, which must be able to write `work` and the cache. The
+[beqforge readme](https://github.com/3ll3d00d/beqforge#running-the-designer-in-a-container)
+lists the designer's own settings.
+
+**Change the profile for the container.** The container does not read the app's
+Preferences, so a profile whose designer is one you added in *Preferences > Designers* (the
+work list shows it as `http:NAME`) does not work there. Declare the designer in the profile
+instead, by a name both the container and the work list use, and choose it:
+
+```yaml
+designers:
+  beqforge: {url: 'http://designer:8420/design', by_reference: true}
+run:
+  designer: beqforge
+  work_dir: /work
+  queue_dir: /queue
+```
+
+Use the same name on the desktop. The designer's name is one of the settings a design is
+judged by, so a title designed by `beqforge` in the container would otherwise look out of
+date to a work list that calls the designer something else. `designer` is its name inside the
+compose network; a desktop that also calls it needs the address it is published at.
+
+The designer works on one title at a time and queues the rest, and a two-hour,
+eight-channel title takes it about two minutes the first time. Leave `run.parallelism.design`
+at 1 unless you run more than one designer.
+
 It listens on port 8080 of every address. Open `http://HOST:8080/docs`: the whole interface, with **Try it out** on every call. Press **Authorize**, paste the token, and the calls you try from the page are made for real.
 
 | Option | Meaning |
