@@ -29,10 +29,10 @@ catalogue unattended, and the results reviewed from the desktop app. Publish
 and commit stay a person's decision in the app; the schedule never goes past
 design.
 
-The milestone is the rows marked **R** in the table: priorities 1–15 (R7, now [archived](archive/initial-release.md), was 5). The
+The milestone is the rows marked **R** in the table: priorities 1–15 (R1 and R7, now [archived](archive/initial-release.md), were 1 and 5). The
 service and image themselves work (C1's amd64 smoke); what is missing is
-behavior that only matters at catalogue scale and over days: transient
-failures, the designer deployment, timeouts, disk use, remote review, stream
+behavior that only matters at catalogue scale and over days: the designer
+health check and deployment, timeouts, disk use, remote review, stream
 choice, and an acceptance run. Two beqforge items are recorded in its own
 `TODO.md`, not here: #1 "Playback contract" (the designer side of R8) and
 #13 "Residual reporting" (the reported fit error and band do not match the
@@ -42,7 +42,6 @@ validation and steep-filter default are outside it.
 
 | Priority | ID | R | Previous IDs | Status | Depends on |
 |---|---|---|---|---|---|
-| 1 | R1 | R | -- | Not started; every failure is remembered as permanent | -- |
 | 2 | R2 | R | -- | Not started; `/ready` checks only that a designer is declared | -- |
 | 3 | R3 | R | -- | Not started; no designer image, compose service or guide | beqforge packaging |
 | 4 | R4 | R | -- | Not started; risk inferred from code, not observed | R3 |
@@ -72,27 +71,6 @@ main-title fallback is truthful for the catalogue's discs; if it silently
 duplicates or picks the wrong playlist, they move into it.
 
 ## Work in priority order
-
-### R1 — Transient failures must not become remembered failures
-
-`_remember_failure` (`pipeline/library/run.py`) records every exception
-against the source fingerprint and settings, and an unattended run does not
-retry a remembered failure without `retry_failed`. A designer that is down or
-times out, a dropped media mount, or a JRiver outage therefore marks every
-title in that tick failed, and the schedule never comes back to them.
-Classify failures: a dependency that was unavailable (connection refused or
-reset, timeout, HTTP 5xx, a missing mount root, a JRiver that does not answer)
-is reported for the run but not remembered; a failure of the title itself
-(undecodable stream, a designer 4xx/decline, an ffmpeg error on a readable
-file) is remembered as now. Stop the run after a configurable number of
-consecutive dependency failures, leaving the rest of the selection untouched
-and saying why, instead of failing the remaining titles one by one. Keep the
-work list's and the CLI's behavior identical (one `run_stages` path).
-
-**Done when:** tests show a designer timeout, a connection error and a missing
-mount are not remembered, the next tick runs those titles again, consecutive
-dependency failures stop the run with a stated reason, and a genuine title
-failure is still remembered and not retried.
 
 ### R2 — Check the designer before a run
 
@@ -141,12 +119,13 @@ beqforge's server is single-threaded on purpose (its fitter forks), and a
 2-hour 8-channel title takes about 110 s cold. The HTTP binding's default
 timeout is 300 s, and `run.parallelism.design` allows up to 4. Requests beyond
 the first queue at the server, so a long title behind another can time out
-while the designer still works on it; with R1 unbuilt that title is then
-permanently failed. Measure the designer's time on the longest titles in E2's
+while the designer still works on it. Since R1 a timeout is reported as
+`unavailable` and not remembered, so the title comes back next tick, but it
+counts towards `run.stop_after_unavailable`, so a queue of slow titles can
+stop a run that the designer was handling. Measure the designer's time on the longest titles in E2's
 sample. Then either make the service default to one design at a time per
 single-threaded designer, or derive the timeout from the queue depth, and
-document the choice beside `run.parallelism`. A timed-out request must be
-reported as a timeout, not as a design failure.
+document the choice beside `run.parallelism`.
 
 **Done when:** a test with a slow single-threaded stub and `design: 2` shows
 no timeout-induced failure under the chosen policy, and the guide states it.
@@ -257,7 +236,8 @@ acceptance and after publish (for example, drop or compress `multichannel.wav`
 once a title is published, keeping what revise and the multichannel project
 need, or replan extraction on demand). Check free space before each
 extraction and stop the run with a clear reason below a configurable floor,
-rather than failing titles one by one (an R1 dependency failure).
+rather than failing titles one by one (raise `pipeline.library.failure.Unavailable`,
+so it is not remembered and counts towards R1's stop).
 
 **Done when:** the retention policy is documented and implemented with tests,
 and a run stops cleanly when the floor is reached.

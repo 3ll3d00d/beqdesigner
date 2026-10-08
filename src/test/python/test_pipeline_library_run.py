@@ -1,4 +1,5 @@
 '''Tests for library-source orchestration and explicit sync delegation.'''
+import errno
 from dataclasses import dataclass
 
 import pytest
@@ -466,8 +467,9 @@ class _Works:
 
         def extract(session, item, item_dir, cfg, mono_mix, force):
             self.calls.append(('extract', item.id))
-            if ('extract', item.id) in self.fail:
-                raise FileNotFoundError(f'{item.id} is missing')
+            failure = self.fail.get(('extract', item.id))
+            if failure is not None:
+                raise failure if isinstance(failure, BaseException) else FileNotFoundError(f'{item.id} is missing')
             os.makedirs(item_dir, exist_ok=True)
             path = os.path.join(item_dir, 'mono.wav')
             length = (item.episodes or (1,))[0]
@@ -476,8 +478,9 @@ class _Works:
 
         def design(session, item, wav_path, designer, queue_dir, cfg, **kwargs):
             self.calls.append(('design', item.id))
-            if ('design', item.id) in self.fail:
-                raise RuntimeError('designer said no')
+            failure = self.fail.get(('design', item.id))
+            if failure is not None:
+                raise failure if isinstance(failure, BaseException) else RuntimeError('designer said no')
             return DesignCacheResult(QueueEntry(id=item.id, fs=1000, meta={}, curve={}), designed=True)
 
         monkeypatch.setattr('pipeline.library.run.extract_if_needed', extract)
@@ -658,3 +661,36 @@ def test_a_title_just_extracted_has_its_flat_project_before_it_is_designed(tmp_p
     _, mono_project, multichannel_project, _ = project_paths(config.work_dir, 'one')
     flat, pure = read_project_filter(mono_project)
     assert pure and len(flat) == 0 and multichannel_project is None
+
+
+# --- an unavailable dependency is not remembered (TODO R1) -----------------------------------------------------------
+
+def test_run_library_does_not_remember_an_unavailable_designer_and_stops_after_enough_in_a_row(works):
+    from dataclasses import replace
+    config = replace(works.run_config, stop_after_unavailable=2)
+    items = [_item(n) for n in ('one', 'two', 'three')]
+    for item in items:
+        works.fail[('design', item.id)] = requests.ConnectionError('designer refused the connection')
+
+    first = works.run(items, run_config=config)
+
+    assert [i for i, _ in first.unavailable] == ['one', 'two'] and first.failed == []
+    assert ('extract', 'three') not in works.calls and 'stopped after 2 titles in a row' in first.stopped
+    assert works.index.failures() == {}
+
+    works.fail.clear()
+    second = works.run(items, run_config=config)   # no retry_failed: nothing was remembered
+    assert second.designed == ['one', 'two', 'three'] and not second.stopped
+
+
+def test_an_unavailable_mount_inside_a_season_remembers_no_episode(works):
+    from dataclasses import replace
+    config = replace(works.run_config, tv_mode='season')
+    episodes = [_episode('Show', 1, e) for e in (1, 2, 3)]
+    works.fail[('extract', 'Show-1-2')] = OSError(errno.ENOTCONN, 'Transport endpoint is not connected')
+
+    report = works.run(episodes, run_config=config)
+
+    assert report.failed == [] and len(report.unavailable) == 1 and report.designed == []
+    assert 'Show S1E2' in report.unavailable[0][1]
+    assert works.index.failures() == {}   # neither the episode nor the season

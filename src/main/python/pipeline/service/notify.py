@@ -93,6 +93,9 @@ def _parts(job: Job):
     if isinstance(result, models.RunResult):
         designed = result.designed
         failed.extend((error.id, error.message) for error in result.failed)
+        failed.extend((error.id, error.message) for error in result.unavailable)
+        if result.stopped:
+            failed.append(('run', result.stopped))
         failed.extend((error.id, error.error) for error in result.publish_errors)
         if result.commit_error:
             failed.append(('commit', result.commit_error))

@@ -11,7 +11,7 @@ import pytest
 from types import SimpleNamespace
 
 from model.worklist_confirm import commit_text, machine_text, publish_text
-from model.worklist_run import ResultLine, RunRequest, build_publish_settings, commit_effects, describe_results, failed_titles, \
+from model.worklist_run import ResultLine, RunRequest, build_publish_settings, build_run_config, commit_effects, describe_results, failed_titles, \
     headline, plan_label, publish_problem, skip_reason, summarise_report, summarise_skipped
 from pipeline.library.commit import CatalogueCommit, RepoCommit
 from pipeline.library.index import LibraryIndex
@@ -124,6 +124,22 @@ def test_a_cancelled_run_lists_what_was_not_run_and_the_summary_says_how_far_it_
 
     assert lines['x2'].outcome == 'Not run' and lines['d1'].outcome == 'Not run' and lines['x1'].outcome == 'Designed'
     assert text == 'Stopped after 1 of 3 titles (2 not run): 1 designed' and level == 'warn'
+
+
+def test_a_run_stopped_by_an_unavailable_dependency_says_why_and_that_the_titles_will_be_tried_again(rows):
+    plan = _plan(rows, 'design', 'x1', 'x2', 'd1')
+    stopped = 'stopped after 2 titles in a row could not be worked on because something they depend on was unavailable'
+    report = StagesReport('design', 3, run=LibraryRunReport(unavailable=[('x1', 'HttpDesignerError: refused'),
+                                                                         ('x2', 'HttpDesignerError: refused')]),
+                          stopped=stopped, attempted=['x1', 'x2'], not_run=['d1'])
+
+    lines = {l.id: l for l in describe_results(report, plan, ScanSettings('/w', '/q'), rows)}
+    text, level = summarise_report(report, plan)
+
+    assert lines['x1'].outcome == 'Unavailable' and lines['x1'].level == 'error'
+    assert 'the next run tries it again' in lines['x1'].detail
+    assert lines['d1'].outcome == 'Not run' and lines['d1'].detail == 'the run stopped before it got here'
+    assert text == f'Stopped after 2 of 3 titles (1 not run): 2 unavailable. S{stopped[1:]}' and level == 'error'
 
 
 def test_the_outcome_of_a_run_that_failed_is_an_error_level_line(rows):
@@ -383,3 +399,16 @@ def test_a_run_releases_its_lease_before_it_says_it_ended(qtbot, tmp_path, fails
 
     assert held_at_the_end == [None]
 
+
+
+def test_the_work_list_reads_how_many_unavailable_titles_in_a_row_stop_a_run_from_the_profile():
+    settings = ScanSettings('/w', '/q', designer='d')
+    preferences = SimpleNamespace(get=lambda key: None)
+
+    def setup(run):
+        return SimpleNamespace(settings=settings, profile=SimpleNamespace(config={'run': run}))
+
+    assert build_run_config(setup({}), preferences).stop_after_unavailable == 3
+    assert build_run_config(setup({'stop_after_unavailable': 7}), preferences).stop_after_unavailable == 7
+    with pytest.raises(ValueError, match='run.stop_after_unavailable'):
+        build_run_config(setup({'stop_after_unavailable': 'many'}), preferences)

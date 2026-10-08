@@ -610,7 +610,8 @@ class WorkListActions:
         context = self._end_run()
         planned_ids = set(self._run_outcomes)
         cancelled_ids = set(report.not_run) & planned_ids
-        failed_ids = set(dict(report.run.failed)) | set(dict(report.run.failed_earlier))
+        failed_ids = set(dict(report.run.failed)) | set(dict(report.run.failed_earlier)) | \
+            set(dict(report.run.unavailable))
         for title_id in report.attempted:
             if title_id not in planned_ids:
                 continue
@@ -627,11 +628,12 @@ class WorkListActions:
         for title_id in cancelled_ids:
             buffer = self._event_buffers.setdefault(title_id, EventBuffer())
             cancelled_event = ExecutionEvent(self._active_run_id, title_id, '', 'cancelled', time.time(),
-                                             'Cancelled before dispatch')
+                                             f'Not started: {report.stopped}' if report.stopped
+                                             else 'Cancelled before dispatch')
             buffer.append(cancelled_event)
             self._run_outcomes[title_id] = 'cancelled'
-            self._model.set_run_state(title_id, active=False, queued=False, stage='', text='Cancelled',
-                                      has_details=True)
+            self._model.set_run_state(title_id, active=False, queued=False, stage='',
+                                      text='Not run' if report.stopped else 'Cancelled', has_details=True)
             dialog = self._detail_dialogs.get(title_id)
             if dialog is not None:
                 dialog.set_text(self._run_details_text(title_id))

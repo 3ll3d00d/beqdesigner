@@ -29,7 +29,7 @@ from pipeline.library.commit import CatalogueCommit
 from pipeline.library.index import LibraryIndex
 from pipeline.library.join import JoinQueue
 from pipeline.library.profile import Profile
-from pipeline.library.run import LibraryRunConfig, LibraryRunReport, design_unit_work, run_unit
+from pipeline.library.run import LibraryRunConfig, LibraryRunReport, UnavailableStreak, design_unit_work, run_unit
 from pipeline.library.selection import Selection, Skipped, plan_stages
 from pipeline.library.status import ScanSettings
 from pipeline.library.season import conflicting_units
@@ -113,15 +113,18 @@ class StagesReport:
     commit_error: str = ''                          # git refused (a rejected push): what was committed stays so
     skipped: List[Skipped] = field(default_factory=list)   # not worked on, and why
     cancelled: bool = False
+    # why the run stopped before its selection was done, though nobody cancelled it: run_config.stop_after_unavailable
+    # titles in a row met an unavailable dependency (the rest are in not_run, for the next run)
+    stopped: str = ''
     attempted: List[str] = field(default_factory=list)     # titles whose planned work was started (and finished)
-    not_run: List[str] = field(default_factory=list)       # planned but not started, because of the cancel
+    not_run: List[str] = field(default_factory=list)       # planned but not started, because of the cancel or stop
     counts: Dict[str, int] = field(default_factory=dict)   # titles per needs, after the run
     joined: List[str] = field(default_factory=list)        # the JoinRequests the run took, by id
     not_joined: List[str] = field(default_factory=list)    # offered too late (the machine phase was over), by id
 
     @property
     def failed(self) -> bool:
-        return bool(self.run.failed or self.publish_errors or self.commit_error)
+        return bool(self.run.failed or self.run.unavailable or self.stopped or self.publish_errors or self.commit_error)
 
 
 def _title(row) -> str:
@@ -149,7 +152,8 @@ def _units_by_title(index: LibraryIndex, ids: List[str]):
 def _merge_run_report(target: LibraryRunReport, source: LibraryRunReport, *, include_extract: bool) -> None:
     """Merge one worker's isolated result into the coordinator-owned run report."""
     fields = ('extracted', 'cached', 'seasons') if include_extract else ()
-    fields += ('designed', 'design_cached', 'failed', 'failed_earlier', 'meta_unresolved', 'project_edit_preserved')
+    fields += ('designed', 'design_cached', 'failed', 'failed_earlier', 'unavailable', 'meta_unresolved',
+               'project_edit_preserved')
     for name in fields:
         current, incoming = getattr(target, name), getattr(source, name)
         if isinstance(current, dict):
@@ -209,6 +213,22 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
 
     def cancelled() -> bool:
         return should_cancel is not None and bool(should_cancel())
+
+    in_a_row = UnavailableStreak(run_config.stop_after_unavailable)
+
+    def outcome(local: LibraryRunReport) -> None:
+        ''' Counts unavailable dependencies in a row: enough of them stop the run (report.stopped) as a cancel would. '''
+        if local.unavailable:
+            in_a_row.unavailable(local.unavailable[-1][1])
+            if in_a_row.reason and not report.stopped:
+                report.stopped = in_a_row.reason
+                logger.warning('Library run stopped: %s', report.stopped)
+                emit_execution_event('failed', message=report.stopped)
+        elif local.failed or local.designed or local.design_cached or local.extracted or local.cached:
+            in_a_row.reached()
+
+    def halted() -> bool:
+        return bool(report.stopped) or cancelled()
 
     run_id = uuid.uuid4().hex
     # Keep event delivery ordered across workers and attach shared git commands to every
@@ -346,7 +366,7 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
                 ThreadPoolExecutor(max_workers=run_config.design_parallelism,
                                    thread_name_prefix='library-design') as design_pool:
             while True:
-                cancel_requested = cancelled()
+                cancel_requested = halted()
                 if join is not None and not cancel_requested:
                     pending.extend(admit(join.take()))
                 if not (pending or extracting or designing or design_pending):
@@ -356,14 +376,15 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
                         planned, unit, retry = pending.pop(0)
                         future = extract_pool.submit(copy_context().run, extract_task, planned, unit, retry)
                         extracting[future] = planned
-                else:
+                elif not report.stopped:
                     report.cancelled = True
-                while design_pending and len(designing) < run_config.design_parallelism:
+                while design_pending and len(designing) < run_config.design_parallelism and not report.stopped:
                     planned, work = design_pending.pop(0)
                     design_future = design_pool.submit(copy_context().run, design_task, planned, work)
                     designing[design_future] = planned
-                if not extracting and not designing and not design_pending and (not pending or cancelled()):
-                    if join is not None and not cancelled():   # one last look before the machine phase ends
+                if not extracting and not designing and (not design_pending or report.stopped) and \
+                        (not pending or halted()):
+                    if join is not None and not halted():   # one last look before the machine phase ends
                         more = admit(join.take())
                         if more:
                             pending.extend(more)
@@ -389,6 +410,7 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
                             state['done'] += 1
                             continue
                         _merge_run_report(report.run, local, include_extract=True)
+                        outcome(local)
                         if work is None:
                             if local.failed_earlier:
                                 with event_scope(title_id=row_id):
@@ -418,18 +440,19 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
                             with event_scope(title_id=row_id, stage='design'):
                                 emit_execution_event('failed', message=f'{type(error).__name__}: {error}')
                         _merge_run_report(report.run, local, include_extract=False)
+                        outcome(local)
                         report.attempted.append(row_id)
                         state['done'] += 1
-                        if not local.failed:
+                        if not local.failed and not local.unavailable:
                             _refresh_midrun()
                             with event_scope(title_id=row_id):
                                 emit_execution_event('title_completed', message=titles.get(row_id, row_id))
-            if cancelled():
+            if cancelled() and not report.stopped:
                 report.cancelled = True
         if join is not None:
             report.not_joined = [r.id for r in join.close()]
 
-        if to_publish and not report.cancelled and not cancelled():
+        if to_publish and not report.cancelled and not halted():
             base = state['done']
             wanted = [p.row.id for p in to_publish]
             begun: List[str] = []
@@ -472,10 +495,10 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
             report.cancelled = bool(cancel_seen)
             # a title publish had nothing to do for (no longer accepted since the scan) is over as well
             state['done'] = base + (len(begun) if report.cancelled else len(wanted))
-        elif to_publish:
+        elif to_publish and not report.stopped:
             report.cancelled = True
 
-        if commit_ids and not report.cancelled and not cancelled():
+        if commit_ids and not report.cancelled and not halted():
             with event_scope(stage='commit'):
                 emit_execution_event('stage_started', message=f'Committing {len(commit_ids)} titles')
             for title_id in commit_ids:
@@ -505,14 +528,15 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
                         emit_execution_event('title_completed', message='Commit/push complete')
                 report.attempted += [i for i in commit_ids if i not in report.attempted]
                 state['done'] += len(commit_ids)
-        elif commit_ids:
+        elif commit_ids and not report.stopped:
             report.cancelled = True
     finally:
         if join is not None and not join.closed:   # an error ended the machine phase early: nothing more joins
             report.not_joined += [r.id for r in join.close()]
         planned_ids = {p.row.id for p in all_planned}
         report.attempted = list(dict.fromkeys(report.attempted))
-        report.not_run = sorted(i for i in planned_ids if i not in report.attempted) if report.cancelled else []
+        report.not_run = sorted(i for i in planned_ids if i not in report.attempted) \
+            if report.cancelled or report.stopped else []
         if refresh:
             try:
                 index.refresh(profile, settings or ScanSettings.from_profile(profile))

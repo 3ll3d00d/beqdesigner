@@ -47,8 +47,13 @@ Qt-free call (`pipeline/service/work.py`):
 The pipeline's invariants hold unchanged: review is a person's (nothing is taken
 past design unless accepted); one bad title never stops a run; a failure is
 remembered against the source fingerprint and settings and not retried
-without `retry_failed`; a cancel leaves only whole titles done; publish and
-commit are serialised.
+without `retry_failed`, unless something the title depends on was unavailable
+(`pipeline/library/failure.py`: a connection error, timeout or 5xx, a remote
+filesystem errno, a media mount that is not there), which is reported as
+`unavailable` and not remembered; `run.stop_after_unavailable` (default 3)
+such titles in a row stop the run with `stopped` set and the rest in
+`not_run`; a cancel leaves only whole titles done; publish and commit are
+serialised.
 
 ## 3. Selection: year and kind
 
@@ -372,7 +377,10 @@ retry_failed, next_run_at, last_run: {job_id, state, finished_at}}`.
   `interval_minutes` after the *finish* of the last scheduled job.
 - **Failures:** an unattended run does not retry a remembered failure
   (including a failed extraction) until the source or settings change or
-  `retry_failed`; each tick reports them as `failed_earlier`.
+  `retry_failed`; each tick reports them as `failed_earlier`. A title that met
+  an unavailable dependency is not remembered, so the next tick runs it again
+  (`RunResult.unavailable`, and `stopped` when enough in a row ended the run);
+  both make the job `failed` and are in the `failed` notification.
 - `PUT /v1/schedule` validates and writes `<work_dir>/service/schedule.json`
   atomically; at start-up that file, when present, wins over `service.yaml`.
   `enabled: false` pauses without losing the settings. The minimum interval is

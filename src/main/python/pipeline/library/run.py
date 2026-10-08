@@ -2,7 +2,7 @@
 import logging
 import os
 from contextlib import contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Callable, Mapping, Optional, Sequence
 
 import requests
@@ -11,6 +11,7 @@ from pipeline.config import AnalysisConfig
 from pipeline.designer.contract import Coverage
 from pipeline.library.design_cache import design_if_needed
 from model.execution_events import emit_execution_event, event_scope
+from pipeline.library.failure import Unavailable, unavailable_reason
 from pipeline.library.extract_cache import extract_if_needed, extract_status, mono_from_multichannel_if_needed, \
     read_channel_layout_name, read_source_channel_count
 from pipeline.library.index import LibraryIndex
@@ -28,6 +29,7 @@ from pipeline.review import project_name
 logger = logging.getLogger('library_run')
 
 MAX_STAGE_PARALLELISM = 4
+DEFAULT_STOP_AFTER_UNAVAILABLE = 3
 _RUN_STAGES = ('extract', 'design')
 
 
@@ -49,6 +51,16 @@ def stage_parallelism(value=None) -> dict[str, int]:
     return result
 
 
+def stop_after_unavailable(value=None) -> int:
+    """Validate the optional ``run.stop_after_unavailable`` profile value: how many titles in a row may meet an
+    unavailable dependency (pipeline.library.failure) before a run stops."""
+    if value is None:
+        return DEFAULT_STOP_AFTER_UNAVAILABLE
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise ValueError('run.stop_after_unavailable must be a whole number of titles, 1 or more')
+    return value
+
+
 @dataclass(frozen=True)
 class LibraryRunConfig:
     work_dir: str
@@ -66,10 +78,14 @@ class LibraryRunConfig:
     tv_mode: str = DEFAULT_TV_MODE
     extract_parallelism: int = 1
     design_parallelism: int = 1
+    # a run stops after this many titles in a row met an unavailable dependency (a designer or media mount that is
+    # not there), rather than failing the rest of its selection one by one
+    stop_after_unavailable: int = DEFAULT_STOP_AFTER_UNAVAILABLE
 
     def __post_init__(self):
         plan_units([], self.tv_mode)  # rejects an unknown mode up front, not on the first TV item
         stage_parallelism({'extract': self.extract_parallelism, 'design': self.design_parallelism})
+        stop_after_unavailable(self.stop_after_unavailable)
 
 
 @dataclass(frozen=True)
@@ -81,9 +97,13 @@ class LibraryRunReport:
     failed: list[tuple[str, str]] = field(default_factory=list)
     # not tried: it failed before, against this same source and these same settings (see run_library(retry_failed=))
     failed_earlier: list[tuple[str, str]] = field(default_factory=list)
+    # not done because something it depends on was unavailable (pipeline.library.failure): not remembered, so the next
+    # run tries it again
+    unavailable: list[tuple[str, str]] = field(default_factory=list)
     meta_unresolved: list[tuple[str, str]] = field(default_factory=list)  # designed with item.meta only
     project_edit_preserved: list[str] = field(default_factory=list)  # a human-edited .beq project was kept
     seasons: dict[str, list[str]] = field(default_factory=dict)  # tv_mode='season': season id -> its episodes' ids
+    stopped: str = ''   # run_library(): why it stopped before the end of its titles, if it did
 
 
 @dataclass(frozen=True)
@@ -139,6 +159,26 @@ def _remember_failure(index: LibraryIndex, unit, run_config: 'LibraryRunConfig',
     '''
     item = unit.item if isinstance(unit, SeasonGroup) else unit
     _record(index, item, unit_fingerprint(unit), getattr(error, 'library_stage', 'extract'), error, run_config)
+
+
+def _report_failure(report: LibraryRunReport, index: Optional[LibraryIndex], unit, run_config: 'LibraryRunConfig',
+                    error: Exception) -> None:
+    '''
+    A title's failure: reported, and remembered in `index` unless something the title depends on was unavailable
+    (pipeline.library.failure), when it is reported in `report.unavailable` and the next run tries it again.
+    '''
+    item = unit.item if isinstance(unit, SeasonGroup) else unit
+    message = f'{type(error).__name__}: {error}'
+    in_extract = getattr(error, 'library_stage', 'extract') == 'extract'
+    reason = unavailable_reason(error, item.source_path if in_extract and not isinstance(unit, SeasonGroup) else None)
+    if reason is not None:
+        report.unavailable.append((item.id, message))
+        emit_execution_event('failed', message=f'Unavailable ({reason}), so it is tried again next run: {message}')
+        return
+    report.failed.append((item.id, message))
+    emit_execution_event('failed', message=message)
+    if index is not None:
+        _remember_failure(index, unit, run_config, error)
 
 
 def _record(index: LibraryIndex, item: LibraryItem, fingerprint: str, stage: str, error: Exception,
@@ -290,6 +330,9 @@ def _extract_season(session: Session, group: SeasonGroup, run_config: LibraryRun
                 session, member, item_directory(run_config.work_dir, member, create=True), run_config.config, mono_mix=True,
                 force=run_config.force_extract, **progress)
         except Exception as error:
+            reason = unavailable_reason(error, member.source_path)
+            if reason is not None:   # the rest of the season would meet it too: nothing about the episode is remembered
+                raise Unavailable(f'{member.display_name}: {reason}') from error
             report.failed.append((member.id, f'{type(error).__name__}: {error}'))
             if index is not None:
                 _record(index, member, fingerprint, 'extract', error, run_config)
@@ -371,10 +414,7 @@ def run_unit(session: Session, unit, run_config: LibraryRunConfig, report: Libra
         return work
     except Exception as error:
         logger.exception('Library extraction failed for %s (%s)', item.display_name, item.id)
-        report.failed.append((item.id, f'{type(error).__name__}: {error}'))
-        emit_execution_event('failed', message=f'{type(error).__name__}: {error}')
-        if index is not None:
-            _remember_failure(index, unit, run_config, error)
+        _report_failure(report, index, unit, run_config, error)
         return None
 
 
@@ -394,11 +434,10 @@ def design_unit_work(work: UnitWork, run_config: LibraryRunConfig,
             emit_execution_event('stage_completed', message='Design complete')
     except Exception as error:
         logger.exception('Library design failed for %s (%s)', item.display_name, item.id)
-        report.failed.append((item.id, f'{type(error).__name__}: {error}'))
+        if not hasattr(error, 'library_stage'):
+            error.library_stage = 'design'
         with event_scope(title_id=item.id, stage='design'):
-            emit_execution_event('failed', message=f'{type(error).__name__}: {error}')
-        if index is not None:
-            _remember_failure(index, unit, run_config, error)
+            _report_failure(report, index, unit, run_config, error)
     else:
         if index is not None:
             index.clear_failure(item.id)
@@ -423,11 +462,40 @@ def run_library(source: LibrarySource, run_config: LibraryRunConfig,
     session = Session(run_config.config)
     report = LibraryRunReport()
     claims = reconstruct_claims(run_config.work_dir, run_config.queue_dir)  # a season keeps the id it already has
+    in_a_row = UnavailableStreak(run_config.stop_after_unavailable)
     for unit in plan_units(list(source.list_items(**source_query)), run_config.tv_mode, claims.season_id):
         item = unit.item if isinstance(unit, SeasonGroup) else unit
+        before = (len(report.unavailable), len(report.failed_earlier))
         try:
             run_unit(session, unit, run_config, report, index, retry_failed=retry_failed, through=through)
         finally:
             if on_item_done is not None:
                 on_item_done(item.id)
+        if len(report.unavailable) > before[0]:
+            in_a_row.unavailable(report.unavailable[-1][1])
+        elif len(report.failed_earlier) == before[1]:
+            in_a_row.reached()
+        if in_a_row.reason:
+            logger.warning('Library run stopped: %s', in_a_row.reason)
+            return replace(report, stopped=in_a_row.reason)
     return report
+
+
+class UnavailableStreak:
+    '''
+    Counts the titles in a row whose dependencies were unavailable; once there are `limit`, `reason` says why the run
+    stops. A title that reached its dependencies (done, or failed on its own account) ends the streak.
+    '''
+    def __init__(self, limit: int):
+        self.limit = limit
+        self.count = 0
+        self.reason = ''
+
+    def unavailable(self, message: str) -> None:
+        self.count += 1
+        if self.count >= self.limit and not self.reason:
+            self.reason = (f'stopped after {self.count} titles in a row could not be worked on because something they '
+                           f'depend on was unavailable; the rest are left for the next run (last: {message})')
+
+    def reached(self) -> None:
+        self.count = 0

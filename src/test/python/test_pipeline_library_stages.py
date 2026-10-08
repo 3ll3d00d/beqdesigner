@@ -10,7 +10,9 @@ import threading
 import time
 
 import pytest
+import requests
 
+from pipeline.designer.http_binding import HttpDesignerError
 from pipeline.library.run import LibraryRunConfig, LibraryRunReport, UnitWork
 from pipeline.library.selection import Selection
 from pipeline.library.stages import Progress, PublishSettings, run_stages
@@ -498,6 +500,121 @@ def test_a_failure_recorded_by_run_stages_uses_the_same_key_as_discovery(env, wo
 
     assert memory.key == failure_key('extract', item, config=CONFIG, designer=DESIGNER,
                                      coverage='complete_programme', keep_multichannel=False)
+
+
+# --- unavailable dependencies (TODO R1) -----------------------------------------------------------------------------
+
+def _designer_error(cause):
+    ''' What the HTTP designer binding raises for `cause`: its own error, raised from the requests one. '''
+    try:
+        try:
+            raise cause
+        except Exception as inner:
+            raise HttpDesignerError(f'POST http://designer failed: {inner}') from inner
+    except Exception as error:
+        return error
+
+
+def _http_error(status):
+    response = requests.Response()
+    response.status_code = status
+    return requests.HTTPError(f'{status} error', response=response)
+
+
+@pytest.mark.parametrize('stage, cause', [
+    ('design', requests.ReadTimeout('read timed out')),
+    ('design', requests.ConnectionError('connection refused')),
+    ('design', _http_error(503)),
+    ('extract', requests.ConnectionError('JRiver did not answer')),
+])
+def test_an_unavailable_dependency_is_reported_but_not_remembered_and_the_next_tick_runs_it_again(env, work, stage,
+                                                                                                 cause):
+    _scan(env, _item('a'))
+    work.fail[(stage, 'fs-a')] = _designer_error(cause)
+
+    first = _go(env, Selection(), 'design', unattended=True)
+
+    assert [i for i, _ in first.run.unavailable] == ['fs-a'] and first.run.failed == [] and first.failed
+    assert env.index.failures() == {}
+    assert _row(env, 'fs-a').extract_state != 'failed' and _row(env, 'fs-a').design_state != 'failed'
+
+    work.fail.clear()
+    work.calls.clear()
+    tick = _go(env, Selection(), 'design', unattended=True)   # the schedule's next tick, without retry_failed
+
+    assert (stage, 'fs-a') in work.calls and tick.run.designed == ['fs-a'] and not tick.failed
+
+
+def test_a_missing_media_mount_is_not_remembered(env, work):
+    mount = env.tmp / 'media'
+    mount.mkdir()   # the mount point, with nothing mounted on it
+    item = _item('a', source_path=str(mount / 'films' / 'a.mkv'))
+    _scan(env, item)
+    work.fail[('extract', 'fs-a')] = RuntimeError('ffmpeg: No such file or directory')
+
+    report = _go(env, Selection(), 'design', unattended=True)
+
+    assert [i for i, _ in report.run.unavailable] == ['fs-a'] and env.index.failures() == {}
+
+
+def test_a_designer_that_answers_4xx_is_the_titles_failure_and_is_remembered(env, work):
+    _scan(env, _item('a'))
+    work.fail[('design', 'fs-a')] = _designer_error(_http_error(422))
+
+    first = _go(env, Selection(), 'design', unattended=True)
+
+    assert [i for i, _ in first.run.failed] == ['fs-a'] and first.run.unavailable == []
+    assert 'fs-a' in env.index.failures()
+    work.calls.clear()
+    again = _go(env, Selection(), 'design', unattended=True)
+    assert work.calls == [] and not again.run.failed
+
+
+def _go_stopping(env, after, **kwargs):
+    return run_stages(_profile(env), Selection(), 'design', index=env.index, settings=env.settings,
+                      run_config=_run_config(env, stop_after_unavailable=after), **kwargs)
+
+
+def test_consecutive_unavailable_dependencies_stop_the_run_and_leave_the_rest_untouched(env, work):
+    names = 'abcde'
+    _scan(env, *(_item(n) for n in names))
+    for n in names:
+        work.fail[('extract', f'fs-{n}')] = requests.ConnectionError('the media server is down')
+    events = []
+
+    report = _go_stopping(env, 2, unattended=True, on_event=events.append)
+
+    assert [i for i, _ in report.run.unavailable] == ['fs-a', 'fs-b']
+    assert [c for c in work.calls] == [('extract', 'fs-a'), ('extract', 'fs-b')]
+    assert 'stopped after 2 titles in a row' in report.stopped and 'the media server is down' in report.stopped
+    assert report.not_run == ['fs-c', 'fs-d', 'fs-e'] and not report.cancelled and report.failed
+    assert env.index.failures() == {}
+    assert any(e.kind == 'failed' and e.message == report.stopped for e in events)
+
+    work.fail.clear()
+    work.calls.clear()
+    resumed = _go_stopping(env, 2, unattended=True)   # the next tick, once it is back: all of them
+    assert sorted(resumed.run.designed) == [f'fs-{n}' for n in names] and not resumed.stopped
+
+
+def test_a_title_that_reaches_its_dependencies_ends_the_streak(env, work):
+    _scan(env, *(_item(n) for n in 'abcd'))
+    work.fail[('extract', 'fs-a')] = requests.ConnectionError('down')
+    work.fail[('extract', 'fs-b')] = RuntimeError('ffmpeg exploded')   # the title's own failure: its source was read
+    work.fail[('extract', 'fs-c')] = requests.ConnectionError('down')
+
+    report = _go_stopping(env, 2)
+
+    assert not report.stopped and report.not_run == []
+    assert [i for i, _ in report.run.unavailable] == ['fs-a', 'fs-c'] and [i for i, _ in report.run.failed] == ['fs-b']
+    assert report.run.designed == ['fs-d'] and list(env.index.failures()) == ['fs-b']
+
+
+def test_stop_after_unavailable_must_be_a_positive_whole_number(env):
+    for bad in (0, -1, 1.5, True, '3'):
+        with pytest.raises(ValueError, match='stop_after_unavailable'):
+            _run_config(env, stop_after_unavailable=bad)
+    assert _run_config(env).stop_after_unavailable == 3
 
 
 # --- publish, republish, commit -----------------------------------------------------------------------------------

@@ -249,9 +249,11 @@ PYTHONPATH=src/main/python python -m pipeline.library.cli [--config FILE] accept
   source and settings are unchanged is skipped), designs it, and writes an entry to the **review queue**. It never
   publishes, so an unattended `run` has nothing to auto-publish. A title whose extraction or design **failed** is not
   tried again while its source and the settings are unchanged (`--retry-failed` tries it again), so a nightly job does
-  not repeat a failure every night (a transient failure -- a NAS offline, a designer down -- stays skipped until then, so `run`
-  prints `warning: N titles skipped: failed earlier ... use --retry-failed` on stderr whenever it skipped any; the exit status
-  is unchanged). With a *selector* it does much more -- see "Doing the work for a selection" below.
+  not repeat a failure every night (`run` prints `warning: N titles skipped: failed earlier ... use --retry-failed` on stderr
+  whenever it skipped any; the exit status is unchanged). A failure because a dependency was unavailable -- a designer
+  down, slow or answering 5xx, a NAS offline, a mount not there (`pipeline/library/failure.py`) -- is reported as
+  `unavailable` and not remembered, so the next run tries it again; `run.stop_after_unavailable` (default 3) of them in a
+  row stop the run, with `stopped` saying why. With a *selector* it does much more -- see "Doing the work for a selection" below.
 - A person then reviews the titles in the app (Tools > Library Work List's title page, or Review Folder for a queue directory) and accepts entries.
 - **`publish`** writes only the *accepted* entries into the catalogue repositories' working trees: a JSON filter record in one
   and, optionally, a report image in another. Each entry is marked published (meaning *written*), so a re-run only

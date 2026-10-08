@@ -13,7 +13,7 @@ from pipeline.designer.http_binding import register_declared_designers
 from pipeline.designer.manual import MANUAL_DESIGNER
 from pipeline.designer.registry import registered_designers
 from pipeline.library.profile import Profile, profile_from_config
-from pipeline.library.run import LibraryRunConfig, stage_parallelism
+from pipeline.library.run import LibraryRunConfig, stage_parallelism, stop_after_unavailable
 from pipeline.library.season import DEFAULT_TV_MODE
 from pipeline.library.stages import PublishSettings
 from pipeline.library.status import ScanSettings, analysis_from_values
@@ -116,6 +116,7 @@ def run_config_from_values(values: Mapping[str, Any], config: Mapping[str, Any])
         audio_types=tuple(values.get('audio_types', ())),
         tv_mode=values.get('tv_mode', DEFAULT_TV_MODE),
         extract_parallelism=parallelism['extract'], design_parallelism=parallelism['design'],
+        stop_after_unavailable=stop_after_unavailable(values.get('stop_after_unavailable')),
     )
 
 

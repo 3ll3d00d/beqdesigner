@@ -74,6 +74,10 @@ def test_the_run_config_registers_the_files_designers_and_refuses_an_unknown_one
     assert declared_designer in registered_designers()
     assert (run_config.designer, run_config.extract_parallelism, run_config.design_parallelism) == (declared_designer, 2, 1)
     assert run_config.tv_mode == 'season' and run_config.config.target_fs == 500
+    assert run_config.stop_after_unavailable == 3
+    assert run_config_from_values({**values, 'stop_after_unavailable': 5}, config).stop_after_unavailable == 5
+    with pytest.raises(ValueError, match='run.stop_after_unavailable'):
+        run_config_from_values({**values, 'stop_after_unavailable': 0}, config)
     with pytest.raises(ValueError, match="designer 'nobody' is not registered"):
         run_config_from_values({**values, 'designer': 'nobody'}, config)
     with pytest.raises(ValueError, match='work-dir is required'):

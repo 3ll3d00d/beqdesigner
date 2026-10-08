@@ -57,6 +57,14 @@ class HttpDesignerError(RuntimeError):
     '''
 
 
+class DesignerUnavailable(HttpDesignerError):
+    '''
+    The designer cannot be used at all, whatever the title: it did not answer `/health`, or it cannot take the arrays
+    by reference it was declared to take. A run reports this but does not remember it against the title
+    (pipeline.library.failure).
+    '''
+
+
 def _ndarray_to_json(arr: np.ndarray) -> dict:
     as_f64 = np.ascontiguousarray(arr, dtype='<f8')
     return {'dtype': _ARRAY_DTYPE, 'shape': list(as_f64.shape), 'data_base64': base64.b64encode(as_f64.tobytes()).decode('ascii')}
@@ -200,14 +208,14 @@ def check_takes_references(url: str, timeout: float = 10.0, headers: Optional[di
         response.raise_for_status()
         body = response.json()
     except (requests.RequestException, ValueError) as e:
-        raise HttpDesignerError(f"GET {target} failed, so nothing is sent to it by reference: {e}") from e
+        raise DesignerUnavailable(f"GET {target} failed, so nothing is sent to it by reference: {e}") from e
     version = str(body.get('contract_version', '')) if isinstance(body, dict) else ''
     try:
         recent = tuple(int(p) for p in version.split('.')[:2]) >= (1, 2)
     except ValueError:
         recent = False
     if not recent or body.get('shared_root') is not True:
-        raise HttpDesignerError(f"{target} answered {body!r}: it cannot take arrays by reference (it needs contract "
+        raise DesignerUnavailable(f"{target} answered {body!r}: it cannot take arrays by reference (it needs contract "
                                 f"1.2 or later and a shared root), so it is sent none. Configure its shared root, or "
                                 f"take by_reference off this designer")
 

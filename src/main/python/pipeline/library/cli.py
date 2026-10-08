@@ -118,6 +118,15 @@ def _warn_failed_earlier(failed_earlier: list) -> None:
              f'(same source and settings); use --retry-failed to try again')
 
 
+def _warn_unavailable(unavailable: list, stopped: str) -> None:
+    if unavailable:
+        _say(f'warning: {len(unavailable)} title{"" if len(unavailable) == 1 else "s"} not done: something '
+             f'{"it depends" if len(unavailable) == 1 else "they depend"} on was unavailable; not remembered as '
+             f'failed, so the next run tries again')
+    if stopped:
+        _say(f'error: {stopped}')
+
+
 def _run_profile(args: argparse.Namespace, config: dict[str, Any], values: dict[str, Any]) -> Profile:
     '''
     The profile a selector `run` works on: the one given (`--profile`, or a config file whose `sources:` is a list), or
@@ -168,6 +177,7 @@ def _run_stages(args: argparse.Namespace, config: dict[str, Any], values: dict[s
         break
     print(json.dumps(asdict(report), sort_keys=True))
     _warn_failed_earlier(report.run.failed_earlier)
+    _warn_unavailable(report.run.unavailable, report.stopped)
     if report.commit_error:
         _say(f'error: {report.commit_error}')
         return GIT_FAILED
@@ -245,7 +255,8 @@ def _run(args: argparse.Namespace, config: dict[str, Any]) -> int:
             lease.__exit__(None, None, None)
     print(json.dumps(asdict(report), sort_keys=True))
     _warn_failed_earlier(report.failed_earlier)
-    return 1 if report.failed else 0
+    _warn_unavailable(report.unavailable, report.stopped)
+    return 1 if report.failed or report.unavailable or report.stopped else 0
 
 
 def _repo(values: dict[str, Any], name: str) -> RepoTarget | None:

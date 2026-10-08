@@ -280,6 +280,10 @@ class RunResult(BaseModel):
     design_cached: List[str]
     failed: List[TitleMessage]
     failed_earlier: List[TitleMessage] = Field(description='Not tried: failed before with the same source and settings.')
+    unavailable: List[TitleMessage] = Field(
+        default_factory=list,
+        description='Not done because something it depends on (the designer, the media storage, JRiver) was '
+                    'unavailable. Not remembered as failed: the next run tries it again.')
     meta_unresolved: List[TitleMessage]
     project_edit_preserved: List[str]
     seasons: Dict[str, List[str]]
@@ -289,6 +293,8 @@ class RunResult(BaseModel):
     commit_error: str
     skipped: List[SkippedTitle]
     cancelled: bool
+    stopped: str = Field('', description='Why the run stopped before its selection was done, though nobody cancelled '
+                                         'it: too many titles in a row met an unavailable dependency.')
     attempted: List[str]
     not_run: List[str]
     counts: Dict[str, int]
@@ -327,11 +333,13 @@ def run_result(value: Any) -> RunResult:
         scan=scan_result(scanned) if scanned else None, through=report['through'], selected=report['selected'],
         extracted=run.get('extracted', []), cached=run.get('cached', []), designed=run.get('designed', []),
         design_cached=run.get('design_cached', []), failed=_pairs(run.get('failed', [])),
-        failed_earlier=_pairs(run.get('failed_earlier', [])), meta_unresolved=_pairs(run.get('meta_unresolved', [])),
+        failed_earlier=_pairs(run.get('failed_earlier', [])), unavailable=_pairs(run.get('unavailable', [])),
+        meta_unresolved=_pairs(run.get('meta_unresolved', [])),
         project_edit_preserved=run.get('project_edit_preserved', []), seasons=run.get('seasons', {}),
         published=report.get('published', []), publish_errors=report.get('publish_errors', []),
         committed=report.get('committed'), commit_error=report.get('commit_error', ''),
-        skipped=report.get('skipped', []), cancelled=report.get('cancelled', False), attempted=report.get('attempted', []),
+        skipped=report.get('skipped', []), cancelled=report.get('cancelled', False),
+        stopped=report.get('stopped', ''), attempted=report.get('attempted', []),
         not_run=report.get('not_run', []), counts=report.get('counts', {}))
 
 

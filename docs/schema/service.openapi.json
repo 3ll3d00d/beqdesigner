@@ -2789,6 +2789,14 @@
             "title": "Failed Earlier",
             "description": "Not tried: failed before with the same source and settings."
           },
+          "unavailable": {
+            "items": {
+              "$ref": "#/components/schemas/TitleMessage"
+            },
+            "type": "array",
+            "title": "Unavailable",
+            "description": "Not done because something it depends on (the designer, the media storage, JRiver) was unavailable. Not remembered as failed: the next run tries it again."
+          },
           "meta_unresolved": {
             "items": {
               "$ref": "#/components/schemas/TitleMessage"
@@ -2851,6 +2859,12 @@
           "cancelled": {
             "type": "boolean",
             "title": "Cancelled"
+          },
+          "stopped": {
+            "type": "string",
+            "title": "Stopped",
+            "description": "Why the run stopped before its selection was done, though nobody cancelled it: too many titles in a row met an unavailable dependency.",
+            "default": ""
           },
           "attempted": {
             "items": {

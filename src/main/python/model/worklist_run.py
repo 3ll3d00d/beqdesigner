@@ -27,7 +27,7 @@ from pipeline.library.index import LibraryIndex, TitleRow
 from pipeline.library.inbox import WorkDirInbox
 from pipeline.library.join import JoinQueue
 from pipeline.service.lease import WORKLIST, LeaseHeld, run_lease
-from pipeline.library.run import LibraryRunConfig, stage_parallelism
+from pipeline.library.run import LibraryRunConfig, stage_parallelism, stop_after_unavailable
 from pipeline.library.selection import Selection, StagePlan
 from pipeline.library.stages import PublishSettings, StagesReport, run_stages
 from pipeline.publish.catalogue import catalogue_paths, category_for_metadata, heatmap_path
@@ -140,7 +140,8 @@ def build_run_config(setup, preferences) -> LibraryRunConfig:
         work_dir=settings.work_dir, queue_dir=settings.queue_dir, designer=settings.designer, config=settings.config,
         coverage=settings.coverage, keep_multichannel=settings.keep_multichannel, tv_mode=settings.tv_mode,
         tmdb_api_key=preferences.get(TMDB_API_KEY) or None, audio_types=tuple(run.get('audio_types') or ()),
-        extract_parallelism=parallelism['extract'], design_parallelism=parallelism['design'])
+        extract_parallelism=parallelism['extract'], design_parallelism=parallelism['design'],
+        stop_after_unavailable=stop_after_unavailable(run.get('stop_after_unavailable')))
 
 
 def publish_problem(setup) -> str:
@@ -355,11 +356,14 @@ def describe_results(report: StagesReport, plan: StagePlan, settings, rows: Opti
     run = report.run
     failed = dict(run.failed)
     earlier = dict(run.failed_earlier)
+    unavailable = dict(run.unavailable)
     for title_id, reason in failed.items():
         note(title_id, 'failed', LEVEL_ERROR, reason)
     for title_id, reason in earlier.items():
         note(title_id, 'not retried', LEVEL_WARN, f'failed before: {reason}. Retry failed runs it again.')
-    handled = set(failed) | set(earlier)
+    for title_id, reason in unavailable.items():
+        note(title_id, 'unavailable', LEVEL_ERROR, f'{reason}. Not remembered as failed: the next run tries it again.')
+    handled = set(failed) | set(earlier) | set(unavailable)
     for title_id in run.designed:
         if title_id not in handled:
             note(title_id, 'designed')
@@ -448,7 +452,8 @@ def describe_results(report: StagesReport, plan: StagePlan, settings, rows: Opti
             note(title_id, 'not committed', LEVEL_ERROR, shown)                          # a headline per title
 
     for title_id in report.not_run:
-        note(title_id, 'not run', LEVEL_WARN, 'the run was cancelled before it got here')
+        note(title_id, 'not run', LEVEL_WARN, 'the run stopped before it got here' if report.stopped
+             else 'the run was cancelled before it got here')
     for skipped in report.skipped:
         if skipped.id in outcomes:
             continue
@@ -487,7 +492,8 @@ def summarise_report(report: StagesReport, plan: StagePlan, settings=None) -> Tu
                         (len([i for i in run.extracted if i not in run.designed]) if plan.through == 'extract'
                          else 0, 'extracted'),
                         (len(report.published), 'published'), (len(refused), 'refused'),
-                        (len(run.failed) + publish_failed, 'failed'), (len(run.failed_earlier), 'not retried')):
+                        (len(run.failed) + publish_failed, 'failed'), (len(run.failed_earlier), 'not retried'),
+                        (len(run.unavailable), 'unavailable')):
         if count:
             parts.append(f'{count:,} {word}')
     committed = report.committed
@@ -519,6 +525,11 @@ def summarise_report(report: StagesReport, plan: StagePlan, settings=None) -> Tu
     detail = ', '.join(parts) or 'nothing to do'
     level = LEVEL_ERROR if report.failed or blocked else LEVEL_WARN if committed is not None and committed.warnings \
         else LEVEL_OK
+    if report.stopped:
+        done, planned = len(report.attempted), len(plan.planned)
+        return (f'Stopped after {done:,} of {planned:,} title{"" if planned == 1 else "s"} '
+                f'({len(report.not_run):,} not run): {detail}. {report.stopped[:1].upper()}{report.stopped[1:]}',
+                LEVEL_ERROR)
     if report.cancelled:
         done, planned = len(report.attempted), len(plan.planned)
         return (f'Stopped after {done:,} of {planned:,} title{"" if planned == 1 else "s"} '

@@ -20,10 +20,11 @@ from pipeline.service.work import RunOutcome
 
 
 def _job(*, designed=(), failed=(), earlier=(), publish_errors=(), commit_error='', scan_errors=None,
-         state='succeeded', origin='schedule', error=''):
+         state='succeeded', origin='schedule', error='', unavailable=(), stopped=''):
     report = StagesReport('design', 1, run=LibraryRunReport(designed=list(designed), failed=list(failed),
-                                                            failed_earlier=list(earlier)),
-                          publish_errors=list(publish_errors), commit_error=commit_error, counts={'review': 3})
+                                                            failed_earlier=list(earlier), unavailable=list(unavailable)),
+                          publish_errors=list(publish_errors), commit_error=commit_error, counts={'review': 3},
+                          stopped=stopped)
     scanned = ScanResult(1, 1, errors=scan_errors or {}) if scan_errors is not None else None
     return Job(id='job-1', kind='run', origin=origin, request=RunRequest(), state=state,
                submitted_at=1000, started_at=1001, finished_at=1002,
@@ -37,6 +38,8 @@ def _job(*, designed=(), failed=(), earlier=(), publish_errors=(), commit_error=
     ({'publish_errors': [{'id': 'a', 'error': 'invalid_metadata'}]}, ['failed', 'job_finished']),
     ({'commit_error': 'git refused'}, ['failed', 'job_finished']),
     ({'scan_errors': {'disk': 'offline'}}, ['failed', 'job_finished']),
+    ({'unavailable': [('a', 'designer timed out')]}, ['failed', 'job_finished']),
+    ({'stopped': 'stopped after 3 titles in a row'}, ['failed', 'job_finished']),
     ({'state': 'cancelled'}, ['job_finished']),
     ({'state': 'failed', 'error': 'profile unreadable'}, ['failed', 'job_finished']),
 ])
@@ -226,3 +229,10 @@ def test_notification_test_route_and_status_never_return_target_secrets(tmp_path
     finally:
         notifier.stop()
         manager.stop(5)
+
+
+def test_a_stopped_run_says_why_and_names_the_titles_it_could_not_do():
+    job = _job(unavailable=[('a', 'HttpDesignerError: timed out')], stopped='stopped after 1 titles in a row')
+    note = notification(job, NotifyEvent.failed, lambda ids: ({}, 0))
+    assert [(f.id, f.message) for f in note.failed] == [('a', 'HttpDesignerError: timed out'),
+                                                       ('run', 'stopped after 1 titles in a row')]
