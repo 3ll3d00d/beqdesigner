@@ -71,11 +71,14 @@ def test_handing_off_waits_for_the_run_that_claimed_it_to_end(tmp_path):
         seen.append('claimed')
         lease.__exit__(None, None, None)
 
+    told = []
     thread = threading.Thread(target=other_run)
     thread.start()
-    assert hand_off(work, request, poll_seconds=0.01, on_claimed=lambda: seen.append('told')) == JOINED
+    # told only once the run has taken it (its own note of that can come a moment later: another thread)
+    assert hand_off(work, request, poll_seconds=0.01,
+                    on_claimed=lambda: told.append(WorkDirInbox(work).state(request.id))) == JOINED
     thread.join()
-    assert seen[0] == 'claimed' and 'told' in seen and WorkDirInbox(work).state(request.id) is None
+    assert told == [TAKEN] and seen == ['claimed'] and WorkDirInbox(work).state(request.id) is None
 
 
 def test_handing_off_takes_the_request_back_when_the_run_ends_without_claiming_it(tmp_path):
