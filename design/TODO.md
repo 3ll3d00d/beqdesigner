@@ -29,10 +29,10 @@ catalogue unattended, and the results reviewed from the desktop app. Publish
 and commit stay a person's decision in the app; the schedule never goes past
 design.
 
-The milestone is the rows marked **R** in the table: priorities 1–15 (R1, R2 and R7, now [archived](archive/initial-release.md), were 1, 2 and 5). The
+The milestone is the rows marked **R** in the table: priorities 1–15 (R1, R2, R4 and R7, now [archived](archive/initial-release.md), were 1, 2, 4 and 5). The
 service and image themselves work (C1's amd64 smoke); what is missing is
 behavior that only matters at catalogue scale and over days: the designer
-deployment, timeouts, disk use, remote review, stream
+deployment, disk use, remote review, stream
 choice, and an acceptance run. Two beqforge items are recorded in its own
 `TODO.md`, not here: #1 "Playback contract" (the designer side of R8) and
 #13 "Residual reporting" (the reported fit error and band do not match the
@@ -43,7 +43,6 @@ validation and steep-filter default are outside it.
 | Priority | ID | R | Previous IDs | Status | Depends on |
 |---|---|---|---|---|---|
 | 3 | R3 | R | -- | Built and verified locally; the pinned designer image is not published yet | A beqforge `v0.2.1` tag (beqforge `aaf0f21` pushed first) |
-| 4 | R4 | R | -- | Not started; risk inferred from code, not observed | -- (the designer image builds locally) |
 | 6 | C1 | R | chunk S5 | amd64 build and smoke verified; arm64 build and GHCR publish not yet run | A green `main`; the first tag push |
 | 7 | J2 | R | chunk 40 | Not started beyond the seam: the resolver returns the first audio stream | Sanitised Playback Info and ffprobe evidence |
 | 8 | W2 | R | chunk 45b | Partial in `62270b4`: codec, channels and stream count are requested | J2 for automatic stream selection; manual override already exists |
@@ -113,26 +112,6 @@ in the image); D4 should decide whether to bake a stamp.
 
 **Done when:** the pinned image is published and `create-image.yaml`'s
 by-reference smoke passes against it on the first beqdesigner tag (with C1).
-
-### R4 — Designer timeouts versus design parallelism
-
-beqforge's server is single-threaded on purpose (its fitter forks), and a
-2-hour 8-channel title takes about 110 s cold. The HTTP binding's default
-timeout is 300 s, and `run.parallelism.design` allows up to 4. Requests beyond
-the first queue at the server, so a long title behind another can time out
-while the designer still works on it. Since R1 a timeout is reported as
-`unavailable` and not remembered, so the title comes back next tick, but it
-counts towards `run.stop_after_unavailable`, so a queue of slow titles can
-stop a run that the designer was handling. Measure the designer's time on the longest titles in E2's
-sample. Then either make the service default to one design at a time per
-single-threaded designer, or derive the timeout from the queue depth, and
-document the choice beside `run.parallelism`.
-
-The designer image now builds locally (R3), so the measurement can start
-before the image is published.
-
-**Done when:** a test with a slow single-threaded stub and `design: 2` shows
-no timeout-induced failure under the chosen policy, and the guide states it.
 
 ### C1 — arm64 image and GHCR publish
 

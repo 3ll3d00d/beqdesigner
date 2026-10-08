@@ -385,6 +385,11 @@ retry_failed, next_run_at, last_run: {job_id, state, finished_at}}`.
   design is refused before anything runs; one through publish or commit is
   not, and its designs are reported `unavailable` (R1). `/ready` and
   `/v1/status` reuse an answer for 30 s.
+- **Designer queue:** `register_declared_designers(queue_depth=)` multiplies
+  each declared designer's `timeout` by `run.parallelism.design` (from
+  `setup.register_designers` and the work list's
+  `register_profile_designers`), because a one-at-a-time designer queues the
+  other requests. Preferences designers are not scaled.
 - **Failures:** an unattended run does not retry a remembered failure
   (including a failed extraction) until the source or settings change or
   `retry_failed`; each tick reports them as `failed_earlier`. A title that met

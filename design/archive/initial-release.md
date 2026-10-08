@@ -114,3 +114,33 @@ fixture, and the readiness expectations gained `required` and
 
 Validation: `PYTHONPATH=./src/main/python QT_QPA_PLATFORM=offscreen uv run
 pytest -q -n auto src/test/python`: **2635 passed, 1 skipped**.
+
+## R4 — Designer timeouts against design parallelism (completed)
+
+Completed on 2026-10-08, in the commit "Give a queued design request time
+to wait behind the others". beqforge's server answers one request at a time,
+so with `run.parallelism.design` above 1 a request waits behind the others.
+The fixed 300 s timeout could then expire while the designer was still busy,
+and before R1 the title was then remembered as failed.
+
+Of the plan's two policies, this takes the queue-depth one:
+`register_declared_designers(queue_depth=)` multiplies each declared
+designer's `timeout` (default 300 s, one design) by
+`run.parallelism.design`. Both registration paths pass it: `setup` for the
+CLI and service, and the work list's `register_profile_designers`. The
+default stays one design at a time, and the guides say more gains nothing
+against one designer. Preferences designers (`http:NAME`) are registered at
+app start-up, before any profile is read, and keep 300 s; the setup guide
+says to declare the designer in the profile if you raise design parallelism.
+A timeout that happens anyway is R1's `unavailable` ("timed out"), not a
+design failure.
+
+Tests: `test_pipeline_designer_queue_timeout.py` uses a single-threaded stub
+taking 0.5 s per design, a declared timeout of 0.8 s and two requests at
+once. With `design: 2` both answer, through the CLI/service registration and
+through the work list's. With `design: 1` the queued one times out and is
+classified as unavailable. 18 concurrent repetitions all passed.
+
+Validation: `PYTHONPATH=./src/main/python QT_QPA_PLATFORM=offscreen uv run
+pytest -q -n auto src/test/python`: **2642 passed, 1 skipped**. The timings
+on the longest real titles remain to be recorded by E2.

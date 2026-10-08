@@ -165,8 +165,11 @@ def register_profile_designers(profile: Profile) -> List[str]:
     :return: what is wrong with the section, each as a sentence fit to show (empty if it is fine).
     '''
     from pipeline.designer.http_binding import register_declared_designers
+    from pipeline.library.run import stage_parallelism
     try:
-        register_declared_designers(profile.config.get('designers'), shared_root=profile.work_dir or None)
+        run = profile.config.get('run') or {}
+        register_declared_designers(profile.config.get('designers'), shared_root=profile.work_dir or None,
+                                    queue_depth=stage_parallelism(run.get('parallelism'))['design'])
     except (ValueError, TypeError, AttributeError) as error:
         return [f"The profile's `designers:` section is not usable: {error}"]
     return []

@@ -53,8 +53,10 @@ date to a work list that calls the designer something else. `designer` is its na
 compose network; a desktop that also calls it needs the address it is published at.
 
 The designer works on one title at a time and queues the rest, and a two-hour,
-eight-channel title takes it about two minutes the first time. Leave `run.parallelism.design`
-at 1 unless you run more than one designer.
+eight-channel title takes it about two minutes the first time. More than one design at a
+time (`run.parallelism.design`) gains nothing against one designer; if you raise it, each
+declared designer's timeout is multiplied by it, so the titles waiting in the designer's queue
+do not time out (see [the profile file](setup.md#the-profile-file)).
 
 It listens on port 8080 of every address. Open `http://HOST:8080/docs`: the whole interface, with **Try it out** on every call. Press **Authorize**, paste the token, and the calls you try from the page are made for real.
 

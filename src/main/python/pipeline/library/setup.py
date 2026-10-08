@@ -67,7 +67,8 @@ def register_designers(values: Mapping[str, Any], config: Mapping[str, Any]) -> 
     --designer-url gives them); the latter wins for a name in both. A `designer` that is itself an http(s) URL is
     registered under that URL. A `by_reference` designer shares the run's `work_dir` (design/designer-interface.md §7.1).
     '''
-    register_declared_designers(_declared_designers(values, config), shared_root=values.get('work_dir') or None)
+    register_declared_designers(_declared_designers(values, config), shared_root=values.get('work_dir') or None,
+                                queue_depth=stage_parallelism(values.get('parallelism'))['design'])
 
 
 def _declared_designers(values: Mapping[str, Any], config: Mapping[str, Any]) -> dict[str, Any]:
