@@ -68,7 +68,8 @@ duplicates or picks the wrong title, it moves into it. (E4, Blu-ray, is done.)
 
 ### E2 — End-to-end acceptance record
 
-Write a versioned runbook, then exercise the running app with a real JRiver
+The runbook is [`e2-runbook.md`](e2-runbook.md) (version 1, separate containers: no compose on
+the test host), ending in the record template. Exercise the running app with a real JRiver
 source: connection and source setup, browse/ignore rules, work-list actions,
 title metadata/artwork/projects/revision, Review Folder, season mode, and
 Publish/Commit against disposable real repositories. Run CLI `scan`, `run`,

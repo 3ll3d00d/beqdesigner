@@ -16,6 +16,7 @@ contract paths used by schemas, source comments and external implementers.
 | [Designer interface](designer-interface.md) | Normative external design contract, v1.2 |
 | [Designer conformance specification](designer-conformance-tests.md) | Reference test specification for contract implementers, not pending tasks |
 | [TODO](TODO.md) | Sole current backlog, with status, dependencies and acceptance criteria in priority order |
+| [E2 runbook](e2-runbook.md) | Procedure for the release acceptance run (E2) and its record template |
 | [Archive](archive/README.md) | Completed implementation plans, commit/status records, acceptance evidence and superseded proposals |
 
 Runtime instructions are in the [pipeline README](../src/main/python/pipeline/README.md)
