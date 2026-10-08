@@ -20,7 +20,9 @@ Windows desktop publishing is unaffected.
 
 Validation: `PYTHONPATH=./src/main/python uv run pytest -q
 src/test/python/test_pipeline_publish_readable.py`: **19 passed** (Linux). The
-Windows result is the next `main` CI run. Turning `EncodingWarning` into an
+Windows result: `main` CI run `37807101885` (`29965c2`, 2026-10-08) passed on
+all of Linux, macOS and Windows. The two runs before it found the Windows and
+empty-`/media` problems fixed in `56ea53d` and `29965c2`. Turning `EncodingWarning` into an
 error was not usable as a suite-wide guard: third-party imports raise it at
 collection.
 

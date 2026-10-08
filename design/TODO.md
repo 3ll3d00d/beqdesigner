@@ -43,7 +43,7 @@ validation and steep-filter default are outside it.
 
 | Priority | ID | R | Previous IDs | Status | Depends on |
 |---|---|---|---|---|---|
-| 6 | C1 | R | chunk S5 | amd64 build and smoke verified; arm64 build and GHCR publish not yet run | A green `main`; the first tag push |
+| 6 | C1 | R | chunk S5 | amd64 build and both smokes verified; `main` green on every platform (run `37807101885`); arm64 build and GHCR publish not yet run | The first tag push |
 | 11 | D4 | | by-reference §5 | Release part done (each entry records its designer and build); the drift behavior is not started | Designer build identity policy (full drift behavior only) |
 | 15 | E2 | R | chunk 31, T2-T4 | Waiting for manual acceptance | R1–R9, E1; real designer, media and disposable repositories |
 | 16 | E3 | | chunk 32, T7 | Not started; the captured library has no DVDs | A DVD in a JRiver library; DVD fixture |
