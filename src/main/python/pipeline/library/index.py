@@ -139,7 +139,36 @@ def item_from_json(data: Mapping[str, Any]) -> LibraryItem:
     data['episodes'] = tuple(data.get('episodes') or ())
     data['art_candidates'] = tuple(data.get('art_candidates') or ())
     data['audio_stream_details'] = tuple(data.get('audio_stream_details') or ())
+    data['selected_streams'] = tuple(data.get('selected_streams') or ())
     return LibraryItem(**data)
+
+
+def carried_choice(item: LibraryItem, previous: Optional[LibraryItem]) -> LibraryItem:
+    '''
+    A title as a scan lists it again, keeping the audio stream chosen for it before (J2): a reviewer's choice always,
+    and one resolved from the source's selection while the source still selects the same streams. A choice the new
+    stream list no longer has is dropped. The source lists the default every time, so without this a rescan would undo
+    the choice and the next run would extract the first stream again.
+    '''
+    if previous is None or previous.audio_stream_source not in ('manual', 'source'):
+        return item
+    if previous.audio_stream_source == 'source' and previous.selected_streams != item.selected_streams:
+        return item
+    if item.audio_stream_details and not 0 <= previous.audio_stream < len(item.audio_stream_details):
+        return item
+    return with_audio_stream(item, previous.audio_stream, previous.audio_stream_source)
+
+
+def with_audio_stream(item: LibraryItem, audio_stream: int, source: str) -> LibraryItem:
+    ''' The item extracting `audio_stream`, its automatic audio type following the stream when the list says it. '''
+    meta = dict(item.meta)
+    if 0 <= audio_stream < len(item.audio_stream_details):
+        types = item.audio_stream_details[audio_stream].get('audio_types')
+        if types:
+            meta['audio_types'] = list(types)
+        else:
+            meta.pop('audio_types', None)
+    return replace(item, audio_stream=audio_stream, audio_stream_source=source, meta=meta)
 
 
 # --- rows -------------------------------------------------------------------------------------------------------------
@@ -459,13 +488,24 @@ class LibraryIndex:
             item = items[0]
             if audio_stream < 0 or audio_stream >= len(item.audio_stream_details):
                 raise ValueError(f'audio stream {audio_stream + 1} is not available for {title_id!r}')
-            detail = item.audio_stream_details[audio_stream]
-            meta = dict(item.meta)
-            if detail.get('audio_types'):
-                meta['audio_types'] = list(detail['audio_types'])
-            else:
-                meta.pop('audio_types', None)
-            chosen = replace(item, audio_stream=audio_stream, meta=meta)
+            chosen = with_audio_stream(item, audio_stream, 'manual')
+            self.__db.execute('UPDATE titles SET items = ? WHERE id = ?',
+                              (json.dumps([item_to_json(chosen)]), title_id))
+        return chosen
+
+    def resolve_audio_stream(self, title_id: str, audio_stream: int) -> Optional[LibraryItem]:
+        '''
+        Record the audio stream the source's own selection resolved to (J2), unless a reviewer has chosen one. A scan
+        keeps it while the source's selection is unchanged (carried_choice()). :return: the item, or None if not kept.
+        '''
+        with self.__lock, self.__db:
+            row = self.__db.execute('SELECT unit, items FROM titles WHERE id = ?', (title_id,)).fetchone()
+            if row is None or row['unit'] == 'season':
+                return None
+            items = [item_from_json(data) for data in json.loads(row['items'])]
+            if len(items) != 1 or items[0].audio_stream_source == 'manual':
+                return None
+            chosen = with_audio_stream(items[0], audio_stream, 'source')
             self.__db.execute('UPDATE titles SET items = ? WHERE id = ?',
                               (json.dumps([item_to_json(chosen)]), title_id))
         return chosen
@@ -687,6 +727,9 @@ class LibraryIndex:
             for unit, ignored in order:
                 item = unit.item if isinstance(unit, SeasonGroup) else unit
                 before = previous.get(item.id)
+                if before is not None and not isinstance(unit, SeasonGroup):   # J2: keep the stream chosen for it
+                    old = [data for data in json.loads(before['items'] or '[]') if data.get('id') == item.id]
+                    unit = item = carried_choice(item, item_from_json(old[0]) if len(old) == 1 else None)
                 if not refresh and not isinstance(unit, SeasonGroup) and item.id.startswith('jriver-') \
                         and (before is None or before['source'] in listed_ok):
                     self.__sync_audio_type(settings.queue_dir, item, before)

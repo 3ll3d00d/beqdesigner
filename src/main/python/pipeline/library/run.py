@@ -14,10 +14,10 @@ from model.execution_events import emit_execution_event, event_scope
 from pipeline.library.failure import Unavailable, unavailable_reason
 from pipeline.library.retention import DEFAULT_MIN_FREE_GB, OutOfSpace, check_free_space, min_free_gb, \
     restore_multichannel
-from pipeline.library.streams import channels_found, stream_choice
+from pipeline.library.streams import audio_ordinal, channels_found, stream_choice
 from pipeline.library.extract_cache import extract_if_needed, extract_status, mono_from_multichannel_if_needed, \
     read_channel_layout_name, read_source_channel_count
-from pipeline.library.index import LibraryIndex
+from pipeline.library.index import LibraryIndex, with_audio_stream
 from pipeline.library.library_metadata import library_meta, resolve_meta
 from pipeline.library.season import DEFAULT_TV_MODE, SeasonGroup, plan_units, season_track_if_needed, with_extracted
 from pipeline.library.source import LibraryItem, LibrarySource
@@ -233,7 +233,7 @@ def _run_item(session: Session, item: LibraryItem, run_config: LibraryRunConfig,
         on_stage(item.id, 'extract')
     with event_scope(title_id=item.id, stage='extract'):
         emit_execution_event('stage_started', message='Extracting ' + stream_choice(
-            item.audio_stream_details, item.audio_stream, run_config.keep_multichannel))
+            item.audio_stream_details, item.audio_stream, run_config.keep_multichannel, item.audio_stream_source))
         with _stage('extract'):
             progress = ({'on_progress': lambda position, total: on_extract_progress(item.id, position, total)}
                         if on_extract_progress is not None else {})
@@ -402,6 +402,31 @@ def _design(session: Session, item: LibraryItem, wav_path: str, run_config: Libr
         report.design_cached.append(item.id)
 
 
+def resolve_selected_stream(session: Session, item: LibraryItem) -> tuple[LibraryItem, str]:
+    '''
+    The audio stream the source plays, as this file numbers its audio streams (J2): the source's selection
+    (`selected_streams`, ffprobe global indices) matched against a probe of the file, as extraction opens it. A reviewer's
+    choice, or one already resolved, is left alone.
+    :return: (the item, '') -- or (the item unchanged, why the selection was not used, for the run to say): the first
+        audio stream is then extracted, as before.
+    '''
+    if item.audio_stream_source in ('manual', 'source') or not item.selected_streams:
+        return item, ''
+    if item.source_path_problem or not os.path.exists(item.source_path):
+        return item, ''   # extraction says what is wrong with the path
+    said = ','.join(str(n) for n in item.selected_streams)
+    try:
+        streams = session.probe_streams(item.source_path, item.playlist_name)
+    except Exception as error:
+        return item, f"the file could not be probed for the source's stream selection ({type(error).__name__}), so " \
+                     f"the first audio stream is used"
+    ordinal, why = audio_ordinal(streams, item.selected_streams)
+    if ordinal is None:
+        return item, f"the source's stream selection ({said}) does not match the file: {why}; the first audio stream " \
+                     f"is used"
+    return with_audio_stream(item, ordinal, 'source'), ''
+
+
 def run_unit(session: Session, unit, run_config: LibraryRunConfig, report: LibraryRunReport,
              index: Optional[LibraryIndex] = None, *, retry_failed: bool = False, through: str = 'design',
              on_stage: Optional[Callable[[str, str], None]] = None,
@@ -427,6 +452,12 @@ def run_unit(session: Session, unit, run_config: LibraryRunConfig, report: Libra
             work = _run_season(session, unit, run_config, report, through, on_stage, index, retry_failed,
                                on_extract_progress)
         else:
+            unit, fallback = resolve_selected_stream(session, unit)
+            if fallback:
+                with event_scope(title_id=item.id, stage='extract'):
+                    emit_execution_event('note', message=fallback[:1].upper() + fallback[1:])
+            elif unit.audio_stream_source == 'source' and index is not None:
+                index.resolve_audio_stream(item.id, unit.audio_stream)   # kept by later scans (carried_choice)
             work = _run_item(session, unit, run_config, report, through, on_stage, on_extract_progress)
         if index is not None:
             index.clear_failure(item.id)

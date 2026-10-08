@@ -67,3 +67,22 @@ sanitises; rerun it to refresh the fixture.
   container streams they are needs ffprobe on the same files (J2); the media
   share was not mounted where this was captured. `BlurayPlaylist` names an
   `.mpls` (13 rows).
+
+## ffprobe of the same files, 2026-10-08 (J2)
+
+`streams.json`: for the 67 titles of `files.json` whose `Playback Info` has a
+`Streams` record, that record, JRiver's `Audio Codec` list and ffprobe's
+streams (`index`, `codec_type`, `codec_name`, `channels`) of the file as
+extraction opens it (a disc resolved to its main title by `model.bdmv`). The
+media share was mounted at `/media/films`, mapped from `W:\`. Paths are left
+out.
+
+What it showed: in 66 titles the first number is a video stream and the
+second an audio stream, by ffprobe's global index. The third is a subtitle
+stream or one the file does not have. The audio stream's position among the
+file's audio streams is JRiver's choice: the first in 58, another in 8 (up to
+the eighth, Pacific Rim), with JRiver's codec at that position in every title
+whose list matches ffprobe's. "The Town" (`1,2,19`, a disc) numbers its
+streams some other way and is refused. JRiver lists 1 of Rocky's 13 streams.
+For "A Star Is Born" ffprobe sees three AC-3 streams in the main title the
+disc resolves to, where JRiver lists DTS-HD MA first (E4).

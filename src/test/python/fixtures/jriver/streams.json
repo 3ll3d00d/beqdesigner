@@ -1,0 +1,5681 @@
+[
+ {
+  "Key": 121311,
+  "Name": "Carlito's Way",
+  "disc": false,
+  "Streams": "0,1,5",
+  "Audio Codec": "AC-3;DTS",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "mpeg2video",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 3,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 4,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 121314,
+  "Name": "In Bruges",
+  "disc": true,
+  "Streams": "0,1,3",
+  "Audio Codec": "DTS-HD MA;DTS",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "vc1",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 3,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 4,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 5,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 6,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 129833,
+  "Name": "Toy Story 3",
+  "disc": true,
+  "Streams": "0,1,14",
+  "Audio Codec": "DTS-HD MA;DTS-HD MA;AC-3;AC-3;DTS;AC-3;AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "h264",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 8
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 3,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 4,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 5,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 6,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 7,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 8,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 9,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 10,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 11,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 12,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 13,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 169780,
+  "Name": "The Lego Movie",
+  "disc": true,
+  "Streams": "0,1,34",
+  "Audio Codec": "DTS-HD MA;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "h264",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 3,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 4,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 5,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 6,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 7,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 8,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 9,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 10,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 11,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 12,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 13,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 14,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 15,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 16,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 17,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 18,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 19,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 20,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 21,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 22,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 23,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 24,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 25,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 26,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 27,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 28,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 29,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 30,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 31,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 32,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 33,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 171874,
+  "Name": "The Town",
+  "disc": true,
+  "Streams": "1,2,19",
+  "Audio Codec": "DTS-HD MA;AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "h264",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 3,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 4,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 5,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 6,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 7,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 8,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 9,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 10,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 11,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 12,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 13,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 14,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 15,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 16,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 17,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 188099,
+  "Name": "Fame",
+  "disc": false,
+  "Streams": "0,1,4",
+  "Audio Codec": "AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "mpeg2video",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 2,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 3,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 188253,
+  "Name": "Ong Bak",
+  "disc": false,
+  "Streams": "0,1,5",
+  "Audio Codec": "DTS;AC-3;AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "mpeg2video",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 3,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 4,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 5,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 190634,
+  "Name": "Dr. Strangelove or: How I Learned to Stop Worrying and Love the Bomb",
+  "disc": false,
+  "Streams": "0,1,4",
+  "Audio Codec": "AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "mpeg2video",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 2,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 3,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 190650,
+  "Name": "Crouching Tiger, Hidden Dragon (DVD)",
+  "disc": false,
+  "Streams": "0,1,3",
+  "Audio Codec": "AC-3;AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "mpeg2video",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 3,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 4,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 195075,
+  "Name": "Cloudy with a Chance of Meatballs",
+  "disc": false,
+  "Streams": "0,1,7",
+  "Audio Codec": "AC-3;AC-3;AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "mpeg2video",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 3,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 4,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 5,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 6,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 213043,
+  "Name": "Captain America: The Winter Soldier",
+  "disc": true,
+  "Streams": "0,1,17",
+  "Audio Codec": "DTS-HD MA;AC-3;AC-3;AC-3;AC-3;AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "h264",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 8
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 3,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 4,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 5,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 6,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 7,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 8,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 9,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 10,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 11,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 12,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 13,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 14,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 15,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 16,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 17,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 18,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 19,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 20,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 213090,
+  "Name": "Pacific Rim",
+  "disc": true,
+  "Streams": "0,8,28",
+  "Audio Codec": "AC-3;DTS-HD MA;AC-3;AC-3;AC-3;AC-3;AC-3;DTS-HD MA",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "h264",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 8
+   },
+   {
+    "index": 3,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 4,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 5,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 6,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 7,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 8,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 9,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 10,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 11,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 12,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 13,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 14,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 15,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 16,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 17,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 18,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 19,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 20,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 21,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 22,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 23,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 24,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 25,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 26,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 27,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 221701,
+  "Name": "Lone Survivor",
+  "disc": true,
+  "Streams": "0,1,6",
+  "Audio Codec": "DTS-HD MA;DTS;AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "h264",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 3,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 4,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 5,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 6,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 7,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 228329,
+  "Name": "X-Men First Class",
+  "disc": true,
+  "Streams": "0,1,18",
+  "Audio Codec": "DTS-HD MA;AC-3;AC-3;AC-3;AC-3;AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "h264",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 3,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 4,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 5,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 6,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 7,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 8,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 9,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 10,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 11,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 12,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 13,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 14,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 15,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 16,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 17,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 18,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 259435,
+  "Name": "Das Boot",
+  "disc": true,
+  "Streams": "0,1,7",
+  "Audio Codec": "DTS-HD MA;AC-3;DTS-HD MA;AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "h264",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 3,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 4,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 5,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 6,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 7,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 8,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 9,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 10,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 11,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 12,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 13,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 14,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 15,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 16,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 17,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 18,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 19,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 259444,
+  "Name": "The Godfather",
+  "disc": true,
+  "Streams": "0,3,22",
+  "Audio Codec": "AC-3;AC-3;TrueHD;AC-3;AC-3;AC-3;AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "h264",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 3,
+    "codec_type": "audio",
+    "codec_name": "truehd",
+    "channels": 6
+   },
+   {
+    "index": 4,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 5,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 6,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 7,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 8,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 9,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 10,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 11,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 12,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 13,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 14,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 15,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 16,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 17,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 18,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 19,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 20,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 21,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 22,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 23,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 454950,
+  "Name": "Star Wars Episode VII - The Force Awakens",
+  "disc": true,
+  "Streams": "0,1,16",
+  "Audio Codec": "DTS-HD MA;AC-3;DTS-HD HRA;AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "h264",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 8
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 3,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 4,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 5,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 6,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 7,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 8,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 9,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 10,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 11,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 12,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 13,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 14,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 459617,
+  "Name": "Man on Wire",
+  "disc": false,
+  "Streams": "0,2,4",
+  "Audio Codec": "AC-3;DTS",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "mpeg2video",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 3,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 459768,
+  "Name": "Alien",
+  "disc": false,
+  "Streams": "0,1,5",
+  "Audio Codec": "AC-3;DTS",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "mpeg2video",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 3,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 4,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 502868,
+  "Name": "Heartburn",
+  "disc": false,
+  "Streams": "0,2,31",
+  "Audio Codec": "AC-3;AC-3;AC-3;AC-3;AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "mpeg2video",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 3,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 4,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 5,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 6,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 7,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 8,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 9,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 10,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 11,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 12,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 13,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 14,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 15,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 16,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 17,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 18,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 19,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 20,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 21,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 22,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 23,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 24,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 25,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 26,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 27,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 28,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 29,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 30,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 531616,
+  "Name": "Trading Places",
+  "disc": false,
+  "Streams": "0,1,2",
+  "Audio Codec": "AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "mpeg2video",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 2,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 3,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 548566,
+  "Name": "Wayne's World",
+  "disc": false,
+  "Streams": "0,1,7",
+  "Audio Codec": "AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "mpeg2video",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 2,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 3,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 4,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 5,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 556132,
+  "Name": "Volver",
+  "disc": false,
+  "Streams": "0,1,3",
+  "Audio Codec": "AC-3;AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "mpeg2video",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 3,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 4,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 556136,
+  "Name": "Reality Bites",
+  "disc": false,
+  "Streams": "0,1,2",
+  "Audio Codec": "AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "mpeg2video",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 2,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 556138,
+  "Name": "Far from Heaven",
+  "disc": false,
+  "Streams": "0,1",
+  "Audio Codec": "AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "mpeg2video",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   }
+  ]
+ },
+ {
+  "Key": 574721,
+  "Name": "John Wick",
+  "disc": true,
+  "Streams": "0,1,7",
+  "Audio Codec": "TrueHD Atmos;AC-3;AC-3;AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "h264",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "truehd",
+    "channels": 8
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 3,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 4,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 5,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 829837,
+  "Name": "Star Wars The Last Jedi",
+  "disc": true,
+  "Streams": "0,2,9",
+  "Audio Codec": "TrueHD Atmos;AC-3;E-AC3;AC-3;E-AC3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "hevc",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "video",
+    "codec_name": "hevc",
+    "channels": null
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "truehd",
+    "channels": 8
+   },
+   {
+    "index": 3,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 4,
+    "codec_type": "audio",
+    "codec_name": "eac3",
+    "channels": 8
+   },
+   {
+    "index": 5,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 6,
+    "codec_type": "audio",
+    "codec_name": "eac3",
+    "channels": 8
+   },
+   {
+    "index": 7,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 8,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 848398,
+  "Name": "Spider-Man 2",
+  "disc": true,
+  "Streams": "0,2,37",
+  "Audio Codec": "DTS-HD MA;DTS-HD MA;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "h264",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 3,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 4,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 5,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 6,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 7,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 8,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 9,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 10,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 11,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 12,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 13,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 14,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 15,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 16,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 17,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 18,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 19,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 20,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 21,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 22,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 23,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 24,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 25,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 26,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 27,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 28,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 29,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 30,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 31,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 32,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 33,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 34,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 35,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 36,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 848954,
+  "Name": "Murder on the Orient Express",
+  "disc": true,
+  "Streams": "0,1,42",
+  "Audio Codec": "TrueHD Atmos;AC-3;AC-3;AC-3;DTS;DTS;DTS;DTS;DTS;AC-3;AC-3;AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "hevc",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "truehd",
+    "channels": 8
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 3,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 4,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 5,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 6,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 7,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 8,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 9,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 10,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 11,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 12,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 13,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 14,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 15,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 16,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 17,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 18,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 19,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 20,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 21,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 22,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 23,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 24,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 25,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 26,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 27,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 28,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 29,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 30,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 31,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 32,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 33,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 34,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 35,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 36,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 37,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 38,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 39,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 40,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 41,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 42,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 43,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 867859,
+  "Name": "Avengers Infinity War",
+  "disc": true,
+  "Streams": "0,1,17",
+  "Audio Codec": "TrueHD Atmos;AC-3;AC-3;E-AC3;E-AC3;E-AC3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "hevc",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "truehd",
+    "channels": 8
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 3,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 4,
+    "codec_type": "audio",
+    "codec_name": "eac3",
+    "channels": 8
+   },
+   {
+    "index": 5,
+    "codec_type": "audio",
+    "codec_name": "eac3",
+    "channels": 8
+   },
+   {
+    "index": 6,
+    "codec_type": "audio",
+    "codec_name": "eac3",
+    "channels": 8
+   },
+   {
+    "index": 7,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 8,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 9,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 10,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 11,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 12,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 13,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 14,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 15,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 16,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 876439,
+  "Name": "Ant-Man and the Wasp",
+  "disc": true,
+  "Streams": "0,1,27",
+  "Audio Codec": "TrueHD Atmos;AC-3;AC-3;AC-3;E-AC3;E-AC3;E-AC3;E-AC3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "hevc",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "truehd",
+    "channels": 8
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 3,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 4,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 5,
+    "codec_type": "audio",
+    "codec_name": "eac3",
+    "channels": 8
+   },
+   {
+    "index": 6,
+    "codec_type": "audio",
+    "codec_name": "eac3",
+    "channels": 8
+   },
+   {
+    "index": 7,
+    "codec_type": "audio",
+    "codec_name": "eac3",
+    "channels": 8
+   },
+   {
+    "index": 8,
+    "codec_type": "audio",
+    "codec_name": "eac3",
+    "channels": 8
+   },
+   {
+    "index": 9,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 10,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 11,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 12,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 13,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 14,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 15,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 16,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 17,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 18,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 19,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 20,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 21,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 22,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 23,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 24,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 25,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 26,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 895107,
+  "Name": "Arrietty",
+  "disc": true,
+  "Streams": "0,3,8",
+  "Audio Codec": "DTS-HD MA;PCM_BLURAY;DTS-HD MA;PCM_BLURAY",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "h264",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "pcm_bluray",
+    "channels": 2
+   },
+   {
+    "index": 3,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 4,
+    "codec_type": "audio",
+    "codec_name": "pcm_bluray",
+    "channels": 2
+   },
+   {
+    "index": 5,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 6,
+    "codec_type": "video",
+    "codec_name": "h264",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 895188,
+  "Name": "The Avengers",
+  "disc": true,
+  "Streams": "0,1,5",
+  "Audio Codec": "DTS-HD MA;AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "h264",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 8
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 3,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 4,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 5,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 898892,
+  "Name": "Avengers: Endgame",
+  "disc": false,
+  "Streams": "0,1,12",
+  "Audio Codec": "TrueHD Atmos;AC-3;AC-3;AC-3;E-AC3;AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "hevc",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "truehd",
+    "channels": 8
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 3,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 4,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 5,
+    "codec_type": "audio",
+    "codec_name": "eac3",
+    "channels": 8
+   },
+   {
+    "index": 6,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 7,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 8,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 9,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 10,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 11,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 12,
+    "codec_type": "video",
+    "codec_name": "mjpeg",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 948656,
+  "Name": "Ford v Ferrari",
+  "disc": true,
+  "Streams": "0,1,23",
+  "Audio Codec": "TrueHD Atmos;AC-3;DTS-HD MA;AC-3;DTS;DTS;DTS;DTS;AC-3;AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "hevc",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "truehd",
+    "channels": 8
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 3,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 2
+   },
+   {
+    "index": 4,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 5,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 6,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 7,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 8,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 9,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 10,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 11,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 12,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 13,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 14,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 15,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 16,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 17,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 18,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 19,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 20,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 21,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 22,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 23,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 966716,
+  "Name": "Spider-Man: Far From Home",
+  "disc": true,
+  "Streams": "0,2,32",
+  "Audio Codec": "TrueHD Atmos;AC-3;AC-3;DTS-HD MA;DTS-HD MA;DTS-HD MA;AC-3;DTS-HD MA;AC-3;AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "hevc",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "video",
+    "codec_name": "hevc",
+    "channels": null
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "truehd",
+    "channels": 8
+   },
+   {
+    "index": 3,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 4,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 5,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 6,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 7,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 8,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 9,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 10,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 11,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 12,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 13,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 14,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 15,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 16,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 17,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 18,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 19,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 20,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 21,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 22,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 23,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 24,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 25,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 26,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 27,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 28,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 29,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 30,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 31,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 996738,
+  "Name": "1917",
+  "disc": true,
+  "Streams": "0,2,13",
+  "Audio Codec": "TrueHD Atmos;AC-3;E-AC3;AC-3;AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "hevc",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "video",
+    "codec_name": "hevc",
+    "channels": null
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "truehd",
+    "channels": 8
+   },
+   {
+    "index": 3,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 4,
+    "codec_type": "audio",
+    "codec_name": "eac3",
+    "channels": 8
+   },
+   {
+    "index": 5,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 6,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 7,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 8,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 9,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 10,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 11,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 12,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 13,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 14,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 1006569,
+  "Name": "To Be and to Have",
+  "disc": true,
+  "Streams": "0,1,2",
+  "Audio Codec": "PCM_BLURAY",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "h264",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "pcm_bluray",
+    "channels": 2
+   },
+   {
+    "index": 2,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 1036303,
+  "Name": "Precious",
+  "disc": false,
+  "Streams": "0,1,5",
+  "Audio Codec": "AC-3;AC-3;DTS;AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "mpeg2video",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 3,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 4,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 5,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 1097888,
+  "Name": "Being There",
+  "disc": true,
+  "Streams": "0,1,3",
+  "Audio Codec": "PCM_BLURAY",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "h264",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "pcm_bluray",
+    "channels": 1
+   },
+   {
+    "index": 2,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 1130214,
+  "Name": "Patriots Day",
+  "disc": true,
+  "Streams": "0,1,11",
+  "Audio Codec": "DTS-HD MA + DTS:X;AC-3;AC-3;AC-3;DTS",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "hevc",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 8
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 3,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 4,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 5,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 2
+   },
+   {
+    "index": 6,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 7,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 8,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 9,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 10,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 1174420,
+  "Name": "Tenet",
+  "disc": true,
+  "Streams": "0,1,4",
+  "Audio Codec": "DTS-HD MA;AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "hevc",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 3,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 1179953,
+  "Name": "A Star Is Born",
+  "disc": true,
+  "Streams": "0,1,7",
+  "Audio Codec": "DTS-HD MA;AC-3;AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "vc1",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 3,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 4,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 5,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 6,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 1661559,
+  "Name": "The Big Heat",
+  "disc": true,
+  "Streams": "0,1,4",
+  "Audio Codec": "PCM_BLURAY;AC-3;PCM_BLURAY",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "h264",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "pcm_bluray",
+    "channels": 1
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 3,
+    "codec_type": "audio",
+    "codec_name": "pcm_bluray",
+    "channels": 2
+   },
+   {
+    "index": 4,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 1748536,
+  "Name": "Cleo From 5 To 7",
+  "disc": true,
+  "Streams": "0,1,2",
+  "Audio Codec": "PCM_BLURAY",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "h264",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "pcm_bluray",
+    "channels": 2
+   },
+   {
+    "index": 2,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 1770133,
+  "Name": "Pelham 123",
+  "disc": true,
+  "Streams": "0,1,7",
+  "Audio Codec": "DTS-HD MA;AC-3;DTS-HD MA;DTS-HD MA;AC-3;AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "h264",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 3,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 4,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 5,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 6,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 7,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 8,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 9,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 10,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 11,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 12,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 13,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 14,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 15,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 16,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 17,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 18,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 19,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 20,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 21,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 22,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 1770924,
+  "Name": "Michael Clayton",
+  "disc": true,
+  "Streams": "0,1,4",
+  "Audio Codec": "DTS-HD MA;AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "vc1",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 3,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 1782923,
+  "Name": "Yakuza Graveyard",
+  "disc": true,
+  "Streams": "0,1,2",
+  "Audio Codec": "DTS-HD MA",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "h264",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 2
+   },
+   {
+    "index": 2,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 1798919,
+  "Name": "Bande A Part",
+  "disc": true,
+  "Streams": "0,1,3",
+  "Audio Codec": "PCM_BLURAY;AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "h264",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "pcm_bluray",
+    "channels": 1
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 3,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 1818128,
+  "Name": "Laura",
+  "disc": false,
+  "Streams": "0,1,5",
+  "Audio Codec": "AC-3;AC-3;AC-3;AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "mpeg2video",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 3,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 4,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 5,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 6,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 7,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 1879333,
+  "Name": "Presumed Innocent",
+  "disc": true,
+  "Streams": "0,1,8",
+  "Audio Codec": "DTS-HD MA;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "vc1",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 2
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 3,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 4,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 5,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 6,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 7,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 8,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 9,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 10,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 11,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 12,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 13,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 14,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 15,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 16,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 17,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 18,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 19,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 20,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 21,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 22,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 23,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 1914931,
+  "Name": "Manhunter",
+  "disc": false,
+  "Streams": "0,1,2",
+  "Audio Codec": "AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "mpeg2video",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 2,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 1915007,
+  "Name": "Manhunter (Directors Cut)",
+  "disc": false,
+  "Streams": "0,1,3",
+  "Audio Codec": "AC-3;AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "mpeg2video",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 3,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 1915077,
+  "Name": "Hannibal",
+  "disc": false,
+  "Streams": "0,1,4",
+  "Audio Codec": "AC-3;DTS;AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "mpeg2video",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 3,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 4,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 5,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 6,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 7,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 8,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 9,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 10,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 11,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 12,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 13,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 14,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 15,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 16,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 17,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 1915078,
+  "Name": "Runaway Jury",
+  "disc": false,
+  "Streams": "0,1,3",
+  "Audio Codec": "AC-3;AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "mpeg2video",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 3,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 4,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 1923305,
+  "Name": "Gloria Bell",
+  "disc": true,
+  "Streams": "0,2,4",
+  "Audio Codec": "PCM_BLURAY;DTS-HD MA;PCM_BLURAY",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "h264",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "pcm_bluray",
+    "channels": 2
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 3,
+    "codec_type": "audio",
+    "codec_name": "pcm_bluray",
+    "channels": 2
+   },
+   {
+    "index": 4,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 1923307,
+  "Name": "We Own the Night",
+  "disc": false,
+  "Streams": "0,1,2",
+  "Audio Codec": "AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "mpeg2video",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 2,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 3,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 1924594,
+  "Name": "Le Samourai",
+  "disc": true,
+  "Streams": "0,1,2",
+  "Audio Codec": "PCM_BLURAY",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "hevc",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "pcm_bluray",
+    "channels": 0
+   },
+   {
+    "index": 2,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 1958341,
+  "Name": "Seven Psychopaths",
+  "disc": false,
+  "Streams": "0,1,3",
+  "Audio Codec": "AC-3;AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "mpeg2video",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 3,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 1986088,
+  "Name": "Unforgiven 1992",
+  "disc": true,
+  "Streams": "0,1,14",
+  "Audio Codec": "DTS-HD MA;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "hevc",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 3,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 4,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 5,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 6,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 7,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 8,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 9,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 10,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 11,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 12,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 13,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 14,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 15,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 16,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 17,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 18,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 19,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 20,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 21,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 22,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 23,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 24,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 25,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 26,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 27,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 28,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 29,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 30,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 31,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 32,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 33,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 34,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 35,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 36,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 37,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 38,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 39,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 40,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 41,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 42,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 43,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 44,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 45,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 2015688,
+  "Name": "Rocky",
+  "disc": true,
+  "Streams": "0,1,15",
+  "Audio Codec": null,
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "h264",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 1
+   },
+   {
+    "index": 3,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 1
+   },
+   {
+    "index": 4,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 1
+   },
+   {
+    "index": 5,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 6,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 7,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 8,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 9,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 1
+   },
+   {
+    "index": 10,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 11,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 12,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 13,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 14,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 15,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 16,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 17,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 18,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 19,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 20,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 21,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 22,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 23,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 24,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 25,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 26,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 27,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 28,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 29,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 30,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 31,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 32,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 33,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 34,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 35,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 36,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 37,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 38,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 39,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 40,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 41,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 42,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 43,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 2079338,
+  "Name": "Midsommar Director's Cut",
+  "disc": true,
+  "Streams": "0,1,3",
+  "Audio Codec": "DTS-HD MA",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "h264",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 2,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 2192377,
+  "Name": "Les Misérables",
+  "disc": false,
+  "Streams": "0,2",
+  "Audio Codec": "AC-3;AC-3;AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "mpeg2video",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 3,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   }
+  ]
+ },
+ {
+  "Key": 2202467,
+  "Name": "Bugonia",
+  "disc": true,
+  "Streams": "0,1,7",
+  "Audio Codec": "TrueHD Atmos;AC-3;AC-3;AC-3;AC-3;AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "hevc",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "truehd",
+    "channels": 8
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 3,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 4,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 5,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 6,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 7,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 8,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 9,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 10,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 11,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 12,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 13,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 14,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 15,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 16,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 17,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 18,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 19,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 20,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 2215264,
+  "Name": "Sirāt",
+  "disc": true,
+  "Streams": "0,1,6",
+  "Audio Codec": "DTS-HD MA;DTS-HD MA",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "h264",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 6
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "dts",
+    "channels": 2
+   },
+   {
+    "index": 3,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 4,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 5,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   },
+   {
+    "index": 6,
+    "codec_type": "subtitle",
+    "codec_name": "hdmv_pgs_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 2241500,
+  "Name": "The Crucible",
+  "disc": false,
+  "Streams": "0,1,9",
+  "Audio Codec": "AC-3;AC-3;AC-3;AC-3;AC-3;AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "mpeg2video",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 2,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 3,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 4,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 5,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 6,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 6
+   },
+   {
+    "index": 7,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 8,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 9,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 10,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 11,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 12,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 13,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 14,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 15,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 16,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 17,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 18,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 19,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 20,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 21,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 22,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 23,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 24,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   }
+  ]
+ },
+ {
+  "Key": 2281650,
+  "Name": "As Young as You Feel",
+  "disc": false,
+  "Streams": "0,1,4",
+  "Audio Codec": "AC-3",
+  "ffprobe": [
+   {
+    "index": 0,
+    "codec_type": "video",
+    "codec_name": "mpeg2video",
+    "channels": null
+   },
+   {
+    "index": 1,
+    "codec_type": "audio",
+    "codec_name": "ac3",
+    "channels": 2
+   },
+   {
+    "index": 2,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 3,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 4,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   },
+   {
+    "index": 5,
+    "codec_type": "subtitle",
+    "codec_name": "dvd_subtitle",
+    "channels": null
+   }
+  ]
+ }
+]

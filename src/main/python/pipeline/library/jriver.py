@@ -20,7 +20,7 @@ from hamcws import MediaServer, get_mcws_connection
 from model.dvd import pseudo_file_root as dvd_pseudo_file_root
 from pipeline.library.pathmap import PathMapping, translate_path, unmapped_path_problem
 from pipeline.library.source import LibraryItem
-from pipeline.library.streams import audio_types
+from pipeline.library.streams import audio_types, selected_streams
 
 logger = logging.getLogger('library_jriver')
 
@@ -257,8 +257,9 @@ class JRiverLibrarySource:
             year=_value(row, 'Year') or _value(row, 'Date (year)') or None,
             kind=kind,
             external_ids=self._external_ids(row, kind),
-            meta=_metadata(row, _selected_audio_stream(row)),
-            audio_stream=_selected_audio_stream(row),
+            meta=_metadata(row, 0),
+            audio_stream=0,
+            selected_streams=selected_streams(_value(row, 'Playback Info')) or (),
             audio_stream_details=_audio_stream_details(row),
             art_candidates=self._art_candidates(_value(row, 'Image File'), source_path),
             fingerprint=fingerprint,
@@ -335,19 +336,6 @@ def _audio_stream_details(row: Mapping[str, Any]) -> tuple[dict, ...]:
 
 def _split_streams(value: str) -> list[str]:
     return [part.strip() for part in value.split(';')] if value else []
-
-
-def _selected_audio_stream(row: Mapping[str, Any]) -> int:
-    '''
-    The audio-stream ordinal for extraction.
-
-    JRiver's Playback Info contains a length-prefixed ``Streams`` record, but its values are container stream ids
-    (not audio-list offsets) and need reconciling with ffprobe's global stream indices.  The resolver is deliberately
-    a stable seam while chunk 40 adds that parser; until then it retains the established first-audio-stream behaviour.
-    Reading the field now lets a later parser be introduced without changing the browse boundary again.
-    '''
-    _ = _value(row, 'Playback Info')
-    return 0
 
 
 def _kind(row: Mapping[str, Any]) -> str:

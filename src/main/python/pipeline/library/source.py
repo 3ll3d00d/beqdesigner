@@ -30,6 +30,12 @@ class LibraryItem:
     # Source-provided descriptions, in ffmpeg audio-stream order.  This is deliberately separate from ``meta``:
     # it is operational data used when a reviewer selects another stream, not BEQ metadata to publish.
     audio_stream_details: tuple = ()
+    # Where `audio_stream` came from: '' the default (the first), 'manual' a reviewer's choice, 'source' the source's own
+    # selection resolved against the file (J2). A scan keeps 'manual', and 'source' while the selection is unchanged.
+    audio_stream_source: str = ''
+    # The container streams the source plays -- video, audio[, subtitle] as ffprobe's global `streams[].index` (JRiver's
+    # Playback Info `Streams`) -- resolved to an audio ordinal when the file is probed; () if the source says nothing.
+    selected_streams: tuple = ()
     playlist_name: Optional[str] = None      # BD only, forwarded to Session.extract()
     art_path: Optional[str] = None           # a local poster/cover file the source already has, if any
                                               # (§3.1.3)

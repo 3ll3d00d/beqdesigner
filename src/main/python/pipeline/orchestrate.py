@@ -295,9 +295,13 @@ class Session:
         the same title), in the order its `audio_stream` counts them. Writes nothing.
         :raises FileNotFoundError: if ffprobe is not installed; ffmpeg.Error if it cannot read the source.
         '''
+        return [stream for stream in self.probe_streams(src, playlist_name) if stream.get('codec_type') == 'audio']
+
+    def probe_streams(self, src: str, playlist_name: Optional[str] = None) -> list:
+        ''' Every stream ffprobe finds in `src` (video, audio, subtitles...), opened as probe_audio_streams() opens it. '''
         executor, _ = self.__executor(src, os.path.dirname(os.path.abspath(src)), playlist_name)
         executor.probe_file()
-        return list(executor.audio_stream_data)
+        return list((executor.probe or {}).get('streams', []))
 
     def extract(self, src: str, target_dir: str, audio_stream: int = 0, video_stream: int = -1,
                mono_mix: bool = True, decimate: bool = True, playlist_name: Optional[str] = None) -> str:

@@ -416,3 +416,38 @@ Tests: `test_pipeline_service_operating.py` (the rate arithmetic, running
 jobs only, `/ready` and `/v1/status` with and without a key); the readiness
 and job expectations in `test_pipeline_service_api.py`. OpenAPI regenerated.
 Validation: full suite **2716 passed, 1 skipped**.
+
+## J2 — Resolve JRiver's selected audio stream (completed)
+
+Completed on 2026-10-08, in the commit "Extract the audio stream JRiver
+plays, and keep stream choices across rescans", once the media share was
+mounted. ffprobe of the fixture's 67 titles with a `Streams` record
+(`src/test/python/fixtures/jriver/streams.json`, see its README) showed that
+`Streams` is video, audio[, subtitle] as ffprobe's global indices. In 8
+titles the audio is not the first stream, and JRiver's codec is at the
+matching position.
+
+- `streams.selected_streams()` parses Playback Info, and `audio_ordinal()`
+  matches the audio index against a probe of the file. It trusts a selection
+  only when its first stream is video and its second audio ("The Town",
+  `1,2,19` on a disc, is refused).
+- The JRiver source records `LibraryItem.selected_streams` and still lists
+  stream 0, since listing never touches the disk. `run.resolve_selected_stream()`
+  probes the file as extraction opens it (`Session.probe_streams()`) before
+  extracting. The run then records the result (`LibraryIndex.resolve_audio_stream`,
+  `audio_stream_source='source'`) and says "(as the library plays it)". When it
+  falls back to the first stream it emits a `note` event saying why.
+- **A bug found on the way:** a rescan replaced each title's listing, so a
+  reviewer's stream choice was lost and the next run extracted the first
+  stream again. `index.carried_choice()` keeps a reviewer's choice
+  (`'manual'`) and a resolved one while the source selects the same streams.
+  `select_audio_stream` marks choices as manual, and a resolved selection
+  never replaces one.
+
+Tests: `test_pipeline_library_selected_stream.py` covers parsing (real and
+broken values), the rule over all 67 real titles, listing, the rescan
+regression, carry-over and its limits, and a real file with video and two
+audio streams resolved and extracted as JRiver's second audio stream (kept by
+the next scan), plus a refused selection's fallback note. Found for E4:
+"A Star Is Born"'s resolved main title shows only AC-3 where JRiver lists
+DTS-HD MA.

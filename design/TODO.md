@@ -29,7 +29,7 @@ catalogue unattended, and the results reviewed from the desktop app. Publish
 and commit stay a person's decision in the app; the schedule never goes past
 design.
 
-The milestone is the rows marked **R** in the table: priorities 1–15 (R1–R9, W2, E1 and D4's release part, now [archived](archive/initial-release.md), were 1–5 and 8–14). The
+The milestone is the rows marked **R** in the table: priorities 1–15 (R1–R9, J2, W2, E1 and D4's release part, now [archived](archive/initial-release.md), were 1–5 and 7–14). The
 service and image themselves work (C1's amd64 smoke); what is missing is
 behavior that only matters at catalogue scale and over days: the designer
 deployment, disk use, remote review, stream
@@ -44,7 +44,6 @@ validation and steep-filter default are outside it.
 | Priority | ID | R | Previous IDs | Status | Depends on |
 |---|---|---|---|---|---|
 | 6 | C1 | R | chunk S5 | amd64 build and smoke verified; arm64 build and GHCR publish not yet run | A green `main`; the first tag push |
-| 7 | J2 | R | chunk 40 | Not started beyond the seam; Playback Info captured (E1), ffprobe of the same files missing | ffprobe of the fixture's titles (the media share mounted) |
 | 11 | D4 | | by-reference §5 | Release part done (each entry records its designer and build); the drift behavior is not started | Designer build identity policy (full drift behavior only) |
 | 15 | E2 | R | chunk 31, T2-T4 | Waiting for manual acceptance | R1–R9, E1; real designer, media and disposable repositories |
 | 16 | E3 | | chunk 32, T7 | Not started; the captured library has no DVDs | A DVD in a JRiver library; DVD fixture |
@@ -80,46 +79,6 @@ example pins, by reference (R3), before publishing.
 
 **Done when:** the first tag's workflow run builds both architectures, passes
 both smoke tests and publishes them to GHCR with the expected tags.
-
-### J2 — Resolve JRiver's selected audio stream
-
-**Evidence so far (E1, 2026-10-08):** `src/test/python/fixtures/jriver/`
-holds real `Playback Info` values. A `Streams` record's value is three
-numbers (`0,1,3`, 205 of 211) or two (`0,1`), in records whose other names
-vary and come in any order (see the fixture README). The capture machine did
-not have the media share mounted, so the ffprobe half is missing: ffprobe the
-fixture's titles (`ffprobe -show_streams -of json`), record their global
-indices beside the rows, and only then decide what the numbers mean.
-
-`Playback Info` is requested but its resolver currently returns the first
-audio stream. Capture its length-prefixed value alongside ffprobe streams
-from the same file; the observed comma-separated fields cannot be assumed
-to be audio-list ordinals. Parse the selected container stream and match it
-to ffprobe's global `streams[].index`, then select the matching audio ordinal.
-Keep the first-audio fallback only for absent or unparseable data and report
-that fallback. Cover malformed, missing and non-audio selections.
-
-**Done when:** fixture-backed tests show that JRiver's selected track is the
-one extracted. The title page's manual override and metadata update are
-already built; J2 supplies their automatic initial choice.
-
-### D4 — Surface designer revision drift
-
-The design fingerprint does not include the designer build or startup
-parameters, so a catalogue run lasting days can mix designer builds without
-saying so. **For the release:** record the response's `beqforge_revision` (or
-the designer's reported build) in each queue entry and show it in the title
-page's Details; that is enough to tell which titles came from which build.
-**After it:** define how the caller detects and presents a changed revision,
-decide cache and redesign semantics, and test the changed-revision banner and
-unchanged-revision behavior.
-
-**Release part done** ([archived](archive/initial-release.md)):
-`QueueEntry.designer` and `designer_build` (`review.designer_build()`), shown
-on the title page. The container's designer reports `unknown+src:<digest>`
-(no git in its image); bake a stamp into the image if that is not enough.
-**Done when (full):** the agreed drift behavior is
-documented and implemented with regression coverage.
 
 ### E2 — End-to-end acceptance record
 
@@ -168,7 +127,11 @@ silently duplicate a disc's main title for distinct episodes.
 itself); 13 `Playback Info` records naming a `BlurayPlaylist` (`00801.mpls`) for
 an `index.bdmv` entry; and two disc folders listed by more than one entry.
 Decide whether a `BlurayPlaylist` should choose the playlist extracted, and
-how an `.mpls` entry is extracted, before the steps below.
+how an `.mpls` entry is extracted, before the steps below. **J2's probe
+(2026-10-08) found one disc to look at:** for "A Star Is Born" ffprobe sees
+three AC-3 streams in the main title `model.bdmv` resolves to (the same
+`00100.mpls` JRiver plays), where JRiver lists DTS-HD MA first. The extraction
+may be reading a clip or track that is not the feature's.
 
 Determine from E1 and BDMV files what `BDMV\PLAYLIST\index.bluray;N`
 means. If `N` maps to a playlist, preserve it in `LibraryItem` and pass it
