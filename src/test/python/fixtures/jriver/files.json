@@ -15,7 +15,10 @@
   "Audio Language": "English;English;French;Dutch;Dutch;English;French;Dutch;English",
   "Audio Streams": 9,
   "Audio Codec": "DTS-HD MA;AC-3;DTS;DTS;AC-3;AC-3;AC-3;AC-3;AC-3",
-  "Audio Channels": "6;2;6;6;6;2;2;2;2"
+  "Audio Channels": "6;2;6;6;6;2;2;2;2",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000;48000;48000;48000;48000",
+  "Audio Bitrate": ";192;1536;1536;640;192;192;192;192",
+  "Audio Title": ";;;;;;;;"
  },
  {
   "Key": 23139,
@@ -34,6 +37,9 @@
   "Audio Streams": 9,
   "Audio Codec": "DTS;DTS-HD MA;DTS;DTS;DTS;DTS;DTS;DTS;AC-3",
   "Audio Channels": "2;6;2;2;2;2;2;2;2",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000;48000;48000;48000;48000",
+  "Audio Bitrate": "448;;448;448;448;448;448;448;192",
+  "Audio Title": ";;;;;;;;",
   "IMDb ID": "tt0088847"
  },
  {
@@ -52,7 +58,10 @@
   "Audio Language": "English;English;English;German;French;Spanish;Spanish;Italian",
   "Audio Streams": 8,
   "Audio Codec": "TrueHD;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3",
-  "Audio Channels": "6;6;6;6;6;6;6;6"
+  "Audio Channels": "6;6;6;6;6;6;6;6",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000;48000;48000;48000",
+  "Audio Bitrate": ";640;640;640;640;640;640;640",
+  "Audio Title": ";;;;;;;"
  },
  {
   "Key": 115009,
@@ -71,6 +80,9 @@
   "Audio Streams": 11,
   "Audio Codec": "TrueHD;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;E-AC3",
   "Audio Channels": "6;6;6;6;6;2;6;6;6;6;2",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000;48000;48000;48000;48000;48000;48000",
+  "Audio Bitrate": ";640;640;640;640;192;640;640;640;640;192",
+  "Audio Title": ";;;;;;;;;;",
   "Playback Info": "(1:2)(12:CenterOffset)(3:0,0)(11:ZoomPercent)(3:100)",
   "IMDb ID": "tt0441773"
  },
@@ -91,6 +103,9 @@
   "Audio Streams": 2,
   "Audio Codec": "AC-3;DTS-HD MA",
   "Audio Channels": "6;6",
+  "Audio Sample Rate": "48000;48000",
+  "Audio Bitrate": "640;",
+  "Audio Title": ";",
   "IMDb ID": "tt0105236"
  },
  {
@@ -109,7 +124,8 @@
   "Audio Language": "English",
   "Audio Streams": 1,
   "Audio Codec": "DTS-HD MA",
-  "Audio Channels": "6"
+  "Audio Channels": "6",
+  "Audio Sample Rate": "48000"
  },
  {
   "Key": 119984,
@@ -128,6 +144,7 @@
   "Audio Streams": 1,
   "Audio Codec": "DTS-HD MA",
   "Audio Channels": "6",
+  "Audio Sample Rate": "48000",
   "IMDb ID": "tt0119396"
  },
  {
@@ -147,7 +164,10 @@
   "Audio Language": "English;English;English;English;English;English;English;English;English;English;English",
   "Audio Streams": 11,
   "Audio Codec": "DTS-HD MA;DTS-HD MA;DTS-HD MA;DTS-HD MA;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3",
-  "Audio Channels": "6;2;6;2;2;2;2;2;2;2;2"
+  "Audio Channels": "6;2;6;2;2;2;2;2;2;2;2",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000;48000;48000;48000;48000;48000;48000",
+  "Audio Bitrate": ";;;;112;112;112;112;112;112;112",
+  "Audio Title": ";;;;;;;;;;"
  },
  {
   "Key": 121255,
@@ -166,6 +186,9 @@
   "Audio Streams": 1,
   "Audio Codec": "AC-3",
   "Audio Channels": "6",
+  "Audio Sample Rate": "48000",
+  "Audio Bitrate": "384",
+  "Audio Title": "Surround 5.1",
   "IMDb ID": "tt1570989"
  },
  {
@@ -185,6 +208,9 @@
   "Audio Streams": 2,
   "Audio Codec": "AC-3;DTS",
   "Audio Channels": "6;6",
+  "Audio Sample Rate": "48000;48000",
+  "Audio Bitrate": "384;768",
+  "Audio Title": "Surround 5.1;Surround 5.1",
   "Playback Info": "(1:6)(12:CenterOffset)(3:0,0)(7:Streams)(5:0,1,5)(2:CC)(1:0)(9:Subtitles)(4:None)(11:ZoomPercent)(3:100)(11:AspectRatio)(27:(1:5)(2:-1)(1:0)(1:0)(2:-1))",
   "IMDb ID": "tt0106519"
  },
@@ -205,6 +231,9 @@
   "Audio Streams": 2,
   "Audio Codec": "DTS-HD MA;DTS",
   "Audio Channels": "6;6",
+  "Audio Sample Rate": "48000;48000",
+  "Audio Bitrate": ";768",
+  "Audio Title": ";",
   "Playback Info": "(1:2)(7:Streams)(5:0,1,3)(2:CC)(1:0)",
   "IMDb ID": "tt0780536"
  },
@@ -225,6 +254,9 @@
   "Audio Streams": 2,
   "Audio Codec": "AC-3;DTS",
   "Audio Channels": "6;6",
+  "Audio Sample Rate": "48000;48000",
+  "Audio Bitrate": "448;768",
+  "Audio Title": "Surround 5.1;Surround 5.1",
   "IMDb ID": "tt0407304"
  },
  {
@@ -244,6 +276,9 @@
   "Audio Streams": 2,
   "Audio Codec": "AC-3;AC-3",
   "Audio Channels": "2;2",
+  "Audio Sample Rate": "48000;48000",
+  "Audio Bitrate": "224;224",
+  "Audio Title": "Stereo;Stereo",
   "IMDb ID": "tt2536544"
  },
  {
@@ -263,6 +298,8 @@
   "Audio Streams": 1,
   "Audio Codec": "AC-3",
   "Audio Channels": "6",
+  "Audio Sample Rate": "48000",
+  "Audio Bitrate": "640",
   "IMDb ID": "tt0338348"
  },
  {
@@ -282,6 +319,9 @@
   "Audio Streams": 7,
   "Audio Codec": "DTS-HD MA;DTS-HD MA;AC-3;AC-3;DTS;AC-3;AC-3",
   "Audio Channels": "8;6;6;2;6;6;6",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000;48000;48000",
+  "Audio Bitrate": ";;640;320;1536;640;640",
+  "Audio Title": ";;;;;;",
   "Playback Info": "(1:2)(7:Streams)(6:0,1,14)(2:CC)(1:0)",
   "IMDb ID": "tt0435761"
  },
@@ -302,6 +342,9 @@
   "Audio Streams": 4,
   "Audio Codec": "DTS-HD MA;AC-3;AC-3;DTS",
   "Audio Channels": "6;6;6;6",
+  "Audio Sample Rate": "48000;48000;48000;48000",
+  "Audio Bitrate": ";640;640;1536",
+  "Audio Title": ";;;",
   "Playback Info": "(1:3)(12:CenterOffset)(3:0,0)(14:BlurayPlaylist)(10:00034.mpls)(11:ZoomPercent)(3:101)",
   "IMDb ID": "tt0043274"
  },
@@ -322,6 +365,9 @@
   "Audio Streams": 7,
   "Audio Codec": "DTS-HD MA;AC-3;DTS;DTS;AC-3;DTS;DTS",
   "Audio Channels": "6;2;6;6;6;6;6",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000;48000;48000",
+  "Audio Bitrate": ";320;1536;1536;640;1536;1536",
+  "Audio Title": ";;;;;;",
   "Playback Info": "(1:2)(12:CenterOffset)(3:0,0)(11:ZoomPercent)(3:100)",
   "IMDb ID": "tt2483260"
  },
@@ -342,6 +388,9 @@
   "Audio Streams": 14,
   "Audio Codec": "DTS-HD MA;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3",
   "Audio Channels": "6;6;6;6;6;6;6;6;6;6;6;6;6;2",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000;48000;48000;48000;48000;48000;48000;48000;48000;48000",
+  "Audio Bitrate": ";448;448;448;448;448;448;448;448;448;448;448;448;192",
+  "Audio Title": ";;;;;;;;;;;;;",
   "Playback Info": "(1:4)(12:CenterOffset)(3:0,0)(7:Streams)(6:0,1,34)(2:CC)(1:0)(11:ZoomPercent)(3:100)",
   "IMDb ID": "tt1490017"
  },
@@ -362,6 +411,9 @@
   "Audio Streams": 1,
   "Audio Codec": "AC-3",
   "Audio Channels": "6",
+  "Audio Sample Rate": "48000",
+  "Audio Bitrate": "384",
+  "Audio Title": "Surround 5.1",
   "IMDb ID": "tt0065421"
  },
  {
@@ -381,6 +433,9 @@
   "Audio Streams": 2,
   "Audio Codec": "DTS-HD MA;AC-3",
   "Audio Channels": "6;2",
+  "Audio Sample Rate": "48000;48000",
+  "Audio Bitrate": ";192",
+  "Audio Title": ";",
   "Playback Info": "(1:3)(7:Streams)(6:1,2,19)(2:CC)(1:0)(9:Subtitles)(4:None)",
   "IMDb ID": "tt0840361"
  },
@@ -401,6 +456,9 @@
   "Audio Streams": 1,
   "Audio Codec": "AC-3",
   "Audio Channels": "6",
+  "Audio Sample Rate": "48000",
+  "Audio Bitrate": "384",
+  "Audio Title": "Surround 5.1",
   "Playback Info": "(1:3)(7:Streams)(5:0,1,4)(2:CC)(1:0)(9:Subtitles)(4:None)",
   "IMDb ID": "tt0080716"
  },
@@ -421,6 +479,9 @@
   "Audio Streams": 3,
   "Audio Codec": "DTS;AC-3;AC-3",
   "Audio Channels": "6;6;6",
+  "Audio Sample Rate": "48000;48000;48000",
+  "Audio Bitrate": "768;448;448",
+  "Audio Title": "Surround 5.1;Surround 5.1;Surround 5.1",
   "Playback Info": "(1:5)(12:SubtitleSize)(3:0.7)(16:SubtitleTimingMS)(1:0)(2:CC)(1:0)(7:Streams)(5:0,1,5)(14:SubtitleShiftY)(1:0)",
   "IMDb ID": "tt0368909"
  },
@@ -441,6 +502,9 @@
   "Audio Streams": 1,
   "Audio Codec": "AC-3",
   "Audio Channels": "2",
+  "Audio Sample Rate": "48000",
+  "Audio Bitrate": "192",
+  "Audio Title": "Stereo",
   "Playback Info": "(1:3)(7:Streams)(5:0,1,4)(2:CC)(1:0)(9:Subtitles)(4:None)",
   "IMDb ID": "tt0057012"
  },
@@ -461,6 +525,9 @@
   "Audio Streams": 2,
   "Audio Codec": "AC-3;AC-3",
   "Audio Channels": "6;6",
+  "Audio Sample Rate": "48000;48000",
+  "Audio Bitrate": "448;448",
+  "Audio Title": "Surround 5.1;Surround 5.1",
   "Playback Info": "(1:1)(7:Streams)(5:0,1,3)",
   "IMDb ID": "tt0190332"
  },
@@ -481,6 +548,9 @@
   "Audio Streams": 3,
   "Audio Codec": "AC-3;AC-3;AC-3",
   "Audio Channels": "6;6;6",
+  "Audio Sample Rate": "48000;48000;48000",
+  "Audio Bitrate": "448;384;384",
+  "Audio Title": "Surround 5.1;Surround 5.1;Surround 5.1",
   "Playback Info": "(1:2)(7:Streams)(5:0,1,7)(9:Subtitles)(4:None)",
   "IMDb ID": "tt0844471"
  },
@@ -500,7 +570,10 @@
   "Audio Language": "English",
   "Audio Streams": 1,
   "Audio Codec": "AC-3",
-  "Audio Channels": "2"
+  "Audio Channels": "2",
+  "Audio Sample Rate": "48000",
+  "Audio Bitrate": "192",
+  "Audio Title": "Stereo"
  },
  {
   "Key": 207621,
@@ -518,7 +591,10 @@
   "Audio Language": "English",
   "Audio Streams": 1,
   "Audio Codec": "AC-3",
-  "Audio Channels": "2"
+  "Audio Channels": "2",
+  "Audio Sample Rate": "48000",
+  "Audio Bitrate": "192",
+  "Audio Title": "Stereo"
  },
  {
   "Key": 207649,
@@ -537,6 +613,9 @@
   "Audio Streams": 1,
   "Audio Codec": "AC-3",
   "Audio Channels": "6",
+  "Audio Sample Rate": "48000",
+  "Audio Bitrate": "448",
+  "Audio Title": "Surround 5.1",
   "Playback Info": "(1:2)(12:CenterOffset)(3:0,0)(11:ZoomPercent)(2:99)",
   "IMDb ID": "tt0266543"
  },
@@ -557,6 +636,9 @@
   "Audio Streams": 6,
   "Audio Codec": "DTS-HD MA;AC-3;AC-3;AC-3;AC-3;AC-3",
   "Audio Channels": "8;2;6;6;6;2",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000;48000",
+  "Audio Bitrate": ";320;640;640;640;192",
+  "Audio Title": ";;;;;",
   "Playback Info": "(1:4)(7:Streams)(6:0,1,17)(2:CC)(1:0)(12:CenterOffset)(3:0,0)(11:ZoomPercent)(3:100)",
   "IMDb ID": "tt1843866"
  },
@@ -577,6 +659,9 @@
   "Audio Streams": 8,
   "Audio Codec": "AC-3;DTS-HD MA;AC-3;AC-3;AC-3;AC-3;AC-3;DTS-HD MA",
   "Audio Channels": "6;8;6;6;6;6;2;6",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000;48000;48000;48000",
+  "Audio Bitrate": "640;;640;640;640;640;192;",
+  "Audio Title": ";;;;;;;",
   "Playback Info": "(1:1)(7:Streams)(6:0,8,28)",
   "IMDb ID": "tt1663662"
  },
@@ -597,6 +682,9 @@
   "Audio Streams": 3,
   "Audio Codec": "DTS-HD MA;DTS;AC-3",
   "Audio Channels": "6;6;2",
+  "Audio Sample Rate": "48000;48000;48000",
+  "Audio Bitrate": ";768;192",
+  "Audio Title": ";;",
   "Playback Info": "(1:4)(12:SubtitleSize)(1:1)(16:SubtitleTimingMS)(1:0)(7:Streams)(5:0,1,6)(14:SubtitleShiftY)(1:0)",
   "IMDb ID": "tt1091191"
  },
@@ -617,6 +705,9 @@
   "Audio Streams": 4,
   "Audio Codec": "DTS-HD MA;AC-3;AC-3;DTS",
   "Audio Channels": "8;2;2;6",
+  "Audio Sample Rate": "48000;48000;48000;48000",
+  "Audio Bitrate": ";320;320;1536",
+  "Audio Title": ";;;",
   "IMDb ID": "tt1104001"
  },
  {
@@ -636,6 +727,9 @@
   "Audio Streams": 6,
   "Audio Codec": "DTS-HD MA;DTS;DTS;DTS;DTS;AC-3",
   "Audio Channels": "6;6;6;6;6;2",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000;48000",
+  "Audio Bitrate": ";1536;1536;1536;1536;320",
+  "Audio Title": ";;;;;",
   "IMDb ID": "tt0084827"
  },
  {
@@ -656,6 +750,9 @@
   "Audio Streams": 2,
   "Audio Codec": "AC-3;DTS-ES",
   "Audio Channels": "6;7",
+  "Audio Sample Rate": "48000;48000",
+  "Audio Bitrate": "448;768",
+  "Audio Title": "Surround 5.1;Surround 5.1",
   "IMDb ID": "tt0120737"
  },
  {
@@ -676,6 +773,9 @@
   "Audio Streams": 2,
   "Audio Codec": "AC-3;DTS-ES",
   "Audio Channels": "6;7",
+  "Audio Sample Rate": "48000;48000",
+  "Audio Bitrate": "447;754",
+  "Audio Title": "Surround 5.1;Surround 5.1",
   "IMDb ID": "tt0167261"
  },
  {
@@ -695,6 +795,9 @@
   "Audio Streams": 6,
   "Audio Codec": "DTS-HD MA;AC-3;AC-3;AC-3;AC-3;AC-3",
   "Audio Channels": "6;6;6;6;6;6",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000;48000",
+  "Audio Bitrate": ";448;448;448;448;448",
+  "Audio Title": ";;;;;",
   "Playback Info": "(1:1)(7:Streams)(6:0,1,18)",
   "IMDb ID": "tt1270798"
  },
@@ -717,6 +820,9 @@
   "Audio Streams": 7,
   "Audio Codec": "DTS-HD MA;DTS-HD HRA;DTS-HD HRA;DTS;AC-3;DTS;AC-3",
   "Audio Channels": "8;8;8;6;2;6;2",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000;48000;48000",
+  "Audio Bitrate": ";;;768;192;768;192",
+  "Audio Title": ";;;;;;",
   "IMDb ID": "tt1483013"
  },
  {
@@ -734,6 +840,9 @@
   "Audio Streams": 4,
   "Audio Codec": "DTS-HD MA;AC-3;DTS-HD MA;AC-3",
   "Audio Channels": "6;2;6;6",
+  "Audio Sample Rate": "48000;48000;48000;48000",
+  "Audio Bitrate": ";192;;448",
+  "Audio Title": ";;;",
   "Playback Info": "(1:2)(7:Streams)(5:0,1,7)(2:CC)(1:0)"
  },
  {
@@ -753,6 +862,9 @@
   "Audio Streams": 7,
   "Audio Codec": "AC-3;AC-3;TrueHD;AC-3;AC-3;AC-3;AC-3",
   "Audio Channels": "6;2;6;6;6;2;2",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000;48000;48000",
+  "Audio Bitrate": "640;192;;640;640;192;192",
+  "Audio Title": ";;;;;;",
   "Playback Info": "(1:3)(7:Streams)(6:0,3,22)(2:CC)(1:0)(9:Subtitles)(4:None)",
   "IMDb ID": "tt0068646"
  },
@@ -770,7 +882,10 @@
   "Audio Language": "English;English;English",
   "Audio Streams": 3,
   "Audio Codec": "AC-3;AC-3;AC-3",
-  "Audio Channels": "2;2;4"
+  "Audio Channels": "2;2;4",
+  "Audio Sample Rate": "48000;48000;48000",
+  "Audio Bitrate": "192;192;448",
+  "Audio Title": "Stereo;Stereo;Surround 4.0"
  },
  {
   "Key": 283738,
@@ -789,6 +904,9 @@
   "Audio Streams": 7,
   "Audio Codec": "DTS-HD MA;AC-3;DTS;DTS;AC-3;AC-3;AC-3",
   "Audio Channels": "6;6;6;6;6;2;6",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000;48000;48000",
+  "Audio Bitrate": ";448;768;768;448;224;448",
+  "Audio Title": ";;;;;;",
   "Playback Info": "(1:1)(14:BlurayPlaylist)(10:00801.mpls)",
   "IMDb ID": "tt0118583"
  },
@@ -809,6 +927,9 @@
   "Audio Streams": 7,
   "Audio Codec": "DTS-HD MA;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3",
   "Audio Channels": "6;2;6;6;6;6;6",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000;48000;48000",
+  "Audio Bitrate": ";192;640;640;640;640;640",
+  "Audio Title": ";;;;;;",
   "Playback Info": "(1:1)(14:BlurayPlaylist)(10:00100.mpls)",
   "IMDb ID": "tt1201607"
  },
@@ -829,6 +950,9 @@
   "Audio Streams": 7,
   "Audio Codec": "DTS-HD MA;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3",
   "Audio Channels": "8;2;6;6;6;6;6",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000;48000;48000",
+  "Audio Bitrate": ";320;640;640;640;640;640",
+  "Audio Title": ";;;;;;",
   "Playback Info": "(1:2)(12:CenterOffset)(4:-3,2)(11:ZoomPercent)(3:108)",
   "IMDb ID": "tt4007502"
  },
@@ -849,6 +973,9 @@
   "Audio Streams": 1,
   "Audio Codec": "AC-3",
   "Audio Channels": "6",
+  "Audio Sample Rate": "48000",
+  "Audio Bitrate": "448",
+  "Audio Title": "Surround 5.1",
   "Playback Info": "(1:2)(12:CenterOffset)(3:0,0)(11:ZoomPercent)(2:99)",
   "IMDb ID": "tt0332379"
  },
@@ -869,6 +996,9 @@
   "Audio Streams": 4,
   "Audio Codec": "DTS-HD MA;AC-3;DTS-HD HRA;AC-3",
   "Audio Channels": "8;2;6;6",
+  "Audio Sample Rate": "48000;48000;48000;48000",
+  "Audio Bitrate": ";320;;640",
+  "Audio Title": ";;;",
   "Playback Info": "(1:2)(7:Streams)(6:0,1,16)(9:Subtitles)(4:None)",
   "IMDb ID": "tt2488496"
  },
@@ -889,6 +1019,9 @@
   "Audio Streams": 2,
   "Audio Codec": "AC-3;DTS",
   "Audio Channels": "6;6",
+  "Audio Sample Rate": "48000;48000",
+  "Audio Bitrate": "448;754",
+  "Audio Title": "Surround 5.1;Surround 5.1",
   "Playback Info": "(1:3)(7:Streams)(5:0,2,4)(2:CC)(1:0)(9:Subtitles)(4:None)",
   "IMDb ID": "tt1155592"
  },
@@ -909,6 +1042,9 @@
   "Audio Streams": 2,
   "Audio Codec": "AC-3;DTS",
   "Audio Channels": "6;6",
+  "Audio Sample Rate": "48000;48000",
+  "Audio Bitrate": "448;754",
+  "Audio Title": "Surround 5.1;Surround 5.1",
   "Playback Info": "(1:3)(7:Streams)(5:0,1,5)(2:CC)(1:0)(9:Subtitles)(4:None)",
   "IMDb ID": "tt0078748"
  },
@@ -928,7 +1064,10 @@
   "Audio Language": "English;German;Spanish",
   "Audio Streams": 3,
   "Audio Codec": "AC-3;AC-3;AC-3",
-  "Audio Channels": "6;6;6"
+  "Audio Channels": "6;6;6",
+  "Audio Sample Rate": "48000;48000;48000",
+  "Audio Bitrate": "448;448;448",
+  "Audio Title": "Surround 5.1;Surround 5.1;Surround 5.1"
  },
  {
   "Key": 502868,
@@ -947,6 +1086,9 @@
   "Audio Streams": 5,
   "Audio Codec": "AC-3;AC-3;AC-3;AC-3;AC-3",
   "Audio Channels": "2;6;2;2;2",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000",
+  "Audio Bitrate": "192;448;192;192;192",
+  "Audio Title": "Stereo;Surround 5.1;Stereo;Stereo;Stereo",
   "Playback Info": "(1:2)(7:Streams)(6:0,2,31)(9:Subtitles)(4:None)",
   "IMDb ID": "tt0091188"
  },
@@ -967,6 +1109,9 @@
   "Audio Streams": 6,
   "Audio Codec": "AC-3;AC-3;AC-3;AC-3;AC-3;AC-3",
   "Audio Channels": "6;6;6;6;6;6",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000;48000",
+  "Audio Bitrate": "448;448;384;384;384;384",
+  "Audio Title": "Surround 5.1;Surround 5.1;Surround 5.1;Surround 5.1;Surround 5.1;Surround 5.1",
   "Playback Info": "(1:2)(12:CenterOffset)(3:0,0)(11:ZoomPercent)(3:100)",
   "IMDb ID": "tt2267968"
  },
@@ -989,7 +1134,10 @@
   "Audio Language": "English;French;Danish;Finnish;German;Norwegian;Swedish",
   "Audio Streams": 7,
   "Audio Codec": "AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3",
-  "Audio Channels": "6;6;6;6;6;6;6"
+  "Audio Channels": "6;6;6;6;6;6;6",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000;48000;48000",
+  "Audio Bitrate": "448;384;384;384;384;384;384",
+  "Audio Title": "Surround 5.1;Surround 5.1;Surround 5.1;Surround 5.1;Surround 5.1;Surround 5.1;Surround 5.1"
  },
  {
   "Key": 531616,
@@ -1008,6 +1156,9 @@
   "Audio Streams": 1,
   "Audio Codec": "AC-3",
   "Audio Channels": "6",
+  "Audio Sample Rate": "48000",
+  "Audio Bitrate": "448",
+  "Audio Title": "Surround 5.1",
   "Playback Info": "(1:2)(7:Streams)(5:0,1,2)(2:CC)(1:0)",
   "IMDb ID": "tt0086465"
  },
@@ -1028,6 +1179,9 @@
   "Audio Streams": 1,
   "Audio Codec": "AC-3",
   "Audio Channels": "6",
+  "Audio Sample Rate": "48000",
+  "Audio Bitrate": "448",
+  "Audio Title": "Surround 5.1",
   "Playback Info": "(1:2)(7:Streams)(5:0,1,7)(9:Subtitles)(4:None)",
   "IMDb ID": "tt0105793"
  },
@@ -1048,6 +1202,9 @@
   "Audio Streams": 2,
   "Audio Codec": "AC-3;AC-3",
   "Audio Channels": "6;2",
+  "Audio Sample Rate": "48000;48000",
+  "Audio Bitrate": "448;192",
+  "Audio Title": "Surround 5.1;Stereo",
   "Playback Info": "(1:2)(2:CC)(1:0)(7:Streams)(5:0,1,3)",
   "IMDb ID": "tt0441909"
  },
@@ -1068,6 +1225,9 @@
   "Audio Streams": 1,
   "Audio Codec": "AC-3",
   "Audio Channels": "6",
+  "Audio Sample Rate": "48000",
+  "Audio Bitrate": "384",
+  "Audio Title": "Surround 5.1",
   "Playback Info": "(1:2)(7:Streams)(5:0,1,2)(2:CC)(1:0)",
   "IMDb ID": "tt0110950"
  },
@@ -1088,6 +1248,9 @@
   "Audio Streams": 1,
   "Audio Codec": "AC-3",
   "Audio Channels": "6",
+  "Audio Sample Rate": "48000",
+  "Audio Bitrate": "448",
+  "Audio Title": "Surround 5.1",
   "Playback Info": "(1:5)(12:SubtitleSize)(1:1)(16:SubtitleTimingMS)(1:0)(7:Streams)(3:0,1)(14:SubtitleShiftY)(1:0)(9:Subtitles)(4:None)",
   "IMDb ID": "tt0297884"
  },
@@ -1108,6 +1271,9 @@
   "Audio Streams": 4,
   "Audio Codec": "TrueHD Atmos;AC-3;AC-3;AC-3",
   "Audio Channels": "8;6;6;2",
+  "Audio Sample Rate": "48000;48000;48000;48000",
+  "Audio Bitrate": ";640;384;192",
+  "Audio Title": ";;;",
   "Playback Info": "(1:3)(2:CC)(1:0)(7:Streams)(5:0,1,7)(9:Subtitles)(4:None)",
   "IMDb ID": "tt2911666"
  },
@@ -1129,6 +1295,9 @@
   "Audio Streams": 6,
   "Audio Codec": "DTS-HD MA;AC-3;AC-3;DTS-HD MA;AC-3;AC-3",
   "Audio Channels": "6;6;6;6;6;6",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000;48000",
+  "Audio Bitrate": ";640;448;;448;448",
+  "Audio Title": ";;;;;",
   "IMDb ID": "tt2250912"
  },
  {
@@ -1149,6 +1318,9 @@
   "Audio Streams": 5,
   "Audio Codec": "TrueHD Atmos;AC-3;E-AC3;AC-3;E-AC3",
   "Audio Channels": "8;6;8;2;8",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000",
+  "Audio Bitrate": ";640;1024;320;896",
+  "Audio Title": ";;;;",
   "Playback Info": "(1:1)(7:Streams)(5:0,2,9)",
   "IMDb ID": "tt2527336"
  },
@@ -1169,6 +1341,9 @@
   "Audio Streams": 2,
   "Audio Codec": "AC-3;AC-3",
   "Audio Channels": "6;6",
+  "Audio Sample Rate": "48000;48000",
+  "Audio Bitrate": "640;640",
+  "Audio Title": ";",
   "Playback Info": "(1:1)(14:BlurayPlaylist)(10:00337.mpls)",
   "IMDb ID": "tt1856101"
  },
@@ -1189,6 +1364,9 @@
   "Audio Streams": 13,
   "Audio Codec": "DTS-HD MA;DTS-HD MA;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3",
   "Audio Channels": "6;6;2;2;6;6;6;6;6;6;2;2;2",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000;48000;48000;48000;48000;48000;48000;48000;48000",
+  "Audio Bitrate": ";;192;192;448;448;448;448;448;448;192;192;192",
+  "Audio Title": ";;;;;;;;;;;;",
   "Playback Info": "(1:3)(14:BlurayPlaylist)(10:00002.mpls)(7:Streams)(6:0,2,37)(2:CC)(1:0)",
   "IMDb ID": "tt0316654"
  },
@@ -1211,6 +1389,9 @@
   "Audio Streams": 12,
   "Audio Codec": "TrueHD Atmos;AC-3;AC-3;AC-3;DTS;DTS;DTS;DTS;DTS;AC-3;AC-3;AC-3",
   "Audio Channels": "8;6;6;6;6;6;6;6;6;6;6;2",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000;48000;48000;48000;48000;48000;48000;48000",
+  "Audio Bitrate": ";640;448;448;768;768;768;768;768;448;448;224",
+  "Audio Title": ";;;;;;;;;;;",
   "Playback Info": "(1:3)(7:Streams)(6:0,1,42)(2:CC)(1:0)(9:Subtitles)(4:None)",
   "IMDb ID": "tt3402236"
  },
@@ -1232,6 +1413,9 @@
   "Audio Streams": 6,
   "Audio Codec": "TrueHD Atmos;AC-3;AC-3;E-AC3;E-AC3;E-AC3",
   "Audio Channels": "8;6;2;8;8;8",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000;48000",
+  "Audio Bitrate": ";640;320;1024;1024;1024",
+  "Audio Title": ";;;;;",
   "Playback Info": "(1:2)(2:CC)(1:0)(7:Streams)(6:0,1,17)",
   "IMDb ID": "tt4154756"
  },
@@ -1252,6 +1436,8 @@
   "Audio Streams": 1,
   "Audio Codec": "PCM_BLURAY",
   "Audio Channels": "2",
+  "Audio Sample Rate": "48000",
+  "Audio Bitrate": "2304",
   "Playback Info": "(1:1)(14:BlurayPlaylist)(10:00002.mpls)",
   "IMDb ID": "tt3750872"
  },
@@ -1273,6 +1459,9 @@
   "Audio Streams": 8,
   "Audio Codec": "TrueHD Atmos;AC-3;AC-3;AC-3;E-AC3;E-AC3;E-AC3;E-AC3",
   "Audio Channels": "8;6;2;6;8;8;8;8",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000;48000;48000;48000",
+  "Audio Bitrate": ";640;320;640;1024;1024;1024;1024",
+  "Audio Title": ";;;;;;;",
   "Playback Info": "(1:2)(7:Streams)(6:0,1,27)(2:CC)(1:0)",
   "IMDb ID": "tt5095030",
   "TheMovieDB Movie ID": 363088
@@ -1294,6 +1483,9 @@
   "Audio Streams": 4,
   "Audio Codec": "DTS-HD MA;PCM_BLURAY;DTS-HD MA;PCM_BLURAY",
   "Audio Channels": "6;2;6;2",
+  "Audio Sample Rate": "48000;48000;48000;48000",
+  "Audio Bitrate": ";1536;;1536",
+  "Audio Title": ";;;",
   "Playback Info": "(1:2)(2:CC)(1:0)(7:Streams)(5:0,3,8)",
   "IMDb ID": "tt1568921",
   "TheMovieDB Movie ID": 51739
@@ -1315,6 +1507,9 @@
   "Audio Streams": 2,
   "Audio Codec": "DTS-HD MA;AC-3",
   "Audio Channels": "8;2",
+  "Audio Sample Rate": "48000;48000",
+  "Audio Bitrate": ";320",
+  "Audio Title": ";",
   "Playback Info": "(1:4)(14:BlurayPlaylist)(10:00800.mpls)(7:Streams)(5:0,1,5)(2:CC)(1:0)(9:Subtitles)(4:None)",
   "IMDb ID": "tt0848228"
  },
@@ -1336,6 +1531,9 @@
   "Audio Streams": 16,
   "Audio Codec": "TrueHD Atmos;AC-3;DTS-HD MA;DTS;AC-3;AC-3;DTS;DTS;DTS;DTS;DTS;AC-3;AC-3;AC-3;AC-3;AC-3",
   "Audio Channels": "8;6;2;2;6;6;6;6;6;6;6;6;6;6;6;6",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000;48000;48000;48000;48000;48000;48000;48000;48000;48000;48000;48000",
+  "Audio Bitrate": "5044;640;2058;1509;448;448;768;768;768;768;768;448;448;448;448;448",
+  "Audio Title": "Surround 7.1;Surround 5.1;Stereo;Stereo;Surround 5.1;Surround 5.1;Surround 5.1;Surround 5.1;Surround 5.1;Surround 5.1;Surround 5.1;Surround 5.1;Surround 5.1;Surround 5.1;Surround 5.1;Surround 5.1",
   "Playback Info": "(1:1)(11:AspectRatio)(27:(1:5)(2:-1)(1:0)(1:0)(2:-1))",
   "IMDb ID": "tt0437086"
  },
@@ -1357,6 +1555,9 @@
   "Audio Streams": 6,
   "Audio Codec": "TrueHD Atmos;AC-3;AC-3;AC-3;E-AC3;AC-3",
   "Audio Channels": "8;6;2;6;8;6",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000;48000",
+  "Audio Bitrate": "4776;640;320;640;1024;576",
+  "Audio Title": "Surround 7.1;Surround 5.1;Stereo;Surround 5.1;Surround 7.1;Surround 5.1",
   "Playback Info": "(1:2)(7:Streams)(6:0,1,12)(2:CC)(1:0)",
   "IMDb ID": "tt4154796"
  },
@@ -1379,6 +1580,9 @@
   "Audio Streams": 9,
   "Audio Codec": "TrueHD Atmos;AC-3;AC-3;AC-3;E-AC3;E-AC3;E-AC3;E-AC3;E-AC3",
   "Audio Channels": "8;6;2;6;8;8;8;8;8",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000;48000;48000;48000;48000",
+  "Audio Bitrate": ";640;320;640;1024;1024;1024;1024;1024",
+  "Audio Title": ";;;;;;;;",
   "IMDb ID": "tt4154664"
  },
  {
@@ -1398,6 +1602,9 @@
   "Audio Streams": 1,
   "Audio Codec": "AC-3",
   "Audio Channels": "2",
+  "Audio Sample Rate": "48000",
+  "Audio Bitrate": "192",
+  "Audio Title": "Stereo",
   "IMDb ID": "tt0024264"
  },
  {
@@ -1417,6 +1624,9 @@
   "Audio Streams": 4,
   "Audio Codec": "AC-3;AC-3;AC-3;AC-3",
   "Audio Channels": "6;6;6;2",
+  "Audio Sample Rate": "48000;48000;48000;48000",
+  "Audio Bitrate": "448;448;448;192",
+  "Audio Title": "Surround 5.1;Surround 5.1;Surround 5.1;Stereo",
   "IMDb ID": "tt0110367"
  },
  {
@@ -1435,6 +1645,8 @@
   "Audio Streams": 1,
   "Audio Codec": "AAC LC",
   "Audio Channels": "2",
+  "Audio Sample Rate": "44100",
+  "Audio Bitrate": "124",
   "IMDb ID": "tt0041594"
  },
  {
@@ -1455,6 +1667,9 @@
   "Audio Streams": 10,
   "Audio Codec": "TrueHD Atmos;AC-3;DTS-HD MA;AC-3;DTS;DTS;DTS;DTS;AC-3;AC-3",
   "Audio Channels": "8;6;2;6;6;6;6;6;6;6",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000;48000;48000;48000;48000;48000",
+  "Audio Bitrate": ";640;;448;768;768;768;768;448;448",
+  "Audio Title": ";;;;;;;;;",
   "Playback Info": "(1:3)(7:Streams)(6:0,1,23)(2:CC)(1:0)(9:Subtitles)(4:None)",
   "IMDb ID": "tt1950186"
  },
@@ -1476,6 +1691,9 @@
   "Audio Streams": 10,
   "Audio Codec": "TrueHD Atmos;AC-3;AC-3;DTS-HD MA;DTS-HD MA;DTS-HD MA;AC-3;DTS-HD MA;AC-3;AC-3",
   "Audio Channels": "8;6;6;6;6;6;6;6;6;6",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000;48000;48000;48000;48000;48000",
+  "Audio Bitrate": ";640;640;;;;640;;640;640",
+  "Audio Title": ";;;;;;;;;",
   "Playback Info": "(1:4)(7:Streams)(6:0,2,32)(2:CC)(1:0)(12:CenterOffset)(4:0,-1)(11:ZoomPercent)(2:96)",
   "IMDb ID": "tt6320628"
  },
@@ -1497,6 +1715,9 @@
   "Audio Streams": 5,
   "Audio Codec": "TrueHD Atmos;AC-3;E-AC3;AC-3;AC-3",
   "Audio Channels": "8;6;8;2;2",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000",
+  "Audio Bitrate": ";448;768;192;192",
+  "Audio Title": ";;;;",
   "Playback Info": "(1:2)(7:Streams)(6:0,2,13)(2:CC)(1:0)",
   "IMDb ID": "tt8579674"
  },
@@ -1517,6 +1738,8 @@
   "Audio Streams": 1,
   "Audio Codec": "PCM_BLURAY",
   "Audio Channels": "2",
+  "Audio Sample Rate": "48000",
+  "Audio Bitrate": "2304",
   "Playback Info": "(1:2)(7:Streams)(5:0,1,2)(2:CC)(1:0)",
   "IMDb ID": "tt0318202"
  },
@@ -1537,6 +1760,9 @@
   "Audio Streams": 4,
   "Audio Codec": "AC-3;AC-3;DTS;AC-3",
   "Audio Channels": "6;2;6;2",
+  "Audio Sample Rate": "48000;48000;48000;48000",
+  "Audio Bitrate": "448;256;754;224",
+  "Audio Title": "Surround 5.1;Stereo;Surround 5.1;Stereo",
   "Playback Info": "(1:2)(7:Streams)(5:0,1,5)(2:CC)(1:0)",
   "IMDb ID": "tt0929632"
  },
@@ -1557,6 +1783,8 @@
   "Audio Streams": 1,
   "Audio Codec": "PCM_BLURAY",
   "Audio Channels": "1",
+  "Audio Sample Rate": "48000",
+  "Audio Bitrate": "2304",
   "Playback Info": "(1:2)(7:Streams)(5:0,1,3)(2:CC)(1:0)",
   "IMDb ID": "tt0078841"
  },
@@ -1578,6 +1806,9 @@
   "Audio Streams": 5,
   "Audio Codec": "DTS-HD MA + DTS:X;AC-3;AC-3;AC-3;DTS",
   "Audio Channels": "8;6;6;2;2",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000",
+  "Audio Bitrate": ";640;640;224;768",
+  "Audio Title": ";;;;",
   "Playback Info": "(1:3)(7:Streams)(6:0,1,11)(2:CC)(1:0)(9:Subtitles)(4:None)",
   "IMDb ID": "tt4572514"
  },
@@ -1599,6 +1830,9 @@
   "Audio Streams": 2,
   "Audio Codec": "DTS-HD MA;AC-3",
   "Audio Channels": "6;6",
+  "Audio Sample Rate": "48000;48000",
+  "Audio Bitrate": ";640",
+  "Audio Title": ";",
   "Playback Info": "(1:2)(7:Streams)(5:0,1,4)(2:CC)(1:0)",
   "IMDb ID": "tt6723592"
  },
@@ -1619,6 +1853,9 @@
   "Audio Streams": 3,
   "Audio Codec": "DTS-HD MA;AC-3;AC-3",
   "Audio Channels": "6;2;1",
+  "Audio Sample Rate": "48000;48000;48000",
+  "Audio Bitrate": ";192;192",
+  "Audio Title": ";;",
   "Playback Info": "(1:3)(7:Streams)(5:0,1,7)(2:CC)(1:0)(14:BlurayPlaylist)(10:00100.mpls)",
   "IMDb ID": "tt0047522"
  },
@@ -1655,6 +1892,7 @@
   "Audio Streams": 1,
   "Audio Codec": "DTS-HD MA",
   "Audio Channels": "6",
+  "Audio Sample Rate": "48000",
   "Playback Info": "(1:1)(14:BlurayPlaylist)(10:00000.mpls)",
   "IMDb ID": "tt11760792"
  },
@@ -1675,7 +1913,10 @@
   "Audio Language": "English;English;French;German;Italian;Spanish;Japanese",
   "Audio Streams": 7,
   "Audio Codec": "TrueHD Atmos;AC-3;DTS-HD MA;DTS-HD MA;DTS-HD MA;DTS-HD MA;DTS-HD MA",
-  "Audio Channels": "8;6;6;7;6;6;6"
+  "Audio Channels": "8;6;6;7;6;6;6",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000;48000;48000",
+  "Audio Bitrate": ";448;;;;;",
+  "Audio Title": ";;;;;;"
  },
  {
   "Key": 1620885,
@@ -1694,6 +1935,7 @@
   "Audio Streams": 1,
   "Audio Codec": "DTS-HD MA",
   "Audio Channels": "6",
+  "Audio Sample Rate": "48000",
   "IMDb ID": "tt0067023"
  },
  {
@@ -1710,7 +1952,9 @@
   "Audio Language": "English",
   "Audio Streams": 1,
   "Audio Codec": "DTS",
-  "Audio Channels": "6"
+  "Audio Channels": "6",
+  "Audio Sample Rate": "48000",
+  "Audio Bitrate": "768"
  },
  {
   "Key": 1645201,
@@ -1728,6 +1972,9 @@
   "Audio Streams": 1,
   "Audio Codec": "AC-3",
   "Audio Channels": "2",
+  "Audio Sample Rate": "48000",
+  "Audio Bitrate": "192",
+  "Audio Title": "Stereo",
   "IMDb ID": "tt0098319"
  },
  {
@@ -1747,6 +1994,8 @@
   "Audio Streams": 1,
   "Audio Codec": "PCM_BLURAY",
   "Audio Channels": "1",
+  "Audio Sample Rate": "48000",
+  "Audio Bitrate": "2304",
   "IMDb ID": "tt0037913"
  },
  {
@@ -1766,6 +2015,9 @@
   "Audio Streams": 3,
   "Audio Codec": "PCM_BLURAY;AC-3;PCM_BLURAY",
   "Audio Channels": "1;2;2",
+  "Audio Sample Rate": "48000;48000;48000",
+  "Audio Bitrate": "2304;192;2304",
+  "Audio Title": ";;",
   "Playback Info": "(1:3)(7:Streams)(5:0,1,4)(2:CC)(1:0)(14:BlurayPlaylist)(10:00335.mpls)",
   "IMDb ID": "tt0045555"
  },
@@ -1786,6 +2038,8 @@
   "Audio Streams": 1,
   "Audio Codec": "PCM_BLURAY",
   "Audio Channels": "2",
+  "Audio Sample Rate": "48000",
+  "Audio Bitrate": "2304",
   "Playback Info": "(1:2)(7:Streams)(5:0,1,2)(2:CC)(1:0)",
   "IMDb ID": "tt0055852"
  },
@@ -1807,6 +2061,9 @@
   "Audio Streams": 15,
   "Audio Codec": "TrueHD Atmos;AC-3;DTS-HD MA;DTS-HD MA;AC-3;DTS-HD MA;DTS-HD MA;AC-3;DTS-HD MA;DTS-HD MA;AC-3;AC-3;DTS-HD MA;AC-3;AC-3",
   "Audio Channels": "8;6;6;2;6;6;6;6;6;6;6;6;6;6;6",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000;48000;48000;48000;48000;48000;48000;48000;48000;48000;48000",
+  "Audio Bitrate": ";640;;;640;;;640;;;640;640;;640;640",
+  "Audio Title": ";;;;;;;;;;;;;;",
   "Playback Info": "(1:2)(2:CC)(1:0)(9:Subtitles)(4:None)",
   "IMDb ID": "tt0097441"
  },
@@ -1825,6 +2082,9 @@
   "Audio Streams": 6,
   "Audio Codec": "DTS-HD MA;AC-3;DTS-HD MA;DTS-HD MA;AC-3;AC-3",
   "Audio Channels": "6;6;6;6;2;2",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000;48000",
+  "Audio Bitrate": ";640;;;192;192",
+  "Audio Title": ";;;;;",
   "Playback Info": "(1:3)(7:Streams)(5:0,1,7)(2:CC)(1:0)(11:AspectRatio)(32:(1:5)(2:-1)(1:0)(6:589840)(2:-1))"
  },
  {
@@ -1844,6 +2104,9 @@
   "Audio Streams": 2,
   "Audio Codec": "DTS-HD MA;AC-3",
   "Audio Channels": "6;2",
+  "Audio Sample Rate": "48000;48000",
+  "Audio Bitrate": ";448",
+  "Audio Title": ";",
   "Playback Info": "(1:3)(12:JRVRProfiles)(35:(1:0)(25:(14:DISPLAY#DEVICE)(2:-1)))(7:Streams)(5:0,1,4)(2:CC)(1:0)",
   "IMDb ID": "tt0465538"
  },
@@ -1864,6 +2127,7 @@
   "Audio Streams": 1,
   "Audio Codec": "DTS-HD MA",
   "Audio Channels": "2",
+  "Audio Sample Rate": "48000",
   "Playback Info": "(1:2)(7:Streams)(5:0,1,2)(2:CC)(1:0)",
   "IMDb ID": "tt0075441"
  },
@@ -1884,6 +2148,9 @@
   "Audio Streams": 2,
   "Audio Codec": "PCM_BLURAY;AC-3",
   "Audio Channels": "1;2",
+  "Audio Sample Rate": "48000;48000",
+  "Audio Bitrate": "2304;192",
+  "Audio Title": ";",
   "Playback Info": "(1:2)(7:Streams)(5:0,1,3)(2:CC)(1:0)"
  },
  {
@@ -1903,6 +2170,9 @@
   "Audio Streams": 4,
   "Audio Codec": "AC-3;AC-3;AC-3;AC-3",
   "Audio Channels": "2;2;2;2",
+  "Audio Sample Rate": "48000;48000;48000;48000",
+  "Audio Bitrate": "192;192;192;192",
+  "Audio Title": "Stereo;Stereo;Stereo;Stereo",
   "Playback Info": "(1:1)(7:Streams)(5:0,1,5)",
   "IMDb ID": "tt0037008"
  },
@@ -1925,6 +2195,9 @@
   "Audio Streams": 8,
   "Audio Codec": "AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3",
   "Audio Channels": "6;6;6;6;6;2;2;2",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000;48000;48000;48000",
+  "Audio Bitrate": "384;384;384;384;384;192;192;192",
+  "Audio Title": "Surround 5.1;Surround 5.1;Surround 5.1;Surround 5.1;Surround 5.1;Stereo;Stereo;Stereo",
   "IMDb ID": "tt4925292",
   "TheMovieDB Movie ID": 391713
  },
@@ -1945,6 +2218,9 @@
   "Audio Streams": 7,
   "Audio Codec": "DTS-HD MA;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3",
   "Audio Channels": "2;2;2;2;2;2;2",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000;48000;48000",
+  "Audio Bitrate": ";192;192;192;192;192;192",
+  "Audio Title": ";;;;;;",
   "Playback Info": "(1:3)(7:Streams)(5:0,1,8)(2:CC)(1:0)(11:AspectRatio)(26:(1:5)(2:-1)(1:0)(1:0)(1:0))",
   "IMDb ID": "tt0100404"
  },
@@ -1965,6 +2241,7 @@
   "Audio Streams": 1,
   "Audio Codec": "DTS-HD MA",
   "Audio Channels": "6",
+  "Audio Sample Rate": "48000",
   "IMDb ID": "tt12672620",
   "TheMovieDB Movie ID": 845111
  },
@@ -1985,6 +2262,9 @@
   "Audio Streams": 5,
   "Audio Codec": "AC-3;DTS;AC-3;AC-3;AC-3",
   "Audio Channels": "6;6;6;2;2",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000",
+  "Audio Bitrate": "384;754;384;192;192",
+  "Audio Title": "Surround 5.1;Surround 5.1;Surround 5.1;Stereo;Stereo",
   "IMDb ID": "tt0289765",
   "TheMovieDB Movie ID": 9533
  },
@@ -2005,6 +2285,9 @@
   "Audio Streams": 5,
   "Audio Codec": "AC-3;AC-3;AC-3;AC-3;AC-3",
   "Audio Channels": "4;2;2;2;2",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000",
+  "Audio Bitrate": "384;192;192;192;192",
+  "Audio Title": "Surround 4.0;Stereo;Stereo;Stereo;Stereo",
   "IMDb ID": "tt0100150",
   "TheMovieDB Movie ID": 379
  },
@@ -2025,6 +2308,9 @@
   "Audio Streams": 1,
   "Audio Codec": "AC-3",
   "Audio Channels": "6",
+  "Audio Sample Rate": "48000",
+  "Audio Bitrate": "448",
+  "Audio Title": "Surround 5.1",
   "Playback Info": "(1:2)(7:Streams)(5:0,1,2)(2:CC)(1:0)",
   "IMDb ID": "tt0091474",
   "TheMovieDB Movie ID": 11454
@@ -2046,6 +2332,9 @@
   "Audio Streams": 2,
   "Audio Codec": "AC-3;AC-3",
   "Audio Channels": "2;2",
+  "Audio Sample Rate": "48000;48000",
+  "Audio Bitrate": "224;224",
+  "Audio Title": "Stereo;Stereo",
   "Playback Info": "(1:2)(7:Streams)(5:0,1,3)(2:CC)(1:0)",
   "IMDb ID": "tt0091474",
   "TheMovieDB Movie ID": 11454
@@ -2067,6 +2356,9 @@
   "Audio Streams": 3,
   "Audio Codec": "AC-3;DTS;AC-3",
   "Audio Channels": "6;6;2",
+  "Audio Sample Rate": "48000;48000;48000",
+  "Audio Bitrate": "384;754;192",
+  "Audio Title": "Surround 5.1;Surround 5.1;Stereo",
   "Playback Info": "(1:2)(7:Streams)(5:0,1,4)(2:CC)(1:0)",
   "IMDb ID": "tt0212985",
   "TheMovieDB Movie ID": 9740
@@ -2088,6 +2380,9 @@
   "Audio Streams": 2,
   "Audio Codec": "AC-3;AC-3",
   "Audio Channels": "6;2",
+  "Audio Sample Rate": "48000;48000",
+  "Audio Bitrate": "448;192",
+  "Audio Title": "Surround 5.1;Stereo",
   "Playback Info": "(1:3)(7:Streams)(5:0,1,3)(2:CC)(1:0)(9:Subtitles)(4:None)",
   "IMDb ID": "tt0313542",
   "TheMovieDB Movie ID": 11329
@@ -2110,6 +2405,9 @@
   "Audio Streams": 3,
   "Audio Codec": "DTS-HD MA;AC-3;AC-3",
   "Audio Channels": "2;2;2",
+  "Audio Sample Rate": "48000;48000;48000",
+  "Audio Bitrate": ";192;192",
+  "Audio Title": ";;",
   "IMDb ID": "tt0046268",
   "TheMovieDB Movie ID": 204
  },
@@ -2131,6 +2429,9 @@
   "Audio Streams": 2,
   "Audio Codec": "TrueHD Atmos;AC-3",
   "Audio Channels": "8;6",
+  "Audio Sample Rate": "48000;48000",
+  "Audio Bitrate": ";640",
+  "Audio Title": ";",
   "IMDb ID": "tt17279496",
   "TheMovieDB Movie ID": 929590
  },
@@ -2151,6 +2452,9 @@
   "Audio Streams": 3,
   "Audio Codec": "PCM_BLURAY;DTS-HD MA;PCM_BLURAY",
   "Audio Channels": "2;6;2",
+  "Audio Sample Rate": "48000;48000;48000",
+  "Audio Bitrate": "2304;;2304",
+  "Audio Title": ";;",
   "Playback Info": "(1:2)(7:Streams)(5:0,2,4)(2:CC)(1:0)",
   "IMDb ID": "tt6902696",
   "TheMovieDB Movie ID": 491473
@@ -2172,6 +2476,9 @@
   "Audio Streams": 1,
   "Audio Codec": "AC-3",
   "Audio Channels": "6",
+  "Audio Sample Rate": "48000",
+  "Audio Bitrate": "384",
+  "Audio Title": "Surround 5.1",
   "Playback Info": "(1:2)(7:Streams)(5:0,1,2)(2:CC)(1:0)",
   "IMDb ID": "tt0498399",
   "TheMovieDB Movie ID": 2001
@@ -2193,6 +2500,9 @@
   "Audio Streams": 1,
   "Audio Codec": "AC-3",
   "Audio Channels": "6",
+  "Audio Sample Rate": "48000",
+  "Audio Bitrate": "384",
+  "Audio Title": "Surround 5.1",
   "IMDb ID": "tt0094947",
   "TheMovieDB Movie ID": 859
  },
@@ -2213,6 +2523,8 @@
   "Audio Streams": 1,
   "Audio Codec": "PCM_BLURAY",
   "Audio Channels": "1",
+  "Audio Sample Rate": "48000",
+  "Audio Bitrate": "2304",
   "IMDb ID": "tt0067549",
   "TheMovieDB Movie ID": 27554
  },
@@ -2234,6 +2546,7 @@
   "Audio Streams": 1,
   "Audio Codec": "PCM_BLURAY",
   "Audio Channels": "0",
+  "Audio Sample Rate": "0",
   "Playback Info": "(1:2)(7:Streams)(5:0,1,2)(2:CC)(1:0)",
   "IMDb ID": "tt0062229",
   "TheMovieDB Movie ID": 5511
@@ -2255,6 +2568,9 @@
   "Audio Streams": 1,
   "Audio Codec": "AC-3",
   "Audio Channels": "2",
+  "Audio Sample Rate": "48000",
+  "Audio Bitrate": "224",
+  "Audio Title": "Stereo",
   "IMDb ID": "tt0116277",
   "TheMovieDB Movie ID": 9566
  },
@@ -2275,6 +2591,9 @@
   "Audio Streams": 2,
   "Audio Codec": "AC-3;AC-3",
   "Audio Channels": "6;2",
+  "Audio Sample Rate": "48000;48000",
+  "Audio Bitrate": "448;224",
+  "Audio Title": "Surround 5.1;Stereo",
   "Playback Info": "(1:3)(7:Streams)(5:0,1,3)(2:CC)(1:0)(9:Subtitles)(4:None)",
   "IMDb ID": "tt1931533",
   "TheMovieDB Movie ID": 86838
@@ -2294,6 +2613,8 @@
   "Audio Streams": 1,
   "Audio Codec": "PCM_BLURAY",
   "Audio Channels": "2",
+  "Audio Sample Rate": "48000",
+  "Audio Bitrate": "2304",
   "TheMovieDB Movie ID": 1429057
  },
  {
@@ -2312,6 +2633,9 @@
   "Audio Streams": 13,
   "Audio Codec": "DTS-HD MA;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3;AC-3",
   "Audio Channels": "6;2;2;2;2;2;6;2;2;2;2;2;2",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000;48000;48000;48000;48000;48000;48000;48000;48000",
+  "Audio Bitrate": ";192;192;192;192;192;640;192;192;192;192;192;192",
+  "Audio Title": ";;;;;;;;;;;;",
   "Playback Info": "(1:2)(7:Streams)(6:0,1,14)(2:CC)(1:0)"
  },
  {
@@ -2346,6 +2670,9 @@
   "Audio Streams": 2,
   "Audio Codec": "PCM_BLURAY;DTS-HD MA",
   "Audio Channels": "2;6",
+  "Audio Sample Rate": "48000;48000",
+  "Audio Bitrate": "2304;",
+  "Audio Title": ";",
   "IMDb ID": "tt30319503",
   "TheMovieDB Movie ID": 1158915
  },
@@ -2368,6 +2695,9 @@
   "Audio Streams": 2,
   "Audio Codec": "AC-3;AC-3",
   "Audio Channels": "6;2",
+  "Audio Sample Rate": "48000;48000",
+  "Audio Bitrate": "448;192",
+  "Audio Title": "Surround 5.1;Stereo",
   "IMDb ID": "tt0208874",
   "TheMovieDB Movie ID": 6521
  },
@@ -2388,6 +2718,7 @@
   "Audio Streams": 1,
   "Audio Codec": "DTS-HD MA",
   "Audio Channels": "6",
+  "Audio Sample Rate": "48000",
   "Playback Info": "(1:3)(7:Streams)(5:0,1,3)(2:CC)(1:0)(9:Subtitles)(4:None)",
   "IMDb ID": "tt8772262",
   "TheMovieDB Movie ID": 530385
@@ -2409,6 +2740,9 @@
   "Audio Streams": 2,
   "Audio Codec": "AC-3;AC-3",
   "Audio Channels": "6;2",
+  "Audio Sample Rate": "48000;48000",
+  "Audio Bitrate": "384;192",
+  "Audio Title": "Surround 5.1;Stereo",
   "IMDb ID": "tt1707386",
   "TheMovieDB Movie ID": 82695
  },
@@ -2429,6 +2763,9 @@
   "Audio Streams": 3,
   "Audio Codec": "DTS-HD MA;DTS-HD MA;AC-3",
   "Audio Channels": "6;2;2",
+  "Audio Sample Rate": "48000;48000;48000",
+  "Audio Bitrate": ";;448",
+  "Audio Title": ";;",
   "IMDb ID": "tt28277817",
   "TheMovieDB Movie ID": 1128752
  },
@@ -2449,6 +2786,9 @@
   "Audio Streams": 2,
   "Audio Codec": "PCM_BLURAY;DTS-HD MA",
   "Audio Channels": "2;8",
+  "Audio Sample Rate": "48000;48000",
+  "Audio Bitrate": "2304;",
+  "Audio Title": ";",
   "TheMovieDB Movie ID": 1281775
  },
  {
@@ -2468,6 +2808,9 @@
   "Audio Streams": 3,
   "Audio Codec": "AC-3;AC-3;AC-3",
   "Audio Channels": "2;6;2",
+  "Audio Sample Rate": "48000;48000;48000",
+  "Audio Bitrate": "192;448;192",
+  "Audio Title": "Stereo;Surround 5.1;Stereo",
   "Playback Info": "(1:2)(7:Streams)(3:0,2)(2:CC)(1:0)",
   "IMDb ID": "tt10199590"
  },
@@ -2488,6 +2831,9 @@
   "Audio Streams": 6,
   "Audio Codec": "TrueHD Atmos;AC-3;AC-3;AC-3;AC-3;AC-3",
   "Audio Channels": "8;6;6;6;6;6",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000;48000",
+  "Audio Bitrate": ";448;640;640;640;640",
+  "Audio Title": ";;;;;",
   "Playback Info": "(1:2)(7:Streams)(5:0,1,7)(2:CC)(1:0)",
   "IMDb ID": "tt12300742",
   "TheMovieDB Movie ID": 701387
@@ -2509,6 +2855,9 @@
   "Audio Streams": 2,
   "Audio Codec": "DTS-HD MA;DTS-HD MA",
   "Audio Channels": "6;2",
+  "Audio Sample Rate": "48000;48000",
+  "Audio Bitrate": ";",
+  "Audio Title": ";",
   "Playback Info": "(1:2)(7:Streams)(5:0,1,6)(2:CC)(1:0)",
   "IMDb ID": "tt32298285",
   "TheMovieDB Movie ID": 1151272
@@ -2530,6 +2879,9 @@
   "Audio Streams": 3,
   "Audio Codec": "AC-3;AC-3;AC-3",
   "Audio Channels": "6;2;2",
+  "Audio Sample Rate": "48000;48000;48000",
+  "Audio Bitrate": "448;192;192",
+  "Audio Title": "Surround 5.1;Stereo;Stereo",
   "IMDb ID": "tt1878870",
   "TheMovieDB Movie ID": 376660
  },
@@ -2550,6 +2902,9 @@
   "Audio Streams": 6,
   "Audio Codec": "AC-3;AC-3;AC-3;AC-3;AC-3;AC-3",
   "Audio Channels": "6;6;6;6;2;6",
+  "Audio Sample Rate": "48000;48000;48000;48000;48000;48000",
+  "Audio Bitrate": "448;384;384;384;192;384",
+  "Audio Title": "Surround 5.1;Surround 5.1;Surround 5.1;Surround 5.1;Stereo;Surround 5.1",
   "Playback Info": "(1:3)(7:Streams)(5:0,1,9)(2:CC)(1:0)(9:Subtitles)(4:None)",
   "IMDb ID": "tt0115988",
   "TheMovieDB Movie ID": 20539
@@ -2571,6 +2926,9 @@
   "Audio Streams": 1,
   "Audio Codec": "AC-3",
   "Audio Channels": "2",
+  "Audio Sample Rate": "48000",
+  "Audio Bitrate": "192",
+  "Audio Title": "Stereo",
   "IMDb ID": "tt0097322",
   "TheMovieDB Movie ID": 10875
  },
@@ -2591,6 +2949,9 @@
   "Audio Streams": 1,
   "Audio Codec": "AC-3",
   "Audio Channels": "2",
+  "Audio Sample Rate": "48000",
+  "Audio Bitrate": "192",
+  "Audio Title": "Stereo",
   "IMDb ID": "tt0292453",
   "TheMovieDB Movie ID": 333831
  },
@@ -2611,6 +2972,9 @@
   "Audio Streams": 1,
   "Audio Codec": "AC-3",
   "Audio Channels": "2",
+  "Audio Sample Rate": "48000",
+  "Audio Bitrate": "192",
+  "Audio Title": "Stereo",
   "Playback Info": "(1:2)(7:Streams)(5:0,1,4)(2:CC)(1:0)",
   "IMDb ID": "tt0043299",
   "TheMovieDB Movie ID": 45581

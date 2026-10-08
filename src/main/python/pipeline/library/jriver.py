@@ -151,7 +151,8 @@ class JRiverLibrarySource:
     FIELDS = (
         'Filename', 'Name', 'Year', 'Date Modified', 'File Size', 'Image File', 'Media Sub Type', 'Series',
         'Season', 'Episode', 'Genre', 'Description', 'Rating', 'Length', 'Audio Format', 'Audio Language', 'Edition',
-        'Audio Streams', 'Audio Codec', 'Audio Channels', 'Playback Info',
+        'Audio Streams', 'Audio Codec', 'Audio Channels', 'Audio Sample Rate', 'Audio Bitrate', 'Audio Title',
+        'Playback Info',
     )
     DEFAULT_EXTERNAL_ID_FIELDS = DEFAULT_EXTERNAL_ID_FIELDS
 
@@ -305,16 +306,30 @@ def _metadata(row: Mapping[str, Any], audio_stream: int = 0) -> dict:
     return {key: value for key, value in values.items() if value not in ('', [], None)}
 
 
+# JRiver's per-stream list fields (semicolon-separated, in the container's audio-stream order) -> the detail's key. An
+# empty entry is a stream the field says nothing about (a lossless stream has no `Audio Bitrate`), and is left out.
+_STREAM_FIELDS = (('Audio Sample Rate', 'sample_rate'), ('Audio Bitrate', 'bitrate'), ('Audio Language', 'language'),
+                  ('Audio Title', 'title'))
+
+
 def _audio_stream_details(row: Mapping[str, Any]) -> tuple[dict, ...]:
-    '''JRiver's semicolon-delimited stream fields, made selectable without leaking them into published metadata.'''
+    '''
+    JRiver's semicolon-delimited stream fields, made selectable without leaking them into published metadata: per
+    stream, its codec, channel count and audio types, and its sample rate (Hz), bitrate (kbps), language and title when
+    the server reports them (pipeline.library.streams.describe_stream() says it in words).
+    '''
     codecs = _split_streams(_value(row, 'Audio Codec') or _value(row, 'Audio Format'))
     channels = _split_streams(_value(row, 'Audio Channels'))
+    extra = {key: _split_streams(_value(row, field)) for field, key in _STREAM_FIELDS}
     count = max(len(codecs), len(channels), int(_value(row, 'Audio Streams') or 0))
-    return tuple({'codec': codecs[i] if i < len(codecs) else '',
-                  'channels': channels[i] if i < len(channels) else '',
-                  'audio_types': _audio_types(codecs[i] if i < len(codecs) else '',
-                                               channels[i] if i < len(channels) else '')}
-                 for i in range(count))
+    details = []
+    for i in range(count):
+        codec = codecs[i] if i < len(codecs) else ''
+        channel = channels[i] if i < len(channels) else ''
+        detail = {'codec': codec, 'channels': channel, 'audio_types': _audio_types(codec, channel)}
+        detail.update((key, values[i]) for key, values in extra.items() if i < len(values) and values[i])
+        details.append(detail)
+    return tuple(details)
 
 
 def _split_streams(value: str) -> list[str]:

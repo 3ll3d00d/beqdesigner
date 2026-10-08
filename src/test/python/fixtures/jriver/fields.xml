@@ -27,7 +27,10 @@
 <Field Name="Audio Streams" DataType="Integer" EditType="Not editable" Type="" DisplayName="Audio Streams" />
 <Field Name="Audio Codec" DataType="List" EditType="Not editable" Type="" DisplayName="Audio Codec" />
 <Field Name="Audio Channels" DataType="List" EditType="Not editable" Type="" DisplayName="Audio Channels" />
+<Field Name="Audio Sample Rate" DataType="List" EditType="Not editable" Type="" DisplayName="Audio Sample Rate" />
+<Field Name="Audio Bitrate" DataType="List" EditType="Not editable" Type="" DisplayName="Audio Bitrate" />
 <Field Name="Audio Language" DataType="List" EditType="Not editable" Type="" DisplayName="Audio Language" />
+<Field Name="Audio Title" DataType="List" EditType="Not editable" Type="" DisplayName="Audio Title" />
 <Field Name="TheMovieDB Movie ID" DataType="Integer" EditType="Standard" Type="SavedInTag" DisplayName="TheMovieDB Movie ID" />
 <Field Name="IMDb Series ID" DataType="String" EditType="Standard" Type="SavedInTag" DisplayName="IMDb Series ID" />
 </Fields>

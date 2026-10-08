@@ -157,6 +157,20 @@ def test_every_audio_stream_mc_lists_is_a_choice(items):
         assert len(details) == int(row.get('Audio Streams') or 0)
         assert [d['codec'] for d in details] == ([c.strip() for c in row['Audio Codec'].split(';')]
                                                 if row.get('Audio Codec') else [])
+        for field, key in (('Audio Sample Rate', 'sample_rate'), ('Audio Bitrate', 'bitrate'),
+                           ('Audio Language', 'language'), ('Audio Title', 'title')):
+            reported = str(row.get(field, '')).split(';') if row.get(field) not in (None, '') else []
+            for i, detail in enumerate(details):   # in stream order; a stream the field leaves blank has no value
+                value = reported[i].strip() if i < len(reported) else ''
+                assert detail.get(key, '') == value, (row['Key'], field, i)
+
+
+def test_per_stream_fields_are_reported_and_a_lossless_stream_has_no_bitrate(items):
+    listed, _ = items
+    details = [d for item in listed for d in item.audio_stream_details]
+    assert sum('sample_rate' in d for d in details) > len(details) / 2
+    assert any(d['codec'].startswith(('DTS-HD MA', 'TrueHD')) and 'bitrate' not in d for d in details)
+    assert any('bitrate' in d for d in details if d['codec'] == 'AC-3')
 
 
 def test_the_browse_tree_is_read_as_mc_sends_it():

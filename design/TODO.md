@@ -44,7 +44,7 @@ validation and steep-filter default are outside it.
 |---|---|---|---|---|---|
 | 6 | C1 | R | chunk S5 | amd64 build and smoke verified; arm64 build and GHCR publish not yet run | A green `main`; the first tag push |
 | 7 | J2 | R | chunk 40 | Not started beyond the seam; Playback Info captured (E1), ffprobe of the same files missing | ffprobe of the fixture's titles (the media share mounted) |
-| 8 | W2 | R | chunk 45b | Partial in `62270b4`: codec, channels and stream count are requested | J2 for automatic stream selection; manual override already exists |
+| 8 | W2 | R | chunk 45b | Partial: codec, channels, sample rate, bitrate, language and title per stream, in words in the chooser | J2 for automatic stream selection; manual override already exists |
 | 10 | R8 | R | -- | Not started; the library never sends bass management | beqforge TODO #1 for the designer side |
 | 11 | D4 | R | by-reference §5 | Planned; not started. Release needs only the per-entry record | Designer build identity policy (full drift behavior only) |
 | 12 | R5 | R | -- | Not started; no retention or free-space check | Product decision on kept audio |
@@ -112,9 +112,11 @@ already built; J2 supplies their automatic initial choice.
 JRiver now requests per-stream codec, channel count and stream count, using
 the first selected codec to fill automatic audio metadata. A rescan fills an
 existing queue entry when its audio type is absent or still the prior automatic
-value; a different reviewer value is kept. Still request
-per-stream sample rate, bitrate, language and title fields and normalize
-them into readable audio-list choices, retaining ordinals. If a source does
+value; a different reviewer value is kept. Per-stream sample rate, bitrate,
+language and title are requested too (`_STREAM_FIELDS`, kept in each stream's
+detail when MC reports them), and the title page's choice lists each stream
+as `pipeline.library.streams.describe_stream()` says it ("2: AC-3 5.1, French,
+48 kHz, 640 kbps"), in source order. If a source does
 not supply a useful list, ffprobe only that title's
 mapped local source on a worker; explain a missing/unplayable file with the
 title and path. Show the chosen stream, actual channel count and Keep

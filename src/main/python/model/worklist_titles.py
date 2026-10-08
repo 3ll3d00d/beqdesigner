@@ -34,6 +34,7 @@ from pipeline.config import AnalysisConfig
 from pipeline.library.index import LibraryIndex
 from pipeline.library.profile import Profile
 from pipeline.library.status import ScanSettings
+from pipeline.library.streams import describe_streams
 from pipeline.library.revise import revise_entry
 from pipeline.review import read_entry, update_entry
 
@@ -176,10 +177,7 @@ class WorkListTitles:
             old = self._index.units([title_id]).get(title_id)
             if old is None or not hasattr(old, 'audio_stream_details') or not old.audio_stream_details:
                 raise ValueError('this source did not provide an audio-stream list; rescan the library first')
-            labels = []
-            for i, detail in enumerate(old.audio_stream_details):
-                bits = [detail.get('codec', ''), detail.get('channels', '') + ' channels' if detail.get('channels') else '']
-                labels.append(f'{i + 1}: ' + ' '.join(bit for bit in bits if bit).strip())
+            labels = describe_streams(old.audio_stream_details)
             value, accepted = QInputDialog.getInt(self, 'Choose audio stream',
                                                    'Audio stream (see the list below):\n' + '\n'.join(labels),
                                                    old.audio_stream + 1, 1, len(labels))

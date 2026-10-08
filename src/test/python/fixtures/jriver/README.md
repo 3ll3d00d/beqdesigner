@@ -48,6 +48,11 @@ sanitises; rerun it to refresh the fixture.
   another film's disc). There are no `BDMV\PLAYLIST\index.bluray;N`
   pseudo-paths (E4's premise) and no DVDs (E3). Two disc folders are listed by
   more than one entry.
+- Audio streams (recaptured the same day once the source asked for them,
+  W2): `Audio Codec`, `Audio Channels`, `Audio Sample Rate`, `Audio Bitrate`,
+  `Audio Language` and `Audio Title` are semicolon lists in stream order. An
+  entry is blank where MC has nothing: a lossless stream has no bitrate, and
+  titles are mostly blank (`;;;;`).
 - Artwork: `Image File` is a bare file name beside the media (`index.jpg`) on
   1,289 rows and absent on 2. There is no `INTERNAL` artwork.
 - Identity: `Key` is unique per row.

@@ -150,7 +150,8 @@ def test_browse_requests_stream_codecs_and_uses_them_for_audio_metadata():
         item = list(JRiverLibrarySource('127.0.0.1', port, 42).list_items())[0]
 
     fields = set(parse_qs(requests[0].query)['Fields'][0].split(','))
-    assert {'Audio Streams', 'Audio Codec', 'Audio Channels'} <= fields
+    assert {'Audio Streams', 'Audio Codec', 'Audio Channels', 'Audio Sample Rate', 'Audio Bitrate', 'Audio Language',
+            'Audio Title'} <= fields
     assert item.meta['audio_types'] == ['Atmos']
     assert item.audio_stream_details == (
         {'codec': 'TrueHD Atmos', 'channels': '8', 'audio_types': ('Atmos',)},
