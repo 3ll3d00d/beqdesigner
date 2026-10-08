@@ -220,6 +220,27 @@ def check_takes_references(url: str, timeout: float = 10.0, headers: Optional[di
                                 f"take by_reference off this designer")
 
 
+def check_designer(url: str, *, by_reference: bool = False, timeout: float = 10.0,
+                   headers: Optional[dict] = None) -> None:
+    '''
+    Asks the designer's `/health` whether it is up (and, for a `by_reference` designer, whether it can take references,
+    as check_takes_references does) -- what a scheduled run asks before it starts. Only a 1.2 designer must serve
+    `/health` (§7.1), so for any other an answer of any kind is up -- a 404 or a 501 from a 1.0 designer included --
+    and only no answer, or a gateway's 502/503/504, is down.
+    :raises DesignerUnavailable: naming what went wrong, if it did not answer or cannot do what it is declared to.
+    '''
+    if by_reference:
+        check_takes_references(url, timeout=timeout, headers=headers)
+        return
+    target = health_url(url)
+    try:
+        response = requests.get(target, headers=headers, timeout=timeout)
+    except requests.RequestException as e:
+        raise DesignerUnavailable(f"GET {target} failed: {e}") from e
+    if response.status_code in (502, 503, 504):
+        raise DesignerUnavailable(f"GET {target} answered HTTP {response.status_code}")
+
+
 def http_designer(url: str, timeout: float = 300.0, headers: Optional[dict] = None, shared_root: Optional[str] = None):
     '''
     :param url: the designer's HTTP endpoint -- one POST per design() call.

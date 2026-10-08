@@ -21,6 +21,7 @@ from typing import Any, List, Mapping, Optional, Tuple
 
 from pipeline.service.config import ServiceConfig, load_service_config
 from pipeline.service.context import load_context
+from pipeline.service.designer import DesignerProbe
 from pipeline.service.jobs import JobManager
 from pipeline.service.scheduler import AutoScheduler
 from pipeline.service.notify import Notifier
@@ -85,8 +86,15 @@ def build(argv: Optional[List[str]] = None, env: Optional[Mapping[str, str]] = N
     from pipeline.service.api import create_app
     manager = JobManager(executor(args.profile, env), state_dir=config.state_dir, history_limit=config.history_limit,
                          allow_repository_writes=config.allow_repository_writes, failed=job_failed)
+    designer = DesignerProbe(args.profile, env)
+    notifier = None
+
+    def designer_down(reason: str) -> None:
+        if notifier is not None:
+            notifier.designer_unavailable(designer.last.name if designer.last else '', reason)
     try:
-        scheduler = AutoScheduler(manager, config.state_dir, dict(config.schedule))
+        scheduler = AutoScheduler(manager, config.state_dir, dict(config.schedule), designer=designer.unavailable,
+                                  on_designer_down=designer_down)
     except (OSError, ValueError) as error:
         manager.stop(grace_seconds=1)
         parser.error(f'schedule: {error}')
@@ -97,7 +105,7 @@ def build(argv: Optional[List[str]] = None, env: Optional[Mapping[str, str]] = N
         manager.stop(grace_seconds=1)
         parser.error(f'notify: {error}')
     app = create_app(manager, config, require_token=not args.no_auth, env=env, static_dir=args.static_dir,
-                     scheduler=scheduler, notifier=notifier)
+                     scheduler=scheduler, notifier=notifier, designer=designer)
     app.state.scheduler = scheduler
     app.state.notifier = notifier
     return app, manager, config

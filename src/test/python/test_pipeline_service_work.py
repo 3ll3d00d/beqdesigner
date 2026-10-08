@@ -23,6 +23,12 @@ def _until(condition, timeout=30.0):   # a slow Windows runner took over 10 s
         time.sleep(0.005)
 
 
+@pytest.fixture(autouse=True)
+def designer_answers(monkeypatch):
+    ''' The profile's designer (port 9, nothing there) answers /health: these tests are not about the designer. '''
+    monkeypatch.setattr('pipeline.service.context.check_designer', lambda *args, **kwargs: None)
+
+
 @pytest.fixture
 def profile(tmp_path):
     media = tmp_path / 'media'

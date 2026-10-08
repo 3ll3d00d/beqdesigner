@@ -1725,6 +1725,12 @@
             "type": "string",
             "title": "Detail",
             "default": ""
+          },
+          "required": {
+            "type": "boolean",
+            "title": "Required",
+            "description": "False: reported, but not a reason for `ready` to be false (a designer that is down does not make the service unready).",
+            "default": true
           }
         },
         "type": "object",
@@ -1733,6 +1739,51 @@
           "ok"
         ],
         "title": "Check"
+      },
+      "DesignerStatus": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "reachable": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reachable",
+            "description": "Whether its /health answered; null when there is nothing to ask (the manual designer) or the profile cannot be read."
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail",
+            "description": "Its URL when it answered, else why not."
+          },
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "reachable",
+          "detail",
+          "checked_at"
+        ],
+        "title": "DesignerStatus"
       },
       "Flag": {
         "type": "string",
@@ -2071,7 +2122,15 @@
             "$ref": "#/components/schemas/NotifyEvent"
           },
           "job": {
-            "$ref": "#/components/schemas/NotifyJob"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NotifyJob"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The job it is about; null for a scheduled run that was skipped (the designer did not answer), which `failed` names instead."
           },
           "designed": {
             "items": {
@@ -3299,6 +3358,16 @@
             },
             "type": "array",
             "title": "Notify"
+          },
+          "designer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DesignerStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",

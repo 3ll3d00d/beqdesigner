@@ -220,8 +220,8 @@ Every request and response body is a named pydantic model in
 | Method & path | Body → response | Notes |
 |---|---|---|
 | `GET /health` | → `Health` | liveness and release; no auth |
-| `GET /ready` | → `Readiness` | profile loads, work dir writable, ffmpeg/ffprobe found, profile's designer registered; 503 otherwise; no auth |
-| `GET /v1/status` | → `ServiceStatus` | index counts (the `status --json` content), current job, queue length, schedule state, notification outcomes |
+| `GET /ready` | → `Readiness` | profile loads, work dir writable, ffmpeg/ffprobe found, profile's designer registered; 503 otherwise; no auth. Also `designer_reachable` (`required: false`: reported, never unready) |
+| `GET /v1/status` | → `ServiceStatus` | index counts (the `status --json` content), current job, queue length, schedule state, notification outcomes, `designer` (`DesignerStatus`: reachable, detail, checked_at) |
 | `GET /v1/titles` | query `TitleFilter` + `limit`/`offset` → `TitlePage` | the work list's table; paged after the index query |
 | `GET /v1/titles/{id}` | → `Title` | 404 if unknown |
 | `POST /v1/plan` | `RunRequest` → `PlanPreview` | dry run: what would run and what would be skipped and why |
@@ -375,6 +375,16 @@ retry_failed, next_run_at, last_run: {job_id, state, finished_at}}`.
   skipped and recorded (`last_skip: busy`) through an atomic idle-only
   submission in `JobManager`; ticks never pile up. The next is
   `interval_minutes` after the *finish* of the last scheduled job.
+- **Designer down:** before a tick through design, `DesignerProbe`
+  (`pipeline/service/designer.py`) asks the profile's designer's `/health`
+  (`http_binding.check_designer`; a `by_reference` designer must answer 1.2
+  with `shared_root`, any other is down only for no answer or 502/503/504). A
+  refused tick is skipped (`last_skip: designer unavailable: ...`), retried
+  after `min(interval_minutes, 5)`, and `Notifier.designer_unavailable` sends
+  one `failed` notification (with `job: null`) per outage. A run job through
+  design is refused before anything runs; one through publish or commit is
+  not, and its designs are reported `unavailable` (R1). `/ready` and
+  `/v1/status` reuse an answer for 30 s.
 - **Failures:** an unattended run does not retry a remembered failure
   (including a failed extraction) until the source or settings change or
   `retry_failed`; each tick reports them as `failed_earlier`. A title that met

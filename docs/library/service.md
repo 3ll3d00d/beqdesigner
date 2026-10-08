@@ -30,7 +30,7 @@ It listens on port 8080 of every address. Open `http://HOST:8080/docs`: the whol
 | `--host`, `--port` | where to listen, over the settings file |
 | `--no-auth` | no token; only allowed with `--host 127.0.0.1` |
 
-Every call under `/v1` needs the token as `Authorization: Bearer <token>`. `/health`, `/ready` (is the profile readable, the work directory writable, ffmpeg found and the designer declared?) and the documentation pages do not. There is no TLS: put the service behind a reverse proxy to reach it from outside your network.
+Every call under `/v1` needs the token as `Authorization: Bearer <token>`. `/health`, `/ready` (is the profile readable, the work directory writable, ffmpeg found and the designer declared?) and the documentation pages do not. `/ready` also reports whether the designer answers (`designer_reachable`), but a designer that is down does not make the service unready: it is not the service's fault, and restarting the service would not help. There is no TLS: put the service behind a reverse proxy to reach it from outside your network.
 
 Stopping it (Ctrl-C, or `SIGTERM`) lets the title in hand finish, then stops.
 
@@ -46,7 +46,7 @@ Stopping it (Ctrl-C, or `SIGTERM`) lets the title in hand finish, then stops.
 | `GET /v1/jobs/{id}/events` | follow a job as it runs (Server-Sent Events) |
 | `GET /v1/jobs/{id}/log` | what a job has reported so far, as a list |
 | `POST /v1/jobs/{id}/cancel` | cancel: a waiting job is dropped, a running one stops after the title in hand |
-| `GET /v1/status` | the counts the work list's strip shows, the job running now and the schedule |
+| `GET /v1/status` | the counts the work list's strip shows, the job running now, the schedule and whether the designer answers |
 | `GET /v1/schedule`, `PUT /v1/schedule` | read or save the automatic extract/design schedule |
 | `POST /v1/schedule/trigger` | run one scheduled tick now; returns 409 while a job is queued or running |
 | `POST /v1/notify/test` | send a sample of each configured event to one notification target |
@@ -97,7 +97,12 @@ notify:
 ```
 
 When enabled, a tick scans the sources and works on titles still needing extract or design. It leaves designs in the
-review queue. A tick due while another job is active is skipped, so scheduled jobs never accumulate. Saving the schedule
+review queue. A tick due while another job is active is skipped, so scheduled jobs never accumulate. Before a tick
+through design the service asks the designer's `/health`. If nothing answers (or a proxy in front of it answers 502, 503
+or 504) the tick is skipped, `last_skip` says why, it is tried again within 5 minutes, and `failed` is notified once for
+the outage, not at every skipped tick. A designer that answers anything else, including a designer too old to serve
+`/health`, counts as up. A run job through design that you submit while the designer is down fails at once, saying so,
+before anything is extracted. Saving the schedule
 through `PUT /v1/schedule` writes `<work dir>/service/schedule.json`; that file takes precedence over `service.yaml` on
 restart. Set `enabled: false` to pause it without losing its other settings.
 

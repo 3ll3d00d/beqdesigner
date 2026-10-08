@@ -31,6 +31,12 @@ def _until(condition, timeout=10.0):
         time.sleep(0.005)
 
 
+@pytest.fixture(autouse=True)
+def designer_answers(monkeypatch):
+    ''' The profile's designer (port 9, nothing there) answers /health: these tests are not about the designer. '''
+    monkeypatch.setattr('pipeline.service.context.check_designer', lambda *args, **kwargs: None)
+
+
 @pytest.fixture
 def profile(tmp_path):
     media = tmp_path / 'media'
@@ -126,7 +132,7 @@ def test_health_and_readiness_need_no_token(service):
     client, _, _ = service
 
     assert client.get('/health').json()['status'] == 'ok'
-    assert client.get('/ready').json() == {'ready': True, 'checks': [{'name': 'profile', 'ok': True, 'detail': ''}]}
+    assert client.get('/ready').json() == {'ready': True, 'checks': [{'name': 'profile', 'ok': True, 'detail': '', 'required': True}]}
 
 
 def test_not_ready_is_a_503_that_says_why(profile):
@@ -149,9 +155,11 @@ def test_the_default_readiness_checks_the_profile_work_dir_ffmpeg_and_designer(p
     finally:
         manager.stop(1)
 
-    assert list(checks) == ['profile', 'work_dir', 'ffmpeg', 'designer']
+    assert list(checks) == ['profile', 'work_dir', 'ffmpeg', 'designer', 'designer_reachable']
     assert checks['profile']['ok'] and checks['work_dir']['ok'] and checks['designer'] == \
-        {'name': 'designer', 'ok': True, 'detail': 'rolloff'}
+        {'name': 'designer', 'ok': True, 'detail': 'rolloff', 'required': True}
+    assert checks['designer_reachable'] == {'name': 'designer_reachable', 'ok': True,
+                                            'detail': 'http://127.0.0.1:9/design', 'required': False}
 
 
 def test_the_docs_and_the_document_are_open_and_try_it_out_is_on(service):

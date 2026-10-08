@@ -211,11 +211,31 @@ class Notifier:
                 if job.origin in target.origins and event.value in target.events:
                     self._deliver(target, notification(job, event, self.resolve))
 
+    def designer_unavailable(self, name: str, reason: str) -> None:
+        ''' A scheduled run was skipped because the designer did not answer: `failed`, to the schedule's targets. '''
+        if self.targets:
+            self.queue.put(('designer', name, reason))
+
+    def _for_designer(self, name: str, reason: str) -> None:
+        note = models.Notification(event=models.NotifyEvent.failed, job=None, designed=[],
+                                   failed=[models.NotifyFailure(id='designer', title=name or 'designer',
+                                                                message=redact_text(f'scheduled run skipped: {reason}'))],
+                                   review_waiting=0, links=models.NotifyLinks(job='/v1/status', docs='/docs'))
+        for target in self.targets:
+            if 'schedule' in target.origins and 'failed' in target.events:
+                self._deliver(target, note)
+
     def _loop(self) -> None:
         while True:
             job = self.queue.get()
             if job is None:
                 return
+            if isinstance(job, tuple):
+                try:
+                    self._for_designer(*job[1:])
+                except Exception:
+                    logger.warning('notification preparation failed for the designer')
+                continue
             try:
                 self._for_job(job)
             except Exception:

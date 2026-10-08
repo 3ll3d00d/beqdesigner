@@ -72,3 +72,45 @@ notifications.
 Validation: `PYTHONPATH=./src/main/python QT_QPA_PLATFORM=offscreen uv run
 pytest -q -n auto src/test/python`: **2616 passed, 1 skipped** (the skip is the
 Windows-only drive-letter test).
+
+## R2 — Check the designer before a run (completed)
+
+Completed on 2026-10-08, in the commit "Skip scheduled runs while the
+designer does not answer, and report it". Before, `/ready` reported the
+designer as ready once it was declared, and nothing asked whether it was up.
+
+- `http_binding.check_designer(url, by_reference=)` asks `/health`. A
+  `by_reference` designer must answer contract 1.2 with `shared_root`, as
+  before. Any other designer counts as up for any answer, because only 1.2
+  designers must serve `/health` (a 1.0 designer's 404, or the smoke stub's
+  501, is up), and as down only for no answer or 502/503/504. Failures raise
+  `DesignerUnavailable` (R1's marker).
+- `setup.designer_endpoint()` resolves the run's designer exactly as
+  `register_designers` does; `JobContext.designer_unavailable()` asks it.
+  `pipeline/service/designer.py` `DesignerProbe` caches the answer for 30 s
+  for `/ready` and `/v1/status`.
+- `AutoScheduler(designer=, on_designer_down=)` asks before a tick through
+  design, without holding its lock. A refused tick records
+  `last_skip: designer unavailable: ...`, is retried after
+  `min(interval_minutes, 5)` minutes, and `on_designer_down` fires once per
+  outage. `Notifier.designer_unavailable` sends a `failed` notification with
+  `job: null` (`Notification.job` is now optional) to targets that take
+  scheduled jobs.
+- A run job through design is refused before anything runs. Through publish
+  or commit it is not, and its designs go to R1's `unavailable`.
+- `/ready` adds `designer_reachable` with the new `Check.required: false`,
+  so it never makes the service unready (the image's HEALTHCHECK uses
+  `/health` anyway). `/v1/status` has `designer: DesignerStatus`. OpenAPI
+  regenerated.
+
+Tests: `test_pipeline_service_designer.py` (a real stub designer: what counts
+as up and down, by-reference, the profile's designer is the one asked, the
+manual designer, the cache; ticks skipped and notified once, resumed when it
+is back, a new outage notified again, extract-only ticks not asking; a design
+run job refused; `/ready` and `/v1/status`; the notification). The existing
+service tests make their placeholder designer answer through an autouse
+fixture, and the readiness expectations gained `required` and
+`designer_reachable`.
+
+Validation: `PYTHONPATH=./src/main/python QT_QPA_PLATFORM=offscreen uv run
+pytest -q -n auto src/test/python`: **2635 passed, 1 skipped**.

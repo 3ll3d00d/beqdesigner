@@ -6,7 +6,7 @@ The command line (`pipeline.library.cli`) and the pipeline service (`pipeline.se
 same file means the same run from either (design/pipeline-service.md §4). `overrides` are the options given on top of the
 file: the command line's flags, or nothing for the service. No argparse, no Qt.
 '''
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from typing import Any, Mapping, Optional, Tuple
 
 from pipeline.designer.http_binding import register_declared_designers
@@ -67,6 +67,10 @@ def register_designers(values: Mapping[str, Any], config: Mapping[str, Any]) -> 
     --designer-url gives them); the latter wins for a name in both. A `designer` that is itself an http(s) URL is
     registered under that URL. A `by_reference` designer shares the run's `work_dir` (design/designer-interface.md §7.1).
     '''
+    register_declared_designers(_declared_designers(values, config), shared_root=values.get('work_dir') or None)
+
+
+def _declared_designers(values: Mapping[str, Any], config: Mapping[str, Any]) -> dict[str, Any]:
     declared: dict[str, Any] = dict(config.get('designers') or {})
     for entry in values.get('designer_urls') or []:
         name, separator, url = entry.partition('=')
@@ -76,7 +80,31 @@ def register_designers(values: Mapping[str, Any], config: Mapping[str, Any]) -> 
     designer = values.get('designer')
     if designer and designer.lower().startswith(('http://', 'https://')) and designer not in declared:
         declared[designer] = designer
-    register_declared_designers(declared, shared_root=values.get('work_dir') or None)
+    return declared
+
+
+@dataclass(frozen=True)
+class DesignerEndpoint:
+    ''' Where the run's designer answers, as the file declares it. '''
+    name: str
+    url: str
+    by_reference: bool = False
+    headers: Optional[dict] = None
+
+
+def designer_endpoint(values: Mapping[str, Any], config: Mapping[str, Any]) -> Optional[DesignerEndpoint]:
+    '''
+    The run's designer's HTTP endpoint, or None if it has none this process can ask (the manual designer, or one the
+    file does not declare: the run itself then says it is not registered).
+    :raises ValueError: for a malformed `--designer-url` entry.
+    '''
+    name = values.get('designer')
+    spec = _declared_designers(values, config).get(name) if name else None
+    if isinstance(spec, str):
+        spec = {'url': spec}
+    if not isinstance(spec, Mapping) or not spec.get('url'):
+        return None
+    return DesignerEndpoint(name, spec['url'], spec.get('by_reference') is True, spec.get('headers') or None)
 
 
 def run_profile(config: Mapping[str, Any], values: dict[str, Any]) -> Profile:

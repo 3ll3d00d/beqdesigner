@@ -8,6 +8,7 @@ import time
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Optional
 
+from pipeline.designer.http_binding import DesignerUnavailable
 from pipeline.library.bulk import accept_top_pick, plan_accept
 from pipeline.library.inbox import WorkDirInbox
 from pipeline.library.index import LibraryIndex, ScanResult, index_path
@@ -59,6 +60,12 @@ def scan(context: JobContext, request: ScanRequest) -> ScanResult:
 
 def run(context: JobContext, request: RunRequest, control: JobControl) -> RunOutcome:
     run_config = context.run_config()
+    if request.through == 'design':
+        # every design would fail: refuse before extracting anything. A run through publish or commit is not refused
+        # (it may have only accepted titles to publish); what it designs is reported unavailable instead (R1)
+        reason = context.designer_unavailable()
+        if reason:
+            raise DesignerUnavailable(f'the designer is unavailable, so nothing was run: {reason}')
     join = JoinQueue(sources=[WorkDirInbox(run_config.work_dir).claim])   # other runs' work, and run jobs submitted now
     control.accept_joins(join)
     settings, publish = context.stage_settings(request.through)

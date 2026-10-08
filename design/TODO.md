@@ -29,10 +29,10 @@ catalogue unattended, and the results reviewed from the desktop app. Publish
 and commit stay a person's decision in the app; the schedule never goes past
 design.
 
-The milestone is the rows marked **R** in the table: priorities 1–15 (R1 and R7, now [archived](archive/initial-release.md), were 1 and 5). The
+The milestone is the rows marked **R** in the table: priorities 1–15 (R1, R2 and R7, now [archived](archive/initial-release.md), were 1, 2 and 5). The
 service and image themselves work (C1's amd64 smoke); what is missing is
 behavior that only matters at catalogue scale and over days: the designer
-health check and deployment, timeouts, disk use, remote review, stream
+deployment, timeouts, disk use, remote review, stream
 choice, and an acceptance run. Two beqforge items are recorded in its own
 `TODO.md`, not here: #1 "Playback contract" (the designer side of R8) and
 #13 "Residual reporting" (the reported fit error and band do not match the
@@ -42,7 +42,6 @@ validation and steep-filter default are outside it.
 
 | Priority | ID | R | Previous IDs | Status | Depends on |
 |---|---|---|---|---|---|
-| 2 | R2 | R | -- | Not started; `/ready` checks only that a designer is declared | -- |
 | 3 | R3 | R | -- | Not started; no designer image, compose service or guide | beqforge packaging |
 | 4 | R4 | R | -- | Not started; risk inferred from code, not observed | R3 |
 | 6 | C1 | R | chunk S5 | amd64 build and smoke verified; arm64 build and GHCR publish not yet run | A green `main`; the first tag push |
@@ -71,21 +70,6 @@ main-title fallback is truthful for the catalogue's discs; if it silently
 duplicates or picks the wrong playlist, they move into it.
 
 ## Work in priority order
-
-### R2 — Check the designer before a run
-
-`/ready` reports the designer as ready once it is declared (`api.py`); nothing
-asks it whether it is up. Before a scheduled tick (and a service run job),
-ask the designer's `/health`; if it does not answer, skip the tick with a
-recorded reason (as for `busy`) and notify `failed` once, not every tick.
-Report reachability in `/ready` and `/v1/status`, keeping `/ready` usable as a
-liveness gate for the container (a designer outage should not get the
-pipeline container restarted). For a `by_reference` designer, confirm its
-shared root as `check_takes_references` already does.
-
-**Done when:** tests with a stub designer show a tick skipped and reported
-while it is down, resumed when it is back, and `/ready`/`/v1/status` saying
-which.
 
 ### R3 — Deploy the designer beside the service
 

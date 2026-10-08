@@ -23,6 +23,7 @@ from pipeline.library.selection import plan_stages
 from pipeline.service import models
 from pipeline.service.config import ServiceConfig
 from pipeline.service.context import JobContext, load_context
+from pipeline.service.designer import DesignerProbe
 from pipeline.service.jobs import FINISHED, AcceptRequest, JobFinished, JobManager, JobNotFound, RepositoryWritesRefused, \
     RunRequest, ScanRequest
 from pipeline.service.scheduler import AutoScheduler
@@ -60,17 +61,24 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
                load: Callable[..., JobContext] = load_context, env: Optional[Mapping[str, str]] = None,
                static_dir: Optional[str] = None, version: Optional[str] = None,
                checks: Optional[Callable[[], List[models.Check]]] = None,
-               scheduler: Optional[AutoScheduler] = None, notifier: Optional[Notifier] = None) -> FastAPI:
+               scheduler: Optional[AutoScheduler] = None, notifier: Optional[Notifier] = None,
+               designer: Optional[DesignerProbe] = None) -> FastAPI:
     '''
     :param require_token: False only for a service bound to loopback and started with --no-auth.
     :param static_dir: a local copy of swagger-ui-dist and redoc, served at /static (the Docker image has one); None loads
         them from a CDN.
-    :param checks: what /ready checks (default: the profile, the work directory, ffmpeg and the designer).
+    :param checks: what /ready checks (default: the profile, the work directory, ffmpeg and the designer: declared, and
+        whether it answers, which is reported but does not make the service unready).
+    :param designer: asks the designer's /health (default: one over the profile).
     '''
     version = version or read_version()
     if require_token and not config.token:
         raise ValueError('a token is required: set BEQ_SERVICE_TOKEN (or BEQ_SERVICE_TOKEN_FILE)')
-    scheduler = scheduler or AutoScheduler(manager, config.state_dir or None, dict(config.schedule), start=False)
+    designer = designer or DesignerProbe(config.profile_path, env, load)
+    scheduler = scheduler or AutoScheduler(manager, config.state_dir or None, dict(config.schedule), start=False,
+                                           designer=designer.unavailable,
+                                           on_designer_down=lambda reason: notifier.designer_unavailable(
+                                               designer.last.name if designer.last else '', reason))
     notifier = notifier or Notifier(manager, config.profile_path, config.notify, env=env, start=False)
     app = FastAPI(title='BEQDesigner pipeline service', version=models.API_VERSION, docs_url=None, redoc_url=None,
                   summary='Scan a library, extract and design BEQ filters for titles chosen by filter, on demand or on a '
@@ -168,13 +176,18 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
             found.append(models.Check(name='designer', ok=True, detail=ctx.run_config().designer))
         except ValueError as error:
             found.append(models.Check(name='designer', ok=False, detail=str(error)))
+            return found
+        state = designer.current()
+        if state.reachable is not None:   # a designer outage is not the service's: no restart, only a report
+            found.append(models.Check(name='designer_reachable', ok=state.reachable, detail=state.detail,
+                                      required=False))
         return found
 
     @app.get('/ready', response_model=models.Readiness, tags=['service'], summary='Readiness',
              responses={503: {'model': models.Readiness}})
     def ready():
         found = (checks or default_checks)()
-        body = models.Readiness(ready=all(c.ok for c in found), checks=found)
+        body = models.Readiness(ready=all(c.ok for c in found if c.required), checks=found)
         return body if body.ready else JSONResponse(body.model_dump(), status_code=503)
 
     # --- the documentation, served here so Try it out works on the LAN ------------------------------------------------
@@ -219,7 +232,12 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
         return models.ServiceStatus(version=version, index=index, queued=len(manager.queued),
                                     current_job=models.job_model(current) if current else None,
                                     schedule=models.Schedule.model_validate(scheduler.snapshot()),
-                                    notify=notifier.outcomes())
+                                    notify=notifier.outcomes(), designer=designer_status())
+
+    def designer_status() -> models.DesignerStatus:
+        state = designer.current()
+        return models.DesignerStatus(name=state.name, reachable=state.reachable, detail=state.detail,
+                                     checked_at=models.timestamp(state.checked_at))
 
     @v1.post('/notify/test', response_model=models.NotifyOutcome, tags=['notifications'],
              summary='Send samples of a target’s configured events', responses=_responses(404))

@@ -11,6 +11,8 @@ from typing import Callable, Optional
 from pipeline.service.jobs import JobManager, RunRequest
 from pipeline.service.models import ScheduleUpdate, TitleFilter
 
+DESIGNER_RETRY_MINUTES = 5   # a tick skipped because the designer did not answer is tried again this soon (or sooner)
+
 
 @dataclass(frozen=True)
 class LastRun:
@@ -20,11 +22,21 @@ class LastRun:
 
 
 class AutoScheduler:
-    '''A single timer. `tick()` and the clock injection also allow deterministic tests.'''
+    '''
+    A single timer. `tick()` and the clock injection also allow deterministic tests.
+
+    :param designer: asked before a tick that designs: why the designer cannot be used, or '' if it can. A tick it
+        refuses is skipped (`last_skip`) and tried again within DESIGNER_RETRY_MINUTES.
+    :param on_designer_down: told the reason once when the designer stops answering, not at every skipped tick.
+    '''
 
     def __init__(self, manager: JobManager, state_dir: Optional[str], defaults: dict,
-                 clock: Callable[[], float] = time.time, *, start: bool = True):
+                 clock: Callable[[], float] = time.time, *, start: bool = True,
+                 designer: Optional[Callable[[], str]] = None,
+                 on_designer_down: Optional[Callable[[str], None]] = None):
         self.manager, self.clock = manager, clock
+        self.designer, self.on_designer_down = designer, on_designer_down
+        self.designer_down = ''   # why the designer did not answer at the last tick that asked
         self.path = os.path.join(state_dir, 'schedule.json') if state_dir else None
         self.lock = threading.RLock()
         self.wake = threading.Event()
@@ -96,14 +108,33 @@ class AutoScheduler:
                 self.last_skip = None
             return job
 
+    def _due(self) -> bool:
+        return self.settings.enabled and self.next_run_at is not None and self.clock() >= self.next_run_at
+
     def tick(self) -> None:
         with self.lock:
             self._drain()
-            if not self.settings.enabled or self.next_run_at is None or self.clock() < self.next_run_at:
+            if not self._due():
                 return
-            if self.trigger() is None:
-                self.last_skip = 'busy'
-                self.next_run_at = self.clock() + self.settings.interval_minutes * 60
+            ask = self.designer is not None and self.settings.through.value != 'extract'
+        reason = self.designer() if ask else ''   # not holding the lock: it may take the designer's timeout
+        down = ''
+        with self.lock:
+            if not self._due():
+                return
+            if reason:
+                self.last_skip = f'designer unavailable: {reason}'
+                self.next_run_at = self.clock() + min(self.settings.interval_minutes, DESIGNER_RETRY_MINUTES) * 60
+                down = reason if not self.designer_down else ''
+                self.designer_down = reason
+            else:
+                if ask:
+                    self.designer_down = ''
+                if self.trigger() is None:
+                    self.last_skip = 'busy'
+                    self.next_run_at = self.clock() + self.settings.interval_minutes * 60
+        if down and self.on_designer_down is not None:
+            self.on_designer_down(down)
 
     def _job_event(self, job, event: dict) -> None:
         if job.origin != 'schedule' or event.get('type') != 'state' or not job.finished:

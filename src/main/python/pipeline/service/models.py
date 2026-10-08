@@ -477,6 +477,15 @@ class ServiceStatus(BaseModel):
     queued: int
     schedule: Optional['Schedule'] = None
     notify: List['NotifyOutcome'] = Field(default_factory=list)
+    designer: Optional['DesignerStatus'] = None
+
+
+class DesignerStatus(BaseModel):
+    name: str
+    reachable: Optional[bool] = Field(description="Whether its /health answered; null when there is nothing to ask "
+                                                  "(the manual designer) or the profile cannot be read.")
+    detail: str = Field(description='Its URL when it answered, else why not.')
+    checked_at: Optional[datetime]
 
 
 class ScheduleUpdate(Input):
@@ -539,7 +548,8 @@ class NotifyLinks(BaseModel):
 
 class Notification(BaseModel):
     event: NotifyEvent
-    job: NotifyJob
+    job: Optional[NotifyJob] = Field(description='The job it is about; null for a scheduled run that was skipped '
+                                                 '(the designer did not answer), which `failed` names instead.')
     designed: List[NotifyTitle]
     failed: List[NotifyFailure]
     review_waiting: int
@@ -563,6 +573,8 @@ class Check(BaseModel):
     name: str
     ok: bool
     detail: str = ''
+    required: bool = Field(True, description='False: reported, but not a reason for `ready` to be false '
+                                             '(a designer that is down does not make the service unready).')
 
 
 class Readiness(BaseModel):

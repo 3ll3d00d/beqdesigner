@@ -20,10 +20,11 @@ import re
 from dataclasses import dataclass
 from typing import Any, Dict, Mapping, Optional, Tuple
 
+from pipeline.designer.http_binding import DesignerUnavailable, check_designer
 from pipeline.library.profile import Profile, read_config_file
 from pipeline.library.run import LibraryRunConfig
-from pipeline.library.setup import configured_values, index_settings, run_config_from_values, run_profile, scan_values, \
-    stage_settings
+from pipeline.library.setup import DesignerEndpoint, configured_values, designer_endpoint, index_settings, \
+    run_config_from_values, run_profile, scan_values, stage_settings
 from pipeline.library.stages import PublishSettings
 from pipeline.library.status import ScanSettings
 from pipeline.service.config import secret
@@ -92,6 +93,24 @@ class JobContext:
 
     def stage_settings(self, through: str) -> Tuple[ScanSettings, Optional[PublishSettings]]:
         return stage_settings(self.profile, self.config, self.values, through)
+
+    def designer_endpoint(self) -> Optional[DesignerEndpoint]:
+        ''' The run's designer's HTTP endpoint, or None for one that has none (the manual designer). '''
+        return designer_endpoint(self.values, self.config)
+
+    def designer_unavailable(self, timeout: float = 10.0) -> str:
+        ''' Why the run's designer cannot be used now (its `/health` did not answer, ...), or '' if it can. '''
+        try:
+            endpoint = self.designer_endpoint()
+        except ValueError as error:
+            return str(error)
+        if endpoint is None:
+            return ''
+        try:
+            check_designer(endpoint.url, by_reference=endpoint.by_reference, timeout=timeout, headers=endpoint.headers)
+        except DesignerUnavailable as error:
+            return str(error)
+        return ''
 
 
 def load_context(profile_path: str, env: Optional[Mapping[str, str]] = None) -> JobContext:
