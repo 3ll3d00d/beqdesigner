@@ -178,7 +178,9 @@ def _report_failure(report: LibraryRunReport, index: Optional[LibraryIndex], uni
     item = unit.item if isinstance(unit, SeasonGroup) else unit
     message = f'{type(error).__name__}: {error}'
     in_extract = getattr(error, 'library_stage', 'extract') == 'extract'
-    reason = unavailable_reason(error, item.source_path if in_extract and not isinstance(unit, SeasonGroup) else None)
+    # a path the source already says is wrong (an unmapped JRiver drive) is that, not storage that is not there
+    readable = in_extract and not isinstance(unit, SeasonGroup) and not item.source_path_problem
+    reason = unavailable_reason(error, item.source_path if readable else None)
     if reason is not None:
         report.unavailable.append((item.id, message))
         if isinstance(error, OutOfSpace):

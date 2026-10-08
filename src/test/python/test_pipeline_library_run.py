@@ -32,7 +32,7 @@ class _Session:
 
 
 def _item(identifier):
-    return LibraryItem(id=identifier, source_path=f'/media/{identifier}.mkv', display_name=identifier,
+    return LibraryItem(id=identifier, source_path=f'/no-such-beq-root/{identifier}.mkv', display_name=identifier,
                        fingerprint=f'fingerprint-{identifier}', meta={'season': '2'})
 
 
@@ -84,7 +84,7 @@ def test_run_library_composes_caches_resolves_metadata_and_threads_multichannel(
 
 
 def test_jriver_run_extracts_selected_stream_to_readable_folder(tmp_path, monkeypatch):
-    item = LibraryItem(id='jriver-123456789abc-42', source_path='/media/film.mkv',
+    item = LibraryItem(id='jriver-123456789abc-42', source_path='/no-such-beq-root/film.mkv',
                        display_name='Film', audio_stream=2, fingerprint='source')
     calls = []
     monkeypatch.setattr('pipeline.library.run.Session', lambda config: _Session())
@@ -434,9 +434,9 @@ def test_run_library_names_the_entry_from_the_library_when_no_tmdb_key_is_config
         return DesignCacheResult(QueueEntry(id=item.id, fs=1000, meta={}, curve={}), designed=True)
 
     monkeypatch.setattr('pipeline.library.run.design_if_needed', design)
-    titled = LibraryItem(id='jriver-3fa9c2-1234', source_path='/media/heat.mkv', display_name='Heat (1995)',
+    titled = LibraryItem(id='jriver-3fa9c2-1234', source_path='/no-such-beq-root/heat.mkv', display_name='Heat (1995)',
                          title='Heat', year='1995', fingerprint='f1')
-    untitled = LibraryItem(id='jriver-3fa9c2-5678', source_path='/media/x.mkv', display_name='x.mkv', fingerprint='f2')
+    untitled = LibraryItem(id='jriver-3fa9c2-5678', source_path='/no-such-beq-root/x.mkv', display_name='x.mkv', fingerprint='f2')
     config = LibraryRunConfig(work_dir=str(tmp_path / 'work'), queue_dir=str(tmp_path / 'queue'), designer='test')
 
     run_library(_Source([titled, untitled]), config)
@@ -538,7 +538,7 @@ def test_a_changed_source_is_tried_again_without_asking(works):
     works.run([_item('one')])
     works.fail.clear()
 
-    changed = LibraryItem(id='one', source_path='/media/one.mkv', display_name='one', fingerprint='re-ripped',
+    changed = LibraryItem(id='one', source_path='/no-such-beq-root/one.mkv', display_name='one', fingerprint='re-ripped',
                           meta={'season': '2'})
     report = works.run([changed])
 
@@ -694,3 +694,15 @@ def test_an_unavailable_mount_inside_a_season_remembers_no_episode(works):
     assert report.failed == [] and len(report.unavailable) == 1 and report.designed == []
     assert 'Show S1E2' in report.unavailable[0][1]
     assert works.index.failures() == {}   # neither the episode nor the season
+
+
+def test_a_path_the_source_says_is_wrong_is_remembered_even_where_it_looks_like_a_missing_mount(works, tmp_path):
+    ''' CI found it: on Windows an unmapped W: drive also "is not connected"; the source's own diagnosis wins. '''
+    (tmp_path / 'empty').mkdir()   # the nearest folder there is empty, as an unmounted share's is
+    item = LibraryItem(id='unmapped', source_path=str(tmp_path / 'empty' / 'x.mkv'), display_name='x', fingerprint='f',
+                       source_path_problem='JRiver reported W:\\x.mkv, but no local path mapping matches it')
+
+    report = works.run([item])
+
+    assert [i for i, _ in report.failed] == ['unmapped'] and report.unavailable == []
+    assert 'unmapped' in works.index.failures()

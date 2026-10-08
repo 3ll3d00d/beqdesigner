@@ -4,6 +4,7 @@ fixtures/jriver/README.md) replayed by a fake server, so the field aliases, the 
 are checked against what MC actually says rather than what a test assumed it says.
 '''
 import json
+import os
 import pathlib
 import re
 import threading
@@ -22,7 +23,8 @@ CAPTURE = json.loads((FIXTURE / 'capture.json').read_text())
 ROWS = json.loads((FIXTURE / 'files.json').read_text(encoding='utf-8'))
 NODE = CAPTURE['request']['browse_node_id']
 TMDB = {'movie': {'tmdb': ['TheMovieDB Movie ID']}}   # as the captured profile configured it
-MAPPINGS = (PathMapping('W:\\', '/media/films'),)
+FILMS = os.path.abspath(os.path.join(os.sep, 'media', 'films'))   # absolute on this platform (C:\\media\\films on Windows)
+MAPPINGS = (PathMapping('W:\\', FILMS),)
 
 
 @contextmanager
@@ -129,7 +131,7 @@ def test_paths_map_whatever_the_case_of_the_drive_and_discs_are_their_folders(it
     assert any(row['Filename'].startswith('w:\\') for row in ROWS)   # MC reports some in lower case
     for row in ROWS:
         item = by_key[str(row['Key'])]
-        assert item.source_path.startswith('/media/films/') and item.source_path_problem is None
+        assert item.source_path.startswith(FILMS + os.sep) and item.source_path_problem is None
         name = row['Filename'].lower()
         if name.endswith('index.bdmv') or (';' in name and '\\playlist\\' not in name):
             assert not item.source_path.lower().endswith(('index.bdmv', '.bluray;1'))   # the disc's own folder
@@ -142,7 +144,7 @@ def test_artwork_is_a_file_name_beside_the_media(items):
     for row in ROWS:
         candidates = by_key[str(row['Key'])].art_candidates
         if row.get('Image File'):
-            assert any(c.endswith('/' + row['Image File']) for c in candidates)
+            assert any(c.endswith(os.sep + row['Image File']) for c in candidates)
         else:
             assert candidates == ()
 

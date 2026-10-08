@@ -17,6 +17,7 @@ import os
 import re
 import subprocess
 import tempfile
+import time
 from dataclasses import asdict, dataclass, field, fields, replace
 from datetime import datetime, timezone
 from typing import Callable, Collection, List, Optional, Sequence, Tuple
@@ -168,6 +169,21 @@ def _entry_path(queue_dir: str, entry_id: str) -> str:
     return os.path.join(queue_dir, f"{entry_id}.json")
 
 
+def _replace(source: str, target: str, attempts: int = 20, pause: float = 0.05) -> None:
+    '''
+    os.replace(), tried again for a moment on Windows, where it fails while another thread or process has the target
+    open (a scan or the work list reading the entry as a run writes it): a reader holds it only briefly.
+    '''
+    for attempt in range(attempts):
+        try:
+            os.replace(source, target)
+            return
+        except PermissionError:
+            if os.name != 'nt' or attempt == attempts - 1:
+                raise
+            time.sleep(pause)
+
+
 def write_queue_entry(queue_dir: str, entry: QueueEntry) -> None:
     '''
     Written to a temporary file in the same directory and renamed over the entry, so a reader (the GUI, a concurrent
@@ -179,7 +195,7 @@ def write_queue_entry(queue_dir: str, entry: QueueEntry) -> None:
     try:
         with os.fdopen(handle, 'w', encoding='utf-8') as f:
             json.dump(asdict(entry), f)
-        os.replace(temporary, _entry_path(queue_dir, entry.id))
+        _replace(temporary, _entry_path(queue_dir, entry.id))
     except BaseException:
         try:
             os.remove(temporary)
