@@ -87,7 +87,16 @@ while a run job is extracting or designing joins it.
 
 The optional schedule scans and runs titles still needing extract or design,
 never publish or commit, as an unattended run, and waits from a scheduled
-job's finish before its next tick. A busy tick is skipped. An optional
+job's finish before its next tick. A busy tick is skipped. Before a tick (and a
+run job) through design, `DesignerProbe` asks the designer's `/health`
+(`http_binding.check_designer`: a by-reference designer must answer 1.2 with a
+shared root; any other is down only for no answer or 502/503/504). A refused
+tick is skipped with `last_skip: designer unavailable`, retried within five
+minutes, and notified as `failed` once per outage. `/ready` reports the
+designer's reachability and whether a TMDB key is set as checks with
+`required: false`, so neither makes the service unready; `/v1/status` reports
+both, and a running job's progress carries `per_hour`, `remaining_seconds` and
+`estimated_finish`. An optional
 notifier sends completed-job events to explicitly configured webhook URLs.
 JSON carries job, designed title, failure and review-count details; text,
 Slack and Discord carry a summary. Redirects are refused and status shows
@@ -95,7 +104,15 @@ delivery outcomes without URLs or headers. The Qt-free Docker image has
 ffmpeg, git and SSH; CI builds and smoke-tests it on pushes and before
 publishing amd64/arm64 release tags. The amd64 image build and smoke run are
 verified; the arm64 build and GHCR publish have not yet run
-([C1](TODO.md#c1--arm64-image-and-ghcr-publish)).
+([C1](TODO.md#c1--arm64-image-and-ghcr-publish)). `docker/compose.example.yaml`
+runs beqforge's designer image (`ghcr.io/3ll3d00d/beqforge-designer`, pinned to
+0.2.0) beside the pipeline, both mounting the work directory so audio goes by
+reference; `docker/smoke.py --designer-image` designs a title through it and
+checks the designer's log that it did. The guide's supported desktop-review
+layout (`docs/library/service.md`) keeps the folders on the container host,
+shared to a desktop with its own profile, reviewing through Review Folder while
+a run goes; a queue entry's poster is found in the title's folder whatever the
+root (`review.entry_art_path`).
 
 ## Design and review
 
@@ -152,6 +169,14 @@ the design with the designer's reason and is never retried inline. Every
 other designer, and every array without a usable source, is sent inline as
 in 1.1, and such a request still says `"1.1"`.
 
+A design sends the playback chain: a profile's `run.bass_management`
+(`pipeline/library/bass.py`, the contract's five keys) on the library path, the
+Preferences crossover in Batch Design. The queue entry records it with the
+designer's name and the build it reported (`designer_build()`: a build key in its
+commentary, or a decline's closing bracket), and the title page's commentary
+ends with both. A declared designer's timeout is multiplied by
+`run.parallelism.design`, since a one-at-a-time designer queues the rest.
+
 Every extracted library title has mono and, with a kept multichannel
 extraction, diagnostic multichannel `.beq` project files: the run writes any
 that are missing, flat, as soon as the title is extracted, and design replaces
@@ -185,10 +210,33 @@ safe, actionable diagnostic. The MCWS zone picker loads on a `QRunnable` and
 discards a response that arrives after close or connection change. DVD roots
 and Blu-ray roots can be resolved for extraction; a JRiver disc reported as a
 pseudo-file (`index.bluray;N`, `VIDEO_TS.dvd;N`) or as the disc's own
-`BDMV\index.bdmv` is listed as its disc folder, and extraction also accepts an
-`index.bdmv` path as its disc; precise JRiver disc title
-mapping and live server evidence remain open. TV can be processed by episode
-or as a season whose mono episode tracks are joined in order.
+`BDMV\index.bdmv` is listed as its disc folder, and an entry that is a playlist
+file (`BDMV\PLAYLIST\00305.mpls`) as its disc with that playlist. A Blu-ray's
+title (`model.bdmv.resolve_main_title`) is the playlist named (JRiver's
+`BlurayPlaylist`), else the one as long as the source's `Duration` (two that
+close told apart by the first audio codec), else the longest; a named playlist
+missing a clip falls back to one of that length, and a rip whose feature-length
+playlists all miss one fails as incomplete. Any source's title leaves out a
+clip under two minutes at either end whose audio differs from its longest
+clip's (a studio logo), since ffmpeg takes a joined input's streams from its
+first clip. DVD title choice is still the longest title (**E3**). TV can be
+processed by episode or as a season whose mono episode tracks are joined in
+order.
+
+The JRiver adapter is checked against a sanitised capture of a real MC 36
+server (`src/test/python/fixtures/jriver/`, with its README): field aliases
+(`Year` answers as `Date (year)`), absent unset fields, drive-letter case,
+artwork beside the media or in MC's cover-art folder (found through a path
+mapping of it), and `Browse/Children`, which is read from its XML in order so
+two nodes of one name keep their ids. Each audio stream's codec, channels,
+sample rate, bitrate, language and title are requested and kept per stream;
+`pipeline/library/streams.py` says them in words for the title page's choice.
+JRiver's Playback Info `Streams` (video, audio, subtitle, by ffprobe's global
+index) is kept as `selected_streams` and resolved against a probe of the file
+before extraction (`run.resolve_selected_stream`, trusted only when it names a
+video then an audio stream); a reviewer's choice (`audio_stream_source:
+manual`) and a resolved one survive a rescan (`index.carried_choice`). A source
+that lists no streams has them read from the file when a person chooses one.
 
 A fresh JRiver scan updates an existing single-title queue entry's audio type
 when it is missing or still matches the previous automatic value. A different
@@ -223,7 +271,17 @@ memory. A failed extraction of a title still in play stays `extract` work:
 a run a person starts tries it again, an unattended one (the service's
 schedule, `run --unattended`) skips it until the source or settings change,
 and Revise is not offered for it. A failed design needs attention and is
-retried only on request. The CLI exposes scan, status, run, revise, accept, publish, commit,
+retried only on request. A failure because something the title depends on was
+unavailable (`pipeline/library/failure.py`: a connection error, timeout or 5xx,
+a remote-filesystem errno, a missing file under an empty mount point or an
+absent drive) is reported as `unavailable` and not remembered, so the next run
+tries it again; `run.stop_after_unavailable` (3) of them in a row stop the run,
+and below `run.min_free_gb` (10) free an extraction stops it at once. A title
+that only needs design, with its audio still current
+(`run.cached_unit_work`), goes straight to design without an extract stage.
+Once a title is published, its kept `multichannel.wav` is compressed losslessly
+to FLAC (`pipeline/library/retention.py`) and restored by whatever next reads
+it; the extract cache and publish digest treat it as unchanged. The CLI exposes scan, status, run, revise, accept, publish, commit,
 and sync. Publish writes accepted output into repository working trees;
 Commit commits and pushes the named published files separately. Revision
 reopens a title or invalidates extraction/design as requested, while an edited
@@ -297,8 +355,12 @@ bar follows the viewed track's measured progress and changes when the page
 moves to another track.
 New runs clear transient row state and limit outcome/progress updates to their
 planned titles. The UI reports aggregate progress, cancellation, and the
-result of titles that were omitted after a bulk confirmation. Some retry,
-failure-text, and stream-stage presentation work remains under **W1/W2**.
+result of titles that were omitted after a bulk confirmation. A title's extract
+stage says which stream it takes and why ("as the library plays it", "your
+choice"), whether multichannel is kept and how many channels it found; a run
+that stops on an unavailable dependency says so and lists the rest as *Not
+run*. Opening the window rescans when the index was never scanned or the last
+scan is more than 12 hours old.
 
 ## Deliberate boundaries
 
@@ -313,6 +375,15 @@ failure-text, and stream-stage presentation work remains under **W1/W2**.
 - Season mode joins mono episodes without level matching and does not keep a
   season-wide multichannel project. Whether this needs product work depends
   on the evidence in **E5**.
+- `run.bass_management` is not in the design fingerprint: changing it does not
+  mark designs stale (Revise does). Nor is the Blu-ray logo-clip rule in the
+  extraction key: titles extracted before it need a re-extract.
+- A missing source file under an empty folder is taken for an unmounted share
+  and retried, never remembered; a file missing from a populated folder is the
+  title's own failure.
+- The discovery index is a database file in the work folder and is not written
+  from two machines at once: a desktop reviewing a container's work uses
+  Review Folder while a run goes.
 - Catalogue-as-input, which would apply an existing published BEQ without
   extracting or designing, was never part of the delivered pipeline. It is
   an optional future feature in **O1**.
