@@ -29,7 +29,7 @@ catalogue unattended, and the results reviewed from the desktop app. Publish
 and commit stay a person's decision in the app; the schedule never goes past
 design.
 
-The milestone is the rows marked **R** in the table: priorities 1–15. The
+The milestone is the rows marked **R** in the table: priorities 1–15 (R7, now [archived](archive/initial-release.md), was 5). The
 service and image themselves work (C1's amd64 smoke); what is missing is
 behavior that only matters at catalogue scale and over days: transient
 failures, the designer deployment, timeouts, disk use, remote review, stream
@@ -46,8 +46,7 @@ validation and steep-filter default are outside it.
 | 2 | R2 | R | -- | Not started; `/ready` checks only that a designer is declared | -- |
 | 3 | R3 | R | -- | Not started; no designer image, compose service or guide | beqforge packaging |
 | 4 | R4 | R | -- | Not started; risk inferred from code, not observed | R3 |
-| 5 | R7 | R | -- | `main` CI red on Windows since `b325752` | -- |
-| 6 | C1 | R | chunk S5 | amd64 build and smoke verified; arm64 build and GHCR publish not yet run | R7; the first tag push |
+| 6 | C1 | R | chunk S5 | amd64 build and smoke verified; arm64 build and GHCR publish not yet run | A green `main`; the first tag push |
 | 7 | J2 | R | chunk 40 | Not started beyond the seam: the resolver returns the first audio stream | Sanitised Playback Info and ffprobe evidence |
 | 8 | W2 | R | chunk 45b | Partial in `62270b4`: codec, channels and stream count are requested | J2 for automatic stream selection; manual override already exists |
 | 9 | E1 | R | chunk 3/30, T5-T6 | Waiting for authorised JRiver capture | Real MCWS server |
@@ -151,19 +150,6 @@ reported as a timeout, not as a design failure.
 
 **Done when:** a test with a slow single-threaded stub and `design: 2` shows
 no timeout-induced failure under the chosen policy, and the guide states it.
-
-### R7 — Windows CI failure in the publish aggregate test
-
-Since `b325752`, `test_pipeline_publish_readable.py::
-test_titles_in_several_letter_folders_share_one_aggregate_in_their_category_folder`
-fails on `windows-2022` and `windows-2025`: `Élite` reads back as `�lite`.
-The test opens `database.json` without `encoding=`, so Windows decodes it with
-the locale encoding. Confirm the publisher writes UTF-8 explicitly (if it
-does not, that is the bug, and Windows desktop publishing is affected), then
-make the reads explicit. C1's tag should not be cut from a red `main`.
-
-**Done when:** `main` CI is green on all three platforms and, if the writer
-was at fault, a test pins UTF-8 output.
 
 ### C1 — arm64 image and GHCR publish
 

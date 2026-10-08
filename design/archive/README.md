@@ -21,6 +21,7 @@ architecture references rather than duplicated as active plans.
 | [W3 lease guard](worklist-w3.md), [W1 retry/failure details](worklist-w1.md) | Completed work-list fixes and regression evidence |
 | [Spectrum comparison](worklist-spectrum.md) | Completed title-page publication heatmap preview and regression evidence |
 | [Published BEQs](worklist-published.md) | Completed title-page catalogue lookup and image pane, with regression evidence |
+| [Initial release milestone](initial-release.md) | Completed R items, with regression evidence |
 | Other files | Original headless pipeline, HTTP binding and candidate review plans |
 
 Historical proposals may differ from delivered code. The current designer

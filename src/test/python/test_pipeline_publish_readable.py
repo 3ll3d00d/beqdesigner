@@ -90,13 +90,13 @@ def test_a_name_already_in_the_repository_is_not_taken(tmp_path, repos):
     _queue_entry(queue_dir, 'a', 'Heat', readable=True)
     folder = os.path.join(repos[0].local_path, 'xml', 'movies', 'H')
     os.makedirs(folder)
-    with open(os.path.join(folder, 'Heat (2018) Atmos.json'), 'w') as f:
+    with open(os.path.join(folder, 'Heat (2018) Atmos.json'), 'w', encoding='utf-8') as f:
         f.write('{"someone": "else"}')
 
     _publish(queue_dir, repos)
 
     assert read_entry(queue_dir, 'a').published_stem == 'H/Heat (2018) Atmos (2)'
-    with open(os.path.join(folder, 'Heat (2018) Atmos.json')) as f:
+    with open(os.path.join(folder, 'Heat (2018) Atmos.json'), encoding='utf-8') as f:
         assert json.load(f) == {'someone': 'else'}
 
 
@@ -111,7 +111,7 @@ def test_editing_the_title_after_publishing_does_not_move_the_file(tmp_path, rep
     assert result['republished'] is True
     assert 'xml/movies/H/Heat (2018) Atmos.json' in _tree(repos[0])
     assert not any('Redux' in f.split('/')[-1] for f in _tree(repos[0]))
-    with open(os.path.join(repos[0].local_path, 'xml', 'movies', 'H', 'Heat (2018) Atmos.json')) as f:
+    with open(os.path.join(repos[0].local_path, 'xml', 'movies', 'H', 'Heat (2018) Atmos.json'), encoding='utf-8') as f:
         assert json.load(f)['title'] == 'Heat Redux'
 
 
@@ -146,7 +146,7 @@ def test_the_aggregate_is_read_and_written_once_per_batch_not_once_per_title(tmp
 
     assert len([r for r in results if not r.get('error')]) == 6
     assert len(reads) == 1
-    with open(os.path.join(repos[0].local_path, 'xml', 'movies', 'database.json')) as f:
+    with open(os.path.join(repos[0].local_path, 'xml', 'movies', 'database.json'), encoding='utf-8') as f:
         assert sorted(r['title'] for r in json.load(f)) == [f'Title {i}' for i in range(6)]
 
 
@@ -163,7 +163,7 @@ def test_a_cancelled_batch_still_writes_the_aggregate_for_what_it_published(tmp_
     results = _publish(queue_dir, repos, should_cancel=cancel)
 
     assert len(results) == 1
-    with open(os.path.join(repos[0].local_path, 'xml', 'movies', 'database.json')) as f:
+    with open(os.path.join(repos[0].local_path, 'xml', 'movies', 'database.json'), encoding='utf-8') as f:
         assert len(json.load(f)) == 1
 
 
@@ -179,7 +179,7 @@ def test_titles_in_several_letter_folders_share_one_aggregate_in_their_category_
                                'xml/movies/0-9/1917 (2018) Atmos.json', 'xml/movies/A/Alien (2018) Atmos.json',
                                'xml/movies/E/Élite (2018) Atmos.json', 'xml/movies/H/Heat (2018) Atmos.json',
                                'xml/movies/database.json']
-    with open(os.path.join(repos[0].local_path, 'xml', 'movies', 'database.json')) as f:
+    with open(os.path.join(repos[0].local_path, 'xml', 'movies', 'database.json'), encoding='utf-8') as f:
         assert sorted(r['title'] for r in json.load(f)) == ['1917', 'Alien', 'Heat', '[REC]', 'Élite']
 
 
@@ -258,7 +258,7 @@ def test_the_heatmap_is_written_beside_the_report_image_and_is_the_records_secon
     assert _tree(repos[2]) == ['img/movies/H/Heat (2018) Atmos heatmap.png', 'img/movies/H/Heat (2018) Atmos.png']
     with open(os.path.join(repos[2].local_path, 'img', 'movies', 'H', 'Heat (2018) Atmos heatmap.png'), 'rb') as f:
         assert f.read() == b'HEATMAP'
-    with open(os.path.join(repos[0].local_path, 'xml', 'movies', 'H', 'Heat (2018) Atmos.json')) as f:
+    with open(os.path.join(repos[0].local_path, 'xml', 'movies', 'H', 'Heat (2018) Atmos.json'), encoding='utf-8') as f:
         images = json.load(f)['images']
     assert [u.rsplit('/', 1)[1] for u in images] == ['Heat%20%282018%29%20Atmos.png', 'Heat%20%282018%29%20Atmos%20heatmap.png']
 
