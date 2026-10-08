@@ -35,7 +35,7 @@ services:
   # same work directory: the designer reads it at /work, its shared root.
   designer:
     # Pin the version: a catalogue designed over several days should come from one designer build.
-    image: ghcr.io/3ll3d00d/beqforge-designer:0.2.1
+    image: ghcr.io/3ll3d00d/beqforge-designer:0.2.0
     user: "${PUID:-1000}:${PGID:-1000}"  # the same user as the pipeline: it must write the work directory and cache
     # environment:             # any `beqforge serve-designer` option, as BEQFORGE_<OPTION> (the beqforge README)
     #   BEQFORGE_RECORD_DIR: /records

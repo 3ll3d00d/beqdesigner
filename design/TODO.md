@@ -42,7 +42,7 @@ validation and steep-filter default are outside it.
 
 | Priority | ID | R | Previous IDs | Status | Depends on |
 |---|---|---|---|---|---|
-| 3 | R3 | R | -- | Built and verified locally; the pinned designer image is not published yet | A beqforge `v0.2.1` tag (beqforge `aaf0f21` pushed first) |
+| 3 | R3 | R | -- | Built and verified locally; the pinned `beqforge-designer:0.2.0` image is being published | beqforge's manual image publish (run `37770513918`) |
 | 6 | C1 | R | chunk S5 | amd64 build and smoke verified; arm64 build and GHCR publish not yet run | A green `main`; the first tag push |
 | 7 | J2 | R | chunk 40 | Not started beyond the seam: the resolver returns the first audio stream | Sanitised Playback Info and ffprobe evidence |
 | 8 | W2 | R | chunk 45b | Partial in `62270b4`: codec, channels and stream count are requested | J2 for automatic stream selection; manual override already exists |
@@ -72,8 +72,8 @@ duplicates or picks the wrong playlist, they move into it.
 
 ### R3 — Deploy the designer beside the service
 
-**Built** in beqforge `aaf0f21` (not yet pushed) and beqdesigner's "Run the
-designer beside the pipeline service in the compose example".
+**Built** in beqforge `aaf0f21` and `62be0c0` (pushed) and beqdesigner's
+"Run the designer beside the pipeline service in the compose example".
 
 - beqforge: `packaging/designer/Dockerfile` runs `beqforge serve-designer` on
   `0.0.0.0:8420` as uid 1000, with `BEQFORGE_SHARED_ROOT=/work` and
@@ -82,9 +82,11 @@ designer beside the pipeline service in the compose example".
   (health, one design inline, one by reference) on every change. On a
   `vX.Y.Z` tag that matches `beq_common.__version__`, it publishes
   linux/amd64 and linux/arm64 as `ghcr.io/3ll3d00d/beqforge-designer:<version>`
-  (and `latest`). README section "Running the designer in a container".
+  (and `latest`). A manual run with `publish` publishes the current version's
+  image from a later commit, and refuses unless the designer code is identical
+  to that version's tag. README section "Running the designer in a container".
 - beqdesigner: `docker/compose.example.yaml` runs `designer` beside
-  `pipeline`, pinned to `beqforge-designer:0.2.1`, with the same `./work`
+  `pipeline`, pinned to `beqforge-designer:0.2.0`, with the same `./work`
   mounted at `/work` in both, a `designer-cache` volume and the same user.
   `docker/smoke.py --designer-image IMAGE` runs the real designer on a
   private network, waits for `/v1/status` to report it reachable, designs a
@@ -104,9 +106,12 @@ reported the designer reachable at `http://designer:8420/design`. With the
 designer stopped it reported `reachable: false` with the reason, and `/ready`
 stayed 200.
 
-**Left:** push beqforge and tag `v0.2.1` (bump `beq_common.__version__`
-first) so the pinned image exists; until then the release workflow's pull
-fails. If the release gets another version, change the compose example's tag.
+**Left:** the pinned image is published by a manual run of beqforge's image
+workflow (decided 2026-10-08). The designer code is unchanged since `v0.2.0`,
+and a version bump would have invalidated the optimiser's bundled seed: its
+cache identity includes `beq_common.__version__`, in `core.py`, which is
+itself hashed. Decoupling that is a beqforge follow-up, best done with the
+next optimiser change that needs a seed rebuild anyway.
 The container's designer reports its build as `unknown+src:<digest>` (no git
 in the image); D4 should decide whether to bake a stamp.
 
