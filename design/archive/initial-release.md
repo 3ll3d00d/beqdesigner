@@ -502,3 +502,17 @@ an AC-3 stereo intro before a 5.1 feature, where the feature's 6 channels are
 read. `test_pipeline_library_jriver_fixture.py` covers playlist, duration and
 the playlist-file entry from the real rows. Full suite **2756 passed, 1
 skipped**.
+
+## C1 — arm64 image and GHCR publish (completed)
+
+Completed on 2026-10-08 by the first release tag, `2.2.0-alpha.1` (commit
+`3ec6b5d`), whose `create-image.yaml` run `37847667859` passed every step. It
+built the image, extracted and designed through the stub designer, designed by
+reference through the pinned `beqforge-designer:0.2.0`, then built and
+published linux/amd64 and linux/arm64 with `docker/setup-buildx-action` and
+`docker/login-action` v4 (their first use). Verified from GHCR afterwards:
+`ghcr.io/3ll3d00d/beqdesigner-pipeline:2.2.0-alpha.1` has amd64 and arm64
+manifests and no `latest` (the prerelease rule). The amd64 image reports
+version `2.2.0-alpha.1`, labels revision `3ec6b5d`, and runs as `beq`. The
+arm64 image was built and published but not run: no runner or local machine
+had arm64 emulation.

@@ -102,9 +102,9 @@ JSON carries job, designed title, failure and review-count details; text,
 Slack and Discord carry a summary. Redirects are refused and status shows
 delivery outcomes without URLs or headers. The Qt-free Docker image has
 ffmpeg, git and SSH; CI builds and smoke-tests it on pushes and before
-publishing amd64/arm64 release tags. The amd64 image build and smoke run are
-verified; the arm64 build and GHCR publish have not yet run
-([C1](TODO.md#c1--arm64-image-and-ghcr-publish)). `docker/compose.example.yaml`
+publishing amd64/arm64 release tags. The first release,
+`ghcr.io/3ll3d00d/beqdesigner-pipeline:2.2.0-alpha.1`, was built, smoke-tested
+and published by its tag's run; a prerelease tag does not move `latest`. `docker/compose.example.yaml`
 runs beqforge's designer image (`ghcr.io/3ll3d00d/beqforge-designer`, pinned to
 0.2.0) beside the pipeline, both mounting the work directory so audio goes by
 reference; `docker/smoke.py --designer-image` designs a title through it and

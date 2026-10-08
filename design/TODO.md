@@ -30,12 +30,11 @@ and commit stay a person's decision in the app; the schedule never goes past
 design.
 
 The milestone is the rows marked **R** in the table. Everything built for it
-is [archived](archive/initial-release.md): R1–R9, J2, W2, E1, E4 and D4's
-release part (priorities 1–5 and 7–14). **Two items remain, and both need
-the maintainer:** C1, the first release tag (the arm64 image and the GHCR
-publish run only there), and E2, the acceptance run on real media with the
-published images. `main` is green on Linux, macOS and Windows, and the
-designer image `ghcr.io/3ll3d00d/beqforge-designer:0.2.0` is published.
+is [archived](archive/initial-release.md): R1–R9, C1, J2, W2, E1, E4 and D4's
+release part (priorities 1–14). **One item remains, and it needs the
+maintainer:** E2, the acceptance run on real media with the published images,
+`ghcr.io/3ll3d00d/beqdesigner-pipeline:2.2.0-alpha.1` and
+`ghcr.io/3ll3d00d/beqforge-designer:0.2.0`.
 
 Two beqforge items are recorded in its own `TODO.md`, not here: #1 "Playback
 contract" (the designer side of R8: the library now sends
@@ -48,9 +47,8 @@ outside it. A beqforge version bump invalidates its bundled optimiser seed
 
 | Priority | ID | R | Previous IDs | Status | Depends on |
 |---|---|---|---|---|---|
-| 6 | C1 | R | chunk S5 | amd64 build and both smokes verified; `main` green on every platform (run `37823377683`); arm64 build and GHCR publish not yet run | The first tag push |
 | 11 | D4 | | by-reference §5 | Release part done (each entry records its designer and build); the drift behavior is not started | Designer build identity policy (full drift behavior only) |
-| 15 | E2 | R | chunk 31, T2-T4 | Waiting for manual acceptance; everything it exercises is built | C1's published image; real media, a JRiver server and disposable repositories |
+| 15 | E2 | R | chunk 31, T2-T4 | Waiting for manual acceptance; everything it exercises is built and published | Real media, a JRiver server and disposable repositories |
 | 16 | E3 | | chunk 32, T7 | Not started; the captured library (E1) has no DVDs | A DVD rip in a JRiver library, captured as E1 was |
 | 18 | E5 | | chunk 37, T15 | Waiting for a product decision | E2; representative season media |
 | 19 | T1 | | -- | Watch; probably recurred in CI on 2026-10-08, without a log | Recurrence with a stack dump |
@@ -67,25 +65,6 @@ main-title fallback is truthful for the catalogue's discs; if it silently
 duplicates or picks the wrong title, it moves into it. (E4, Blu-ray, is done.)
 
 ## Work in priority order
-
-### C1 — arm64 image and GHCR publish
-
-On 2026-09-27 the push-CI job's two commands were run locally at `7db992d`
-(Docker 29.8.1, linux/x86_64): `docker build -f docker/Dockerfile` succeeded,
-including its `dvdvideo` demuxer check, and `docker/smoke.py` passed (ready,
-run job through design, `succeeded`, queue entry present). The image runs as
-`beq` and reports the `VERSION` file copied into it. What has not run is the
-rest of `create-image.yaml`: the `linux/arm64` build under QEMU/buildx, the
-`latest`-tag rule, and the push to GHCR. These are left to CI: the first
-tag's `create-image.yaml` run exercises all of them (no local QEMU set-up).
-
-The release workflow also smokes the image against the designer the compose
-example pins, by reference (R3), before publishing. Its Docker actions were
-bumped on 2026-10-08 (`docker/login-action` and `docker/setup-buildx-action`
-v4, dependabot #521 and #519); the tag run is their first use.
-
-**Done when:** the first tag's workflow run builds both architectures, passes
-both smoke tests and publishes them to GHCR with the expected tags.
 
 ### E2 — End-to-end acceptance record
 
