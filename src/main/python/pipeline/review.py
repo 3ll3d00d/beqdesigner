@@ -503,6 +503,23 @@ def project_name(project_dir: str, entry_id: str) -> str:
     return os.path.basename(os.path.normpath(project_dir)) or entry_id
 
 
+def entry_art_path(entry: 'QueueEntry', work_dir: Optional[str]) -> Optional[str]:
+    '''
+    The entry's poster as this machine sees it (R6). An entry records the path where it was designed; on a reviewer's
+    machine sharing that work directory under another root, the same poster is the file of that name in the title's own
+    folder (pipeline.library.artwork keeps it there). The path as recorded when neither exists.
+    '''
+    return resolve_art_path(entry.art_path, work_dir, entry.id)
+
+
+def resolve_art_path(path: Optional[str], work_dir: Optional[str], entry_id: str) -> Optional[str]:
+    ''' entry_art_path() for a recorded path and the entry's id. '''
+    if not path or os.path.isfile(path) or not work_dir:
+        return path
+    here = os.path.join(entry_directory(work_dir, entry_id), os.path.basename(path.replace('\\', '/')))
+    return here if os.path.isfile(here) else path
+
+
 def project_paths(work_dir: str, entry_id: str) -> Tuple[str, str, Optional[str], str]:
     ''':return: (project_dir, mono project path, multichannel project path or None, multichannel wav path); the
         multichannel project exists only where a multichannel extraction does.'''
@@ -544,7 +561,7 @@ def current_publish_digest(entry: QueueEntry, *, meta_defaults: Optional[dict] =
         _, mono_path, mc_path, _ = project_paths(work_dir, entry.id)
         complete_filter = preview_published_projects(mono_path, mc_path, complete_filter).filter
     meta = with_no_beq_note(publication_meta(entry, meta_defaults), complete_filter)
-    return publish_digest(complete_filter.to_json(), meta, entry.art_path,
+    return publish_digest(complete_filter.to_json(), meta, entry_art_path(entry, work_dir),
                           has_image, chosen.mv_adjust_db, report_spec, image_owner, image_repo_name)
 
 
@@ -717,7 +734,8 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
         if images_repo is not None:
             unfiltered = xydata_from_json(entry.curve)
             filtered = unfiltered.filter(complete_filter.get_transfer_function().get_magnitude())
-            image_png = session.report([unfiltered, filtered], complete_filter, meta=meta, poster_path=entry.art_path,
+            image_png = session.report([unfiltered, filtered], complete_filter, meta=meta,
+                                       poster_path=entry_art_path(entry, work_dir),
                                        spec=report_spec, mv_offset=chosen.mv_adjust_db)
         heatmap_png = None
         if images_repo is not None and work_dir is not None and heatmap_spec is not None:
@@ -728,7 +746,7 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
                 except Exception as error:  # the report image and the record are worth publishing without it
                     logger.warning('could not draw the heatmap for %s: %s', entry.id, error, exc_info=True)
                     heatmap_error = f'{type(error).__name__}: {error}'
-        digest = publish_digest(complete_filter.to_json(), meta, entry.art_path, images_repo is not None,
+        digest = publish_digest(complete_filter.to_json(), meta, entry_art_path(entry, work_dir), images_repo is not None,
                                 chosen.mv_adjust_db, report_spec, image_owner,
                                 image_repo_name)  # before publish(), which fills the image URLs into meta
         # A republish over an XML the catalogue holds, and that has not been touched since, begins a revision: the

@@ -12,6 +12,7 @@ Returns None when neither is available, which renders a chart-only report.
 '''
 import logging
 import os
+import shutil
 from typing import Optional
 
 import requests
@@ -32,7 +33,19 @@ def resolve_art(item: LibraryItem, meta: dict, art_dir: Optional[str]) -> Option
     '''
     local = next((c for c in (item.art_path, *item.art_candidates) if c and os.path.isfile(c)), None)
     if local:
-        return local
+        if art_dir is None:
+            return local
+        # kept in the title's own folder, as a downloaded poster is: the work directory is what a reviewer on another
+        # machine shares, and a media path means nothing there (R6)
+        dest = os.path.join(art_dir, 'poster' + os.path.splitext(local)[1].lower())
+        try:
+            os.makedirs(art_dir, exist_ok=True)
+            if os.path.abspath(local) != os.path.abspath(dest):
+                shutil.copyfile(local, dest)
+            return dest
+        except OSError as error:
+            logger.warning('Unable to copy the artwork of %s into its work folder: %s', item.id, error)
+            return local
     poster = meta.get('poster')
     if not poster or art_dir is None:
         return None

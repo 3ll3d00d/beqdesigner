@@ -166,3 +166,26 @@ receive the job and title details.
 While a job of the service's runs, it holds the work directory. **Extract & design** in the work list (and a command-line `run`) hands its titles to the job, which queues them behind its own: the work list shows them under *Working* and follows the job until it ends, and runs them itself if the job ended without taking them. Publish, Commit and publishing on accept say *the pipeline service on HOST is running a job* and do not start. Looking, reviewing and deciding go on as normal. The work list and the command line hold the work directory for their own runs too: a service job that starts while one of them is running hands its extract and design titles to that run, and ends when it does, with what became of them; a scan, a publish or a bulk accept waits for it to end.
 
 A run job through extract or design that you submit while another run job is extracting or designing does not wait in the queue: it **joins** that run, which queues its titles behind its own. The joined job is *running* at once, says which job it joined in `joined_to`, and ends when that run ends, with its result. If the run had already moved past extracting and designing, the job waits its turn as usual.
+
+### Reviewing from another machine
+
+The service fills the review queue; you review it in the app on your desktop. One layout is supported:
+
+* **The work and queue folders live on the machine that runs the container**, on its own disk (for example a NAS
+  running Docker), as the compose example mounts them (`./work`, `./queue`). The desktop reaches them over the network
+  (an SMB or NFS share of those two folders), read and write.
+* **The desktop has its own profile.** The container's profile names the folders as the container sees them (`/work`,
+  `/queue`) and the media as `/media/...`; the desktop's names the same folders by the desktop's paths (`work_dir:
+  /mnt/nas/beq/work`, or `W:\beq\work` on Windows), and its sources and JRiver path mappings by the desktop's view of the
+  media. Keep everything else the same in both: the sources, the designer's **name** under `designers:` (its URL may
+  differ), `run.keep_multichannel` and the analysis settings, since a design is judged by them. Nothing pairs the two
+  files; keep them side by side and change both.
+* **While a run is going, review with *Tools > Review Folder...*** on the shared queue folder. It works on the queue
+  entries only. The work list also keeps the discovery index (a database file in the work folder) up to date as you
+  decide, and a database file is not safe to write from two machines at once over a network share. Use the work list
+  from the desktop when the service is idle (`GET /v1/status` shows `current_job`), and start runs through the service
+  rather than from the desktop's work list.
+
+A title's poster is kept in its own work folder, so it shows on the desktop whatever path the container recorded, and a
+title published from the desktop is not made out of date by the difference. Project files carry their own audio and open
+from the share.

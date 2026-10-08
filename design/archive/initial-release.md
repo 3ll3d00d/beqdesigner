@@ -360,3 +360,35 @@ compression not failing the publish, a design restoring first, the floor,
 the immediate stop and the validation. Validation: full suite
 **2707 passed, 1 skipped**. The saving on real soundtracks is for E2 to
 record.
+
+## R6 — Reviewing the container's work from the desktop (completed)
+
+Completed on 2026-10-08, in the commit "Let a desktop review a work
+directory the container wrote, and say how". Queue entries recorded absolute
+artwork paths (`/media/films/...`) that meant nothing on the desktop, and no
+layout was defined.
+
+- `artwork.resolve_art` copies library artwork into the title's own folder as
+  `poster<ext>`, as it already did for a TMDB download. Every entry's poster is
+  then inside the shared work directory.
+- `review.entry_art_path()` / `resolve_art_path()`: the recorded path if it
+  exists here, else the same file name in the title's folder under this
+  machine's work directory. They are used by the publish digest, the report
+  image, the status cache key and the Metadata tab (`MetadataPanel(work_dir=)`,
+  from the title page's hooks). A title designed under one root and reviewed
+  under another therefore shows its poster and keeps its publish digest.
+  Project files embed their audio and need nothing.
+- `docs/library/service.md`, "Reviewing from another machine": the supported
+  layout. The work and queue folders are on the container host's own disk,
+  shared to the desktop. The desktop has its own profile with the same sources,
+  designer name and settings but its own paths. During a run, use Review
+  Folder (the queue only). Use the work list, which writes the SQLite index,
+  only when the service is idle, and start runs through the service.
+
+Tests: `test_pipeline_review_portable.py` (art copied in; a work directory
+copied to a new root with the old one deleted keeps its digest and finds its
+poster); `gui/test_worklist_portable_art.py` (the Metadata tab shows it);
+`test_pipeline_library_artwork.py` (the changed behavior). Validation: full
+suite **2711 passed, 1 skipped**. The cross-machine run (an index read over the
+share while the container writes, Review Folder during a run) is E2's to
+record.

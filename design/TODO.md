@@ -29,7 +29,7 @@ catalogue unattended, and the results reviewed from the desktop app. Publish
 and commit stay a person's decision in the app; the schedule never goes past
 design.
 
-The milestone is the rows marked **R** in the table: priorities 1–15 (R1–R5, R7, R8, W2, E1 and D4's release part, now [archived](archive/initial-release.md), were 1–5 and 8–12). The
+The milestone is the rows marked **R** in the table: priorities 1–15 (R1–R8, W2, E1 and D4's release part, now [archived](archive/initial-release.md), were 1–5 and 8–13). The
 service and image themselves work (C1's amd64 smoke); what is missing is
 behavior that only matters at catalogue scale and over days: the designer
 deployment, disk use, remote review, stream
@@ -46,7 +46,6 @@ validation and steep-filter default are outside it.
 | 6 | C1 | R | chunk S5 | amd64 build and smoke verified; arm64 build and GHCR publish not yet run | A green `main`; the first tag push |
 | 7 | J2 | R | chunk 40 | Not started beyond the seam; Playback Info captured (E1), ffprobe of the same files missing | ffprobe of the fixture's titles (the media share mounted) |
 | 11 | D4 | | by-reference §5 | Release part done (each entry records its designer and build); the drift behavior is not started | Designer build identity policy (full drift behavior only) |
-| 13 | R6 | R | -- | Not started; the supported layout is undefined | R3 |
 | 14 | R9 | R | -- | Not started | -- |
 | 15 | E2 | R | chunk 31, T2-T4 | Waiting for manual acceptance | R1–R9, E1; real designer, media and disposable repositories |
 | 16 | E3 | | chunk 32, T7 | Not started; the captured library has no DVDs | A DVD in a JRiver library; DVD fixture |
@@ -123,23 +122,6 @@ on the title page. The container's designer reports `unknown+src:<digest>`
 **Done when (full):** the agreed drift behavior is
 documented and implemented with regression coverage.
 
-### R6 — Reviewing the container's work from the desktop
-
-The service guide says the work directory is exported to the reviewer, but
-the supported layout is not defined. The profile's paths are container paths,
-so the desktop needs its own profile naming the same work and queue folders
-by its paths, and nothing pairs the two. Queue entries store absolute media
-paths (for example `art_path: /media/films/...`). The SQLite index (default
-journal mode) would be read over SMB or NFS while the container writes it, and
-the work-directory lease is not atomic across machines. Choose one supported
-layout, make queue entries free of host-specific paths (or translate them),
-document the desktop profile and the mount, and verify concurrent reading of
-the index across the chosen network filesystem.
-
-**Done when:** the layout is in the user guide, queue entries open on the
-desktop from a container-written work directory (tested with differing roots),
-and E2 records the cross-machine review working while a run goes.
-
 ### R9 — Operating an unattended catalogue run
 
 - **TMDB:** without `TMDB_API_KEY` the service designs with library metadata
@@ -171,7 +153,9 @@ titles that covers every codec, channel layout, Blu-ray folder, DVD and TV
 season present in the catalogue. Record per-title extract and design times
 (R4's measurement and R9's estimate), work-directory growth (R5), stream
 choices (J2/W2), disc fallbacks (E3/E4), a designer restart and a media mount
-dropped mid-run (R1/R2), and review from the desktop while the run goes (R6).
+dropped mid-run (R1/R2), and review from the desktop while the run goes (R6:
+the guide's layout, Review Folder on the shared queue folder during a run, the
+work list with the service idle, and the index read over the chosen share).
 
 **Done when:** the GUI, season and CLI claims formerly called T2-T4 have
 dated observed results, and the container sample run has a dated record with

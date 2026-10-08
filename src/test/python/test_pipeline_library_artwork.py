@@ -22,14 +22,18 @@ def _fake_fetch(monkeypatch, calls, content=b'poster'):
     monkeypatch.setattr('pipeline.library.artwork.fetch_poster', fetch)
 
 
-def test_library_art_is_used_in_place_and_wins_over_tmdb(tmp_path, monkeypatch):
+def test_library_art_wins_over_tmdb_and_is_kept_in_the_item_dir(tmp_path, monkeypatch):
+    ''' R6: copied beside the title's audio, so a reviewer sharing only the work directory has it. '''
     calls = []
     _fake_fetch(monkeypatch, calls)
-    art = tmp_path / 'cover.jpg'
+    art = tmp_path / 'cover.JPG'
     art.write_bytes(b'x')
 
-    assert resolve_art(_item(str(art)), {'poster': '/p.jpg'}, str(tmp_path / 'art')) == str(art)
+    found = resolve_art(_item(str(art)), {'poster': '/p.jpg'}, str(tmp_path / 'art'))
+
+    assert found == str(tmp_path / 'art' / 'poster.jpg') and open(found, 'rb').read() == b'x'
     assert calls == []
+    assert resolve_art(_item(str(art)), {'poster': '/p.jpg'}, None) == str(art)   # nowhere to keep it: in place
 
 
 def test_tmdb_poster_is_downloaded_to_a_fixed_name_in_the_item_dir(tmp_path, monkeypatch):

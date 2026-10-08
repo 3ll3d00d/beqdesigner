@@ -55,7 +55,7 @@ from model.worklist_artwork import ArtworkError, DownloadJob, check_local_image
 from model.worklist_model import is_dark_palette, warning_colour
 from pipeline.library.status import metadata_problems
 from pipeline.metadata import BeqMetadata, format_episodes, parse_episodes, redact, tmdb_details_by_id, tmdb_lookup  # noqa: F401 (redact: the page's own tests and callers)
-from pipeline.review import QueueEntry, read_entry, update_entry
+from pipeline.review import QueueEntry, entry_art_path, read_entry, update_entry
 from ui.worklistmetadata import Ui_metadataPanel
 
 logger = logging.getLogger('worklist')
@@ -220,8 +220,10 @@ class MetadataPanel(QWidget, Ui_metadataPanel):
     elsewhere = Signal(str)         # something to tell about a title that is not on the page (a download refused for it)
 
     def __init__(self, parent, preferences, queue_dir: Callable[[], str], running: Callable[[], Mapping[str, str]],
-                 meta_defaults: Callable[[], Optional[dict]], choose_file: Optional[Callable[[], str]] = None):
+                 meta_defaults: Callable[[], Optional[dict]], choose_file: Optional[Callable[[], str]] = None,
+                 work_dir: Callable[[], str] = lambda: ''):
         super().__init__(parent)
+        self._work_dir = work_dir   # where this machine sees the work directory: an entry's poster is found in it (R6)
         self.setupUi(self)
         self._preferences, self._queue_dir, self._running, self._defaults = preferences, queue_dir, running, meta_defaults
         self.choose_file = choose_file or self._ask_for_file
@@ -600,7 +602,7 @@ class MetadataPanel(QWidget, Ui_metadataPanel):
         return path
 
     def _render_art(self) -> None:
-        path = self._entry.art_path if self._entry is not None else None
+        path = entry_art_path(self._entry, self._work_dir() or None) if self._entry is not None else None
         self.artPathField.setText(path or '')
         self.artPathField.setToolTip(path or '')
         pixmap = QPixmap(path) if path and os.path.isfile(path) else QPixmap()

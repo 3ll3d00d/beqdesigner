@@ -133,7 +133,8 @@ class TitlePage(TitleDecisions, TitleActions, QWidget, Ui_titlePage):
         self.decisionLayout.setStretch(0, 1)      # the label takes what the buttons leave
         self._magnitude = MagnitudeModel('worklist-title', self.previewChart, preferences, self._chart_data, 'Filter',
                                          fill_primary=False)
-        self._metadata = MetadataPanel(self, preferences, queue_dir, running, meta_defaults, choose_file)
+        self._metadata = MetadataPanel(self, preferences, queue_dir, running, meta_defaults, choose_file,
+                                       work_dir=lambda: self._hooks.work_dir() if self._hooks else '')
         self.metadataTabLayout.addWidget(self._metadata)
         self._metadata.saved.connect(self._on_saved)
         self._metadata.edited.connect(self._on_edited)

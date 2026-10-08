@@ -404,13 +404,14 @@ class Evaluator:
                 previous_conflict: bool) -> Tuple[str, str, bool]:
         ''' :return: (digest key, current digest, project conflict), from the cache if nothing it depends on changed. '''
         from pipeline.publish.project import ProjectFilterConflict
-        from pipeline.review import current_publish_digest, project_paths
+        from pipeline.review import current_publish_digest, project_paths, resolve_art_path
         settings = self.settings
         mono = mc = mc_wav = None
         if settings.work_dir:
             _, mono, mc, mc_wav = project_paths(settings.work_dir, entry_id)
         key = hashlib.sha256(json.dumps([
-            facts.mtime_ns, facts.size, facts.inode, facts.ctime_ns, _stat_signature(facts.art_path),
+            facts.mtime_ns, facts.size, facts.inode, facts.ctime_ns,
+            _stat_signature(resolve_art_path(facts.art_path, settings.work_dir or None, entry_id)),
             _stat_signature(mono), _stat_signature(mc), bool(mc_wav and os.path.isfile(mc_wav)),
             settings.meta_defaults, settings.has_image, bool(settings.work_dir), settings.image_owner,
             settings.image_repo_name, asdict(settings.report_spec) if settings.report_spec else None],
