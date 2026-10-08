@@ -15,7 +15,7 @@ The result is a **cache**. You can delete `library-index.sqlite` from the work d
 
 ### When it happens
 
-* **When you open the window for the first time** (or the index is missing), the list is scanned by itself. Otherwise the window shows the last scan immediately and does not rescan. *last scan 08:53* (or a date, if it was not today) at the top right says how old it is.
+* **When you open the window** for the first time (or the index is missing), or when the last scan was **more than 12 hours ago**, the list is scanned by itself, in the background. Otherwise the window shows the last scan immediately and does not rescan. *last scan 08:53* (or a date, if it was not today) at the top right says how old it is.
 * **When you press *Rescan*.** It scans in the background: the button reads *Scanning...*, a progress bar appears at the bottom of the window and the list stays usable. It scans every source; there is no button to rescan just one. A scan cannot be cancelled, and *Rescan*, the action buttons and the settings are disabled until it finishes.
 * **Whenever you change something that affects the answer**, a banner offers *Rescan now*. See [the settings drawer](setup.md#the-settings-drawer).
 

@@ -638,3 +638,25 @@ def test_closing_releases_the_index_and_a_scan_that_finishes_after_it_does_not_o
     assert os.path.isfile(index_path(str(tmp_path / 'work')))    # the scan itself did its job
     window.show()                             # shown again: it reads the index it now has
     assert window.has_open_index and window.listed_ids() == ['fs-Alpha']
+
+
+# --- a stale listing is taken again on opening -------------------------------------------------------------------------
+
+@pytest.mark.parametrize('hours_ago, scans', [(13, True), (11, False), (None, True)])
+def test_opening_rescans_when_the_last_scan_is_over_twelve_hours_old(qtbot, tmp_path, hours_ago, scans):
+    ''' None: never scanned (no index yet), which has always scanned on opening. '''
+    from model.worklist import AUTO_RESCAN_AFTER_S
+    assert AUTO_RESCAN_AFTER_S == 12 * 3600
+    prefs = _prefs(tmp_path)
+    if hours_ago is not None:
+        make_index(tmp_path / 'work', [], [], generation=3, last_scan_at=NOW - hours_ago * 3600)
+    source = _Source(['Alpha'])
+    window = WorkListWindow(None, prefs, sources={'filesystem': source}, clock=lambda: NOW)
+    qtbot.addWidget(window)
+    window.show()
+
+    if scans:
+        qtbot.waitUntil(lambda: source.calls == 1 and not window.is_scanning, timeout=10000)
+    else:
+        qtbot.wait(200)
+        assert source.calls == 0 and not window.is_scanning

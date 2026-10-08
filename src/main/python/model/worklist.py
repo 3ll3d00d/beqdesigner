@@ -159,12 +159,16 @@ class _ScanJob(QRunnable):
             self.signals.errored.emit(f'{type(error).__name__}: {error}')
 
 
+
+AUTO_RESCAN_AFTER_S = 12 * 3600   # opening the window rescans when the last scan is older than this
+
 class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkListBulk, QMainWindow,
                      Ui_workListWindow):
     '''
     :param parent: the main window, or None.
     :param preferences: `model.preferences.Preferences`; read again by reload().
-    :param auto_scan: rescan on opening if the index has never been scanned.
+    :param auto_scan: rescan on opening if the index has never been scanned, or was last scanned more than
+        AUTO_RESCAN_AFTER_S ago.
     :param sources: already-built sources by profile name, handed to the scan (tests); by default they are built from the
         profile's settings.
     :param clock: the time source, for "waiting" and "last scan" (tests).
@@ -613,8 +617,10 @@ class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkL
             self._drawer.refresh_designers()
         self._open_index(self._setup.index_file)
         self.refresh_from_index()
-        # no index file yet is "never scanned" too: the scan creates it
-        if self._auto_scan and self._setup.ready and self._index_error == '' and self._generation == 0 \
+        # no index file yet is "never scanned" too: the scan creates it. A listing older than half a day is taken again,
+        # so what was ripped or retagged since is there without a person remembering to press Rescan
+        stale = self._last_scan_at is not None and self._clock() - self._last_scan_at > AUTO_RESCAN_AFTER_S
+        if self._auto_scan and self._setup.ready and self._index_error == '' and (self._generation == 0 or stale) \
                 and not self.is_running:
             self.rescan()
 
