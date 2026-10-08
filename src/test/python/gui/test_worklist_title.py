@@ -347,7 +347,7 @@ def test_the_page_lists_the_candidates_and_the_commentary_of_the_highlighted_one
 
     assert page.candidateList.count() == 2 and page.candidateList.currentRow() == 0    # the top pick
     assert page.candidateList.item(0).text().startswith('1: confidence=0.90 method=fitted')
-    assert page.commentaryText.toPlainText().split('\n') == ['Note', 'top pick']
+    assert page.commentaryText.toPlainText().split('\n') == ['Note', 'top pick', 'Bass management sent to the designer', 'none sent: the designer assumed its own playback chain']
 
     qtbot.keyClick(page.candidateList, Qt.Key.Key_2)   # digits pick a candidate (1-based, as listed)
 
@@ -380,7 +380,7 @@ def test_a_declined_title_shows_the_reason_and_can_be_accepted_as_not_requiring_
     assert not page.noticeLabel.isVisible() and 'no_rolloff_detected' not in page.stateLabel.text()
     assert [page.candidateList.item(0).text()] == ['1: no filter -- the designer declined (does not require BEQ)']
     assert page.commentaryHeading.text() == 'Why the designer declined'
-    assert page.commentaryText.toPlainText().split('\n') == ['Decline reason', 'no_rolloff_detected', 'Summary', 'nothing found']
+    assert page.commentaryText.toPlainText().split('\n') == ['Decline reason', 'no_rolloff_detected', 'Summary', 'nothing found', 'Bass management sent to the designer', 'none sent: the designer assumed its own playback chain']
     assert 'Average audio track (all channels mixed)' in page._magnitude.get_curve_names()
     assert page.acceptButton.isEnabled() and page.skipButton.isEnabled() and page.rejectButton.isEnabled()
     page.show_title('r-arrival')
@@ -992,3 +992,15 @@ def test_proposed_filter_table_is_visible_and_tracks_the_selected_design(qtbot, 
     assert page.show_title('x-gravity')
     assert table.model().rowCount() == 0
     assert page.proposedFiltersHeading.text() == 'No proposed filters'
+
+
+def test_the_commentary_ends_with_the_bass_management_the_designer_was_sent():
+    from model.worklist_title_text import playback_html
+    from pipeline.library.bass import bass_management
+    from pipeline.review import QueueEntry
+
+    entry = QueueEntry(id='x', fs=1000, meta={}, curve={}, bass_management=bass_management({'lpf_fs': 90}))
+
+    assert 'Bass management sent to the designer' in playback_html(entry)
+    assert '90 Hz crossover, low-pass before, headroom WCS' in playback_html(entry)
+    assert playback_html(None) == ''

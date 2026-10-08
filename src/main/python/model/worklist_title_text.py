@@ -10,6 +10,7 @@ from typing import Callable, Mapping, Optional, Sequence
 
 from model.codec import filter_from_json, xydata_from_json
 from model.preferences import AVG_SPECLAB_COLOURS, PEAK_SPECLAB_COLOURS
+from pipeline.library.bass import describe as describe_bass_management
 from pipeline.library.index import TitleRow
 from pipeline.review import DECLINED_METHOD, QueueEntry
 
@@ -74,6 +75,17 @@ def rejection_html(candidate) -> str:
     reasons = ''.join(f'<li>{html.escape(reason)}</li>' for reason in candidate.rejection_reasons or [])
     return (f'<p style="margin-bottom:2px"><b>Why the designer rejected it</b></p><ul style="margin-top:0">{reasons}</ul>'
             + commentary_html(candidate.commentary))
+
+
+def playback_html(entry: Optional[QueueEntry]) -> str:
+    '''
+    What the designer was told the playback chain is (R8), below its commentary: its clipping figures are for that chain,
+    or for one it assumed when none was sent (beqforge's `clipping` note says which).
+    '''
+    if entry is None:
+        return ''
+    said = describe_bass_management(entry.bass_management)
+    return f'<p style="margin-top:8px"><b>Bass management sent to the designer</b><br>{html.escape(said)}</p>'
 
 
 def override_question(index: int, candidate) -> str:

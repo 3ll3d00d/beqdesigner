@@ -29,12 +29,13 @@ catalogue unattended, and the results reviewed from the desktop app. Publish
 and commit stay a person's decision in the app; the schedule never goes past
 design.
 
-The milestone is the rows marked **R** in the table: priorities 1–15 (R1–R4, R7, W2 and E1, now [archived](archive/initial-release.md), were 1–5, 8 and 9). The
+The milestone is the rows marked **R** in the table: priorities 1–15 (R1–R4, R7, R8, W2 and E1, now [archived](archive/initial-release.md), were 1–5 and 8–10). The
 service and image themselves work (C1's amd64 smoke); what is missing is
 behavior that only matters at catalogue scale and over days: the designer
 deployment, disk use, remote review, stream
 choice, and an acceptance run. Two beqforge items are recorded in its own
-`TODO.md`, not here: #1 "Playback contract" (the designer side of R8) and
+`TODO.md`, not here: #1 "Playback contract" (the designer side of R8, which
+now sends `run.bass_management`) and
 #13 "Residual reporting" (the reported fit error and band do not match the
 fit's). Neither blocks the milestone, but R8 and the user guide must state
 what they mean for a reviewer. beqforge's F2 device check, optimiser, E10/E1
@@ -44,7 +45,6 @@ validation and steep-filter default are outside it.
 |---|---|---|---|---|---|
 | 6 | C1 | R | chunk S5 | amd64 build and smoke verified; arm64 build and GHCR publish not yet run | A green `main`; the first tag push |
 | 7 | J2 | R | chunk 40 | Not started beyond the seam; Playback Info captured (E1), ffprobe of the same files missing | ffprobe of the fixture's titles (the media share mounted) |
-| 10 | R8 | R | -- | Not started; the library never sends bass management | beqforge TODO #1 for the designer side |
 | 11 | D4 | R | by-reference §5 | Planned; not started. Release needs only the per-entry record | Designer build identity policy (full drift behavior only) |
 | 12 | R5 | R | -- | Not started; no retention or free-space check | Product decision on kept audio |
 | 13 | R6 | R | -- | Not started; the supported layout is undefined | R3 |
@@ -105,21 +105,6 @@ that fallback. Cover malformed, missing and non-audio selections.
 **Done when:** fixture-backed tests show that JRiver's selected track is the
 one extracted. The title page's manual override and metadata update are
 already built; J2 supplies their automatic initial choice.
-
-### R8 — Send bass management to the designer
-
-The contract carries `bass_management`, and `design_if_needed` accepts it,
-but the library's `_design` (`pipeline/library/run.py`) never passes it and
-the profile has no place to declare it; Batch Design's `DesignJob` omits it
-too. The designer's clipping and headroom advice is therefore made on an
-assumed playback chain. Add a profile setting (crossover, LFE gain,
-headroom type) and pass it on both paths. beqforge's own TODO #1 records that
-it consumes only the crossover today; until that lands, the title page and
-user guide must say which fields were modelled and which were assumed.
-
-**Done when:** a request from the library and from Batch Design carries the
-profile's bass management (tests over the request body), and the reviewer can
-see whether the clipping figures used it.
 
 ### D4 — Surface designer revision drift
 

@@ -1020,9 +1020,15 @@ class DesignJob(QRunnable):
                                                              channel_layout_name=self.__channel_layout_name)
             # the multichannel file too, so a designer that takes arrays by reference can be sent it; with no
             # project_dir, no projects are written from it
+            # the crossover the session was built with (Preferences > Analysis): the designer's clipping figures use it
+            from model.preferences import BASS_MANAGEMENT_LPF_FS, BASS_MANAGEMENT_LPF_POSITION
+            from pipeline.library.bass import from_preferences
+            preferences = self.__session.preferences
+            bm = from_preferences(preferences.get(BASS_MANAGEMENT_LPF_FS), preferences.get(BASS_MANAGEMENT_LPF_POSITION))
             entry = design_and_queue(self.__session, self.__entry_id, wav_path, self.__designer,
                                      self.__queue_dir, channels=channels, audio_stream=self.__audio_stream_idx,
-                                     multichannel_wav_path=self.__multichannel_wav_path if channels else None)
+                                     multichannel_wav_path=self.__multichannel_wav_path if channels else None,
+                                     bass_management=bm)
             self.signals.finished.emit(entry)
         except Exception as e:
             logger.exception(f"Design {self.__entry_id} failed")

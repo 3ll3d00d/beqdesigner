@@ -82,6 +82,8 @@ class LibraryRunConfig:
     # a run stops after this many titles in a row met an unavailable dependency (a designer or media mount that is
     # not there), rather than failing the rest of its selection one by one
     stop_after_unavailable: int = DEFAULT_STOP_AFTER_UNAVAILABLE
+    # the playback chain sent to the designer (pipeline.library.bass, `run.bass_management`); None sends none
+    bass_management: Optional[dict] = None
 
     def __post_init__(self):
         plan_units([], self.tv_mode)  # rejects an unknown mode up front, not on the first TV item
@@ -375,6 +377,7 @@ def _design(session: Session, item: LibraryItem, wav_path: str, run_config: Libr
             session, item, wav_path, run_config.designer, run_config.queue_dir, run_config.config,
             coverage=run_config.coverage, force=run_config.force_design,
             meta=_meta_source(item, run_config, report), channels=channels,
+            bass_management=run_config.bass_management,
             multichannel_wav_path=multichannel_path, channel_layout_name=channel_layout_name,
             project_dir=project_dir, recorded_source=recorded_source,
         )

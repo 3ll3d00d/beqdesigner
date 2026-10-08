@@ -27,6 +27,7 @@ from pipeline.library.index import LibraryIndex, TitleRow
 from pipeline.library.inbox import WorkDirInbox
 from pipeline.library.join import JoinQueue
 from pipeline.service.lease import WORKLIST, LeaseHeld, run_lease
+from pipeline.library.bass import bass_management
 from pipeline.library.run import LibraryRunConfig, stage_parallelism, stop_after_unavailable
 from pipeline.library.selection import Selection, StagePlan
 from pipeline.library.stages import PublishSettings, StagesReport, run_stages
@@ -141,7 +142,8 @@ def build_run_config(setup, preferences) -> LibraryRunConfig:
         coverage=settings.coverage, keep_multichannel=settings.keep_multichannel, tv_mode=settings.tv_mode,
         tmdb_api_key=preferences.get(TMDB_API_KEY) or None, audio_types=tuple(run.get('audio_types') or ()),
         extract_parallelism=parallelism['extract'], design_parallelism=parallelism['design'],
-        stop_after_unavailable=stop_after_unavailable(run.get('stop_after_unavailable')))
+        stop_after_unavailable=stop_after_unavailable(run.get('stop_after_unavailable')),
+        bass_management=bass_management(run.get('bass_management')))
 
 
 def publish_problem(setup) -> str:

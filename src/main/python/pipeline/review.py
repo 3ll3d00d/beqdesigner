@@ -97,6 +97,8 @@ class QueueEntry:
     published_stem: Optional[str] = None      # the readable file name (no extension) it was first published under
                                                # (catalogue_stem()); kept so a metadata edit never moves a published
                                                # file. None: published before names were readable, so under `id`
+    bass_management: Optional[dict] = None    # the playback chain the designer was told about (DesignRequest.bass_management);
+                                               # None: none was sent, or designed before this was recorded
     rejected: List[CandidateSummary] = field(default_factory=list)  # designs the designer judged unfit to publish
                                                # (contract 1.1), each with rejection_reasons: for a person to review.
                                                # Nothing picks one but a person, and picking one overrides the designer
@@ -301,6 +303,7 @@ def design_and_queue(session: Session, entry_id: str, wav_path: str, designer: s
     peak_curve = xydata_to_json(session.curves(sig, kind='peak', filtered=False))
     entry = _outcome_to_entry(entry_id, sig.signal.fs, meta or {}, curve, outcome, peak_curve=peak_curve)
     entry.audio_stream = audio_stream
+    entry.bass_management = dict(bass_management) if bass_management else None
     write_queue_entry(queue_dir, entry)
     if project_dir is not None:
         from pipeline.publish.project import write_title_projects_if_safe

@@ -276,3 +276,38 @@ a missing file. `test_pipeline_library_index.py` covers the recorded list.
 Validation: `PYTHONPATH=./src/main/python QT_QPA_PLATFORM=offscreen uv run
 pytest -q -n auto src/test/python`: **2676 passed, 1 skipped**. The automatic
 initial choice is J2's.
+
+## R8 — Send bass management to the designer (completed)
+
+Completed on 2026-10-08, in the commit "Send the playback chain to the
+designer and show the reviewer what was sent". The contract carried
+`bass_management`, but neither the library nor Batch Design sent it.
+
+- `pipeline/library/bass.py` validates a profile's `run.bass_management`
+  against the contract's keys (`lpf_fs`, `lpf_position`, `headroom_type`,
+  `clip_before`, `clip_after`), each optional with the contract's default; an
+  unknown key or bad value is named. Leaving the section out sends `None`. The
+  contract has no LFE gain, so the plan's "LFE gain" is not a setting.
+- Library: `LibraryRunConfig.bass_management`, from `setup` (CLI and service)
+  and the work list's `build_run_config`, reaches `design_if_needed`. Batch
+  Design and Extract Audio's design step (`model/batch.py` `DesignJob`) send
+  `from_preferences()`: the crossover and position the session was built with
+  from Preferences, other keys defaulted.
+- `QueueEntry.bass_management` records what was sent. The title page's
+  commentary ends with "Bass management sent to the designer" ("none sent:
+  the designer assumed its own playback chain" when absent). The review guide
+  says beqforge 0.2.0 takes only the crossover and assumes the rest (its TODO
+  #1), so its clipping figures are an estimate.
+- Not in the design fingerprint: changing it does not mark designs stale, and
+  the setup guide says to use *Revise...*. Fingerprinting it would need
+  `ScanSettings`, the scan and the drift banner to carry it; that is left
+  until beqforge consumes more than the crossover.
+
+Tests: `test_pipeline_library_bass.py` (validation, wording, and a real
+`run_library` design whose designer records the `DesignRequest`: the
+profile's values sent and recorded in the entry, or `None`);
+`gui/test_batch_design_bass.py` (`DesignJob` sends the session's crossover);
+`gui/test_worklist_title.py` (the commentary's last line).
+
+Validation: `PYTHONPATH=./src/main/python QT_QPA_PLATFORM=offscreen uv run
+pytest -q -n auto src/test/python`: **2691 passed, 1 skipped**.
