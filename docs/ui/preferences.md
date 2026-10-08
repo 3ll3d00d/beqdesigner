@@ -69,7 +69,7 @@ To add a server, fill in the form and use *Test* and then *Add*:
 
 Select a saved server to change or delete it. The form then edits it (*Add* becomes *Update*), *New* clears the selection to add another, and the bin button beside the list deletes the selected one. The last two groups apply to the selected server:
 
-* **Path mappings**: JRiver reports file paths as the machine running Media Center sees them, for example `W:\Films\x.mkv`. Map each such folder to where it is on this computer, for example `/mnt/films`, so the library's files can be found. The longest matching rule wins and a path that no rule covers is used as reported. A wrong mapping shows up as an extraction that fails with *file not found*.
+* **Path mappings**: JRiver reports file paths as the machine running Media Center sees them, for example `W:\Films\x.mkv`. Map each such folder to where it is on this computer, for example `/mnt/films`, so the library's files can be found. The longest matching rule wins and a path that no rule covers is used as reported. A wrong mapping shows up as an extraction that fails with *file not found*. Artwork Media Center keeps in its own cover-art folder (for example `X:\JRiver Cover Art\Videos\TRON.jpg`) needs a mapping of that folder too, or those titles have no library poster and fall back to TMDB's.
 * **Metadata fields**: which library fields hold each title's IMDb and TMDb id, for films and for TV shows (a TV show needs its series id, not the episode's). The defaults suit most libraries. *Load fields from server* lists the fields your library defines, and *Defaults* goes back to the defaults.
 
 !!! note

@@ -54,7 +54,10 @@ sanitises; rerun it to refresh the fixture.
   entry is blank where MC has nothing: a lossless stream has no bitrate, and
   titles are mostly blank (`;;;;`).
 - Artwork: `Image File` is a bare file name beside the media (`index.jpg`) on
-  1,289 rows and absent on 2. There is no `INTERNAL` artwork.
+  1,173 rows, an absolute path in MC's own cover-art folder on its `X:` drive
+  (`X:\JRiver Cover Art\Videos\TRON.jpg`) on 116, and absent on 2. There is
+  no `INTERNAL` artwork. (The first account said every name was bare; CI on
+  Windows found the absolute ones.)
 - Identity: `Key` is unique per row.
 - Browse tree: no node has two children with the same name. The test makes one
   from a real entry to check that both ids survive. Before this change, hamcws

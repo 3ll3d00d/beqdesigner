@@ -40,6 +40,11 @@ def _normal(path: str) -> str:
     return re.sub(r'/+', '/', path.replace('\\', '/')).rstrip('/')
 
 
+def is_windows_absolute(path: str) -> bool:
+    ''' A drive (`X:\\...`) or UNC (`\\\\host\\...`) path: the server's view of a file, whatever this machine is. '''
+    return bool(_WINDOWS_DRIVE_PATH.match(path) or path.startswith('\\\\'))
+
+
 def translate_path(path: str, mappings: Sequence[PathMapping]) -> str:
     r'''
     Rewrites `path` using the mapping with the longest source prefix that contains it. Matching ignores case

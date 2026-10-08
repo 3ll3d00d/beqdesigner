@@ -24,7 +24,8 @@ ROWS = json.loads((FIXTURE / 'files.json').read_text(encoding='utf-8'))
 NODE = CAPTURE['request']['browse_node_id']
 TMDB = {'movie': {'tmdb': ['TheMovieDB Movie ID']}}   # as the captured profile configured it
 FILMS = os.path.abspath(os.path.join(os.sep, 'media', 'films'))   # absolute on this platform (C:\\media\\films on Windows)
-MAPPINGS = (PathMapping('W:\\', FILMS),)
+COVERS = os.path.abspath(os.path.join(os.sep, 'media', 'covers'))
+MAPPINGS = (PathMapping('W:\\', FILMS), PathMapping('X:\\JRiver Cover Art', COVERS))
 
 
 @contextmanager
@@ -137,16 +138,32 @@ def test_paths_map_whatever_the_case_of_the_drive_and_discs_are_their_folders(it
             assert not item.source_path.lower().endswith(('index.bdmv', '.bluray;1'))   # the disc's own folder
 
 
-def test_artwork_is_a_file_name_beside_the_media(items):
-    ''' No `INTERNAL` artwork in the captured library; a bare name is looked for beside the media file. '''
+def test_artwork_is_beside_the_media_or_in_mcs_cover_art_folder(items):
+    '''
+    No `INTERNAL` artwork in the captured library. A bare name is looked for beside the media file; an absolute path is
+    MC's own cover-art folder on its X: drive, found through a mapping of that folder (CI found it on Windows).
+    '''
     listed, _ = items
     by_key = {item.id.rpartition('-')[2]: item for item in listed}
+    absolute = [row for row in ROWS if row.get('Image File', '').startswith('X:\\')]
+    assert absolute and len(absolute) < len(ROWS)
     for row in ROWS:
         candidates = by_key[str(row['Key'])].art_candidates
-        if row.get('Image File'):
-            assert any(c.endswith(os.sep + row['Image File']) for c in candidates)
-        else:
+        value = row.get('Image File')
+        if not value:
             assert candidates == ()
+        elif value.startswith('X:\\'):
+            assert candidates == (os.path.join(COVERS, *value[len('X:\\JRiver Cover Art\\'):].split('\\')),)
+        else:
+            assert any(c.endswith(os.sep + value) for c in candidates)
+
+
+@pytest.mark.skipif(os.name == 'nt', reason='on Windows the server path is a path of this machine too')
+def test_cover_art_on_an_unmapped_server_drive_is_not_guessed():
+    source = JRiverLibrarySource('127.0.0.1', 1, NODE, path_mappings=(PathMapping('W:\\', FILMS),))
+    row = next(row for row in ROWS if row.get('Image File', '').startswith('X:\\'))
+
+    assert source._map_rows([row])[0].art_candidates == ()
 
 
 def test_every_audio_stream_mc_lists_is_a_choice(items):

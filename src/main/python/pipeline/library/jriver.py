@@ -18,7 +18,7 @@ from typing import Any, Optional
 from hamcws import MediaServer, get_mcws_connection
 
 from model.dvd import pseudo_file_root as dvd_pseudo_file_root
-from pipeline.library.pathmap import PathMapping, translate_path, unmapped_path_problem
+from pipeline.library.pathmap import PathMapping, is_windows_absolute, translate_path, unmapped_path_problem
 from pipeline.library.source import LibraryItem
 from pipeline.library.streams import audio_types, selected_streams
 
@@ -277,7 +277,13 @@ class JRiverLibrarySource:
         if not value or value.upper() == 'INTERNAL':
             return ()
         translated = translate_path(value, self.path_mappings)
-        candidates = [translated, os.path.join(os.path.dirname(media_path), value)]
+        if is_windows_absolute(value):
+            # MC's own cover-art folder (`X:\JRiver Cover Art\Videos\...`, about one title in ten in the E1 capture):
+            # usable where a path mapping covers it, or as it is on a Windows machine that has that drive -- never joined
+            # onto the media folder, which made a path that cannot exist
+            candidates = [translated] if translated != value or os.path.isabs(value) else []
+        else:
+            candidates = [translated, os.path.join(os.path.dirname(media_path), value)]
         return tuple(dict.fromkeys(c for c in candidates if os.path.isabs(c)))
 
     def _external_ids(self, row: Mapping[str, Any], kind: str) -> dict[str, str]:

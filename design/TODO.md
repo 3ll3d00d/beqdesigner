@@ -51,6 +51,7 @@ validation and steep-filter default are outside it.
 | 18 | E5 | | chunk 37, T15 | Waiting for a product decision | E2; representative season media |
 | 19 | T1 | | -- | Watch; not reproduced | Recurrence with a stack dump |
 | 20 | T2 | | -- | Watch; seen twice | Recurrence with its failure message |
+| 20a | T3 | | -- | Watch; seen once | Recurrence |
 | 21 | R10 | | -- | Not started | -- |
 | 22 | D2 | | by-reference §5 | Planned; optional, not started | beqforge loader coordination |
 | 23 | D3 | | by-reference §5 | Planned; optional, not started | Contract addition; beqforge coordination |
@@ -184,6 +185,14 @@ extracts a 1 s synthetic wav and needs at least one progress report with
 `out_time > 0`, which is racy under full parallel load. If it recurs, record the
 assertion that failed; if the cause is confirmed, lengthen the source or
 accept a run whose only report comes at the end, rather than retrying.
+
+### T3 — Windows GUI wait timed out once
+
+On 2026-10-08 `gui/test_worklist_window.py::test_closing_releases_the_index_and_a_scan_that_finishes_after_it_does_not_open_it_again`
+failed on `windows-2025` only (run `37804977461`): `waitUntil timed out in 5000
+milliseconds`. It passed on `windows-2022` in the same run and in every run
+before. If it recurs, record which wait it was and lengthen it or wait on
+the signal instead; close it after a few weeks without recurrence.
 
 ### R10 — Configuration-folder hygiene
 
