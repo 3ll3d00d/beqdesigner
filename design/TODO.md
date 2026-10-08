@@ -2,8 +2,8 @@
 
 ## Status
 
-Reviewed on **2026-10-07**, against beqdesigner `b325752` and beqforge
-`934dff8`. This is the **only current backlog** for the
+Reviewed on **2026-10-08**, against beqdesigner `8533ad5` and beqforge
+`3eb16ba`. This is the **only current backlog** for the
 pipeline and library work. Items are unbuilt, partial, awaiting evidence, or
 under observation; none is claimed complete. Architecture and contracts are
 [design references](README.md); completed plans and delivery records live in
@@ -29,26 +29,31 @@ catalogue unattended, and the results reviewed from the desktop app. Publish
 and commit stay a person's decision in the app; the schedule never goes past
 design.
 
-The milestone is the rows marked **R** in the table: priorities 1–15 (R1–R9, J2, W2, E1 and D4's release part, now [archived](archive/initial-release.md), were 1–5 and 7–14). The
-service and image themselves work (C1's amd64 smoke); what is missing is
-behavior that only matters at catalogue scale and over days: the designer
-deployment, disk use, remote review, stream
-choice, and an acceptance run. Two beqforge items are recorded in its own
-`TODO.md`, not here: #1 "Playback contract" (the designer side of R8, which
-now sends `run.bass_management`) and
-#13 "Residual reporting" (the reported fit error and band do not match the
-fit's). Neither blocks the milestone, but R8 and the user guide must state
-what they mean for a reviewer. beqforge's F2 device check, optimiser, E10/E1
-validation and steep-filter default are outside it.
+The milestone is the rows marked **R** in the table. Everything built for it
+is [archived](archive/initial-release.md): R1–R9, J2, W2, E1, E4 and D4's
+release part (priorities 1–5 and 7–14). **Two items remain, and both need
+the maintainer:** C1, the first release tag (the arm64 image and the GHCR
+publish run only there), and E2, the acceptance run on real media with the
+published images. `main` is green on Linux, macOS and Windows, and the
+designer image `ghcr.io/3ll3d00d/beqforge-designer:0.2.0` is published.
+
+Two beqforge items are recorded in its own `TODO.md`, not here: #1 "Playback
+contract" (the designer side of R8: the library now sends
+`run.bass_management`, of which beqforge 0.2.0 uses only the crossover, as
+the review guide says) and #13 "Residual reporting" (the reported fit error
+and band do not match the fit's). Neither blocks the milestone. beqforge's F2
+device check, optimiser, E10/E1 validation and steep-filter default are
+outside it. A beqforge version bump invalidates its bundled optimiser seed
+(see the R3 record), so its next release needs a seed rebuild.
 
 | Priority | ID | R | Previous IDs | Status | Depends on |
 |---|---|---|---|---|---|
-| 6 | C1 | R | chunk S5 | amd64 build and both smokes verified; `main` green on every platform (run `37807101885`); arm64 build and GHCR publish not yet run | The first tag push |
+| 6 | C1 | R | chunk S5 | amd64 build and both smokes verified; `main` green on every platform (run `37823377683`); arm64 build and GHCR publish not yet run | The first tag push |
 | 11 | D4 | | by-reference §5 | Release part done (each entry records its designer and build); the drift behavior is not started | Designer build identity policy (full drift behavior only) |
-| 15 | E2 | R | chunk 31, T2-T4 | Waiting for manual acceptance | R1–R9, E1; real designer, media and disposable repositories |
-| 16 | E3 | | chunk 32, T7 | Not started; the captured library has no DVDs | A DVD in a JRiver library; DVD fixture |
+| 15 | E2 | R | chunk 31, T2-T4 | Waiting for manual acceptance; everything it exercises is built | C1's published image; real media, a JRiver server and disposable repositories |
+| 16 | E3 | | chunk 32, T7 | Not started; the captured library (E1) has no DVDs | A DVD rip in a JRiver library, captured as E1 was |
 | 18 | E5 | | chunk 37, T15 | Waiting for a product decision | E2; representative season media |
-| 19 | T1 | | -- | Watch; not reproduced | Recurrence with a stack dump |
+| 19 | T1 | | -- | Watch; probably recurred in CI on 2026-10-08, without a log | Recurrence with a stack dump |
 | 20 | T2 | | -- | Watch; seen twice | Recurrence with its failure message |
 | 20a | T3 | | -- | Watch; seen once | Recurrence |
 | 21 | R10 | | -- | Not started | -- |
@@ -75,7 +80,9 @@ rest of `create-image.yaml`: the `linux/arm64` build under QEMU/buildx, the
 tag's `create-image.yaml` run exercises all of them (no local QEMU set-up).
 
 The release workflow also smokes the image against the designer the compose
-example pins, by reference (R3), before publishing.
+example pins, by reference (R3), before publishing. Its Docker actions were
+bumped on 2026-10-08 (`docker/login-action` and `docker/setup-buildx-action`
+v4, dependabot #521 and #519); the tag run is their first use.
 
 **Done when:** the first tag's workflow run builds both architectures, passes
 both smoke tests and publishes them to GHCR with the expected tags.
@@ -100,13 +107,27 @@ dropped mid-run (R1/R2), and review from the desktop while the run goes (R6:
 the guide's layout, Review Folder on the shared queue folder during a run, the
 work list with the service idle, and the index read over the chosen share).
 
+Also record from 2026-10-08's work:
+- **Re-extraction:** A Star Is Born, Arrietty and Bande A Part need *Revise >
+  Re-extract*, since the logo-clip rule did not mark their extractions stale
+  (E4). Confirm their extracted audio is the feature's.
+- **Cover art:** posters for the 116 titles whose artwork is in MC's cover-art
+  folder need a path mapping of `X:\JRiver Cover Art`. Confirm they show.
+- **Compression:** the FLAC saving of a published title's multichannel audio
+  on real soundtracks (R5).
+- **Stream choice:** the titles where JRiver plays another audio stream (J2:
+  Pacific Rim, The Godfather...) extract that stream.
+- **Auto rescan:** the work list rescans by itself when opened more than 12
+  hours after the last scan.
+
 **Done when:** the GUI, season and CLI claims formerly called T2-T4 have
 dated observed results, and the container sample run has a dated record with
 no unexplained failure; a test stub alone is insufficient.
 
 ### E3 — DVD title selection
 
-Use E1 to determine how JRiver identifies DVD titles. Give Extract Audio a
+E1's capture has no DVDs, so first capture a JRiver library with a DVD rip
+(`fixtures/jriver/capture.py`) to see how MC identifies its titles. Give Extract Audio a
 DVD title picker and use one stable title number, label and duration across
 that picker, Batch Extract and JRiver. Unattended runs may retain a documented
 main-title default, but several JRiver entries for one disc must not silently
@@ -145,7 +166,10 @@ test that had already passed. Could not reproduce: the file alone
 recurs, capture stacks with a throwaway plugin that calls
 `faulthandler.dump_traceback_later(45, file=<per-worker file>)` around
 each test (`-p <plugin>`), and fix what the dump shows. Close this if it
-has not recurred after a few weeks of routine runs.
+has not recurred after a few weeks of routine runs. **2026-10-08:** `main`
+CI run `37799088419`'s `ubuntu-22.04` job hit the 30-minute limit (it
+normally takes 6–12 minutes, and the next two runs did). A cancelled job's
+log is not kept, so whether it was this hang is unknown.
 
 ### T2 — Intermittent ffmpeg-progress test failure
 
