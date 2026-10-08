@@ -22,6 +22,8 @@ import uuid
 from dataclasses import asdict, dataclass
 from typing import Callable, Optional
 
+from pipeline import fileops
+
 logger = logging.getLogger('service_lease')
 
 LEASE_DIR = 'service'
@@ -61,10 +63,16 @@ def lease_path(work_dir: str) -> str:
     return os.path.join(work_dir, LEASE_DIR, LEASE_FILE)
 
 
+def _load(path: str) -> dict:
+    with open(path, encoding='utf-8') as f:
+        return json.load(f)
+
+
 def _read(work_dir: str) -> Optional[LeaseHolder]:
     try:
-        with open(lease_path(work_dir), encoding='utf-8') as f:
-            data = json.load(f)
+        # on Windows, opening it while the holder's heartbeat renames over it fails for a moment: that is a held lease,
+        # not a missing one, and reading it as "not held" would let a second run in
+        data = fileops.retrying(lambda: _load(lease_path(work_dir)))
         return LeaseHolder(str(data['host']), int(data['pid']), str(data['job_id']), float(data['heartbeat_at']))
     except FileNotFoundError:
         return None
@@ -121,7 +129,7 @@ class WorkDirLease:
         try:
             with os.fdopen(fd, 'w', encoding='utf-8') as f:
                 json.dump(asdict(holder), f)
-            os.replace(temporary, lease_path(self.__work_dir))
+            fileops.replace(temporary, lease_path(self.__work_dir))   # a reader may have it open (Windows)
         except BaseException:
             if os.path.exists(temporary):
                 os.unlink(temporary)
