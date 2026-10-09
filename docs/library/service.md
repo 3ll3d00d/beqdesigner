@@ -58,6 +58,12 @@ time (`run.parallelism.design`) gains nothing against one designer; if you raise
 declared designer's timeout is multiplied by it, so the titles waiting in the designer's queue
 do not time out (see [the profile file](setup.md#the-profile-file)).
 
+Extraction is the other way round: it mostly reads, so on a pool of separate disks (an Unraid
+host, say) raise `run.parallelism.extract` and set `run.disks` so that each disk is read by one
+extraction at a time (see [the profile file](setup.md#the-profile-file)). The films must be
+mounted from the pool itself (`/mnt/user/...` on Unraid) for the container to see which disk
+each title is on.
+
 It listens on port 8080 of every address. Open `http://HOST:8080/docs`: the whole interface, with **Try it out** on every call. Press **Authorize**, paste the token, and the calls you try from the page are made for real.
 
 | Option | Meaning |
