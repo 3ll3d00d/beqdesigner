@@ -35,6 +35,7 @@ ORIGINS = ('api', 'schedule')
 STATES = ('queued', 'running', 'succeeded', 'failed', 'cancelled', 'interrupted')
 FINISHED = ('succeeded', 'failed', 'cancelled', 'interrupted')
 MAX_JOB_EVENTS = 500
+FFMPEG_EVENT_INTERVAL = 5.0   # seconds between kept ffmpeg updates for a title: ffmpeg sends one every 0.5s
 HISTORY_FILE = 'jobs.json'
 
 
@@ -110,6 +111,7 @@ class Job:
     events: Deque[dict] = field(default_factory=lambda: deque(maxlen=MAX_JOB_EVENTS), repr=False)
     cancel_requested: bool = False
     joined_to: Optional[str] = None      # the run job whose extract/design phase this one joined (F5): it ends with it
+    ffmpeg_at: Dict[str, float] = field(default_factory=dict, repr=False)   # when each title's last ffmpeg update was kept
 
     @property
     def finished(self) -> bool:
@@ -416,12 +418,24 @@ class JobManager:
             if isinstance(progress, Progress):
                 job.progress = progress
                 self.__record(job, {'type': 'progress', **asdict(progress)})
-            elif isinstance(progress, FfmpegProgress):
+            elif isinstance(progress, FfmpegProgress) and self.__keep_ffmpeg(job, progress):
                 self.__record(job, {'type': 'ffmpeg', **asdict(progress)})
 
+    def __keep_ffmpeg(self, job: Job, progress: FfmpegProgress) -> bool:
+        '''
+        A title's first and last ffmpeg update, and one every FFMPEG_EVENT_INTERVAL between: every one would flood the
+        stream and push the title's own events out of the bounded buffer within minutes.
+        '''
+        now, last = self.__clock(), job.ffmpeg_at.get(progress.id)
+        done = progress.total_micros > 0 and progress.out_time_micros >= progress.total_micros
+        if last is not None and not done and now - last < FFMPEG_EVENT_INTERVAL:
+            return False
+        job.ffmpeg_at[progress.id] = now
+        return True
+
     def _on_event(self, job: Job, event) -> None:
-        if not isinstance(event, ExecutionEvent):
-            return
+        if not isinstance(event, ExecutionEvent) or event.kind == 'progress':
+            return   # an ffmpeg progress event repeats the ffmpeg update _on_progress already kept (or let go)
         safe = redacted_event(event)
         with self.__lock:
             self.__record(job, {'type': 'event', 'title_id': safe.title_id, 'stage': safe.stage, 'kind': safe.kind,

@@ -147,7 +147,10 @@ join the run job in progress (§5.1).
   with `attempted`/`not_run` from the report.
 - **Events:** `on_progress` and `on_event` feed a bounded per-job ring buffer,
   redacted with the work list's redaction (`model/execution_events.py`),
-  readable afterwards and streamed live (§6.1).
+  readable afterwards and streamed live (§6.1). ffmpeg reports every 0.5 s, so a
+  title's ffmpeg updates are kept at most every 5 s (its first and last always),
+  and the execution event that repeats each one is not kept; otherwise they push
+  the title's own events out of the 500-event buffer within minutes.
 - **History:** the last `history_limit` (default 200) finished jobs are kept in
   memory and written atomically to `<work_dir>/service/jobs.json`. A job found
   `running` at start-up is recorded `interrupted`; nothing resumes

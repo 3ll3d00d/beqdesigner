@@ -104,6 +104,30 @@ def test_a_job_that_raises_fails_with_the_message_redacted_and_the_next_one_stil
     assert good.state == 'succeeded'
 
 
+def test_ffmpeg_updates_are_kept_every_few_seconds_and_never_twice(managers):
+    """ffmpeg reports every 0.5s; keeping each one, twice, pushed a title's own events out of the buffer in minutes."""
+    now = [100.0]
+
+    def execute(job, control):
+        for t in range(40):   # 20 seconds of ffmpeg updates for each of two titles
+            now[0] = 100.0 + t / 2
+            for title_id in ('a', 'b'):
+                control.event(ExecutionEvent('r', title_id, 'extract', 'progress', now[0], 'ffmpeg extraction progress',
+                                             current=t, total=40))
+                control.progress(FfmpegProgress(title_id.upper(), title_id, t, 40))
+        control.progress(FfmpegProgress('A', 'a', 40, 40))   # the last always, however soon
+        control.event(ExecutionEvent('r', 'a', 'extract', 'finished', now[0], 'Extraction complete'))
+        return 'ok'
+    manager = managers(execute, clock=lambda: now[0])
+    job = manager.submit(ScanRequest())
+    _until(lambda: job.finished)
+
+    events = manager.events(job.id)
+    kept = [(e['id'], e['out_time_micros']) for e in events if e['type'] == 'ffmpeg']
+    assert kept == [(i, t) for t in (0, 10, 20, 30) for i in 'ab'] + [('a', 40)]
+    assert [e['kind'] for e in events if e['type'] == 'event'] == ['finished']
+
+
 def test_a_result_that_says_it_failed_or_was_cancelled_is_recorded_so(managers):
     class Report:
         def __init__(self, failed=False, cancelled=False):
