@@ -32,7 +32,9 @@ from pipeline.review import project_name
 
 logger = logging.getLogger('library_run')
 
-MAX_STAGE_PARALLELISM = 4
+# extraction mostly reads (a whole remux for its audio): with run.disks it is the number of disks kept busy. A designer is
+# one service, so a handful of designs at once is plenty
+MAX_STAGE_PARALLELISM = {'extract': 16, 'design': 4}
 DEFAULT_STOP_AFTER_UNAVAILABLE = 3
 _RUN_STAGES = ('extract', 'design')
 
@@ -49,8 +51,8 @@ def stage_parallelism(value=None) -> dict[str, int]:
     result = {}
     for stage in _RUN_STAGES:
         count = value.get(stage, 1)
-        if isinstance(count, bool) or not isinstance(count, int) or not 1 <= count <= MAX_STAGE_PARALLELISM:
-            raise ValueError(f'run.parallelism.{stage} must be an integer from 1 to {MAX_STAGE_PARALLELISM}')
+        if isinstance(count, bool) or not isinstance(count, int) or not 1 <= count <= MAX_STAGE_PARALLELISM[stage]:
+            raise ValueError(f'run.parallelism.{stage} must be an integer from 1 to {MAX_STAGE_PARALLELISM[stage]}')
         result[stage] = count
     return result
 

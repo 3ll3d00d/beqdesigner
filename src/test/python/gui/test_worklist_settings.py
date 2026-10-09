@@ -103,7 +103,8 @@ def test_stage_parallelism_settings_persist_and_default_to_one(qtbot, tmp_path):
     drawer = open_window(qtbot, tmp_path, prefs).open_settings()
 
     assert (drawer.extractParallelism.value(), drawer.designParallelism.value()) == (1, 1)
-    assert (drawer.extractParallelism.minimum(), drawer.extractParallelism.maximum()) == (1, 4)
+    assert (drawer.extractParallelism.minimum(), drawer.extractParallelism.maximum()) == (1, 16)
+    assert (drawer.designParallelism.minimum(), drawer.designParallelism.maximum()) == (1, 4)
     drawer.extractParallelism.setValue(3)
     drawer.designParallelism.setValue(2)
     assert drawer.flush()

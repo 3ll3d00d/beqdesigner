@@ -39,7 +39,7 @@ from model.worklist_profile import WorkListSetup
 from model.worklist_sources import SourcesTab
 from pipeline.library.index import TitleRow
 from pipeline.library.profile import Profile, profile_from_config, save_profile
-from pipeline.library.run import stage_parallelism
+from pipeline.library.run import MAX_STAGE_PARALLELISM, stage_parallelism
 from pipeline.library.season import TV_MODES
 from pipeline.designer.manual import MANUAL_DESIGNER
 
@@ -169,11 +169,11 @@ class SettingsDrawer(QWidget):
     # --- construction -----------------------------------------------------------------------------------------------
 
     @staticmethod
-    def __parallelism_spin() -> QSpinBox:
+    def __parallelism_spin(stage: str) -> QSpinBox:
         spin = QSpinBox()
-        spin.setRange(1, 4)
+        spin.setRange(1, MAX_STAGE_PARALLELISM[stage])
         spin.setValue(1)
-        spin.setToolTip('Maximum number of this stage running at once (1–4).')
+        spin.setToolTip(f'Maximum number of this stage running at once (1–{MAX_STAGE_PARALLELISM[stage]}).')
         return spin
 
     def __build(self, run_dialog) -> None:
@@ -242,8 +242,8 @@ class SettingsDrawer(QWidget):
         for mode in TV_MODES:
             self.tvModeCombo.addItem(TV_MODE_LABELS.get(mode, mode), mode)
         self.keepMultichannel = QCheckBox('Keep the multichannel extraction (and write a multichannel project)')
-        self.extractParallelism = self.__parallelism_spin()
-        self.designParallelism = self.__parallelism_spin()
+        self.extractParallelism = self.__parallelism_spin('extract')
+        self.designParallelism = self.__parallelism_spin('design')
         self.acceptThreshold = QDoubleSpinBox()
         self.acceptThreshold.setRange(0.0, 1.0)
         self.acceptThreshold.setSingleStep(0.05)

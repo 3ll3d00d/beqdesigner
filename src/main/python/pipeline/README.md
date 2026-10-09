@@ -433,7 +433,7 @@ run:
   tmdb_api_key: XXXX             # optional
   tv_mode: season                # episode (default) | season
   keep_multichannel: false
-  parallelism: {extract: 2, design: 1}  # work-list machine-stage limits (each 1..4)
+  parallelism: {extract: 2, design: 1}  # machine-stage limits (extract 1..16, design 1..4)
   disks: {xattr: system.LOCATION, per_disk: 1}   # optional: read each disk of a JBOD pool one title at a time
   audio_types: [DTS-HD MA 5.1]
   analysis: {target_fs: 1000, resolution: 1.0}   # analysis settings nest under run/sync, not top level
@@ -452,8 +452,8 @@ sync:
 ```
 
 The Library Work List applies `run.parallelism.extract` and
-`run.parallelism.design` independently to extraction and design (each from 1
-to 4; absent keys mean 1). Publish and commit remain serialized because they
+`run.parallelism.design` independently to extraction and design (extraction
+from 1 to 16, design from 1 to 4; absent keys mean 1). Publish and commit remain serialized because they
 write shared catalogue aggregates and repository state.
 
 `run.disks` is for a pool of independent disks (JBOD: Unraid, mergerfs), where
