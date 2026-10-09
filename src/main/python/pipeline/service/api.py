@@ -351,7 +351,7 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
     def cancel(job_id: str):
         return models.job_model(manager.cancel(job_id))
 
-    @v1.get('/jobs/{job_id}/log', response_model=List[models.JobEvent], tags=['jobs'],
+    @v1.get('/jobs/{job_id}/log', response_model=List[models.JobEvent], response_model_exclude_none=True, tags=['jobs'],
             summary="What the job has reported so far (the last 500 events)", responses=_responses(404))
     def log(job_id: str, after: Annotated[int, Query(ge=0, description='Only events after this seq.')] = 0):
         return [models.JobEvent.of(event) for event in manager.events(job_id, after)]
@@ -374,7 +374,7 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
         backlog = manager.events(job_id, after)   # taken after subscribing, so nothing falls between the two
 
         def frame(event) -> str:
-            return f"id: {event['seq']}\nevent: {event['type']}\ndata: {models.JobEvent.of(event).model_dump_json()}\n\n"
+            return f"id: {event['seq']}\nevent: {event['type']}\ndata: {models.JobEvent.of(event).model_dump_json(exclude_none=True)}\n\n"
 
         def ends(event) -> bool:
             return event['type'] == 'state' and event.get('state') in FINISHED

@@ -417,9 +417,15 @@ class JobManager:
         with self.__lock:
             if isinstance(progress, Progress):
                 job.progress = progress
-                self.__record(job, {'type': 'progress', **asdict(progress)})
+                self.__record(job, {'type': 'run_progress', 'done': progress.done, 'total': progress.total,
+                                    **({'stage': progress.stage, 'title': progress.title, 'title_id': progress.id}
+                                       if progress.stage else {})})
             elif isinstance(progress, FfmpegProgress) and self.__keep_ffmpeg(job, progress):
-                self.__record(job, {'type': 'ffmpeg', **asdict(progress)})
+                total = progress.total_micros // 1000 if progress.total_micros > 0 else None
+                done = progress.out_time_micros // 1000
+                self.__record(job, {'type': 'extract_progress', 'title': progress.title, 'title_id': progress.id,
+                                    'done_ms': done, 'total_ms': total,
+                                    'percent': min(max(done * 100 // total, 0), 100) if total else None})
 
     def __keep_ffmpeg(self, job: Job, progress: FfmpegProgress) -> bool:
         '''

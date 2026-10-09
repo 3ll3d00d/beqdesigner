@@ -1785,6 +1785,79 @@
         ],
         "title": "DesignerStatus"
       },
+      "ExtractProgressEvent": {
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "title": "Seq",
+            "description": "Its place in the job: events come in this order, and `after` resumes after one."
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "description": "What a person reads (redacted)."
+          },
+          "type": {
+            "type": "string",
+            "const": "extract_progress",
+            "title": "Type"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "title_id": {
+            "type": "string",
+            "title": "Title Id"
+          },
+          "done_ms": {
+            "type": "integer",
+            "title": "Done Ms",
+            "description": "Audio extracted so far, in milliseconds."
+          },
+          "total_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Ms",
+            "description": "The audio's length, in milliseconds; absent if ffmpeg did not say."
+          },
+          "percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Percent",
+            "description": "done_ms of total_ms, 0 to 100; absent without total_ms."
+          }
+        },
+        "type": "object",
+        "required": [
+          "seq",
+          "at",
+          "text",
+          "type",
+          "title",
+          "title_id",
+          "done_ms"
+        ],
+        "title": "ExtractProgressEvent",
+        "description": "How far ffmpeg has got extracting a title (one every 5 seconds or so, and the last). "
+      },
       "Flag": {
         "type": "string",
         "enum": [
@@ -1877,160 +1950,31 @@
         "title": "IndexStatus"
       },
       "JobEvent": {
-        "properties": {
-          "seq": {
-            "type": "integer",
-            "title": "Seq"
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/StateEvent"
           },
-          "at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "At"
+          {
+            "$ref": "#/components/schemas/RunProgressEvent"
           },
-          "type": {
-            "type": "string",
-            "enum": [
-              "state",
-              "progress",
-              "ffmpeg",
-              "event"
-            ],
-            "title": "Type"
+          {
+            "$ref": "#/components/schemas/ExtractProgressEvent"
           },
-          "state": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "State",
-            "description": "type state: the job state it entered (or cancelling)."
-          },
-          "done": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Done"
-          },
-          "total": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Total"
-          },
-          "title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Title"
-          },
-          "stage": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Stage"
-          },
-          "id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Id",
-            "description": "The title id (progress, ffmpeg)."
-          },
-          "out_time_micros": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Out Time Micros"
-          },
-          "total_micros": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Total Micros"
-          },
-          "title_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Title Id"
-          },
-          "kind": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Kind",
-            "description": "type event: what happened (stage_started, command_finished, ...)."
-          },
-          "text": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Text",
-            "description": "type event: the redacted text a person reads."
+          {
+            "$ref": "#/components/schemas/TitleEvent"
           }
-        },
-        "type": "object",
-        "required": [
-          "seq",
-          "at",
-          "type"
         ],
         "title": "JobEvent",
-        "description": "One thing a job reported, in order (`seq`); `type` says which fields it has. "
+        "description": "One thing a job reported, in order (`seq`). `type` says which fields it has, and every one has `text`. ",
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "event": "#/components/schemas/TitleEvent",
+            "extract_progress": "#/components/schemas/ExtractProgressEvent",
+            "run_progress": "#/components/schemas/RunProgressEvent",
+            "state": "#/components/schemas/StateEvent"
+          }
+        }
       },
       "JobKind": {
         "type": "string",
@@ -2822,6 +2766,83 @@
         "type": "object",
         "title": "RunJobRequest"
       },
+      "RunProgressEvent": {
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "title": "Seq",
+            "description": "Its place in the job: events come in this order, and `after` resumes after one."
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "description": "What a person reads (redacted)."
+          },
+          "type": {
+            "type": "string",
+            "const": "run_progress",
+            "title": "Type"
+          },
+          "done": {
+            "type": "integer",
+            "title": "Done"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage",
+            "description": "extract, design, publish or commit; absent once the run is over."
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "title_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "seq",
+          "at",
+          "text",
+          "type",
+          "done",
+          "total"
+        ],
+        "title": "RunProgressEvent",
+        "description": "The run started a title-stage: `done` of `total` are finished. The last has no title: the run is over. "
+      },
       "RunResult": {
         "properties": {
           "scan": {
@@ -3505,6 +3526,45 @@
         ],
         "title": "SourceStatus"
       },
+      "StateEvent": {
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "title": "Seq",
+            "description": "Its place in the job: events come in this order, and `after` resumes after one."
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "description": "What a person reads (redacted)."
+          },
+          "type": {
+            "type": "string",
+            "const": "state",
+            "title": "Type"
+          },
+          "state": {
+            "type": "string",
+            "title": "State",
+            "description": "queued, running, cancelling, succeeded, failed, cancelled or interrupted."
+          }
+        },
+        "type": "object",
+        "required": [
+          "seq",
+          "at",
+          "text",
+          "type",
+          "state"
+        ],
+        "title": "StateEvent",
+        "description": "The job entered a state; the stream ends with a finished one. "
+      },
       "Through": {
         "type": "string",
         "enum": [
@@ -3686,6 +3746,55 @@
           "last_seen"
         ],
         "title": "Title"
+      },
+      "TitleEvent": {
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "title": "Seq",
+            "description": "Its place in the job: events come in this order, and `after` resumes after one."
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "description": "What a person reads (redacted)."
+          },
+          "type": {
+            "type": "string",
+            "const": "event",
+            "title": "Type"
+          },
+          "title_id": {
+            "type": "string",
+            "title": "Title Id"
+          },
+          "stage": {
+            "type": "string",
+            "title": "Stage"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "stage_started, command_finished, ..."
+          }
+        },
+        "type": "object",
+        "required": [
+          "seq",
+          "at",
+          "text",
+          "type",
+          "title_id",
+          "stage",
+          "kind"
+        ],
+        "title": "TitleEvent",
+        "description": "Something that happened to a title: a stage started or finished, a command ran, it failed. "
       },
       "TitleFilter": {
         "properties": {

@@ -109,13 +109,13 @@ def test_ffmpeg_updates_are_kept_every_few_seconds_and_never_twice(managers):
     now = [100.0]
 
     def execute(job, control):
-        for t in range(40):   # 20 seconds of ffmpeg updates for each of two titles
+        for t in range(40):   # 20 seconds of ffmpeg updates for each of two titles, t seconds of 40 into the audio
             now[0] = 100.0 + t / 2
             for title_id in ('a', 'b'):
                 control.event(ExecutionEvent('r', title_id, 'extract', 'progress', now[0], 'ffmpeg extraction progress',
                                              current=t, total=40))
-                control.progress(FfmpegProgress(title_id.upper(), title_id, t, 40))
-        control.progress(FfmpegProgress('A', 'a', 40, 40))   # the last always, however soon
+                control.progress(FfmpegProgress(title_id.upper(), title_id, t * 1_000_000, 40_000_000))
+        control.progress(FfmpegProgress('A', 'a', 40_000_000, 40_000_000))   # the last always, however soon
         control.event(ExecutionEvent('r', 'a', 'extract', 'finished', now[0], 'Extraction complete'))
         return 'ok'
     manager = managers(execute, clock=lambda: now[0])
@@ -123,8 +123,8 @@ def test_ffmpeg_updates_are_kept_every_few_seconds_and_never_twice(managers):
     _until(lambda: job.finished)
 
     events = manager.events(job.id)
-    kept = [(e['id'], e['out_time_micros']) for e in events if e['type'] == 'ffmpeg']
-    assert kept == [(i, t) for t in (0, 10, 20, 30) for i in 'ab'] + [('a', 40)]
+    kept = [(e['title_id'], e['done_ms'], e['percent']) for e in events if e['type'] == 'extract_progress']
+    assert kept == [(i, t * 1000, t * 100 // 40) for t in (0, 10, 20, 30) for i in 'ab'] + [('a', 40_000, 100)]
     assert [e['kind'] for e in events if e['type'] == 'event'] == ['finished']
 
 
@@ -156,7 +156,7 @@ def test_progress_and_events_are_kept_redacted_and_passed_to_listeners(managers)
     unsubscribe()
 
     events = manager.events(job.id)
-    assert [e['type'] for e in events] == ['state', 'state', 'progress', 'ffmpeg', 'event', 'state'] == heard
+    assert [e['type'] for e in events] == ['state', 'state', 'run_progress', 'extract_progress', 'event', 'state'] == heard
     assert [e['seq'] for e in events] == sorted(e['seq'] for e in events)
     assert job.progress == Progress(0, 2, 'Alien', 'extract', 'a')
     text = events[4]['text']

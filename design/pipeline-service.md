@@ -247,6 +247,17 @@ use one model, `Problem` (RFC 9457: `type`, `title`, `status`, `detail`, and
 `errors` for field-level validation); FastAPI's own 422 responses are
 re-shaped into it and its 422 schema is replaced.
 
+A `JobEvent` is one of four shapes, chosen by `type` (a `oneOf` with a
+discriminator in the schema; the SSE `event:` line is the same `type`). Each has
+`seq`, `at` and `text` (what a person reads), only its own fields, and no nulls:
+
+| `type` | Fields |
+|---|---|
+| `state` | `state` |
+| `run_progress` | `done`, `total` (title-stages); `stage`, `title`, `title_id` while a title-stage is starting, absent once the run is over |
+| `extract_progress` | `title`, `title_id`, `done_ms`; `total_ms` and `percent` when ffmpeg knows the length |
+| `event` | `title_id`, `stage`, `kind` (a title's execution event; `text` is redacted) |
+
 ### 6.2 The filter
 
 `TitleFilter` is `Selection` over the wire, field for field:

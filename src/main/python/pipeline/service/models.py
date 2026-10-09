@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Annotated, Any, Dict, List, Literal, Optional, Union
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, RootModel
 
 from pipeline.library.bulk import DEFAULT_ACCEPT_THRESHOLD
 from pipeline.library.selection import Selection
@@ -449,26 +449,78 @@ def job_model(job, now: Optional[float] = None) -> Union[ScanJob, RunJob, Accept
                      result=accept_result(job.result) if finished_ok else None, **common)
 
 
-class JobEvent(BaseModel):
-    ''' One thing a job reported, in order (`seq`); `type` says which fields it has. '''
-    seq: int
+class _JobEventBase(BaseModel):
+    seq: int = Field(description='Its place in the job: events come in this order, and `after` resumes after one.')
     at: datetime
-    type: Literal['state', 'progress', 'ffmpeg', 'event']
-    state: Optional[str] = Field(None, description='type state: the job state it entered (or cancelling).')
-    done: Optional[int] = None
-    total: Optional[int] = None
+    text: str = Field(description='What a person reads (redacted).')
+
+
+class StateEvent(_JobEventBase):
+    ''' The job entered a state; the stream ends with a finished one. '''
+    type: Literal['state']
+    state: str = Field(description='queued, running, cancelling, succeeded, failed, cancelled or interrupted.')
+
+
+class RunProgressEvent(_JobEventBase):
+    ''' The run started a title-stage: `done` of `total` are finished. The last has no title: the run is over. '''
+    type: Literal['run_progress']
+    done: int
+    total: int
+    stage: Optional[str] = Field(None, description='extract, design, publish or commit; absent once the run is over.')
     title: Optional[str] = None
-    stage: Optional[str] = None
-    id: Optional[str] = Field(None, description='The title id (progress, ffmpeg).')
-    out_time_micros: Optional[int] = None
-    total_micros: Optional[int] = None
     title_id: Optional[str] = None
-    kind: Optional[str] = Field(None, description='type event: what happened (stage_started, command_finished, ...).')
-    text: Optional[str] = Field(None, description='type event: the redacted text a person reads.')
+
+
+class ExtractProgressEvent(_JobEventBase):
+    ''' How far ffmpeg has got extracting a title (one every 5 seconds or so, and the last). '''
+    type: Literal['extract_progress']
+    title: str
+    title_id: str
+    done_ms: int = Field(description='Audio extracted so far, in milliseconds.')
+    total_ms: Optional[int] = Field(None, description="The audio's length, in milliseconds; absent if ffmpeg did not say.")
+    percent: Optional[int] = Field(None, description='done_ms of total_ms, 0 to 100; absent without total_ms.')
+
+
+class TitleEvent(_JobEventBase):
+    ''' Something that happened to a title: a stage started or finished, a command ran, it failed. '''
+    type: Literal['event']
+    title_id: str
+    stage: str
+    kind: str = Field(description='stage_started, command_finished, ...')
+
+
+class JobEvent(RootModel[Annotated[Union[StateEvent, RunProgressEvent, ExtractProgressEvent, TitleEvent],
+                                   Field(discriminator='type')]]):
+    ''' One thing a job reported, in order (`seq`). `type` says which fields it has, and every one has `text`. '''
 
     @classmethod
     def of(cls, event: Dict[str, Any]) -> 'JobEvent':
-        return cls(**{**event, 'at': timestamp(event['at'])})
+        ''' From the job manager's kept event, which has the same fields but the time as epoch seconds and no text yet. '''
+        data = {k: v for k, v in event.items() if v is not None}
+        model = cls.model_validate({**data, 'at': timestamp(event['at']), 'text': event.get('text') or ''})
+        if not model.root.text:
+            model.root.text = _event_text(model.root.model_dump())
+        return model
+
+
+def _clock(ms: int) -> str:
+    seconds = max(ms // 1000, 0)
+    return f'{seconds // 3600}:{seconds // 60 % 60:02d}:{seconds % 60:02d}'
+
+
+def _event_text(event: Dict[str, Any]) -> str:
+    ''' The words for an event that carries only numbers: a state, a step of the run, ffmpeg's position. '''
+    kind = event.get('type')
+    if kind == 'state':
+        return f"job {event['state']}"
+    if kind == 'run_progress':
+        doing = f"{event['stage']}: {event.get('title')}" if event.get('stage') else 'finished'
+        return f"{event['done']} of {event['total']} done; {doing}"
+    if kind == 'extract_progress':
+        if event.get('total_ms'):
+            return f"{event['title']}: extracted {_clock(event['done_ms'])} of {_clock(event['total_ms'])} ({event['percent']}%)"
+        return f"{event['title']}: extracted {_clock(event['done_ms'])}"
+    return ''
 
 
 # --- the service --------------------------------------------------------------------------------------------------------

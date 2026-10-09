@@ -387,8 +387,10 @@ def test_the_event_stream_sends_what_happened_then_follows_the_job_to_its_end(ga
 
     assert not reader.is_alive()
     assert [(e['type'], e.get('state')) for e in seen] == [('state', 'queued'), ('state', 'running'),
-                                                           ('progress', None), ('state', 'succeeded')]
+                                                           ('run_progress', None), ('state', 'succeeded')]
     assert seen[2]['title'] == 'Heat' and [e['seq'] for e in seen] == sorted(e['seq'] for e in seen)
+    assert seen[0]['text'] == 'job queued' and seen[-1]['text'] == 'job succeeded'
+    assert all(None not in e.values() for e in seen)   # only the fields its type has
     log = client.get(f"/v1/jobs/{job['id']}/log", headers=AUTH).json()
     assert log == seen
     assert client.get(f"/v1/jobs/{job['id']}/log", params={'after': seen[1]['seq']}, headers=AUTH).json() == seen[2:]
@@ -435,3 +437,34 @@ def test_the_user_guide_names_every_route():
     routes = {re.sub(r'\{[a-z_]+\}', '{id}', path) for path in openapi_document()['paths']}
 
     assert sorted(route for route in routes if f'`{route}`' not in guide and f'{route}`' not in guide) == []
+
+
+def test_each_type_of_event_has_its_own_fields_and_says_in_words_what_they_mean():
+    """An ffmpeg event was microseconds and a page of nulls: each type now has a fixed payload, and text."""
+    from pipeline.service.models import JobEvent
+    dumped = lambda event: JobEvent.of(event).model_dump(mode='json', exclude_none=True)   # noqa: E731
+
+    assert dumped({'seq': 1, 'at': 0.0, 'type': 'extract_progress', 'title': 'The Godfather', 'title_id': 'jriver-1',
+                   'done_ms': 3405475, 'total_ms': 10528059, 'percent': 32}) == {
+        'seq': 1, 'at': '1970-01-01T00:00:00Z', 'type': 'extract_progress', 'title': 'The Godfather',
+        'title_id': 'jriver-1', 'done_ms': 3405475, 'total_ms': 10528059, 'percent': 32,
+        'text': 'The Godfather: extracted 0:56:45 of 2:55:28 (32%)'}
+    assert dumped({'seq': 2, 'at': 0.0, 'type': 'extract_progress', 'title': 'Heat', 'title_id': 'h', 'done_ms': 61000,
+                   'total_ms': None, 'percent': None})['text'] == 'Heat: extracted 0:01:01'
+    assert dumped({'seq': 3, 'at': 0.0, 'type': 'run_progress', 'done': 1, 'total': 5, 'title': 'Heat',
+                   'stage': 'design', 'title_id': 'x'})['text'] == '1 of 5 done; design: Heat'
+    assert dumped({'seq': 4, 'at': 0.0, 'type': 'run_progress', 'done': 5, 'total': 5}) == {
+        'seq': 4, 'at': '1970-01-01T00:00:00Z', 'type': 'run_progress', 'done': 5, 'total': 5,
+        'text': '5 of 5 done; finished'}
+    assert dumped({'seq': 5, 'at': 0.0, 'type': 'state', 'state': 'running'})['text'] == 'job running'
+    assert dumped({'seq': 6, 'at': 0.0, 'type': 'event', 'title_id': 'h', 'stage': 'extract', 'kind': 'finished',
+                   'text': '[12:00 extract] done'})['text'] == '[12:00 extract] done'
+    with pytest.raises(ValueError):   # a type's fields are required, not optional
+        JobEvent.of({'seq': 7, 'at': 0.0, 'type': 'extract_progress', 'title': 'Heat'})
+
+
+def test_the_published_event_schema_is_one_shape_per_type():
+    schemas = openapi_document()['components']['schemas']
+    assert schemas['JobEvent']['discriminator']['propertyName'] == 'type'
+    assert set(schemas['JobEvent']['discriminator']['mapping']) == {'state', 'run_progress', 'extract_progress', 'event'}
+    assert {'done_ms', 'total_ms', 'percent'} <= set(schemas['ExtractProgressEvent']['properties'])
