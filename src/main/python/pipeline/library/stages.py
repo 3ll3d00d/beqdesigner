@@ -23,9 +23,10 @@ import uuid
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from contextvars import copy_context
 from dataclasses import dataclass, field, replace
-from typing import Callable, Dict, List, Optional, Union
+from typing import Callable, Dict, FrozenSet, List, Optional, Set, Union
 
 from pipeline.library.commit import CatalogueCommit
+from pipeline.library.disks import DiskSlots, disks_of
 from pipeline.library.index import LibraryIndex
 from pipeline.library.join import JoinQueue
 from pipeline.library.profile import Profile
@@ -33,7 +34,7 @@ from pipeline.library.run import LibraryRunConfig, LibraryRunReport, Unavailable
     design_unit_work, run_unit
 from pipeline.library.selection import Selection, Skipped, plan_stages
 from pipeline.library.status import ScanSettings
-from pipeline.library.season import conflicting_units
+from pipeline.library.season import SeasonGroup, conflicting_units
 from pipeline.library.sync import commit_library, publish_library
 from pipeline.orchestrate import Session
 from pipeline.publish.catalogue import CategoryFolders
@@ -392,6 +393,35 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
             return to_extract
 
         pending = route(eligible)
+        slots = DiskSlots(run_config.disks.per_disk) if run_config.disks is not None else None
+        title_disks: Dict[str, FrozenSet[str]] = {}
+        reading: Dict[Future, FrozenSet[str]] = {}
+        told_waiting: Set[str] = set()
+
+        def disks_for(planned, unit) -> FrozenSet[str]:
+            ''' The disks a title is read from, looked up once (run.disks): none when the run does not look. '''
+            title_id = planned.row.id
+            if title_id not in title_disks:
+                members = unit.members if isinstance(unit, SeasonGroup) else (unit,)
+                title_disks[title_id] = disks_of((m.source_path for m in members), run_config.disks.xattr)
+            return title_disks[title_id]
+
+        def next_extraction() -> Optional[int]:
+            ''' The first waiting title whose disks have room; each one held back is told why, once. '''
+            if slots is None:
+                return 0
+            for position, (planned, unit, _) in enumerate(pending):
+                disks = disks_for(planned, unit)
+                if slots.free(disks):
+                    return position
+                title_id = planned.row.id
+                if title_id not in told_waiting:
+                    told_waiting.add(title_id)
+                    with event_scope(title_id=title_id, stage='extract'):
+                        emit_execution_event('stage_queued', message=f'Waiting to read {", ".join(sorted(slots.busy(disks)))}: '
+                                                                     'another title is being extracted from it')
+            return None
+
         with ThreadPoolExecutor(max_workers=run_config.extract_parallelism,
                                 thread_name_prefix='library-extract') as extract_pool, \
                 ThreadPoolExecutor(max_workers=run_config.design_parallelism,
@@ -406,9 +436,15 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
                     break
                 if not cancel_requested:
                     while pending and len(extracting) < run_config.extract_parallelism:
-                        planned, unit, retry = pending.pop(0)
+                        position = next_extraction()
+                        if position is None:
+                            break   # every waiting title's disk is being read: one finishing frees it
+                        planned, unit, retry = pending.pop(position)
                         future = extract_pool.submit(copy_context().run, extract_task, planned, unit, retry)
                         extracting[future] = planned
+                        if slots is not None:
+                            reading[future] = disks_for(planned, unit)
+                            slots.take(reading[future])
                 elif not report.stopped:
                     report.cancelled = True
                 while (design_pending or design_ready) and len(designing) < run_config.design_parallelism \
@@ -432,6 +468,8 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
                                     return_when=FIRST_COMPLETED)
                 for future in completed:
                     planned = extracting.pop(future, None)
+                    if slots is not None and future in reading:
+                        slots.give_back(reading.pop(future))
                     if planned is not None:
                         row_id = planned.row.id
                         try:

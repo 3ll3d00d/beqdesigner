@@ -434,6 +434,7 @@ run:
   tv_mode: season                # episode (default) | season
   keep_multichannel: false
   parallelism: {extract: 2, design: 1}  # work-list machine-stage limits (each 1..4)
+  disks: {xattr: system.LOCATION, per_disk: 1}   # optional: read each disk of a JBOD pool one title at a time
   audio_types: [DTS-HD MA 5.1]
   analysis: {target_fs: 1000, resolution: 1.0}   # analysis settings nest under run/sync, not top level
 
@@ -454,6 +455,17 @@ The Library Work List applies `run.parallelism.extract` and
 `run.parallelism.design` independently to extraction and design (each from 1
 to 4; absent keys mean 1). Publish and commit remain serialized because they
 write shared catalogue aggregates and repository state.
+
+`run.disks` is for a pool of independent disks (JBOD: Unraid, mergerfs), where
+each title is on one disk: two extractions reading one disk make it seek between
+them, while titles on different disks read at full speed side by side. `xattr`
+names the extended attribute that says which disk a file is on -- Unraid's
+`system.LOCATION` (`disk2`), mergerfs's `user.mergerfs.basepath` -- and
+`per_disk` (default 1) how many extractions may read one disk at once. Each
+title's disk is read once per run; a season reads all its episodes' disks. A
+title whose files have no such attribute (or a platform without xattrs, like
+Windows) is limited only by `parallelism.extract`. Check what the pool reports
+with `getfattr -n system.LOCATION <a title's path>` from where the run reads it.
 
 Settings with **no flag**: `sources.jriver.external_id_fields`, `designers` timeouts/headers, and
 `sync.meta_defaults`. Everything else has one.

@@ -344,8 +344,13 @@ work. Review Folder uses the same title and publish/commit behavior over a
 chosen queue directory. The old Library Sync and Review Queue dialogs were
 retired.
 
-Extraction and design workers have separate limits. Publish/commit remain
-serialized. Work list rows show bounded, run-scoped progress; Details shows
+Extraction and design workers have separate limits. With `run.disks`
+(`pipeline/library/disks.py`), extraction also reads each physical disk of a
+JBOD pool at most `per_disk` titles at a time: a title's disk comes from the
+extended attribute the pool sets on its files (Unraid `system.LOCATION`,
+mergerfs `user.mergerfs.basepath`), and a held title waits with a
+"Waiting to read diskN" event while titles on other disks start. Publish/commit
+remain serialized. Work list rows show bounded, run-scoped progress; Details shows
 per-title execution events and ffmpeg commands with selection and Copy all.
 The bounded, redacted Details text of the last run is stored in the work
 directory and restored with its button when the work list reopens. Starting a

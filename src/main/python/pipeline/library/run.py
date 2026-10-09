@@ -12,6 +12,7 @@ from pipeline.designer.contract import Coverage
 from pipeline.library.design_cache import design_if_needed
 from model.execution_events import emit_execution_event, event_scope
 from pipeline.library.failure import Unavailable, unavailable_reason
+from pipeline.library.disks import DiskLimit
 from pipeline.library.retention import DEFAULT_MIN_FREE_GB, OutOfSpace, check_free_space, min_free_gb, \
     restore_multichannel
 from pipeline.library.streams import audio_ordinal, channels_found, stream_choice
@@ -87,6 +88,8 @@ class LibraryRunConfig:
     min_free_gb: float = DEFAULT_MIN_FREE_GB   # below this free in the work directory, extraction stops the run (R5)
     # the playback chain sent to the designer (pipeline.library.bass, `run.bass_management`); None sends none
     bass_management: Optional[dict] = None
+    # read each disk one (or per_disk) title at a time (pipeline.library.disks, `run.disks`); None does not look
+    disks: Optional[DiskLimit] = None
 
     def __post_init__(self):
         plan_units([], self.tv_mode)  # rejects an unknown mode up front, not on the first TV item
