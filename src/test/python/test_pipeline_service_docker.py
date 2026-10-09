@@ -145,3 +145,9 @@ def test_ci_smokes_before_tag_publish_and_builds_both_platforms():
     assert release.index('python3 docker/smoke.py') < release.index('docker/build-push-action')
     assert 'linux/amd64,linux/arm64' in release
     assert 'alpha|beta|rc' in release and 'packages: write' in release
+
+
+def test_the_docs_assets_stage_runs_natively_rather_than_under_qemu():
+    ''' The release builds arm64 under QEMU, where node dies of SIGILL; the assets are the same on every platform. '''
+    dockerfile = (ROOT / 'docker' / 'Dockerfile').read_text()
+    assert 'FROM --platform=$BUILDPLATFORM node:' in dockerfile

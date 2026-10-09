@@ -1,4 +1,5 @@
-FROM node:22-alpine AS docs-assets
+# The docs assets are plain JS/CSS whatever the target, so npm runs natively: under QEMU (arm64) node dies of SIGILL.
+FROM --platform=$BUILDPLATFORM node:22-alpine AS docs-assets
 ENV SCARF_ANALYTICS=false
 RUN npm install --omit=dev --prefix /assets swagger-ui-dist@5.18.2 redoc@2.4.0 \
     && mkdir -p /static \
