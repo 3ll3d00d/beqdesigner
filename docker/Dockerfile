@@ -1,5 +1,7 @@
+# Base images come from AWS's copy of Docker's official images: GitHub's runners share addresses, so anonymous Docker
+# Hub pulls are refused (429 Too Many Requests) whenever others have used up the limit.
 # The docs assets are plain JS/CSS whatever the target, so npm runs natively: under QEMU (arm64) node dies of SIGILL.
-FROM --platform=$BUILDPLATFORM node:22-alpine AS docs-assets
+FROM --platform=$BUILDPLATFORM public.ecr.aws/docker/library/node:22-alpine AS docs-assets
 ENV SCARF_ANALYTICS=false
 RUN npm install --omit=dev --prefix /assets swagger-ui-dist@5.18.2 redoc@2.4.0 \
     && mkdir -p /static \
@@ -8,7 +10,7 @@ RUN npm install --omit=dev --prefix /assets swagger-ui-dist@5.18.2 redoc@2.4.0 \
           /assets/node_modules/swagger-ui-dist/favicon-32x32.png /static/ \
     && cp /assets/node_modules/redoc/bundles/redoc.standalone.js /static/
 
-FROM python:3.13-slim AS dependencies
+FROM public.ecr.aws/docker/library/python:3.13-slim AS dependencies
 COPY --from=ghcr.io/astral-sh/uv:0.9.18 /uv /usr/local/bin/uv
 WORKDIR /app
 COPY pyproject.toml uv.lock ./
@@ -16,7 +18,7 @@ ENV UV_PROJECT_ENVIRONMENT=/opt/venv UV_COMPILE_BYTECODE=1
 RUN uv sync --frozen --no-default-groups --group service --no-install-project \
     && /opt/venv/bin/python -c 'import importlib.util; assert all(importlib.util.find_spec(n) is None for n in ("PyQt6", "qtpy", "pyqtgraph", "qtawesome"))'
 
-FROM python:3.13-slim
+FROM public.ecr.aws/docker/library/python:3.13-slim
 ARG PUID=1000
 ARG PGID=1000
 ARG VERSION=0.0.0-alpha.1

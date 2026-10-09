@@ -150,4 +150,12 @@ def test_ci_smokes_before_tag_publish_and_builds_both_platforms():
 def test_the_docs_assets_stage_runs_natively_rather_than_under_qemu():
     ''' The release builds arm64 under QEMU, where node dies of SIGILL; the assets are the same on every platform. '''
     dockerfile = (ROOT / 'docker' / 'Dockerfile').read_text()
-    assert 'FROM --platform=$BUILDPLATFORM node:' in dockerfile
+    assert 'FROM --platform=$BUILDPLATFORM public.ecr.aws/docker/library/node:' in dockerfile
+
+
+def test_base_images_come_from_a_registry_that_does_not_rate_limit_ci():
+    ''' Anonymous Docker Hub pulls from GitHub's shared runners are refused with 429; ECR Public mirrors the same images. '''
+    dockerfile = (ROOT / 'docker' / 'Dockerfile').read_text()
+    bases = [line.split()[-3] if ' AS ' in line else line.split()[-1]
+             for line in dockerfile.splitlines() if line.startswith('FROM ')]
+    assert len(bases) == 3 and all(base.startswith('public.ecr.aws/docker/library/') for base in bases)
