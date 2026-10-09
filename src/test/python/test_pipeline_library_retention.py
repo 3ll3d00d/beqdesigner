@@ -122,6 +122,12 @@ def test_below_the_floor_no_extraction_starts(tmp_path, monkeypatch):
     check_free_space(str(tmp_path), 0)   # 0 turns it off
 
 
+def test_the_suite_never_depends_on_the_free_space_of_the_machine_it_runs_on(tmp_path):
+    ''' conftest reports ample free space, so a runner with less than the default floor still runs extractions. '''
+    check_free_space(str(tmp_path), retention.DEFAULT_MIN_FREE_GB)
+    check_free_space(str(tmp_path), 100_000)
+
+
 def test_a_full_disk_stops_the_run_at_once_and_remembers_nothing(env, work, monkeypatch):
     _scan(env, *(_item(n) for n in 'abc'))
     monkeypatch.setattr(retention.shutil, 'disk_usage', lambda path: type('U', (), {'free': 1e9})())

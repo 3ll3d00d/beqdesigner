@@ -41,6 +41,17 @@ def tmpdirPath(tmpdir):
 
 
 @pytest.fixture(autouse=True)
+def _plenty_of_free_space(monkeypatch):
+    '''
+    **No test depends on the free space of the machine it runs on.** A library run stops below `run.min_free_gb` (10 GB
+    by default) free in the work directory, and a CI runner can have less (ubuntu-26.04 had 8.3 GB), which failed every
+    test that extracts. A test about the floor sets `disk_usage` itself, which replaces this.
+    '''
+    real = shutil.disk_usage
+    monkeypatch.setattr(shutil, 'disk_usage', lambda path: real(path)._replace(free=10 ** 15))
+
+
+@pytest.fixture(autouse=True)
 def _designer_registry_restored():
     '''
     **Every test leaves the designer registry as it found it.** The registry is process-wide, and a service job or a CLI
