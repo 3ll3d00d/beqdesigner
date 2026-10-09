@@ -926,7 +926,10 @@ def test_header_uses_one_title_row_and_moves_duplicate_details_into_metadata(qtb
     assert page.titleLabel.parentWidget() is page.headerPanel
     assert page.noticeLabel.parentWidget() is page.headerPanel
     assert page.titleLabel.wordWrap() and page.noticeLabel.wordWrap()
-    assert page.headerPanel.height() <= page.titleLabel.fontMetrics().height() * 2
+    # the panel shares the nav row, so it is as tall as its buttons (26px on Windows); what matters is the text fits one line
+    line = page.titleLabel.fontMetrics().lineSpacing()
+    assert page.titleLabel.heightForWidth(page.titleLabel.width()) < line * 2
+    assert page.headerPanel.height() <= max(page.backButton.height(), line * 2)
     for label in (page.subtitleLabel, page.stateLabel, page.badgeLabel):
         assert label.parentWidget() is page.metadataTab
         assert not label.isVisibleTo(page)
