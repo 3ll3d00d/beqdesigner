@@ -1287,6 +1287,11 @@ export interface components {
             last_run?: components["schemas"]["ScheduleLastRun"] | null;
             /** Last Skip */
             last_skip?: string | null;
+            /**
+             * Ended
+             * @description Why the schedule turned itself off: its filter lists ids, and a run left none of them to do. Cleared by the next save.
+             */
+            ended?: string | null;
         };
         /** ScheduleLastRun */
         ScheduleLastRun: {

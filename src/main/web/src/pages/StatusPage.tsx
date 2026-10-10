@@ -71,6 +71,7 @@ function ScheduleCard() {
       {data.last_run && <p className="muted">Last: <StateBadge state={data.last_run.state} />{' '}
         <Link to={`/jobs/${data.last_run.job_id}`}>{when(data.last_run.finished_at)}</Link></p>}
       {data.last_skip && <p className="muted">Last skipped: {data.last_skip}</p>}
+      {data.ended && <p className="muted">Ended: {data.ended}</p>}
       <div className="actions">
         <button type="button" disabled={save.isPending} onClick={() => save.mutate({ ...update, enabled: !data.enabled })}>
           {data.enabled ? 'Pause' : 'Resume'}

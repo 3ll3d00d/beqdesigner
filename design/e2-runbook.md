@@ -199,6 +199,10 @@ curl -s -H "$AUTH" -X PUT $API/v1/schedule -H 'Content-Type: application/json' \
   -d "{\"enabled\": true, \"interval_minutes\": 30, \"through\": \"design\", \"retry_failed\": false, \"filter\": $(jq '{ids}' $E2/sample.json)}" | jq
 ```
 
+The first tick is `interval_minutes` after the `PUT`; to start now,
+`curl -s -H "$AUTH" -X POST $API/v1/schedule/trigger | jq`. Once a run leaves none of the sample to do, the schedule
+turns itself off: `GET /v1/schedule` shows `enabled: false` and `ended` says why.
+
 While it runs, `GET /v1/status` shows `current_job.progress` with `per_hour`, `remaining_seconds`
 and `estimated_finish`. Note them after the first hour and at the end.
 

@@ -46,7 +46,7 @@ export function scanJob(overrides: Partial<Schemas['ScanJob']> = {}): Schemas['S
 
 export function schedule(overrides: Partial<Schemas['Schedule']> = {}): Schemas['Schedule'] {
   return { enabled: true, interval_minutes: 60, filter: { new_since_scan: false, kind: 'movie' }, through: 'design',
-           retry_failed: false, next_run_at: NOW, last_run: null, last_skip: null, ...overrides }
+           retry_failed: false, next_run_at: NOW, last_run: null, last_skip: null, ended: null, ...overrides }
 }
 
 export function event(seq: number, fields: Record<string, unknown>): JobEvent {

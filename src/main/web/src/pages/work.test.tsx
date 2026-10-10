@@ -82,6 +82,13 @@ describe('status', () => {
     expect(await screen.findByText('Scan the sources…')).toHaveAttribute('href', '/jobs/new?kind=scan')
     expect(await screen.findByText('Paused.')).toBeInTheDocument()
   })
+
+  it('says why the schedule turned itself off', async () => {
+    server.use(statusRoute(status({ index: index() })),
+               http.get('/v1/schedule', () => json(schedule({ enabled: false, ended: 'all 2 listed titles are done' }))))
+    renderApp('/')
+    expect(await screen.findByText('Ended: all 2 listed titles are done')).toBeInTheDocument()
+  })
 })
 
 describe('jobs', () => {

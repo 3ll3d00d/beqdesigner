@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import Callable, Optional
 
 from pipeline.service.jobs import JobManager, RunRequest
-from pipeline.service.models import ScheduleUpdate, TitleFilter
+from pipeline.service.models import ScheduleUpdate, TitleFilter, run_result
 
 DESIGNER_RETRY_MINUTES = 5   # a tick skipped because the designer did not answer is tried again this soon (or sooner)
 
@@ -19,6 +19,19 @@ class LastRun:
     job_id: str
     state: str
     finished_at: Optional[float]
+
+
+def left_to_do(job, retry_failed: bool) -> Optional[int]:
+    '''
+    How many of a finished scheduled run's titles it left for a later run: unavailable, not reached, or (when failures are
+    retried) failed. None if it did not finish its selection: it was cancelled or stopped, or it raised.
+    '''
+    if job.result is None or job.state in ('cancelled', 'interrupted'):
+        return None
+    result = run_result(job.result)
+    if result.cancelled or result.stopped:
+        return None
+    return len(result.unavailable) + len(result.not_run) + (len(result.failed) if retry_failed else 0)
 
 
 class AutoScheduler:
@@ -49,6 +62,7 @@ class AutoScheduler:
         self.next_run_at = clock() + self.settings.interval_minutes * 60 if self.settings.enabled else None
         self.last_run: Optional[LastRun] = None
         self.last_skip: Optional[str] = None
+        self.ended: Optional[str] = None   # why the schedule turned itself off
         self.finished = SimpleQueue()
         self.unsubscribe = manager.subscribe(self._job_event)
         self.thread: Optional[threading.Thread] = None
@@ -62,7 +76,8 @@ class AutoScheduler:
             return {'enabled': self.settings.enabled, 'interval_minutes': self.settings.interval_minutes,
                     'filter': self.settings.filter, 'through': self.settings.through,
                     'retry_failed': self.settings.retry_failed, 'next_run_at': self.next_run_at,
-                    'last_run': vars(self.last_run) if self.last_run else None, 'last_skip': self.last_skip}
+                    'last_run': vars(self.last_run) if self.last_run else None, 'last_skip': self.last_skip,
+                    'ended': self.ended}
 
     def update(self, settings: ScheduleUpdate) -> dict:
         with self.lock:
@@ -71,6 +86,7 @@ class AutoScheduler:
             self.settings = settings
             self.next_run_at = self.clock() + settings.interval_minutes * 60 if settings.enabled else None
             self.last_skip = None
+            self.ended = None
             self.wake.set()
             return self.snapshot()
 
@@ -139,16 +155,38 @@ class AutoScheduler:
     def _job_event(self, job, event: dict) -> None:
         if job.origin != 'schedule' or event.get('type') != 'state' or not job.finished:
             return
-        self.finished.put(LastRun(job.id, job.state, job.finished_at))
+        self.finished.put((LastRun(job.id, job.state, job.finished_at), job))
         self.wake.set()
 
     def _drain(self) -> None:
         '''Called with the scheduler lock; manager callbacks only queue data, avoiding reversed lock order.'''
         while not self.finished.empty():
-            run = self.finished.get_nowait()
+            run, job = self.finished.get_nowait()
             self.last_run = run
             if self.settings.enabled:
-                self.next_run_at = (run.finished_at or self.clock()) + self.settings.interval_minutes * 60
+                if self._all_done(job):
+                    self._end(f'all {len(self.settings.filter.ids)} listed titles are done: '
+                              f'nothing they need up to {self.settings.through.value} is left')
+                else:
+                    self.next_run_at = (run.finished_at or self.clock()) + self.settings.interval_minutes * 60
+
+    def _all_done(self, job) -> bool:
+        '''
+        Whether the schedule names its titles (filter.ids), so none can join them, and this run of those same titles left
+        none for a later one. A filter without ids may match titles found later, so it keeps ticking.
+        '''
+        ids = tuple(self.settings.filter.ids)
+        if not ids or tuple(job.request.selection.ids) != ids:
+            return False
+        try:
+            return left_to_do(job, self.settings.retry_failed) == 0
+        except (KeyError, TypeError, ValueError):
+            return False
+
+    def _end(self, why: str) -> None:
+        settings = self.settings.model_copy(update={'enabled': False})
+        self._persist(settings)
+        self.settings, self.next_run_at, self.ended = settings, None, why
 
     def _loop(self) -> None:
         while not self.stopped:

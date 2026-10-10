@@ -180,6 +180,11 @@ before anything is extracted. Saving the schedule
 through `PUT /v1/schedule` writes `<work dir>/service/schedule.json`; that file takes precedence over `service.yaml` on
 restart. Set `enabled: false` to pause it without losing its other settings.
 
+A schedule whose filter lists `ids` turns itself off once a run leaves none of those titles to do: each is designed (or
+extracted, `through: extract`), failed, or needs your attention. `enabled` becomes `false` and `ended` says why. A title
+the run could not reach (the designer or the media was unavailable) keeps it going, as does a failure when
+`retry_failed` is on. A filter without `ids` keeps ticking, since titles added later may match it.
+
 Notifications are sent after a job finishes. `review_waiting` fires when a run
 designed titles, including a designer decline; `failed` fires for a new title,
 source, publish or job failure; `job_finished` can be enabled for every job.

@@ -16,7 +16,7 @@ from pipeline.library.selection import Selection
 from pipeline.library.state import FLAG_DUPLICATE, FLAG_GONE, FLAG_IGNORED, FLAG_IN_CATALOGUE, FLAG_SHADOWED
 from pipeline.library.year import YEAR_PATTERN, YearRange
 
-API_VERSION = '1.3.0'
+API_VERSION = '1.4.0'
 
 
 class Needs(str, Enum):
@@ -679,6 +679,8 @@ class Schedule(ScheduleUpdate):
     next_run_at: Optional[datetime] = None
     last_run: Optional['ScheduleLastRun'] = None
     last_skip: Optional[str] = None
+    ended: Optional[str] = Field(None, description='Why the schedule turned itself off: its filter lists ids, and a run '
+                                                   'left none of them to do. Cleared by the next save.')
 
 
 class ScheduleLastRun(BaseModel):

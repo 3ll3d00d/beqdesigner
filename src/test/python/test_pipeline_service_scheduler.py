@@ -107,3 +107,56 @@ def test_saved_schedule_wins_and_pause_resume(tmp_path):
 def test_schedule_rejects_unsafe_settings(data):
     with pytest.raises(ValidationError):
         ScheduleUpdate.model_validate(data)
+
+
+def _run_once(tmp_path, settings, run=None, **report):
+    ''' One scheduled tick whose job returns a run that did `run` (and the report's other fields): the schedule after. '''
+    now = [1000.0]
+    result = {'report': {'through': 'design', 'selected': 2, 'run': run or {}, **report}}
+    manager = JobManager(lambda job, control: result, clock=lambda: now[0])
+    scheduler = AutoScheduler(manager, str(tmp_path), {'enabled': True, 'interval_minutes': 5, **settings},
+                              clock=lambda: now[0], start=False)
+    try:
+        now[0] = 1300
+        scheduler.tick()
+        _until(lambda: scheduler.snapshot()['last_run'] is not None)
+        return scheduler.snapshot()
+    finally:
+        scheduler.stop()
+        manager.stop(5)
+
+
+def test_a_schedule_of_listed_titles_turns_itself_off_once_none_is_left_to_do(tmp_path):
+    after = _run_once(tmp_path, {'filter': {'ids': ['a', 'b']}}, {'designed': ['a'], 'design_cached': ['b']})
+    assert not after['enabled'] and after['next_run_at'] is None
+    assert after['ended'] == 'all 2 listed titles are done: nothing they need up to design is left'
+    assert not json.loads((tmp_path / 'schedule.json').read_text())['enabled']   # and stays off after a restart
+
+
+@pytest.mark.parametrize('settings, run, report', [
+    ({}, {}, {}),                                                                  # no ids: titles found later match
+    ({'filter': {'ids': ['a', 'b']}}, {'unavailable': [{'id': 'b', 'message': 'designer down'}]}, {}),
+    ({'filter': {'ids': ['a', 'b']}}, {}, {'stopped': 'stopped after 3 titles in a row', 'not_run': ['b']}),
+    ({'filter': {'ids': ['a', 'b']}}, {}, {'cancelled': True}),
+    ({'filter': {'ids': ['a', 'b']}, 'retry_failed': True}, {'failed': [{'id': 'b', 'message': 'bad rip'}]}, {}),
+])
+def test_a_schedule_keeps_ticking_while_something_may_be_left(tmp_path, settings, run, report):
+    after = _run_once(tmp_path, settings, run, **report)
+    assert after['enabled'] and after['next_run_at'] == 1300 + 300 and after['ended'] is None
+
+
+def test_a_title_that_failed_is_not_left_to_do_unless_failures_are_retried(tmp_path):
+    after = _run_once(tmp_path, {'filter': {'ids': ['a', 'b']}}, {'designed': ['a'], 'failed': [{'id': 'b', 'message': 'x'}]})
+    assert not after['enabled'] and after['ended']
+
+
+def test_saving_the_schedule_again_clears_why_it_ended(tmp_path):
+    _run_once(tmp_path, {'filter': {'ids': ['a']}})
+    manager = JobManager(lambda job, control: None)
+    scheduler = AutoScheduler(manager, str(tmp_path), {}, start=False)
+    try:
+        scheduler.ended = 'all 1 listed titles are done'
+        assert scheduler.update(ScheduleUpdate(enabled=True, interval_minutes=5))['ended'] is None
+    finally:
+        scheduler.stop()
+        manager.stop(5)

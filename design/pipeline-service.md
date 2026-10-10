@@ -332,7 +332,7 @@ only.
 - The document is generated from the app and committed as
   `docs/schema/service.openapi.json`; a test regenerates it and fails on any
   difference. It carries no release (`/health` does); `info.version` is the
-  API's own semantic version (1.3.0 since the review routes), bumped by hand on a change.
+  API's own semantic version (1.4.0 since the schedule's `ended`), bumped by hand on a change.
 - Swagger UI and ReDoc are served from a local copy when `--static-dir` /
   `BEQ_SERVICE_STATIC` names one -- the image fetches pinned packages at build
   -- and otherwise load from a CDN.
@@ -401,6 +401,12 @@ retry_failed, next_run_at, last_run: {job_id, state, finished_at}}`.
   skipped and recorded (`last_skip: busy`) through an atomic idle-only
   submission in `JobManager`; ticks never pile up. The next is
   `interval_minutes` after the *finish* of the last scheduled job.
+- **Ends by itself:** a schedule whose filter lists `ids` can never match
+  more titles, so once a scheduled run of those ids leaves none of them for
+  later -- nothing `unavailable` or not reached, it was neither cancelled nor
+  stopped, and nothing `failed` when `retry_failed` is on -- the schedule is
+  saved with `enabled: false` and `ended` says why (`AutoScheduler._all_done`).
+  The next save clears `ended`. A filter without ids keeps ticking.
 - **Designer down:** before a tick through design, `DesignerProbe`
   (`pipeline/service/designer.py`) asks the profile's designer's `/health`
   (`http_binding.check_designer`; a `by_reference` designer must answer 1.2

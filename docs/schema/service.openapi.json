@@ -4,7 +4,7 @@
     "title": "BEQDesigner pipeline service",
     "summary": "Scan a library, extract and design BEQ filters for titles chosen by filter, on demand or on a schedule, and follow the jobs that do it.",
     "description": "A person decides a title through the review routes or in the BEQDesigner app. Every /v1 route needs the bearer token (Authorize, above). `GET /health` says which release this is.",
-    "version": "1.3.0"
+    "version": "1.4.0"
   },
   "paths": {
     "/health": {
@@ -4227,6 +4227,18 @@
               }
             ],
             "title": "Last Skip"
+          },
+          "ended": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended",
+            "description": "Why the schedule turned itself off: its filter lists ids, and a run left none of them to do. Cleared by the next save."
           }
         },
         "additionalProperties": false,
