@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw/http'
 
 import { saveToken } from './api/token'
+import { schedule } from './test/fixtures'
 import { server, status, statusRoute, TOKEN } from './test/server'
 import { renderApp } from './test/render'
 
@@ -63,10 +64,10 @@ describe('signing in', () => {
 describe('signed in', () => {
   it('shows the status of the service it reached', async () => {
     saveToken(TOKEN, false)
-    server.use(statusRoute(status({ version: '2.3.0' })))
+    server.use(statusRoute(status({ version: '2.3.0' })), http.get('/v1/schedule', () => HttpResponse.json(schedule())))
     renderApp('/')
     expect(await screen.findByText('2.3.0')).toBeInTheDocument()
-    expect(screen.getByText('not scanned yet')).toBeInTheDocument()
+    expect(screen.getByText(/Not scanned yet/)).toBeInTheDocument()
   })
 
   it('goes back to sign-in when the service stops accepting the token', async () => {

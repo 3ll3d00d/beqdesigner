@@ -5,6 +5,9 @@ import { createBrowserRouter, Navigate, NavLink, Outlet, RouterProvider, useLoca
 
 import { AuthProvider, useAuth } from './auth/auth'
 import { SignIn } from './auth/SignIn'
+import { JobPage } from './pages/JobPage'
+import { JobsPage } from './pages/JobsPage'
+import { NewJobPage } from './pages/NewJobPage'
 import { NotBuilt } from './pages/NotBuilt'
 import { StatusPage } from './pages/StatusPage'
 
@@ -39,7 +42,9 @@ export const routes: RouteObject[] = [
     element: <Shell />,
     children: [
       { index: true, element: <StatusPage /> },
-      { path: 'jobs/*', element: <NotBuilt what="Jobs" /> },
+      { path: 'jobs', element: <JobsPage /> },
+      { path: 'jobs/new', element: <NewJobPage /> },
+      { path: 'jobs/:jobId', element: <JobPage /> },
       { path: 'titles/*', element: <NotBuilt what="Titles and review" /> },
       { path: '*', element: <NotBuilt what="This page" /> },
     ],
