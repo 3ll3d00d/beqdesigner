@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw/http'
 
 import { saveToken } from '../api/token'
-import { chartData, resample } from '../components/MagnitudeChart'
+import { chartData, FREQUENCY_RANGE, resample } from '../components/MagnitudeChart'
 import { chart, index, review, runJob, title } from '../test/fixtures'
 import { renderApp } from '../test/render'
 import { server, status, statusRoute, TOKEN } from '../test/server'
@@ -58,9 +58,16 @@ function reviewRoutes(over: Parameters<typeof review>[0] = {}, nextId: string | 
 }
 
 describe('the chart', () => {
-  it('puts every curve on the first one\'s frequencies, above 0 Hz for the log axis', () => {
+  it('puts every curve on the first one\'s frequencies, within the drawn range', () => {
     expect(resample([10, 20, 40], [0, 10, 30], [10, 15, 30, 50])).toEqual([0, 5, 20, 30])
     expect(chartData(chart(0).series)).toEqual([[10, 20, 40, 80], [0, 0, 0, 0], [10, 10, 10, 10], [4, 3, 1, 0]])
+  })
+
+  it('draws 1 to 160 Hz on a linear axis, as the desktop does', () => {
+    expect(FREQUENCY_RANGE).toEqual([1, 160])
+    const x = [0, 0.5, 1, 80, 160, 161, 1000]
+    const data = chartData([{ name: 'a', kind: 'average', filtered: false, x, y: x.map((_, i) => i) }])
+    expect(data).toEqual([[1, 80, 160], [2, 3, 4]])
   })
 })
 
@@ -170,8 +177,9 @@ describe('reviewing a title', () => {
     expect(screen.getByText(/Designed by rolloff \(beqforge 0.2.0\)/)).toBeInTheDocument()
     await waitFor(() => expect(drawn.length).toBeGreaterThan(0))
     expect(charts).toContain('0')
-    const options = drawn.at(-1)!.options as { scales: { x: { distr: number } }; series: { dash?: number[] }[] }
-    expect(options.scales.x.distr).toBe(3)                     // log frequency
+    const options = drawn.at(-1)!.options as { scales: { x: { distr?: number; range: number[] } }; series: { dash?: number[] }[] }
+    expect(options.scales.x.distr).toBeUndefined()              // linear frequency
+    expect(options.scales.x.range).toEqual([1, 160])
     expect(options.series.map((s) => !!s.dash)).toEqual([false, true, true, false])   // before dashed, after solid
   })
 

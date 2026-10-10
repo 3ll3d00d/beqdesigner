@@ -116,8 +116,9 @@ message. Tests: `test_pipeline_library_decide.py`.
 ### 4.1 The chart
 
 `MagnitudeChart` draws `GET /v1/titles/{id}/chart?candidate=N`: the measured average and peak curves, dashed when a design
-is applied, and the same after the design, solid -- as the desktop title page draws them. The x axis is log frequency
-(uPlot `distr: 3`), so 0 Hz is dropped, and every series is resampled onto the first's frequencies (`chartData()`).
+is applied, and the same after the design, solid -- as the desktop title page draws them. The x axis is linear, 1 to 160 Hz
+(`FREQUENCY_RANGE`, the desktop charts' default range): points outside it are dropped, and every series is resampled onto
+the first's frequencies (`chartData()`).
 
 ## 5. Build and delivery
 

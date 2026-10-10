@@ -1,5 +1,5 @@
 // The review chart (design/web-app.md §4): a title's measured average and peak curves, and the same after the chosen
-// design, on a log-frequency axis, as the desktop title page draws them -- dashed before, solid after. uPlot stays behind
+// design, on a linear 1-160 Hz axis, the range the desktop's charts show -- dashed before, solid after. uPlot stays behind
 // this one component, so its 1.7 release changes only this file.
 import { useEffect, useRef } from 'react'
 import uPlot from 'uplot'
@@ -10,6 +10,9 @@ import type { Schemas } from '../api/client'
 type Series = Schemas['ChartSeries']
 
 const COLOURS = { average: '#2b8cbe', peak: '#e6550d' }
+
+/** The frequencies drawn, in Hz: BEQ is about the bass, and the desktop's charts default to the same range. */
+export const FREQUENCY_RANGE: [number, number] = [1, 160]
 
 /** Linear interpolation of (x, y) at each of `at` (x ascending); outside the range, the end value. */
 export function resample(x: number[], y: number[], at: number[]): number[] {
@@ -24,11 +27,12 @@ export function resample(x: number[], y: number[], at: number[]): number[] {
   return out
 }
 
-/** The series on one shared frequency axis (the first's), above 0 Hz for the log scale: uPlot's data shape. */
+/** The series on one shared frequency axis (the first's, within FREQUENCY_RANGE): uPlot's data shape. */
 export function chartData(series: Series[]): uPlot.AlignedData {
   if (!series.length) return [[]]
   const first = series[0]!
-  const x = first.x.filter((v) => v > 0)
+  const [low, high] = FREQUENCY_RANGE
+  const x = first.x.filter((v) => v >= low && v <= high)
   return [x, ...series.map((s) => resample(s.x, s.y, x))]
 }
 
@@ -45,7 +49,7 @@ export function MagnitudeChart({ series, height = 360 }: { series: Series[]; hei
     const plot = new uPlot({
       width: element.clientWidth || 640,
       height,
-      scales: { x: { time: false, distr: 3, log: 10 }, y: { auto: true } },
+      scales: { x: { time: false, range: FREQUENCY_RANGE }, y: { auto: true } },
       axes: [{ ...axis, label: 'Frequency (Hz)' }, { ...axis, label: 'dB', size: 56 }],
       legend: { show: true },
       cursor: { points: { show: false } },
