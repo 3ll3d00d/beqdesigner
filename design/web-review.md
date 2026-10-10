@@ -81,10 +81,40 @@ Qt; the queue-entry fixture moved from `gui/` to `src/test/python/review_entry_f
 
 ## 4. The app (W3–W5)
 
-- **Where:** `src/main/web/` -- React 18, TypeScript, Vite; React Router; TanStack Query for fetching and cache; uPlot for
+- **Where:** `src/main/web/` -- React, TypeScript, Vite; React Router; TanStack Query for fetching and cache; uPlot for
   the chart (log-frequency x axis, a small canvas library). The API types are generated from
-  `docs/schema/service.openapi.json` with `openapi-typescript` into `src/main/web/src/api/schema.d.ts` (committed); a
-  check in the web CI job regenerates it and fails on any difference, so the app and the contract cannot drift.
+  `docs/schema/service.openapi.json` with `openapi-typescript` into `src/main/web/src/api/schema.d.ts` (committed) and
+  called through `openapi-fetch`; a check in the web CI job regenerates the types and fails on any difference, so the app
+  and the contract cannot drift.
+- **Versions** (the npm registry's latest on 2026-10-10, each pinned exactly in `package.json`, checked to install together
+  with no peer conflict):
+
+  | Package | Version | | Package | Version |
+  |---|---|---|---|---|
+  | react, react-dom, @types/react, @types/react-dom | 19.3.0 | | vitest | 5.0.3 |
+  | react-router | 8.4.0 | | jsdom | 30.1.2 |
+  | @tanstack/react-query | 5.104.1 | | @testing-library/react | 16.3.3 |
+  | uplot | 1.6.32 | | @testing-library/dom | 10.4.2 |
+  | openapi-fetch | 0.17.0 | | @testing-library/user-event | 14.6.7 |
+  | vite | 8.3.4 | | @testing-library/jest-dom | 7.0.1 |
+  | @vitejs/plugin-react | 6.1.2 | | msw | 3.0.3 |
+  | typescript | **6.0.3** (not 7.0.2, below) | | eslint | 10.12.0 |
+  | openapi-typescript | 7.13.0 | | typescript-eslint | 8.71.1 |
+
+  - **TypeScript 6.0.3, not 7.0.2.** 7.0 is the native (Go) compiler. Its package exports only its version and
+    `unstable/*` APIs, not the compiler API that type generators print code through. Tried on 2026-10-10 against this
+    schema: `openapi-typescript` 7.13.0 and `@hey-api/openapi-ts` 0.99.0 both crash under 7.0.2
+    (`ts.factory` is undefined), and `typescript-eslint` 8.71.1 declares `typescript <6.1.0`. 6.0.3 is the newest
+    release that every tool here runs on; `openapi-typescript` generates and type-checks the schema with it. Its peer
+    range still says `^5.x`, so `package.json` has `"overrides": {"openapi-typescript": {"typescript": "$typescript"}}`.
+    Move to 7 when `typescript-eslint` and `openapi-typescript` support it.
+  - **Node 24 LTS** (24.21.0 on 2026-10-10). `react-router` 8 needs Node ≥22.22 and `jsdom` 30 needs ≥22.22.2 or
+    ≥24.15, so the 22.18 found on the development machine is too old (`nvm install 24`). `package.json` sets
+    `engines.node` to `>=24` and `.nvmrc` to `24`.
+  - uPlot's latest release is from 2025-03. It is the current version, but quiet: if it is found unmaintained, replacing
+    the one chart component is the whole cost.
+  - W3 adds an `npm` entry (directory `/src/main/web`, weekly) to `.github/dependabot.yml`, which today covers only
+    GitHub Actions and uv, so these are kept current by reviewed bumps that re-run the web CI job.
 - **Served:** the service mounts the built `dist/` at `/ui` (`--ui-dir` / `BEQ_SERVICE_UI`; absent, `/ui` is a 404 that
   says how to build it) with an SPA fallback to `index.html`, and `/` redirects to `/ui/`. The page and its assets need no
   token; every `/v1` call does.
@@ -114,9 +144,10 @@ Qt; the queue-entry fixture moved from `gui/` to `src/test/python/review_entry_f
 
 - `src/main/web/package.json` scripts: `dev` (Vite, proxying `/v1` to a local service), `build`, `test`, `typecheck`,
   `lint`, `gen:api`. `package-lock.json` is committed; `dist/` and `node_modules/` are ignored.
-- **CI:** a `web` job in `.github/workflows/test.yaml` (Node 22): `npm ci`, generated-types check, typecheck, lint, test,
+- **CI:** a `web` job in `.github/workflows/test.yaml` (Node 24, from `.nvmrc`): `npm ci`, generated-types check, typecheck, lint, test,
   build.
-- **Image:** the Dockerfile's native-platform node stage gains a `web` stage that runs `npm ci && npm run build`; the
+- **Image:** a native-platform `web` stage on `node:24-alpine` runs `npm ci && npm run build` (the docs-assets stage moves
+  from `node:22-alpine` to 24 in the same commit, so the image uses one Node); the
   runtime copies `dist/` to `/app/ui` and sets `BEQ_SERVICE_UI=/app/ui`. `docker/smoke.py` also fetches `/ui/` and checks
   it is the app's HTML.
 - **Desktop:** unaffected; the PyInstaller bundle carries neither the web source nor the service.
