@@ -3,8 +3,8 @@
   "info": {
     "title": "BEQDesigner pipeline service",
     "summary": "Scan a library, extract and design BEQ filters for titles chosen by filter, on demand or on a schedule, and follow the jobs that do it.",
-    "description": "Reviewing a design stays in the BEQDesigner app. Every /v1 route needs the bearer token (Authorize, above). `GET /health` says which release this is.",
-    "version": "1.2.0"
+    "description": "A person decides a title through the review routes or in the BEQDesigner app. Every /v1 route needs the bearer token (Authorize, above). `GET /health` says which release this is.",
+    "version": "1.3.0"
   },
   "paths": {
     "/health": {
@@ -638,6 +638,501 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/v1/titles/{title_id}/review": {
+      "get": {
+        "tags": [
+          "review"
+        ],
+        "summary": "What a person decides a title on: its designs, metadata problems and what is offered",
+        "operationId": "review_v1_titles__title_id__review_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "title_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Title Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Review"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/titles/{title_id}/chart": {
+      "get": {
+        "tags": [
+          "review"
+        ],
+        "summary": "The measured curves, and the same after one design",
+        "operationId": "chart_v1_titles__title_id__chart_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "title_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Title Id"
+            }
+          },
+          {
+            "name": "candidate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "A design, by its index; absent: the measured curves only.",
+              "title": "Candidate"
+            },
+            "description": "A design, by its index; absent: the measured curves only."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Chart"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/titles/{title_id}/decision": {
+      "post": {
+        "tags": [
+          "review"
+        ],
+        "summary": "Accept a design, or reject the title (refused if what was looked at has changed)",
+        "operationId": "decision_v1_titles__title_id__decision_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "title_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Title Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Decision"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Review"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/review/next": {
+      "get": {
+        "tags": [
+          "review"
+        ],
+        "summary": "The next title waiting for a decision after one, in the filtered list (wrapping round)",
+        "operationId": "next_title_v1_review_next_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "needs",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/Needs"
+              },
+              "description": "What the title needs next (any of these).",
+              "title": "Needs"
+            },
+            "description": "What the title needs next (any of these)."
+          },
+          {
+            "name": "new_since_scan",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Only titles first seen by the latest scan.",
+              "default": false,
+              "title": "New Since Scan"
+            },
+            "description": "Only titles first seen by the latest scan."
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only titles from this source of the profile, by its name.",
+              "title": "Source"
+            },
+            "description": "Only titles from this source of the profile, by its name."
+          },
+          {
+            "name": "match",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Case-insensitive text in the title, name, id or path.",
+              "title": "Match"
+            },
+            "description": "Case-insensitive text in the title, name, id or path."
+          },
+          {
+            "name": "ids",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Only these titles, by catalogue id.",
+              "title": "Ids"
+            },
+            "description": "Only these titles, by catalogue id."
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Kind"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "name": "year",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[ \\t]*(?:(?:<=|>=|<|>|==|=)?[ \\t]*[0-9]{4}|[0-9]{4}[ \\t]*-[ \\t]*[0-9]{4})[ \\t]*$",
+                  "description": "A year (2026), a comparison (<1960, <=1960, >1999, >=1999) or an inclusive range (1990-1999). A title with no year never matches.",
+                  "examples": [
+                    "2026",
+                    ">=2020",
+                    "<1960",
+                    "1990-1999"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Year"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The title just decided (or open): the next one after it is found. Absent: the first waiting title in the list.",
+              "title": "After"
+            },
+            "description": "The title just decided (or open): the next one after it is found. Absent: the first waiting title in the list."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NextTitle"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "204": {
+            "description": "No other title in the list is waiting."
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         }
       }
@@ -1665,6 +2160,131 @@
         ],
         "title": "AutoThrough"
       },
+      "Blocked": {
+        "properties": {
+          "accept": {
+            "type": "string",
+            "title": "Accept"
+          },
+          "reject": {
+            "type": "string",
+            "title": "Reject"
+          }
+        },
+        "type": "object",
+        "required": [
+          "accept",
+          "reject"
+        ],
+        "title": "Blocked",
+        "description": "Why each decision is not offered now; empty when it is. "
+      },
+      "CandidateView": {
+        "properties": {
+          "index": {
+            "type": "integer",
+            "title": "Index",
+            "description": "Its position in the designs offered (candidates, then rejected designs): what a Decision names."
+          },
+          "rejected": {
+            "type": "boolean",
+            "title": "Rejected",
+            "description": "The designer judged it unfit to publish: accepting it overrides the designer."
+          },
+          "method": {
+            "type": "string",
+            "title": "Method"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence",
+            "description": "None only for a decline's flat \"does not require BEQ\" design."
+          },
+          "mv_adjust_db": {
+            "type": "number",
+            "title": "Mv Adjust Db"
+          },
+          "gain_reduction_db": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gain Reduction Db"
+          },
+          "residual_db": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Residual Db"
+          },
+          "residual_band_hz": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Residual Band Hz"
+          },
+          "commentary": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commentary"
+          },
+          "rejection_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Rejection Reasons"
+          },
+          "filters": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Filters",
+            "description": "The design as a .filter document (docs/schema/filter.schema.json)."
+          }
+        },
+        "type": "object",
+        "required": [
+          "index",
+          "rejected",
+          "method",
+          "confidence",
+          "mv_adjust_db",
+          "filters"
+        ],
+        "title": "CandidateView",
+        "description": "One design a person may pick: a candidate, or one the designer rejected (`rejection_reasons`). "
+      },
       "CatalogueCommit": {
         "properties": {
           "xml": {
@@ -1711,6 +2331,80 @@
         ],
         "title": "CatalogueCommit"
       },
+      "Chart": {
+        "properties": {
+          "candidate": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate"
+          },
+          "series": {
+            "items": {
+              "$ref": "#/components/schemas/ChartSeries"
+            },
+            "type": "array",
+            "title": "Series"
+          }
+        },
+        "type": "object",
+        "required": [
+          "candidate",
+          "series"
+        ],
+        "title": "Chart"
+      },
+      "ChartSeries": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "average",
+              "peak"
+            ],
+            "title": "Kind"
+          },
+          "filtered": {
+            "type": "boolean",
+            "title": "Filtered",
+            "description": "After the chosen design."
+          },
+          "x": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "X",
+            "description": "Frequency, Hz."
+          },
+          "y": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Y",
+            "description": "Magnitude, dB."
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "kind",
+          "filtered",
+          "x",
+          "y"
+        ],
+        "title": "ChartSeries"
+      },
       "Check": {
         "properties": {
           "name": {
@@ -1739,6 +2433,70 @@
           "ok"
         ],
         "title": "Check"
+      },
+      "Decision": {
+        "properties": {
+          "decision": {
+            "$ref": "#/components/schemas/DecisionKind"
+          },
+          "candidate": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate",
+            "description": "Required to accept: the index of a design in the Review."
+          },
+          "digest": {
+            "type": "string",
+            "title": "Digest",
+            "description": "The Review's digest: what was looked at."
+          },
+          "override_rejection": {
+            "type": "boolean",
+            "title": "Override Rejection",
+            "description": "Accept a design the designer rejected (otherwise a 409).",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "decision",
+          "digest"
+        ],
+        "title": "Decision"
+      },
+      "DecisionKind": {
+        "type": "string",
+        "enum": [
+          "accept",
+          "reject"
+        ],
+        "title": "DecisionKind"
+      },
+      "Decline": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reason",
+          "message"
+        ],
+        "title": "Decline"
       },
       "DesignerStatus": {
         "properties": {
@@ -2059,6 +2817,24 @@
           "done"
         ],
         "title": "Needs"
+      },
+      "NextTitle": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "NextTitle"
       },
       "Notification": {
         "properties": {
@@ -2571,6 +3347,17 @@
         ],
         "title": "PublishedTitle"
       },
+      "QueueStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "accepted",
+          "skipped",
+          "rejected",
+          "published"
+        ],
+        "title": "QueueStatus"
+      },
       "Readiness": {
         "properties": {
           "ready": {
@@ -2629,6 +3416,162 @@
           "pushed"
         ],
         "title": "RepoCommit"
+      },
+      "Review": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "year": {
+            "type": "string",
+            "title": "Year"
+          },
+          "status": {
+            "$ref": "#/components/schemas/QueueStatus"
+          },
+          "status_text": {
+            "type": "string",
+            "title": "Status Text"
+          },
+          "digest": {
+            "type": "string",
+            "title": "Digest",
+            "description": "Fingerprint of the designs offered: send it back in a Decision, which is refused if a redesign has changed them since."
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/CandidateView"
+            },
+            "type": "array",
+            "title": "Candidates"
+          },
+          "rejected": {
+            "items": {
+              "$ref": "#/components/schemas/CandidateView"
+            },
+            "type": "array",
+            "title": "Rejected"
+          },
+          "chosen_index": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chosen Index",
+            "description": "The design accepted or published, into the designs offered."
+          },
+          "declined": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Decline"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The designer found nothing to correct; its one candidate is flat."
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata"
+          },
+          "metadata_problems": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Metadata Problems",
+            "description": "What publish would refuse: Accept is not offered until it is fixed (in the BEQDesigner app)."
+          },
+          "blocked": {
+            "$ref": "#/components/schemas/Blocked"
+          },
+          "in_flight": {
+            "type": "boolean",
+            "title": "In Flight",
+            "description": "A run is working on this title now."
+          },
+          "playback": {
+            "type": "string",
+            "title": "Playback",
+            "description": "The playback chain the designer was told about."
+          },
+          "designer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Designer"
+          },
+          "designer_build": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Designer Build"
+          },
+          "needs": {
+            "$ref": "#/components/schemas/Needs"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          },
+          "reviewer_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewer Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "year",
+          "status",
+          "status_text",
+          "digest",
+          "candidates",
+          "rejected",
+          "chosen_index",
+          "declined",
+          "metadata",
+          "metadata_problems",
+          "blocked",
+          "in_flight",
+          "playback",
+          "designer",
+          "designer_build",
+          "needs",
+          "detail",
+          "reviewer_note"
+        ],
+        "title": "Review",
+        "description": "What a person decides a title on, and whether they can. "
       },
       "RunJob": {
         "properties": {
@@ -3438,6 +4381,18 @@
             ],
             "title": "Tmdb",
             "description": "Whether a TMDB key is set (TMDB_API_KEY): without one, titles are designed with the library's own metadata only."
+          },
+          "repository_writes": {
+            "type": "boolean",
+            "title": "Repository Writes",
+            "description": "Whether publish, commit and bulk accept are allowed (allow_repository_writes in the service config).",
+            "default": false
+          },
+          "repositories_configured": {
+            "type": "boolean",
+            "title": "Repositories Configured",
+            "description": "Whether the profile names the filter repository that publish and commit write to.",
+            "default": false
           }
         },
         "type": "object",

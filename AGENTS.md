@@ -204,7 +204,7 @@ and the work, over `pipeline.library.revise`), `worklist_bulk.py` (the `WorkList
 Current architecture is in `design/implemented.md`; all unfinished work is in
 `design/TODO.md`, indexed by
 `design/README.md`; historical chunk specifications are in `design/archive/`. Tests:
-`src/test/python/gui/test_worklist_*.py`, over a fixture index (`gui/worklist_fixture.py`) and a fake `run_stages`; `test_worklist_real_pipeline.py` drives
+`src/test/python/gui/test_worklist_*.py`, over a fixture index (`worklist_fixture.py`, and real queue entries from `review_entry_fixture.py`) and a fake `run_stages`; `test_worklist_real_pipeline.py` drives
 Publish then Commit through the real `run_stages`, index and temp git repos.
 
 **Extraction/design parity is a contract.** The Library Work List is an

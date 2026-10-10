@@ -94,6 +94,10 @@ Stopping it (Ctrl-C, or `SIGTERM`) lets the title in hand finish, then stops.
 | `POST /v1/schedule/trigger` | run one scheduled tick now; returns 409 while a job is queued or running |
 | `POST /v1/notify/test` | send a sample of each configured event to one notification target |
 | `POST /v1/jobs/accept` | bulk accept (see below) |
+| `GET /v1/titles/{id}/review` | what a person decides a title on: its designs, metadata problems, and whether Accept and Reject are offered |
+| `GET /v1/titles/{id}/chart` | the title's measured curves, and the same after one design (`?candidate=`) |
+| `POST /v1/titles/{id}/decision` | accept a design, or reject the title (see "Deciding a title" below) |
+| `GET /v1/review/next` | the next title waiting for a decision after one (`?after=`), in a filtered list |
 | `GET /health`, `/ready` | is it up; is it able to work |
 
 A run selects titles with the same filters as the work list, plus two it has no box for:
@@ -113,6 +117,30 @@ curl -X POST http://nas:8080/v1/jobs/run \
 | `year` | `2026`, `<1960`, `>=2020` or `1990-1999`: the language of an [ignore rule](setup.md)'s year. A title with no year never matches -- a filesystem source knows a title's year only once TMDB has named it |
 
 `through` is `extract` or `design`, as the work list's action button. `publish` and `commit`, and bulk accept (`POST /v1/jobs/accept`), are refused unless the settings file allows them (`allow_repository_writes: true`); a dry run of bulk accept is always allowed. A misspelt field is an error, not a wider selection.
+
+### Deciding a title
+
+A person can accept or reject a title's design over HTTP, with the same rules as the app's title page. Read the review,
+then send the decision with the review's `digest`:
+
+```
+curl http://nas:8080/v1/titles/fs-alien/review -H "Authorization: Bearer $BEQ_SERVICE_TOKEN"
+curl -X POST http://nas:8080/v1/titles/fs-alien/decision \
+     -H "Authorization: Bearer $BEQ_SERVICE_TOKEN" -H 'Content-Type: application/json' \
+     -d '{"decision": "accept", "candidate": 0, "digest": "<the review's digest>"}'
+```
+
+* `candidate` counts the designs offered: the candidates, best first, then the designs the designer rejected. Accepting a
+  rejected design needs `"override_rejection": true`, and is recorded as your override.
+* A decision is refused (409, saying why) if the title was decided or redesigned since you read the review (the `digest`
+  no longer matches), if a run is working on it, if its last extraction or design failed, or -- for Accept -- if it needs
+  extract or design first or its metadata is incomplete. The review's `blocked` says the same before you try.
+  Metadata is edited in the app.
+* Only the token is needed: a decision writes the title's review queue entry, nothing in the catalogue repositories.
+  Publishing and committing accepted titles stay behind `allow_repository_writes` (a run job through `publish` or
+  `commit`).
+* The counts in `GET /v1/status` take a decision in shortly afterwards, or, while a run is going, when it next
+  updates the index.
 
 The interface is published as an OpenAPI document, [`docs/schema/service.openapi.json`](https://github.com/3ll3d00d/beqdesigner/blob/main/docs/schema/service.openapi.json), and at `/openapi.json`, so a client can be generated from it.
 
@@ -175,7 +203,8 @@ A run job through extract or design that you submit while another run job is ext
 
 ### Reviewing from another machine
 
-The service fills the review queue; you review it in the app on your desktop. One layout is supported:
+The service fills the review queue; you review it in the app on your desktop, or decide titles over HTTP ("Deciding a
+title" above). For the app, one layout is supported:
 
 * **The work and queue folders live on the machine that runs the container**, on its own disk (for example a NAS
   running Docker), as the compose example mounts them (`./work`, `./queue`). The desktop reaches them over the network

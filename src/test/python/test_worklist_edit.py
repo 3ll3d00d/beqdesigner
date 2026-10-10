@@ -20,7 +20,7 @@ from pipeline.library.ignore import rule_from_config
 from pipeline.library.index import LibraryIndex, index_path
 from pipeline.library.profile import Profile, SourceSpec, profile_from_config
 from pipeline.library.status import ScanSettings
-from gui.worklist_fixture import make_index, title_row
+from worklist_fixture import make_index, title_row
 
 
 def test_with_config_sets_and_removes_a_key_and_leaves_the_rest_alone():

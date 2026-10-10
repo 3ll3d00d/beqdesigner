@@ -13,13 +13,18 @@ from fastapi import APIRouter, Depends, FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from pipeline.library.bass import describe as describe_bass_management
+from pipeline.library.decide import DECISION_FROM, STATUS_WORDS, DecisionRefused, decide, decision_blocked, \
+    next_waiting_id, offered_digest
 from pipeline.library.index import IndexFileError, LibraryIndex, index_path
+from pipeline.library.review_chart import chart_curves
 from pipeline.library.selection import plan_stages
+from pipeline.library.status import metadata_problems
 from pipeline.service import models
 from pipeline.service.config import ServiceConfig
 from pipeline.service.context import JobContext, load_context
@@ -27,9 +32,26 @@ from pipeline.service.designer import DesignerProbe
 from pipeline.service.jobs import FINISHED, AcceptRequest, JobFinished, JobManager, JobNotFound, RepositoryWritesRefused, \
     RunRequest, ScanRequest
 from pipeline.service.scheduler import AutoScheduler
+from pipeline.service.lease import read_lease
 from pipeline.service.notify import Notifier
+from pipeline.service.refresh import IndexRefresher
+from pipeline.review import read_entry
 
 PROBLEM_JSON = 'application/problem+json'
+
+# how a title that needs a run gets one, said where the service is asked (decision_blocked's run_hint)
+RUN_FROM_JOBS = 'Run it through design first (POST /v1/jobs/run).'
+DECISION_REFUSED = {'changed': 'Changed since it was read', 'blocked': 'Not offered now',
+                    'metadata': 'Metadata incomplete', 'override': 'The designer rejected this design'}
+
+
+def entry_title(entry, row) -> str:
+    ''' What to call a title: the index's title, else the queue entry's, else its id (as the title page does). '''
+    return row.title or str(entry.meta.get('title') or '') or row.display_name or row.id
+
+
+def entry_year(entry, row) -> str:
+    return row.year or str(entry.meta.get('year') or '')
 
 
 class ServiceProblem(Exception):
@@ -62,7 +84,7 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
                static_dir: Optional[str] = None, version: Optional[str] = None,
                checks: Optional[Callable[[], List[models.Check]]] = None,
                scheduler: Optional[AutoScheduler] = None, notifier: Optional[Notifier] = None,
-               designer: Optional[DesignerProbe] = None) -> FastAPI:
+               designer: Optional[DesignerProbe] = None, refresher: Optional[IndexRefresher] = None) -> FastAPI:
     '''
     :param require_token: False only for a service bound to loopback and started with --no-auth.
     :param static_dir: a local copy of swagger-ui-dist and redoc, served at /static (the Docker image has one); None loads
@@ -70,6 +92,7 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
     :param checks: what /ready checks (default: the profile, the work directory, ffmpeg and the designer: declared, and
         whether it answers, which is reported but does not make the service unready).
     :param designer: asks the designer's /health (default: one over the profile).
+    :param refresher: brings the index up to date after a decision (default: one over the profile and this manager).
     '''
     version = version or read_version()
     if require_token and not config.token:
@@ -80,10 +103,13 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
                                            on_designer_down=lambda reason: notifier.designer_unavailable(
                                                designer.last.name if designer.last else '', reason))
     notifier = notifier or Notifier(manager, config.profile_path, config.notify, env=env, start=False)
+    refresher = refresher or IndexRefresher(lambda: load(config.profile_path, env),
+                                            busy=lambda: manager.current is not None or bool(manager.queued))
     app = FastAPI(title='BEQDesigner pipeline service', version=models.API_VERSION, docs_url=None, redoc_url=None,
                   summary='Scan a library, extract and design BEQ filters for titles chosen by filter, on demand or on a '
                           'schedule, and follow the jobs that do it.',
-                  description='Reviewing a design stays in the BEQDesigner app. Every /v1 route needs the bearer token '
+                  description='A person decides a title through the review routes or in the BEQDesigner app. Every /v1 '
+                              'route needs the bearer token '
                               '(Authorize, above). `GET /health` says which release this is.')
     bearer = HTTPBearer(auto_error=False, description='The service token (BEQ_SERVICE_TOKEN).')
 
@@ -241,7 +267,17 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
                                     current_job=models.job_model(current) if current else None,
                                     schedule=models.Schedule.model_validate(scheduler.snapshot()),
                                     notify=notifier.outcomes(), designer=designer_status(),
-                                    tmdb=bool(ctx.values.get('tmdb_api_key')))
+                                    tmdb=bool(ctx.values.get('tmdb_api_key')),
+                                    repository_writes=config.allow_repository_writes,
+                                    repositories_configured=repositories_configured(ctx))
+
+    def repositories_configured(ctx: JobContext) -> bool:
+        ''' The profile names the filter repository publish and commit write to (run_stages refuses them otherwise). '''
+        try:
+            settings, _ = ctx.stage_settings('design')
+        except ValueError:
+            return False
+        return bool(settings.xml_repo)
 
     def designer_status() -> models.DesignerStatus:
         state = designer.current()
@@ -293,6 +329,132 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
         if not rows:
             raise ServiceProblem(404, 'No such title', f'no title {title_id}')
         return models.Title.of(rows[0])
+
+    # --- review (design/web-review.md §3): a person's decision, made with the token --------------------------------------
+
+    def review_row(index: LibraryIndex, title_id: str):
+        rows = index.titles(ids=[title_id])
+        if not rows:
+            raise ServiceProblem(404, 'No such title', f'no title {title_id}')
+        return rows[0]
+
+    def review_entry(settings, title_id: str):
+        try:
+            return read_entry(settings.queue_dir, title_id)
+        except FileNotFoundError:
+            raise ServiceProblem(409, 'Not designed', f'{title_id} has no design to review yet: run it through design')
+        except (OSError, ValueError, TypeError) as error:
+            raise ServiceProblem(503, 'Queue entry unreadable', f'{title_id}: {error}')
+
+    def in_flight(ctx: JobContext, row) -> bool:
+        ''' A run here has the title in hand, or a run elsewhere (the work list, the CLI) holds the lease and it needs work. '''
+        if row.id in manager.titles_in_hand():
+            return True
+        holder = read_lease(ctx.work_dir)
+        return holder is not None and not manager.has_job(holder.job_id) and row.needs in ('extract', 'design')
+
+    def review_model(ctx: JobContext, settings, row, entry) -> models.Review:
+        running = in_flight(ctx, row)
+        problems = list(metadata_problems(entry.meta, settings.meta_defaults))
+
+        def blocked(decision: str) -> str:
+            if entry.status not in DECISION_FROM[decision]:
+                return f'This title is {entry.status}.'
+            if decision == 'accept' and not entry.offered:
+                return 'There is no design to accept.'
+            return decision_blocked(decision, entry, row, running, problems, run_hint=RUN_FROM_JOBS)
+
+        def view(index: int, candidate, rejected: bool) -> models.CandidateView:
+            return models.CandidateView(
+                index=index, rejected=rejected, method=candidate.method, confidence=candidate.confidence,
+                mv_adjust_db=candidate.mv_adjust_db, gain_reduction_db=candidate.gain_reduction_db,
+                residual_db=candidate.residual_db,
+                residual_band_hz=list(candidate.residual_band_hz) if candidate.residual_band_hz else None,
+                commentary=candidate.commentary, rejection_reasons=list(candidate.rejection_reasons or []),
+                filters=candidate.filters)
+        count = len(entry.candidates)
+        return models.Review(
+            id=row.id, title=entry_title(entry, row), year=entry_year(entry, row), status=entry.status,
+            status_text=STATUS_WORDS[entry.status], digest=offered_digest(entry),
+            candidates=[view(i, c, False) for i, c in enumerate(entry.candidates)],
+            rejected=[view(count + i, c, True) for i, c in enumerate(entry.rejected)],
+            chosen_index=entry.chosen_candidate_index,
+            declined=models.Decline(reason=entry.decline_reason or '', message=entry.decline_message or '')
+            if entry.declined else None,
+            metadata=dict(entry.meta), metadata_problems=problems,
+            blocked=models.Blocked(accept=blocked('accept'), reject=blocked('reject')), in_flight=running,
+            playback=describe_bass_management(entry.bass_management), designer=entry.designer,
+            designer_build=entry.designer_build, needs=row.needs, detail=row.detail, reviewer_note=entry.reviewer_note)
+
+    @v1.get('/titles/{title_id}/review', response_model=models.Review, tags=['review'],
+            summary='What a person decides a title on: its designs, metadata problems and what is offered',
+            responses=_responses(404, 409, 503))
+    def review(title_id: str) -> models.Review:
+        ctx = context()
+        settings = ctx.scan_settings()
+        with read_index(ctx) as index:
+            row = review_row(index, title_id)
+        return review_model(ctx, settings, row, review_entry(settings, title_id))
+
+    @v1.get('/titles/{title_id}/chart', response_model=models.Chart, tags=['review'],
+            summary='The measured curves, and the same after one design', responses=_responses(404, 409, 422, 503))
+    def chart(title_id: str, candidate: Annotated[Optional[int], Query(ge=0, description='A design, by its index; '
+                                                                       'absent: the measured curves only.')] = None):
+        ctx = context()
+        settings = ctx.scan_settings()
+        with read_index(ctx) as index:
+            review_row(index, title_id)
+        entry = review_entry(settings, title_id)
+        if candidate is not None and candidate >= len(entry.offered):
+            raise ServiceProblem(422, 'No such design', f'{title_id} offers {len(entry.offered)} design(s)')
+        return models.Chart(candidate=candidate, series=[
+            models.ChartSeries(name=c.data.name, kind=c.kind, filtered=c.filtered, x=c.data.x.tolist(),
+                               y=c.data.y.tolist()) for c in chart_curves(entry, candidate)])
+
+    @v1.post('/titles/{title_id}/decision', response_model=models.Review, tags=['review'],
+             summary='Accept a design, or reject the title (refused if what was looked at has changed)',
+             responses=_responses(404, 409, 422, 503))
+    def decision(title_id: str, body: models.Decision) -> models.Review:
+        ctx = context()
+        settings = ctx.scan_settings()
+        with read_index(ctx) as index:
+            row = review_row(index, title_id)
+        review_entry(settings, title_id)   # a 409 for a title with nothing to decide
+        try:
+            written = decide(settings.queue_dir, title_id, body.decision.value, seen_digest=body.digest,
+                             picked=body.candidate, row=row, running=in_flight(ctx, row), run_hint=RUN_FROM_JOBS,
+                             meta_defaults=settings.meta_defaults, override_rejection=body.override_rejection)
+        except DecisionRefused as refused:
+            status, title = (422, 'Invalid decision') if refused.kind == 'invalid' else (409, DECISION_REFUSED[refused.kind])
+            raise ServiceProblem(status, title, refused.reason)
+        except OSError as error:
+            raise ServiceProblem(503, 'Not saved', f'{title_id}: {type(error).__name__}: {error}')
+        refresher.request()   # the index learns of it by reading the outputs again (pipeline/service/refresh.py)
+        return review_model(ctx, settings, row, written)
+
+    @v1.get('/review/next', response_model=models.NextTitle, tags=['review'],
+            summary='The next title waiting for a decision after one, in the filtered list (wrapping round)',
+            responses={204: {'description': 'No other title in the list is waiting.'}, **_responses(409, 422, 503)})
+    def next_title(query: Annotated[models.NextQuery, Query()]):
+        ctx = context()
+        check_sources(ctx, query)
+        settings = ctx.scan_settings()
+        with read_index(ctx) as index:
+            rows = query.to_selection().rows(index)
+        by_id = {row.id: row for row in rows}
+
+        def waiting(title_id: str) -> bool:
+            row = by_id[title_id]
+            if row.review_state != 'pending' or row.needs != 'review' or title_id in manager.titles_in_hand():
+                return False
+            try:
+                return read_entry(settings.queue_dir, title_id).status == 'pending'
+            except Exception:   # unreadable or gone: it can be opened, but it is not "next"
+                return False
+        found = next_waiting_id(list(by_id), query.after or '', waiting)
+        if found is None:
+            return Response(status_code=204)
+        return models.NextTitle(id=found, title=by_id[found].title or by_id[found].display_name or found)
 
     @v1.post('/plan', response_model=models.PlanPreview, tags=['jobs'], summary='What a run would do (changes nothing)',
              responses=_responses(409, 422, 503))

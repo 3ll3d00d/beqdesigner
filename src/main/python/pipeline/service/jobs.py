@@ -33,6 +33,9 @@ logger = logging.getLogger('service_jobs')
 KINDS = ('scan', 'run', 'accept')
 ORIGINS = ('api', 'schedule')
 STATES = ('queued', 'running', 'succeeded', 'failed', 'cancelled', 'interrupted')
+# a run's execution events that put a title in its hands, and those that end its part in the run (pipeline.library.stages)
+IN_HAND_FROM = ('queued', 'stage_queued', 'stage_started')
+IN_HAND_UNTIL = ('title_completed', 'failed', 'skipped', 'cancelled')
 FINISHED = ('succeeded', 'failed', 'cancelled', 'interrupted')
 MAX_JOB_EVENTS = 500
 FFMPEG_EVENT_INTERVAL = 5.0   # seconds between kept ffmpeg updates for a title: ffmpeg sends one every 0.5s
@@ -112,6 +115,8 @@ class Job:
     cancel_requested: bool = False
     joined_to: Optional[str] = None      # the run job whose extract/design phase this one joined (F5): it ends with it
     ffmpeg_at: Dict[str, float] = field(default_factory=dict, repr=False)   # when each title's last ffmpeg update was kept
+    in_hand: Dict[str, str] = field(default_factory=dict, repr=False)   # titles the run has queued or started and not
+                                                                         # finished: {id: stage}; not decided on meanwhile
 
     @property
     def finished(self) -> bool:
@@ -417,6 +422,8 @@ class JobManager:
         with self.__lock:
             if isinstance(progress, Progress):
                 job.progress = progress
+                if progress.stage and progress.id:
+                    job.in_hand[progress.id] = progress.stage
                 self.__record(job, {'type': 'run_progress', 'done': progress.done, 'total': progress.total,
                                     **({'stage': progress.stage, 'title': progress.title, 'title_id': progress.id}
                                        if progress.stage else {})})
@@ -444,8 +451,29 @@ class JobManager:
             return   # an ffmpeg progress event repeats the ffmpeg update _on_progress already kept (or let go)
         safe = redacted_event(event)
         with self.__lock:
+            if event.title_id and event.kind in IN_HAND_FROM:
+                job.in_hand[event.title_id] = event.stage or job.in_hand.get(event.title_id, '')
+            elif event.title_id and event.kind in IN_HAND_UNTIL:
+                job.in_hand.pop(event.title_id, None)
             self.__record(job, {'type': 'event', 'title_id': safe.title_id, 'stage': safe.stage, 'kind': safe.kind,
                                 'text': event_text(safe)})
+
+    def titles_in_hand(self) -> Dict[str, str]:
+        '''
+        The titles the running job (and any joined to it) has queued or started and not finished, {id: stage}: a person's
+        decision on one would be overwritten by the design in flight (design/web-review.md §3).
+        '''
+        with self.__lock:
+            result: Dict[str, str] = {}
+            for job in self.__jobs.values():
+                if job.state == 'running':
+                    result.update(job.in_hand)
+            return result
+
+    def has_job(self, job_id: str) -> bool:
+        ''' Whether `job_id` is one of this service's jobs (a lease holder that is not is the work list or the CLI). '''
+        with self.__lock:
+            return job_id in self.__jobs
 
     def __record(self, job: Job, event: dict) -> None:
         self.__seq += 1

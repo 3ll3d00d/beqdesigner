@@ -26,8 +26,9 @@ The headless library pipeline runs as a long-lived Docker container that:
    and response bodies, served by the container itself together with an
    interactive "try it out" page.
 
-Out of scope: reviewing titles over HTTP (it stays in the app), editing the
-profile over HTTP, and any UI beyond the generated API page.
+A person may also decide a title over HTTP (§6.8): accept a design or reject the title, with the title page's rules.
+Out of scope: editing metadata, revising and editing the profile over HTTP. A browser app over these routes is
+[designed, not built](web-review.md) (W3–W6).
 
 ## 2. Reuse of the pipeline
 
@@ -94,6 +95,7 @@ pipeline/service/                 # Qt-free: covered by test_pipeline_qt_boundar
     lease.py                      # the work-directory lease (§5.1)
     scheduler.py                  # AutoScheduler: interval timer that submits jobs (§8)
     notify.py                     # outbound webhooks (§9)
+    refresh.py                    # IndexRefresher: the index brought up to date after a decision (§6.8)
     models.py                     # pydantic request/response models and enums (§6.5)
     api.py                        # FastAPI app factory; run as a module it prints the OpenAPI document
 ```
@@ -240,6 +242,10 @@ Every request and response body is a named pydantic model in
 | `PUT /v1/schedule` | `ScheduleUpdate` → `Schedule` | persisted (§8) |
 | `POST /v1/schedule/trigger` | → 202 `Job` | one tick now; 409 while busy |
 | `POST /v1/notify/test` | `NotifyTest` → `NotifyOutcome` | sample events to one target (§9) |
+| `GET /v1/titles/{id}/review` | → `Review` | §6.8; 404 unknown title, 409 no queue entry |
+| `GET /v1/titles/{id}/chart` | query `candidate` → `Chart` | measured curves, and after one design; 422 no such design |
+| `POST /v1/titles/{id}/decision` | `Decision` → `Review` | §6.8; 409 refused (why in `title`/`detail`), 422 invalid |
+| `GET /v1/review/next` | query `after` + `TitleFilter` → `NextTitle` | 204 when no other title in the list waits |
 | `GET /openapi.json`, `/docs`, `/redoc` | | the interface and its try-it-out page |
 
 Submitting returns `202` with the `Job` and `Location: /v1/jobs/{id}`. Errors
@@ -326,7 +332,7 @@ only.
 - The document is generated from the app and committed as
   `docs/schema/service.openapi.json`; a test regenerates it and fails on any
   difference. It carries no release (`/health` does); `info.version` is the
-  API's own semantic version (1.2.0), bumped by hand on a change.
+  API's own semantic version (1.3.0 since the review routes), bumped by hand on a change.
 - Swagger UI and ReDoc are served from a local copy when `--static-dir` /
   `BEQ_SERVICE_STATIC` names one -- the image fetches pinned packages at build
   -- and otherwise load from a CDN.
@@ -342,6 +348,12 @@ refuses to start unless bound to `127.0.0.1` with `--no-auth`. `/health` and
 `/ready` are unauthenticated; `/docs` and `/openapi.json` are readable without
 a token (the calls made from them still need it). TLS is left to a reverse
 proxy.
+
+### 6.8 Review over HTTP
+
+The four review routes (§6.1) decide one title with the app's own rules (`pipeline/library/decide.py`): the person's
+decision needs only the token, and refuses a title a run has in hand or that changed since it was read. The design is
+[review-over-http.md](review-over-http.md).
 
 ## 7. Configuration
 
@@ -523,3 +535,4 @@ Settled on 2026-09-26 and 2026-09-27:
 | 6 | Image distribution | Built and pushed to GHCR by GitHub Actions when a tag is pushed (§10) |
 | 7 | Qt in the image | None: the pipeline is Qt-free (§10.1) |
 | 8 | Work asked for during a run | Extract/design joins the run in progress; the CLI hands its titles over and waits (§5.1) |
+| 9 | Reviewing over HTTP (2026-10-10, reversing §1's "it stays in the app") | Per-title accept/reject with the token alone, through the app's own rules (§6.8); metadata, revise and the profile stay in the app |

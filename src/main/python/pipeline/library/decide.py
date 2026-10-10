@@ -104,8 +104,9 @@ def offered_digest(entry: QueueEntry) -> str:
 class DecisionRefused(Exception):
     '''
     A decision `decide()` did not write. `kind` says why: `changed` (the entry is not what was seen: another status, another
-    design, metadata no longer complete), `blocked` (`decision_blocked`'s reason), `override` (the pick is a rejected design and
-    the override was not given) or `invalid` (the request itself: an unknown decision, a pick out of range).
+    design), `blocked` (`decision_blocked`'s reason), `metadata` (accept: the metadata is not complete), `override` (the pick
+    is a rejected design and the override was not given) or `invalid` (the request itself: an unknown decision, a pick out
+    of range).
     '''
 
     def __init__(self, kind: str, reason: str):
@@ -145,7 +146,7 @@ def decide(queue_dir: str, title_id: str, decision: str, *, seen_digest: str, pi
     if decision == 'accept':
         problems = metadata_problems(fresh.meta, meta_defaults)
         if problems:
-            raise DecisionRefused('changed', 'Not accepted: the metadata is not complete now: ' + '; '.join(problems) + '.')
+            raise DecisionRefused('metadata', 'Not accepted: the metadata is not complete now: ' + '; '.join(problems) + '.')
         if picked >= len(fresh.candidates) and not override_rejection:
             raise DecisionRefused('override', 'Not accepted: the designer rejected this design, and it was not overridden.')
         fields['chosen_candidate_index'] = picked

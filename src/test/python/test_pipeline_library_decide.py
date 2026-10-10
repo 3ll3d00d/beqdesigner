@@ -141,7 +141,7 @@ def test_incomplete_metadata_holds_accept_back_but_not_reject(tmp_path):
     with pytest.raises(DecisionRefused) as refused:
         _decide(q)
 
-    assert refused.value.kind == 'changed' and refused.value.reason.startswith('Not accepted: the metadata is not complete')
+    assert refused.value.kind == 'metadata' and refused.value.reason.startswith('Not accepted: the metadata is not complete')
     assert _decide(q, 'reject', picked=None).status == 'rejected'
 
 

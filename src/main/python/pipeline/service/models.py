@@ -16,7 +16,7 @@ from pipeline.library.selection import Selection
 from pipeline.library.state import FLAG_DUPLICATE, FLAG_GONE, FLAG_IGNORED, FLAG_IN_CATALOGUE, FLAG_SHADOWED
 from pipeline.library.year import YEAR_PATTERN, YearRange
 
-API_VERSION = '1.2.0'
+API_VERSION = '1.3.0'
 
 
 class Needs(str, Enum):
@@ -178,6 +178,105 @@ class TitlePage(BaseModel):
     offset: int
     limit: int
     titles: List[Title]
+
+
+# --- review (design/web-review.md §3) -----------------------------------------------------------------------------------
+
+class QueueStatus(str, Enum):
+    pending = 'pending'
+    accepted = 'accepted'
+    skipped = 'skipped'
+    rejected = 'rejected'
+    published = 'published'
+
+
+class DecisionKind(str, Enum):
+    accept = 'accept'
+    reject = 'reject'
+
+
+class CandidateView(BaseModel):
+    ''' One design a person may pick: a candidate, or one the designer rejected (`rejection_reasons`). '''
+    index: int = Field(description='Its position in the designs offered (candidates, then rejected designs): what a '
+                                   'Decision names.')
+    rejected: bool = Field(description='The designer judged it unfit to publish: accepting it overrides the designer.')
+    method: str
+    confidence: Optional[float] = Field(description='None only for a decline\'s flat "does not require BEQ" design.')
+    mv_adjust_db: float
+    gain_reduction_db: Optional[float] = None
+    residual_db: Optional[float] = None
+    residual_band_hz: Optional[List[float]] = None
+    commentary: Optional[Dict[str, Any]] = None
+    rejection_reasons: List[str] = Field(default_factory=list)
+    filters: Dict[str, Any] = Field(description='The design as a .filter document (docs/schema/filter.schema.json).')
+
+
+class Decline(BaseModel):
+    reason: str
+    message: str
+
+
+class Blocked(BaseModel):
+    ''' Why each decision is not offered now; empty when it is. '''
+    accept: str
+    reject: str
+
+
+class Review(BaseModel):
+    ''' What a person decides a title on, and whether they can. '''
+    id: str
+    title: str
+    year: str
+    status: QueueStatus
+    status_text: str
+    digest: str = Field(description='Fingerprint of the designs offered: send it back in a Decision, which is refused if '
+                                    'a redesign has changed them since.')
+    candidates: List[CandidateView]
+    rejected: List[CandidateView]
+    chosen_index: Optional[int] = Field(description='The design accepted or published, into the designs offered.')
+    declined: Optional[Decline] = Field(description='The designer found nothing to correct; its one candidate is flat.')
+    metadata: Dict[str, Any]
+    metadata_problems: List[str] = Field(description='What publish would refuse: Accept is not offered until it is fixed '
+                                                     '(in the BEQDesigner app).')
+    blocked: Blocked
+    in_flight: bool = Field(description='A run is working on this title now.')
+    playback: str = Field(description='The playback chain the designer was told about.')
+    designer: Optional[str]
+    designer_build: Optional[str]
+    needs: Needs
+    detail: str
+    reviewer_note: Optional[str]
+
+
+class ChartSeries(BaseModel):
+    name: str
+    kind: Literal['average', 'peak']
+    filtered: bool = Field(description='After the chosen design.')
+    x: List[float] = Field(description='Frequency, Hz.')
+    y: List[float] = Field(description='Magnitude, dB.')
+
+
+class Chart(BaseModel):
+    candidate: Optional[int]
+    series: List[ChartSeries]
+
+
+class Decision(Input):
+    decision: DecisionKind
+    candidate: Optional[int] = Field(None, ge=0, description='Required to accept: the index of a design in the Review.')
+    digest: str = Field(description="The Review's digest: what was looked at.")
+    override_rejection: bool = Field(False, description='Accept a design the designer rejected (otherwise a 409).')
+
+
+class NextQuery(TitleFilter):
+    ''' The filter as query parameters, and where in its list to look from. '''
+    after: Optional[str] = Field(None, description='The title just decided (or open): the next one after it is found. '
+                                                   'Absent: the first waiting title in the list.')
+
+
+class NextTitle(BaseModel):
+    id: str
+    title: str
 
 
 # --- plans and job requests ---------------------------------------------------------------------------------------------
@@ -554,6 +653,10 @@ class ServiceStatus(BaseModel):
     designer: Optional['DesignerStatus'] = None
     tmdb: Optional[bool] = Field(None, description='Whether a TMDB key is set (TMDB_API_KEY): without one, titles are '
                                                    "designed with the library's own metadata only.")
+    repository_writes: bool = Field(False, description='Whether publish, commit and bulk accept are allowed '
+                                                       '(allow_repository_writes in the service config).')
+    repositories_configured: bool = Field(False, description='Whether the profile names the filter repository that publish '
+                                                             'and commit write to.')
 
 
 class DesignerStatus(BaseModel):
