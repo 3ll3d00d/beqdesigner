@@ -1,4 +1,4 @@
-// Deciding one title (design/web-review.md §4, design/review-over-http.md): its designs, the chart of the one highlighted,
+// Deciding one title (design/web-app.md §4, design/review-over-http.md): its designs, the chart of the one highlighted,
 // commentary and metadata problems, and Accept / Reject / Skip (A, R, S; 1-9 highlight a design). Accepting a design the
 // designer rejected asks first. After a decision, or Skip, the next title waiting in the same filtered list opens.
 import { useEffect, useState, type ReactNode } from 'react'

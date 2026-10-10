@@ -1,4 +1,4 @@
-// The service token, kept in the browser (design/web-review.md §4): for this tab only (sessionStorage), or on this device
+// The service token, kept in the browser (design/web-app.md §4): for this tab only (sessionStorage), or on this device
 // when the person asks to be remembered (localStorage). Storage can be missing or refuse (a private window, blocked site
 // data), so every access is guarded and the app still works for the tab's lifetime from memory.
 

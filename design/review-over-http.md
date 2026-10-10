@@ -1,6 +1,7 @@
 # Review over HTTP — the pipeline service's review routes
 
-**Document type:** Architecture reference — delivered behavior (W2 of [web-review.md](web-review.md), 2026-10-10). It is
+**Document type:** Architecture reference — delivered behavior (2026-10-10; its plan is [archive/web-review.md](archive/web-review.md), chunk W2;
+the app that uses it is [web-app.md](web-app.md)). It is
 §6.8 of [pipeline-service.md](pipeline-service.md), split out to keep that file readable; the routes are in its §6.1 and
 the user guide is "Deciding a title" in [`docs/library/service.md`](../docs/library/service.md).
 

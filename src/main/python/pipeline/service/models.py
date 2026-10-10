@@ -180,7 +180,7 @@ class TitlePage(BaseModel):
     titles: List[Title]
 
 
-# --- review (design/web-review.md §3) -----------------------------------------------------------------------------------
+# --- review (design/web-app.md §3) -----------------------------------------------------------------------------------
 
 class QueueStatus(str, Enum):
     pending = 'pending'

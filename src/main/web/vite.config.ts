@@ -1,5 +1,5 @@
 /// <reference types="vitest/config" />
-// The pipeline service's browser app (design/web-review.md §4). The service serves the build at /ui (BEQ_SERVICE_UI);
+// The pipeline service's browser app (design/web-app.md §4). The service serves the build at /ui (BEQ_SERVICE_UI);
 // `npm run dev` proxies the API to a service running locally (BEQ_SERVICE_URL, default http://127.0.0.1:8080).
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'

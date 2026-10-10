@@ -1,6 +1,6 @@
 '''
 Deciding a title's review -- the rules the desktop title page (`model.worklist_title_decide`) and the pipeline service's review
-routes share (design/web-review.md §2): which statuses a decision applies to, why a decision is held back, the next title
+routes share (design/web-app.md §2): which statuses a decision applies to, why a decision is held back, the next title
 waiting for one, and the write itself.
 
 The queue entry is the truth for a decision: `decide()` reads it again before writing, and writes nothing if its status no

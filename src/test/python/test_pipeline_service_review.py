@@ -1,5 +1,5 @@
 '''
-Reviewing a title over HTTP (design/web-review.md §3): the review, chart, decision and next routes, over a fixture index and
+Reviewing a title over HTTP (design/web-app.md §3): the review, chart, decision and next routes, over a fixture index and
 real queue entries, and the in-flight rule that keeps a decision off a title a run is working on. The decision itself is
 `pipeline.library.decide`, covered on its own in test_pipeline_library_decide.py; these tests hold the routes to it.
 '''

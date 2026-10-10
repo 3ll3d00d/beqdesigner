@@ -1,5 +1,5 @@
 '''
-The curves a reviewer judges a title's designs on (design/web-review.md §2): the measured average and peak mono mix, and the
+The curves a reviewer judges a title's designs on (design/web-app.md §2): the measured average and peak mono mix, and the
 same after the chosen design. Shared by the desktop title page (`model.worklist_title_text.chart_data`, which colours them)
 and the service's chart route (which sends them as arrays). Qt-free.
 '''

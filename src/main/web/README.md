@@ -1,7 +1,7 @@
 # The pipeline service's browser app
 
 React + TypeScript, built with Vite, served by the pipeline service at `/ui`. The design is
-[`design/web-review.md`](../../../design/web-review.md); the interface it calls is
+[`design/web-app.md`](../../../design/web-app.md); the interface it calls is
 [`docs/schema/service.openapi.json`](../../../docs/schema/service.openapi.json).
 
 Needs Node 24 (`.nvmrc`; `nvm use`).
@@ -39,4 +39,4 @@ types are not the document's.
 | `src/test/` | the MSW server, typed fixtures and `renderApp()` |
 
 Versions are pinned exactly, and Dependabot proposes the bumps. TypeScript stays on 6.x until `typescript-eslint` and
-`openapi-typescript` support 7 (web-review.md §4).
+`openapi-typescript` support 7 (design/web-app.md §4).

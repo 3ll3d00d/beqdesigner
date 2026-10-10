@@ -1,4 +1,4 @@
-// The app's routes (design/web-review.md §4). Everything but sign-in needs the token; the service serves the app at /ui.
+// The app's routes (design/web-app.md §4). Everything but sign-in needs the token; the service serves the app at /ui.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState } from 'react'
 import { createBrowserRouter, Navigate, NavLink, Outlet, RouterProvider, useLocation, type RouteObject } from 'react-router'

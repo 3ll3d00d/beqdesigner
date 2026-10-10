@@ -79,7 +79,7 @@ def page(port: int, path: str) -> str:
 
 
 def check_browser_app(port: int) -> None:
-    ''' The image serves the built browser app at /ui (design/web-review.md §5): its page, and the script the page loads. '''
+    ''' The image serves the built browser app at /ui (design/web-app.md §5): its page, and the script the page loads. '''
     html = page(port, '/ui/')
     assert '<div id="root">' in html, f'/ui/ is not the browser app:\n{html[:300]}'
     script = re.search(r'src="(/ui/assets/[^"]+\.js)"', html)

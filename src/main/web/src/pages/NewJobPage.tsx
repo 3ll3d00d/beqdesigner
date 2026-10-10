@@ -1,4 +1,4 @@
-// Starting work (design/web-review.md §4): a scan, or a run of a filtered selection through a stage, previewed first with
+// Starting work (design/web-app.md §4): a scan, or a run of a filtered selection through a stage, previewed first with
 // POST /v1/plan. Publish and commit are offered only when the service allows them (allow_repository_writes, a repository).
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'

@@ -368,6 +368,7 @@ def gated(profile):
 def _read_stream(client, job_id, into):
     with client.stream('GET', f'/v1/jobs/{job_id}/events', headers=AUTH) as response:
         assert response.headers['content-type'].startswith('text/event-stream')
+        assert response.headers['x-accel-buffering'] == 'no'   # a proxy passes each event on as it comes
         for line in response.iter_lines():
             if line.startswith('data: '):
                 into.append(json.loads(line[len('data: '):]))

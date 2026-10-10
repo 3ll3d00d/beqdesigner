@@ -1,5 +1,5 @@
 '''
-The browser app served by the pipeline service (design/web-review.md §4): its files at /ui, the page for any path the app
+The browser app served by the pipeline service (design/web-app.md §4): its files at /ui, the page for any path the app
 routes itself, nothing outside the build, no token for the page, and what /ui says when the app is not installed.
 '''
 import json

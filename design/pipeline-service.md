@@ -27,8 +27,8 @@ The headless library pipeline runs as a long-lived Docker container that:
    interactive "try it out" page.
 
 A person may also decide a title over HTTP (§6.8): accept a design or reject the title, with the title page's rules.
-Out of scope: editing metadata, revising and editing the profile over HTTP. A browser app over these routes is
-[designed, not built](web-review.md) (W3–W6).
+Out of scope: editing metadata, revising and editing the profile over HTTP. The service also serves a browser app over
+these routes at `/ui` ([web-app.md](web-app.md)).
 
 ## 2. Reuse of the pipeline
 
@@ -455,7 +455,7 @@ the target's environment override.
   (`BEQ_SERVICE_STATIC`), so the try-it-out page works without internet access.
   A `web` stage (Node 24, native platform like the docs assets) builds the browser app from `src/main/web` with
   `npm ci && npm run build`; its `dist/` is `/app/ui`, served at `/ui` (`BEQ_SERVICE_UI`, `--ui-dir`;
-  [web-review.md](web-review.md) §4). The runtime stage has no uv and no Node.
+  [web-app.md](web-app.md) §4). The runtime stage has no uv and no Node.
 - **Dependency groups:** the desktop's Qt packages are the default `desktop`
   group in `pyproject.toml`, so a normal `uv sync` installs the app, while the
   image installs only the runtime list and the `service` group.

@@ -1,4 +1,4 @@
-// What the service is doing (design/web-review.md §4): the pipeline strip, the job running now followed live, the designer,
+// What the service is doing (design/web-app.md §4): the pipeline strip, the job running now followed live, the designer,
 // the schedule and the sources.
 import { Link } from 'react-router'
 

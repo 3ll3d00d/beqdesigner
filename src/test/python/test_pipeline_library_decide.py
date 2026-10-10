@@ -1,5 +1,5 @@
 '''
-Deciding a title's review without the title page (design/web-review.md §2): `pipeline.library.decide`, which the desktop page and
+Deciding a title's review without the title page (design/web-app.md §2): `pipeline.library.decide`, which the desktop page and
 the pipeline service's review routes share, and the chart curves of `pipeline.library.review_chart`. Each refusal writes nothing.
 '''
 import os

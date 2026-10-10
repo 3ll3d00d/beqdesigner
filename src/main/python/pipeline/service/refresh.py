@@ -1,5 +1,5 @@
 '''
-Bringing the discovery index up to date after a person decides a title over HTTP (design/web-review.md §3): a decision writes
+Bringing the discovery index up to date after a person decides a title over HTTP (design/web-app.md §3): a decision writes
 only the queue entry, and the index learns of it by reading the outputs again (`LibraryIndex.refresh()`), as the work list's
 title page has it done when it is left.
 

@@ -1,4 +1,4 @@
-// Titles (design/web-review.md §4): the work list's table over the filter in the address bar, "review the next waiting
+// Titles (design/web-app.md §4): the work list's table over the filter in the address bar, "review the next waiting
 // title", and publishing/committing the accepted titles in it, offered only when the service allows them.
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'

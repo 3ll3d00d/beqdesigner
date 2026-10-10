@@ -11,7 +11,7 @@ RUN npm install --omit=dev --prefix /assets swagger-ui-dist@5.18.2 redoc@2.4.0 \
           /assets/node_modules/swagger-ui-dist/favicon-32x32.png /static/ \
     && cp /assets/node_modules/redoc/bundles/redoc.standalone.js /static/
 
-# The browser app (src/main/web, design/web-review.md): served by the service at /ui
+# The browser app (src/main/web, design/web-app.md): served by the service at /ui
 FROM --platform=$BUILDPLATFORM public.ecr.aws/docker/library/node:24-alpine AS web
 WORKDIR /web
 COPY src/main/web/package.json src/main/web/package-lock.json ./

@@ -11,10 +11,8 @@ export BEQ_SERVICE_TOKEN=a-long-random-string
 PYTHONPATH=src/main/python uv run python -m pipeline.service --profile /path/to/library-profile.yaml
 ```
 
-It also serves a browser app at `http://HOST:PORT/ui/` (signing in with the token): what the titles need, the job
-running now followed live, the designer and the schedule (pause, resume, run now), the jobs and their logs, starting a
-scan or a run with a preview of what it would do, the titles, and deciding each title's design (below). Running from a checkout, build it first (`cd src/main/web && npm ci && npm run
-build`) and add `--ui-dir src/main/web/dist`; the image has it built in.
+It also serves a browser app at `http://HOST:PORT/` ("Review in a browser", below). Running from a checkout, build it
+first (`cd src/main/web && npm ci && npm run build`) and add `--ui-dir src/main/web/dist`; the image has it built in.
 
 For a container, copy [`docker/compose.example.yaml`](https://github.com/3ll3d00d/beqdesigner/blob/main/docker/compose.example.yaml)
 and [`docker/service.example.yaml`](https://github.com/3ll3d00d/beqdesigner/blob/main/docker/service.example.yaml).
@@ -199,6 +197,33 @@ and `BEQ_NOTIFY_HEADERS_PHONE` supplies a JSON object of request headers.
 Those values also accept the `_FILE` form and are kept out of service status
 and delivery errors. Configure targets only for destinations you intend to
 receive the job and title details.
+
+### Review in a browser
+
+Open `http://HOST:PORT/` and sign in with the service token. *Remember on this device* keeps it in the browser;
+otherwise it lasts until the tab is closed. The token is checked with the service before it is kept.
+
+* **Status:** how many titles need each stage (each count opens the list of them), the job running now and how far it
+  has got (the title in hand, ffmpeg's percent, the time to go), the designer and whether it answers, the schedule
+  (*Pause*, *Resume*, *Run now*) and the sources.
+* **Jobs:** what has run and is running, each job's result (its failures link to the titles) and its log, live while it
+  runs, with *Cancel*. *New job* scans the sources, or runs the titles a filter selects through extract, design,
+  publish or commit; *Preview* says what would run and what would be skipped, and why, before anything is started.
+* **Titles:** the work list's table and filters. The filters are kept in the address bar, so a list can be bookmarked
+  or shared. *Review next waiting* opens the first title waiting for a decision. *Publish accepted…* and *Commit
+  published…* say how many titles they would take and ask before starting.
+* **Review:** a title's designs (the ones the designer rejected listed apart, with its reasons), the chart of the one
+  highlighted, its commentary and metadata. *Accept*, *Reject* and *Skip*, or the keys **A**, **R** and **S**; **1**–**9**
+  highlight a design. Accepting a rejected design asks first, and is recorded as your override. After a decision the next
+  title waiting in the same list opens. The rules are the app's title page's ("Deciding a title", above), and a decision
+  that is not offered says why.
+
+Not in the browser: editing metadata, TMDB and artwork, *Revise*, projects, settings and Review Folder. Use the app for
+those; a title whose metadata is incomplete says what is missing. Publish and commit are offered only when the settings
+file allows them (`allow_repository_writes: true`) and the profile names the filter repository; bulk accept is not offered.
+
+Behind a reverse proxy, the live progress is a long-lived response (Server-Sent Events). The service asks nginx not to
+buffer it (`X-Accel-Buffering: no`); another proxy may need buffering turned off for `/v1/jobs/*/events`.
 
 ### The service and the work list together
 

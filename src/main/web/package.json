@@ -2,7 +2,7 @@
   "name": "beqdesigner-web",
   "private": true,
   "version": "0.0.0",
-  "description": "The pipeline service's browser app (design/web-review.md)",
+  "description": "The pipeline service's browser app (design/web-app.md)",
   "type": "module",
   "engines": {
     "node": ">=24"

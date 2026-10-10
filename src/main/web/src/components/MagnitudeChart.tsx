@@ -1,4 +1,4 @@
-// The review chart (design/web-review.md §4): a title's measured average and peak curves, and the same after the chosen
+// The review chart (design/web-app.md §4): a title's measured average and peak curves, and the same after the chosen
 // design, on a log-frequency axis, as the desktop title page draws them -- dashed before, solid after. uPlot stays behind
 // this one component, so its 1.7 release changes only this file.
 import { useEffect, useRef } from 'react'

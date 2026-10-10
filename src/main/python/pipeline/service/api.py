@@ -246,7 +246,7 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
         extra = dict(redoc_js_url=f'{assets}/redoc.standalone.js', with_google_fonts=False) if assets else {}
         return get_redoc_html(openapi_url=app.openapi_url, title=f'{app.title} - ReDoc', **extra)
 
-    # --- the browser app (design/web-review.md §4) ------------------------------------------------------------------------
+    # --- the browser app (design/web-app.md §4) ------------------------------------------------------------------------
 
     serve_ui(app, ui_dir)
 
@@ -337,7 +337,7 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
             raise ServiceProblem(404, 'No such title', f'no title {title_id}')
         return models.Title.of(rows[0])
 
-    # --- review (design/web-review.md §3): a person's decision, made with the token --------------------------------------
+    # --- review (design/web-app.md §3): a person's decision, made with the token --------------------------------------
 
     def review_row(index: LibraryIndex, title_id: str):
         rows = index.titles(ids=[title_id])
@@ -575,7 +575,9 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
                         return
             finally:
                 unsubscribe()
-        return StreamingResponse(stream(), media_type='text/event-stream', headers={'Cache-Control': 'no-cache'})
+        # X-Accel-Buffering: nginx (the usual TLS proxy in front) would otherwise hold the stream back until it ends
+        return StreamingResponse(stream(), media_type='text/event-stream',
+                                 headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
 
     app.include_router(v1)
 

@@ -51,7 +51,7 @@ Source root is **`src/main/python`** — not the repo root. Run everything with
 | `mpl.py`, `svg.py`, `style/mpl/` | Matplotlib canvas widget embedded in Qt, clickable SVG view (used for the JRiver filter-pipeline graph), and the `beq_dark` mpl themes. |
 | `src/test/python/` | pytest suite. `scratch/` and `mds/` are exploratory scripts, not tests. |
 | `src/main/xml/` | Bundled defaults — per-MC-version JRiver configs, a flat 24HD minidsp config. |
-| `src/main/web/` | The pipeline service's browser app (React + TypeScript + Vite, Node 24), served at `/ui`; its own `README.md`. Its API types (`src/api/schema.d.ts`) are generated from `docs/schema/service.openapi.json`: regenerate both when the service's interface changes. |
+| `src/main/web/` | The pipeline service's browser app (React + TypeScript + Vite, Node 24), served at `/ui`; its own `README.md`, design in `design/web-app.md`. Its API types (`src/api/schema.d.ts`) are generated from `docs/schema/service.openapi.json`: regenerate both when the service's interface changes. |
 
 **`model/` is not a pure domain layer.** Most feature dialogs live in
 `model/*.py` alongside their logic (`model/extract.py` holds

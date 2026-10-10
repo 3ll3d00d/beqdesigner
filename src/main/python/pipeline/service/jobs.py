@@ -461,7 +461,7 @@ class JobManager:
     def titles_in_hand(self) -> Dict[str, str]:
         '''
         The titles the running job (and any joined to it) has queued or started and not finished, {id: stage}: a person's
-        decision on one would be overwritten by the design in flight (design/web-review.md §3).
+        decision on one would be overwritten by the design in flight (design/web-app.md §3).
         '''
         with self.__lock:
             result: Dict[str, str] = {}

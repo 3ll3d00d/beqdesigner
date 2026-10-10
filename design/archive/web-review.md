@@ -1,13 +1,30 @@
-# Web review — a browser front end for the pipeline service
+# Web review — plan and completion record (historical)
 
-**Document type:** Design, built through W5 (§2 here, [review-over-http.md](review-over-http.md), §4–§5 and the
-screens); W6, the documentation, is what remains. Agreed on 2026-10-10; the chunks are W1–W6 in
-[TODO](TODO.md). When a chunk lands, move what it built into [pipeline-service.md](pipeline-service.md) (or a
-reference of its own) and shrink this file; delete it when W6 lands.
+**Document type:** Archived plan and its delivery record. Completed on **2026-10-10**. The delivered behavior is described
+in [web-app.md](../web-app.md) and [review-over-http.md](../review-over-http.md); this file is kept for the reasoning and
+the evidence, and its open wording ("will", "is next") is historical.
+
+Its chunk IDs **W1–W6 are this plan's own**, unrelated to the work-list records [worklist-w1.md](worklist-w1.md) and
+[worklist-w3.md](worklist-w3.md), which used W1 and W3 earlier. Commit messages say "(W1)" .. "(W6)" for these.
+
+| Chunk | Commit | What |
+|---|---|---|
+| plan | `e5d23fa`, `4ba35cf`, `91951b0` | the plan; library versions pinned to current releases; uPlot 1.7 noted |
+| W1 | `4e0ef5c` | `pipeline/library/decide.py` and `review_chart.py`; the title page writes through them |
+| W2 | `e578b5f` | the review routes, in-flight rule, index refresher, status capabilities, API 1.3.0 |
+| W3 | `1e7d160` | `src/main/web` scaffold, generated types, sign-in, event stream, `/ui`, CI job, Docker stage |
+| W4 | `b4b4265` | Status and Jobs screens |
+| W5 | `fcb603d` | Titles and Review screens; the manual check below |
+| W6 | the commit that archived this file | user guide, web-app.md, this record |
+
+Evidence at completion: the Python suite (2870 passed, 1 skipped, `pytest -n auto src/test/python`), the web suite
+(50 tests; typecheck and lint clean), the image built and `docker/smoke.py` passing with the `/ui/` and review checks
+(W3), mutation checks of the in-flight rule, the digest check and the `/ui` containment check (each caught by its test),
+and the manual check recorded under §5.
 
 ## 1. Goal
 
-The pipeline service (`pipeline/service/`, [pipeline-service.md](pipeline-service.md)) gets a browser app, served by the
+The pipeline service (`pipeline/service/`, [pipeline-service.md](../pipeline-service.md)) gets a browser app, served by the
 service itself, that gives a basic view of what the desktop work list and title page do:
 
 1. **Workload and status** -- the index counts by what each title needs, the sources and their last scan, the designer's
@@ -55,7 +72,7 @@ Qt; the queue-entry fixture moved from `gui/` to `src/test/python/review_entry_f
 
 ## 3. HTTP additions (W2) — built
 
-Delivered as API 1.3.0 and described in [review-over-http.md](review-over-http.md): `GET /v1/titles/{id}/review`,
+Delivered as API 1.3.0 and described in [review-over-http.md](../review-over-http.md): `GET /v1/titles/{id}/review`,
 `GET /v1/titles/{id}/chart`, `POST /v1/titles/{id}/decision`, `GET /v1/review/next`, `ServiceStatus.repository_writes`
 and `repositories_configured`, the in-flight rule, and the index refresh after a decision. Two changes from the plan
 above: `decide()` gained a `metadata` refusal kind (409 *Metadata incomplete*), so the service does not call incomplete
