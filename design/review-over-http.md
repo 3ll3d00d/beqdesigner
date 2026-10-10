@@ -11,7 +11,7 @@ The review routes decide one title with the same rules and write as the app's ti
 - **`Review`** carries the entry's designs as `CandidateView`s (`index` into `offered`: candidates, then the designs the
   designer rejected, `rejected: true`), `chosen_index`, `declined`, the metadata and `metadata_problems`
   (`metadata_problems()` with the profile's `meta_defaults`), `blocked` (`{accept, reject}`: the decision's status rule,
-  then `decision_blocked()` with `run_hint` naming `POST /v1/jobs/run`), `in_flight`, `playback`, the designer and its
+  then `decision_blocked()` with `run_hint` naming `POST /v1/jobs/run` and `metadata_hint` the app), `in_flight`, `playback`, the designer and its
   build, and the row's `needs`/`detail`. Title and year come from the row, then the entry.
 - **`digest`** is `offered_digest()`: a hash of the entry's `fs` and its offered designs. A `Decision` sends it back;
   `decide()` re-reads the entry and refuses (`changed`) if the status no longer allows the decision or the digest differs.

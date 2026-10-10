@@ -63,3 +63,40 @@ export function eventStream(events: JobEvent[]): ReadableStream<Uint8Array> {
     },
   })
 }
+
+export function candidate(index: number, overrides: Partial<Schemas['CandidateView']> = {}): Schemas['CandidateView'] {
+  return { index, rejected: false, method: 'fitted', confidence: 0.9 - index * 0.3, mv_adjust_db: 4 - index,
+           gain_reduction_db: -1, residual_db: null, residual_band_hz: null,
+           commentary: index === 0 ? { note: 'top pick', found: ['shelf at 20 Hz', 'roll-off'] } : { note: 'alternative' },
+           rejection_reasons: [], filters: { filters: [] }, ...overrides }
+}
+
+export function review(overrides: Partial<Schemas['Review']> = {}): Schemas['Review'] {
+  return {
+    id: 'a', title: 'Alien', year: '1979', status: 'pending', status_text: 'Waiting for a decision', digest: 'd1',
+    candidates: [candidate(0), candidate(1)],
+    rejected: [candidate(2, { rejected: true, method: 'non_parametric',
+                             rejection_reasons: ['introduces a cliff of 53 dB/oct at 17 Hz'] })],
+    chosen_index: null, declined: null, metadata: { title: 'Alien', year: '1979', audio_types: ['DTS-HD MA 5.1'] },
+    metadata_problems: [], blocked: { accept: '', reject: '' }, in_flight: false,
+    playback: 'none sent: the designer assumed its own playback chain', designer: 'rolloff', designer_build: 'beqforge 0.2.0',
+    needs: 'review', detail: 'designed', reviewer_note: null,
+    ...overrides,
+  }
+}
+
+export function chart(candidateIndex: number | null): Schemas['Chart'] {
+  const x = [0, 10, 20, 40, 80]
+  const base = [{ name: 'Average audio track (all channels mixed)', kind: 'average' as const, filtered: false, x, y: [0, 0, 0, 0, 0] },
+                { name: 'Peak audio track (all channels mixed)', kind: 'peak' as const, filtered: false, x, y: [10, 10, 10, 10, 10] }]
+  const after = candidateIndex === null ? [] : [
+    { name: 'Filtered average audio track (all channels mixed)', kind: 'average' as const, filtered: true, x, y: [4, 4, 3, 1, 0] }]
+  return { candidate: candidateIndex, series: [...base, ...after] }
+}
+
+export function title(id: string, overrides: Partial<Schemas['Title']> = {}): Schemas['Title'] {
+  return { id, title: id.toUpperCase(), display_name: id, year: '2001', kind: 'movie', source: 'films', path: `/m/${id}.mkv`,
+           season: '', episodes: [], external_ids: {}, needs: 'review', tier: 'human', detail: 'designed', flags: [],
+           extract_state: 'done', design_state: 'done', review_state: 'pending', publish_state: '', commit_state: '',
+           confidence: 0.8, candidate_count: 2, failure: '', is_new: false, state_since: NOW, last_seen: NOW, ...overrides }
+}

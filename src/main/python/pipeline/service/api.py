@@ -41,6 +41,7 @@ PROBLEM_JSON = 'application/problem+json'
 
 # how a title that needs a run gets one, said where the service is asked (decision_blocked's run_hint)
 RUN_FROM_JOBS = 'Run it through design first (POST /v1/jobs/run).'
+METADATA_IN_APP = 'in the BEQDesigner app'   # metadata is not edited over HTTP
 DECISION_REFUSED = {'changed': 'Changed since it was read', 'blocked': 'Not offered now',
                     'metadata': 'Metadata incomplete', 'override': 'The designer rejected this design'}
 
@@ -368,7 +369,8 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
                 return f'This title is {entry.status}.'
             if decision == 'accept' and not entry.offered:
                 return 'There is no design to accept.'
-            return decision_blocked(decision, entry, row, running, problems, run_hint=RUN_FROM_JOBS)
+            return decision_blocked(decision, entry, row, running, problems, run_hint=RUN_FROM_JOBS,
+                                    metadata_hint=METADATA_IN_APP)
 
         def view(index: int, candidate, rejected: bool) -> models.CandidateView:
             return models.CandidateView(

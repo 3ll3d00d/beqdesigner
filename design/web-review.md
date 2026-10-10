@@ -1,7 +1,7 @@
 # Web review — a browser front end for the pipeline service
 
-**Document type:** Design, not built except W1–W4 (built: §2 here, [review-over-http.md](review-over-http.md), the
-scaffold, serving and build of §4–§5, and the Status and Jobs screens). Agreed on 2026-10-10; the chunks are W1–W6 in
+**Document type:** Design, built through W5 (§2 here, [review-over-http.md](review-over-http.md), §4–§5 and the
+screens); W6, the documentation, is what remains. Agreed on 2026-10-10; the chunks are W1–W6 in
 [TODO](TODO.md). When a chunk lands, move what it built into [pipeline-service.md](pipeline-service.md) (or a
 reference of its own) and shrink this file; delete it when W6 lands.
 
@@ -140,6 +140,19 @@ metadata a change; and `commit_configured` became `repositories_configured`, sin
   file as delivered behavior, its §12 gains decision 9 (review over HTTP, per-title with the token), and the milestone
   text in TODO is corrected.
 
+### Manual check (W4 and W5), 2026-10-10
+
+A local service (`--ui-dir`) over a fixture library (`worklist_fixture.make_index` rows and `review_entry_fixture`
+entries), in Chrome, dark theme: sign-in from `/`; Status (strip, designer not answering, schedule paused, sources); a
+title's review (log-frequency chart, dashed before and solid after, rejected design listed apart); 3 then A asked for
+the override with the designer's reasons; 1 then A accepted and opened the next waiting title, the filter kept; Accept held
+back with the metadata reason; Titles with Publish/Commit refused and why; a run preview over `/v1/plan`. No console
+errors. Fixed after looking: long designer errors overflowed their card; each design's radio sat on its own line; "Needs
+Review: review."; the filter grid's checkbox; and the metadata reason named the desktop's Metadata tab
+(`decision_blocked(metadata_hint=)`, the service says the app). A decision written over HTTP did not move the fixture's
+counts: its rows have no stored listing for `refresh()`; `test_a_decision_reaches_a_scanned_index_through_the_refresher`
+shows a scanned index does take it in.
+
 ## 6. Chunks
 
 | ID | What | Done when |
@@ -147,6 +160,6 @@ metadata a change; and `commit_configured` became `repositories_configured`, sin
 | W1 | **Built.** `pipeline/library/decide.py`; title page uses it | gui suite unchanged and green; `decide()` refusal tests; Qt-free list updated |
 | W2 | **Built.** Review/chart/decision/next routes, in-flight set, status capabilities, API 1.3.0 | route tests for each 2xx/4xx incl. a race with a redesign; OpenAPI doc regenerated |
 | W3 | **Built.** `src/main/web` scaffold, generated types, sign-in, API client and event stream, `/ui` mount, CI job, Docker stage | app builds in CI and the image; `/ui/` served; client and mount tests |
-| W4 | **Built** (the manual check is W5's, over both). Status and Jobs screens, new job with plan preview, cancel, schedule controls | component tests; manual check against a local service |
-| W5 | Titles and Review screens, decisions, publish/commit buttons | component tests incl. 409 and override; manual review of a fixture queue |
+| W4 | **Built.** Status and Jobs screens, new job with plan preview, cancel, schedule controls | component tests; manual check against a local service |
+| W5 | **Built.** Titles and Review screens, decisions, publish/commit buttons | component tests incl. 409 and override; manual review of a fixture queue |
 | W6 | User guide, design references moved to delivered | docs reviewed |

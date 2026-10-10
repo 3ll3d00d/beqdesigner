@@ -94,7 +94,8 @@ legend { color: var(--muted); padding: 0 0.3rem; }
 .strip .tier-review a { border-color: var(--accent); }
 
 .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-top: 1rem; }
-.card { border: 1px solid var(--line); border-radius: 10px; padding: 0.9rem 1rem; background: var(--panel); min-width: 0; }
+.card { border: 1px solid var(--line); border-radius: 10px; padding: 0.9rem 1rem; background: var(--panel); min-width: 0;
+        overflow-wrap: anywhere; }
 .card.wide { grid-column: 1 / -1; overflow-x: auto; }
 .card p { margin: 0.3rem 0; }
 
@@ -138,3 +139,22 @@ ol.log { list-style: none; padding: 0; margin: 0; font-family: ui-monospace, SFM
 ol.log li { padding: 0.2rem 0.6rem; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
 ol.log time { color: var(--muted); margin-right: 0.5rem; }
 ol.log .event-state { font-weight: 600; }
+
+.review-grid { display: grid; grid-template-columns: minmax(280px, 1fr) minmax(320px, 2fr); gap: 1rem; margin-top: 1rem; }
+.review-grid .chart-card { min-width: 0; }
+@media (max-width: 900px) { .review-grid { grid-template-columns: 1fr; } }
+.chart { width: 100%; min-height: 200px; }
+.chart .u-legend { font-size: 0.8rem; color: var(--fg); }
+ul.candidates { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.3rem; }
+ul.candidates label { display: grid; grid-template-columns: auto 1fr; column-gap: 0.5rem; align-items: baseline;
+                      padding: 0.35rem 0.5rem; border-radius: 6px; border: 1px solid transparent; cursor: pointer; }
+ul.candidates label > :nth-child(n + 3) { grid-column: 2; }
+ul.candidates label.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+h3 { font-size: 0.95rem; margin: 0.9rem 0 0.4rem; color: var(--muted); }
+.confirm { border: 1px solid var(--line); border-radius: 8px; padding: 0.6rem 0.9rem; margin: 0.5rem 0; }
+.confirm.problem { border-color: var(--problem); }
+.decide .actions { margin-top: 0.25rem; }
+td.detail { color: var(--muted); max-width: 32rem; }
+tr.tier-attention td:first-child { box-shadow: inset 3px 0 var(--problem); }
+.pager { align-items: center; }
+.fields label.check { display: flex; align-self: center; }

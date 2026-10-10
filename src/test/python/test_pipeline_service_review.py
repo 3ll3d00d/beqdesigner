@@ -19,6 +19,7 @@ from pipeline.service.lease import lease_path
 from pipeline.service.models import Check
 from review_entry_fixture import write_entry
 from worklist_fixture import make_index, title_row
+from test_pipeline_library_index import env as scanned  # noqa: F401 (a fixture: an index a scan can fill)
 
 TOKEN = 'test-token'
 AUTH = {'Authorization': f'Bearer {TOKEN}'}
@@ -124,7 +125,8 @@ def test_incomplete_metadata_is_listed_and_holds_accept_back(service):
 
     review = _review(client, 'b')
 
-    assert review['metadata_problems'] and review['blocked']['accept'].startswith('Fill in the missing metadata first')
+    assert review['metadata_problems']
+    assert review['blocked']['accept'].startswith('Fill in the missing metadata first (in the BEQDesigner app): ')
     refused = _decide(client, 'b', decision='accept', candidate=0, digest=review['digest'])
     assert (refused.status_code, refused.json()['title']) == (409, 'Metadata incomplete')
     assert read_entry(queue, 'b').status == 'pending'
@@ -397,3 +399,26 @@ def test_a_refresh_is_left_to_a_run_going_here_or_elsewhere(refreshes, setup):
     (work / 'service' / 'lease.json').unlink()
     assert refresher.refresh_now() is True
     assert (len(calls), refresher.skipped) == (1, 2)
+
+
+
+def test_a_decision_reaches_a_scanned_index_through_the_refresher(scanned):
+    ''' Through a real scan (the fixture index above has no listing to refresh from): accepted, the title needs publish. '''
+    from types import SimpleNamespace
+
+    from pipeline.library.decide import decide, offered_digest
+    from pipeline.service.refresh import IndexRefresher
+    from test_pipeline_library_index import _entry, _extracted, _item, _needs, _profile, _scan
+    env = scanned
+    item = _item('a')
+    _scan(env, item)
+    _extracted(env, item)
+    _entry(env, item)
+    env.index.refresh(_profile(env), env.settings)
+    assert _needs(env, item.id)[0] == 'review'
+
+    decide(env.queue, item.id, 'accept', picked=0, seen_digest=offered_digest(read_entry(env.queue, item.id)))
+    ctx = SimpleNamespace(work_dir=env.work, profile=_profile(env), scan_settings=lambda: env.settings)
+    assert IndexRefresher(lambda: ctx, busy=lambda: False).refresh_now() is True
+
+    assert _needs(env, item.id)[0] == 'publish'

@@ -8,8 +8,10 @@ import { SignIn } from './auth/SignIn'
 import { JobPage } from './pages/JobPage'
 import { JobsPage } from './pages/JobsPage'
 import { NewJobPage } from './pages/NewJobPage'
-import { NotBuilt } from './pages/NotBuilt'
+import { NotFound } from './pages/NotFound'
+import { ReviewPage } from './pages/ReviewPage'
 import { StatusPage } from './pages/StatusPage'
+import { TitlesPage } from './pages/TitlesPage'
 
 function Shell() {
   const { token, signOut } = useAuth()
@@ -45,8 +47,9 @@ export const routes: RouteObject[] = [
       { path: 'jobs', element: <JobsPage /> },
       { path: 'jobs/new', element: <NewJobPage /> },
       { path: 'jobs/:jobId', element: <JobPage /> },
-      { path: 'titles/*', element: <NotBuilt what="Titles and review" /> },
-      { path: '*', element: <NotBuilt what="This page" /> },
+      { path: 'titles', element: <TitlesPage /> },
+      { path: 'titles/:titleId', element: <ReviewPage /> },
+      { path: '*', element: <NotFound /> },
     ],
   },
 ]

@@ -34,6 +34,7 @@ SENT_BACK = {'design': 'sent back for redesign', 'extract': 'sent back for re-ex
 REDO_IN_WORK_LIST = 'run Extract & design from the work list'
 REDO_IN_FOLDER = 'run Batch Extract & Design on it again, then press Refresh'
 RUN_IN_WORK_LIST = 'Run it from the work list.'
+METADATA_ON_PAGE = 'Metadata tab'   # where the title page edits metadata; the service says the app
 
 
 def next_waiting_id(ids: Sequence[str], current: str, waiting: Callable[[str], bool]) -> Optional[str]:
@@ -59,7 +60,7 @@ def sent_back(revised: str) -> bool:
 
 def decision_blocked(decision: str, entry: Optional[QueueEntry], row: Optional[TitleRow], running: bool,
                      problems: Sequence[str] = (), revised: str = '', redo: str = REDO_IN_WORK_LIST,
-                     run_hint: str = RUN_IN_WORK_LIST) -> str:
+                     run_hint: str = RUN_IN_WORK_LIST, metadata_hint: str = METADATA_ON_PAGE) -> str:
     '''
     Why a decision is not offered even though the entry's status allows it; empty if it is. **Nothing is decided on a
     title a run is working on** (a design in flight writes a new pending entry over whatever is there), and a pending
@@ -74,7 +75,7 @@ def decision_blocked(decision: str, entry: Optional[QueueEntry], row: Optional[T
     `revised` is how far this title was sent back on the page since the rows were read (`design` or `extract`): its design is
     cleared, so -- as for a pending entry whose row says the design is out of date -- it is not accepted until it has been
     designed again (the row is stale, and cannot say so yet). `redo` says how that is done where the page is (`REDO_IN_*`),
-    and `run_hint` how a title that needs a run gets one there.
+    `run_hint` how a title that needs a run gets one there, and `metadata_hint` where its metadata is edited.
     '''
     if running:
         return 'A run is working on this title now: wait for it to finish.'
@@ -88,7 +89,7 @@ def decision_blocked(decision: str, entry: Optional[QueueEntry], row: Optional[T
             and row.needs in ('extract', 'design', 'attention'):
         return f'Not offered: this title needs {row.needs} first ({row.detail}). {run_hint}'
     if decision == 'accept' and problems:
-        return 'Fill in the missing metadata first (Metadata tab): ' + '; '.join(problems) + '.'
+        return f'Fill in the missing metadata first ({metadata_hint}): ' + '; '.join(problems) + '.'
     return ''
 
 

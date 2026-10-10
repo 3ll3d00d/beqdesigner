@@ -7,6 +7,7 @@ import { useAuth } from '../auth/auth'
 import { FINISHED_STATES } from '../format'
 import { unwrap, type Schemas } from './client'
 import { followJob, type JobEvent } from './events'
+import { cleanFilter, type TitleFilter } from './filter'
 import { readToken } from './token'
 
 export type Job = Schemas['ScanJob'] | Schemas['RunJob'] | Schemas['AcceptJob']
@@ -160,5 +161,65 @@ export function usePlan() {
   const { client } = useAuth()
   return useMutation({
     mutationFn: async (body: Schemas['RunJobRequest']) => unwrap(await client.POST('/v1/plan', { body })),
+  })
+}
+
+// --- titles and review (W5) -----------------------------------------------------------------------------------------------
+
+export const PAGE_SIZE = 100
+
+export function useTitles(filter: TitleFilter, includeDone: boolean, offset: number) {
+  const { client } = useAuth()
+  const query = { ...cleanFilter(filter), include_done: includeDone, limit: PAGE_SIZE, offset }
+  return useQuery({
+    queryKey: keys.titles(JSON.stringify(query)),
+    queryFn: async () => unwrap(await client.GET('/v1/titles', { params: { query } })),
+    placeholderData: (previous) => previous,
+  })
+}
+
+export function useReview(id: string) {
+  const { client } = useAuth()
+  return useQuery({
+    queryKey: keys.review(id),
+    queryFn: async () => unwrap(await client.GET('/v1/titles/{title_id}/review', { params: { path: { title_id: id } } })),
+    retry: false,
+  })
+}
+
+export function useChart(id: string, candidate: number | null, enabled: boolean) {
+  const { client } = useAuth()
+  return useQuery({
+    queryKey: keys.chart(id, candidate),
+    queryFn: async () => unwrap(await client.GET('/v1/titles/{title_id}/chart', {
+      params: { path: { title_id: id }, query: candidate === null ? {} : { candidate } } })),
+    enabled,
+    placeholderData: (previous) => previous,
+    staleTime: 60_000,
+  })
+}
+
+/** The next title waiting for a decision after `after` in the filtered list, or null if there is none. */
+export function useNextTitle() {
+  const { client } = useAuth()
+  return async (filter: TitleFilter, after?: string): Promise<Schemas['NextTitle'] | null> => {
+    const result = await client.GET('/v1/review/next', { params: { query: { ...cleanFilter(filter), after } } })
+    if (result.response.status === 204) return null
+    return unwrap(result)
+  }
+}
+
+export function useDecide(id: string) {
+  const { client } = useAuth()
+  const queries = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: Schemas['Decision']) =>
+      unwrap(await client.POST('/v1/titles/{title_id}/decision', { params: { path: { title_id: id } }, body })),
+    onSuccess: (review) => queries.setQueryData(keys.review(id), review),
+    onError: () => void queries.invalidateQueries({ queryKey: keys.review(id) }),   // show what is there now
+    onSettled: () => {
+      void queries.invalidateQueries({ queryKey: ['titles'] })
+      void queries.invalidateQueries({ queryKey: keys.status })
+    },
   })
 }
