@@ -241,10 +241,14 @@ def check_designer(url: str, *, by_reference: bool = False, timeout: float = 10.
         raise DesignerUnavailable(f"GET {target} answered HTTP {response.status_code}")
 
 
-def http_designer(url: str, timeout: float = 300.0, headers: Optional[dict] = None, shared_root: Optional[str] = None):
+# How long one design may take: beqforge's fit of a full-length film has been seen to take over six minutes
+DESIGN_TIMEOUT = 900.0
+
+
+def http_designer(url: str, timeout: float = DESIGN_TIMEOUT, headers: Optional[dict] = None, shared_root: Optional[str] = None):
     '''
     :param url: the designer's HTTP endpoint -- one POST per design() call.
-    :param timeout: seconds to wait for a response (default 300s -- a real
+    :param timeout: seconds to wait for a response (default DESIGN_TIMEOUT, 15 minutes -- a real
         design computation over a full-length programme may be slow).
     :param headers: passed through on every request, e.g. a bearer token
         for a non-localhost/shared designer. No larger auth framework.
@@ -297,7 +301,7 @@ def register_declared_designers(declared: Optional[Mapping[str, Any]], shared_ro
         side (designer-interface.md §7.1, 1.2). Such a designer is sent each array whose WAV is under it by reference.
     :param queue_depth: how many requests a run may have with a designer at once (`run.parallelism.design`). A designer
         that answers one at a time (beqforge's does) queues the rest, so a request may wait for `queue_depth - 1` others
-        before its own design starts: each `timeout` (default 300 s, the time for one design) is multiplied by it, so
+        before its own design starts: each `timeout` (default DESIGN_TIMEOUT, the time for one design) is multiplied by it, so
         waiting in that queue is not mistaken for a designer that stopped answering.
     :return: the names registered.
     :raises ValueError: if an entry has no URL, or is by_reference with no work directory to share (nothing after it is
@@ -309,7 +313,7 @@ def register_declared_designers(declared: Optional[Mapping[str, Any]], shared_ro
             spec = {'url': spec}
         if not isinstance(spec, Mapping) or not spec.get('url'):
             raise ValueError(f"designer {name!r} needs a url")
-        options = {'timeout': float(spec.get('timeout', 300.0)) * max(1, queue_depth),
+        options = {'timeout': float(spec.get('timeout', DESIGN_TIMEOUT)) * max(1, queue_depth),
                    'headers': spec.get('headers') or None}
         by_reference = spec.get('by_reference', False)
         if not isinstance(by_reference, bool):

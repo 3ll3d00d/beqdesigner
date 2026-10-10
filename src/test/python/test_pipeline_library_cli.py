@@ -253,7 +253,7 @@ def test_a_declared_designer_is_built_with_its_url_timeout_and_headers(tmp_path,
 
     cli.main(['--config', str(config)] + _run_args('a'))
 
-    assert made == [('http://a/d', 300.0, None), ('http://b/d', 30.0, {'X': 'y'})]
+    assert made == [('http://a/d', 900.0, None), ('http://b/d', 30.0, {'X': 'y'})]
     assert get_designer('a') is not None
 
 

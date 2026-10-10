@@ -267,12 +267,20 @@ def test_declared_designers_are_registered_from_a_configs_designers_section(monk
         'url': 'http://b/d', 'timeout': 30, 'headers': {'X': 'y'}}})
     try:
         assert names == ['plain.d', 'full.d']
-        assert made == [('http://a/d', 300.0, None), ('http://b/d', 30.0, {'X': 'y'})]
+        assert made == [('http://a/d', 900.0, None), ('http://b/d', 30.0, {'X': 'y'})]
         assert get_designer('plain.d') is not None and get_designer('full.d') is not None
     finally:
         unregister_designer('plain.d')
         unregister_designer('full.d')
     assert http_binding.register_declared_designers(None) == []
+
+
+def test_a_design_may_take_fifteen_minutes_unless_the_designer_says_otherwise():
+    # beqforge was seen taking 379 s over one film: the old 300 s limit gave up on it, and the requests queued behind it
+    import inspect
+    from pipeline.designer import http_binding
+    assert http_binding.DESIGN_TIMEOUT == 900.0
+    assert inspect.signature(http_binding.http_designer).parameters['timeout'].default == 900.0
 
 
 def test_a_declared_designer_without_a_url_is_refused():
