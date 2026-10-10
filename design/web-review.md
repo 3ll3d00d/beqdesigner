@@ -111,8 +111,9 @@ Qt; the queue-entry fixture moved from `gui/` to `src/test/python/review_entry_f
   - **Node 24 LTS** (24.21.0 on 2026-10-10). `react-router` 8 needs Node ≥22.22 and `jsdom` 30 needs ≥22.22.2 or
     ≥24.15, so the 22.18 found on the development machine is too old (`nvm install 24`). `package.json` sets
     `engines.node` to `>=24` and `.nvmrc` to `24`.
-  - uPlot's latest release is from 2025-03. It is the current version, but quiet: if it is found unmaintained, replacing
-    the one chart component is the whole cost.
+  - uPlot 1.6.32 (2025-03) is the latest on npm; a large 1.7 release is planned (no pre-release published as of
+    2026-10-10). Keep uPlot behind the one chart component so the move to 1.7 touches only that file; take it when it is
+    released, in a commit of its own.
   - W3 adds an `npm` entry (directory `/src/main/web`, weekly) to `.github/dependabot.yml`, which today covers only
     GitHub Actions and uv, so these are kept current by reviewed bumps that re-run the web CI job.
 - **Served:** the service mounts the built `dist/` at `/ui` (`--ui-dir` / `BEQ_SERVICE_UI`; absent, `/ui` is a 404 that
