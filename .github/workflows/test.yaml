@@ -5,7 +5,9 @@ on:
       - '*'
     paths:
       - 'src/main/python/**'
+      - 'src/main/web/**'
       - 'src/test/**'
+      - 'docs/schema/service.openapi.json'
       - 'uv.lock'
       - 'pyproject.toml'
       - 'docker/**'
@@ -16,7 +18,9 @@ on:
       - '*'
     paths:
       - 'src/main/python/**'
+      - 'src/main/web/**'
       - 'src/test/**'
+      - 'docs/schema/service.openapi.json'
       - 'uv.lock'
       - 'pyproject.toml'
       - 'docker/**'
@@ -29,6 +33,27 @@ defaults:
   run:
     shell: bash
 jobs:
+  web:
+    name: Web app (typecheck, lint, test, build)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: src/main/web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: src/main/web/.nvmrc
+          cache: npm
+          cache-dependency-path: src/main/web/package-lock.json
+      - run: npm ci
+      - name: The API types are the published interface's
+        run: npm run gen:api && git diff --exit-code -- src/api/schema.d.ts
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
   pipeline_image:
     name: Build and smoke pipeline image
     runs-on: ubuntu-24.04

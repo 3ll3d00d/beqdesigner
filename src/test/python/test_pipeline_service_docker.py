@@ -158,4 +158,5 @@ def test_base_images_come_from_a_registry_that_does_not_rate_limit_ci():
     dockerfile = (ROOT / 'docker' / 'Dockerfile').read_text()
     bases = [line.split()[-3] if ' AS ' in line else line.split()[-1]
              for line in dockerfile.splitlines() if line.startswith('FROM ')]
-    assert len(bases) == 3 and all(base.startswith('public.ecr.aws/docker/library/') for base in bases)
+    # the docs assets and the browser app (node), the dependencies and the runtime (python)
+    assert bases == ['public.ecr.aws/docker/library/node:24-alpine'] * 2 + ['public.ecr.aws/docker/library/python:3.13-slim'] * 2

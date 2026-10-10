@@ -1,7 +1,8 @@
 # Base images come from AWS's copy of Docker's official images: GitHub's runners share addresses, so anonymous Docker
 # Hub pulls are refused (429 Too Many Requests) whenever others have used up the limit.
-# The docs assets are plain JS/CSS whatever the target, so npm runs natively: under QEMU (arm64) node dies of SIGILL.
-FROM --platform=$BUILDPLATFORM public.ecr.aws/docker/library/node:22-alpine AS docs-assets
+# The docs assets and the browser app are plain JS/CSS whatever the target, so npm runs natively: under QEMU (arm64) node
+# dies of SIGILL.
+FROM --platform=$BUILDPLATFORM public.ecr.aws/docker/library/node:24-alpine AS docs-assets
 ENV SCARF_ANALYTICS=false
 RUN npm install --omit=dev --prefix /assets swagger-ui-dist@5.18.2 redoc@2.4.0 \
     && mkdir -p /static \
@@ -9,6 +10,14 @@ RUN npm install --omit=dev --prefix /assets swagger-ui-dist@5.18.2 redoc@2.4.0 \
           /assets/node_modules/swagger-ui-dist/swagger-ui.css \
           /assets/node_modules/swagger-ui-dist/favicon-32x32.png /static/ \
     && cp /assets/node_modules/redoc/bundles/redoc.standalone.js /static/
+
+# The browser app (src/main/web, design/web-review.md): served by the service at /ui
+FROM --platform=$BUILDPLATFORM public.ecr.aws/docker/library/node:24-alpine AS web
+WORKDIR /web
+COPY src/main/web/package.json src/main/web/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY src/main/web/ ./
+RUN npm run build
 
 FROM public.ecr.aws/docker/library/python:3.13-slim AS dependencies
 COPY --from=ghcr.io/astral-sh/uv:0.9.18 /uv /usr/local/bin/uv
@@ -35,9 +44,10 @@ RUN apt-get update \
     && chown -R beq:beq /work /queue /app
 COPY --from=dependencies /opt/venv /opt/venv
 COPY --from=docs-assets /static /app/static
+COPY --from=web /web/dist /app/ui
 COPY src/main/python /app/src/main/python
 ENV PATH=/opt/venv/bin:$PATH PYTHONPATH=/app/src/main/python \
-    BEQ_SERVICE_STATIC=/app/static PYTHONUNBUFFERED=1
+    BEQ_SERVICE_STATIC=/app/static BEQ_SERVICE_UI=/app/ui PYTHONUNBUFFERED=1
 WORKDIR /app
 USER beq
 EXPOSE 8080

@@ -49,7 +49,7 @@ outside it. A beqforge version bump invalidates its bundled optimiser seed
 |---|---|---|---|---|---|
 | 11 | D4 | | by-reference §5 | Release part done (each entry records its designer and build); the drift behavior is not started | Designer build identity policy (full drift behavior only) |
 | 15 | E2 | R | chunk 31, T2-T4 | Waiting for manual acceptance; everything it exercises is built and published | Real media, a JRiver server and disposable repositories |
-| 15a | W3–W6 | | -- | W1, W2 done; W3–W6 not started ([design](web-review.md) agreed 2026-10-10) | -- (each chunk depends on the one before) |
+| 15a | W4–W6 | | -- | W1–W3 done; W4–W6 not started ([design](web-review.md) agreed 2026-10-10) | -- (each chunk depends on the one before) |
 | 16 | E3 | | chunk 32, T7 | Not started; the captured library (E1) has no DVDs | A DVD rip in a JRiver library, captured as E1 was |
 | 18 | E5 | | chunk 37, T15 | Waiting for a product decision | E2; representative season media |
 | 19 | T1 | | -- | Watch; probably recurred in CI on 2026-10-08, without a log | Recurrence with a stack dump |
@@ -106,13 +106,14 @@ Also record from 2026-10-08's work:
 dated observed results, and the container sample run has a dated record with
 no unexplained failure; a test stub alone is insufficient.
 
-### W3–W6 — Web review app
+### W4–W6 — Web review app
 
 A browser app served by the pipeline service: status, jobs (trigger, follow, cancel), titles, and per-title review
 (Accept/Reject/Skip with the chart), plus Publish/Commit behind `allow_repository_writes`. React + TypeScript SPA in
 `src/main/web`, built into the image. The design and its six chunks are in [`web-review.md`](web-review.md), labelled
 "design, not built" apart from W1 (the Qt-free decision module the title page writes through) and W2 (the review
-routes, [review-over-http.md](review-over-http.md)). W3 (the app's scaffold, build and serving) is next.
+routes, [review-over-http.md](review-over-http.md)) and W3 (the app's scaffold in `src/main/web`, its CI job, Docker
+stage and serving at `/ui`). W4 (the Status and Jobs screens) is next.
 
 **Done when:** every chunk's criterion in web-review.md §6 is met, the delivered behavior is in pipeline-service.md,
 and web-review.md is deleted.

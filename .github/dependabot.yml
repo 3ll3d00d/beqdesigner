@@ -8,3 +8,7 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+  - package-ecosystem: "npm"   # the browser app (src/main/web): its versions are pinned exactly, so each bump is a reviewed PR
+    directory: "/src/main/web"
+    schedule:
+      interval: "weekly"

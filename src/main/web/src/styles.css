@@ -1,0 +1,67 @@
+:root {
+  --bg: #ffffff;
+  --fg: #1d2025;
+  --muted: #5d6470;
+  --line: #d9dde3;
+  --panel: #f5f7fa;
+  --accent: #2463c4;
+  --accent-fg: #ffffff;
+  --problem: #b42318;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.45;
+  color: var(--fg);
+  background: var(--bg);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15171b;
+    --fg: #e6e8eb;
+    --muted: #9aa1ab;
+    --line: #2d3138;
+    --panel: #1d2026;
+    --accent: #6ea2f0;
+    --accent-fg: #0b1220;
+    --problem: #f97066;
+  }
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); }
+a { color: var(--accent); }
+h1 { font-size: 1.4rem; margin: 0 0 0.75rem; }
+.muted { color: var(--muted); }
+.problem { color: var(--problem); }
+
+button {
+  font: inherit; padding: 0.45rem 0.9rem; border-radius: 6px; border: 1px solid var(--accent);
+  background: var(--accent); color: var(--accent-fg); cursor: pointer;
+}
+button:disabled { opacity: 0.6; cursor: default; }
+button.link { background: none; border: none; color: var(--accent); padding: 0; }
+input[type='password'], input[type='text'], select {
+  font: inherit; padding: 0.4rem 0.5rem; border: 1px solid var(--line); border-radius: 6px;
+  background: var(--panel); color: var(--fg); width: 100%;
+}
+
+.shell header {
+  display: flex; align-items: center; gap: 1.25rem; padding: 0.6rem 16px; border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+.shell .brand { font-weight: 600; }
+.shell nav { display: flex; gap: 1rem; flex: 1; }
+.shell nav a { text-decoration: none; color: var(--muted); }
+.shell nav a.active { color: var(--fg); font-weight: 600; }
+.shell main { padding: 1rem 16px; max-width: 1200px; }
+
+.signin { display: grid; place-items: center; min-height: 100vh; padding: 16px; }
+.signin form {
+  width: min(380px, 100%); display: grid; gap: 0.8rem; padding: 1.5rem; border: 1px solid var(--line);
+  border-radius: 10px; background: var(--panel);
+}
+.signin label { display: grid; gap: 0.3rem; }
+.signin label.check { display: flex; gap: 0.5rem; align-items: center; }
+
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 0.35rem 1.25rem; }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; }

@@ -11,6 +11,10 @@ export BEQ_SERVICE_TOKEN=a-long-random-string
 PYTHONPATH=src/main/python uv run python -m pipeline.service --profile /path/to/library-profile.yaml
 ```
 
+It also serves a browser app at `http://HOST:PORT/ui/` (signing in with the token): at present only whether it is
+reachable and what it is doing in brief. Running from a checkout, build it first (`cd src/main/web && npm ci && npm run
+build`) and add `--ui-dir src/main/web/dist`; the image has it built in.
+
 For a container, copy [`docker/compose.example.yaml`](https://github.com/3ll3d00d/beqdesigner/blob/main/docker/compose.example.yaml)
 and [`docker/service.example.yaml`](https://github.com/3ll3d00d/beqdesigner/blob/main/docker/service.example.yaml).
 Put `profile.yaml`, `service.yaml` and a private `service-token` in the

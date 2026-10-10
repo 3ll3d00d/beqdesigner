@@ -1,6 +1,7 @@
 # Web review — a browser front end for the pipeline service
 
-**Document type:** Design, not built except W1 and W2 (built: §2 here, and [review-over-http.md](review-over-http.md)). Agreed on 2026-10-10; the chunks are W1–W6 in
+**Document type:** Design, not built except W1–W3 (built: §2 here, [review-over-http.md](review-over-http.md), and the
+scaffold, serving and build of §4–§5). Agreed on 2026-10-10; the chunks are W1–W6 in
 [TODO](TODO.md). When a chunk lands, move what it built into [pipeline-service.md](pipeline-service.md) (or a
 reference of its own) and shrink this file; delete it when W6 lands.
 
@@ -81,6 +82,7 @@ metadata a change; and `commit_configured` became `repositories_configured`, sin
   | @vitejs/plugin-react | 6.1.2 | | msw | 3.0.3 |
   | typescript | **6.0.3** (not 7.0.2, below) | | eslint | 10.12.0 |
   | openapi-typescript | 7.13.0 | | typescript-eslint | 8.71.1 |
+  | | | | eslint-plugin-react-hooks | 7.1.1 (added in W3) |
 
   - **TypeScript 6.0.3, not 7.0.2.** 7.0 is the native (Go) compiler. Its package exports only its version and
     `unstable/*` APIs, not the compiler API that type generators print code through. Tried on 2026-10-10 against this
@@ -143,7 +145,7 @@ metadata a change; and `commit_configured` became `repositories_configured`, sin
 |---|---|---|
 | W1 | **Built.** `pipeline/library/decide.py`; title page uses it | gui suite unchanged and green; `decide()` refusal tests; Qt-free list updated |
 | W2 | **Built.** Review/chart/decision/next routes, in-flight set, status capabilities, API 1.3.0 | route tests for each 2xx/4xx incl. a race with a redesign; OpenAPI doc regenerated |
-| W3 | `src/main/web` scaffold, generated types, sign-in, API client and event stream, `/ui` mount, CI job, Docker stage | app builds in CI and the image; `/ui/` served; client and mount tests |
+| W3 | **Built.** `src/main/web` scaffold, generated types, sign-in, API client and event stream, `/ui` mount, CI job, Docker stage | app builds in CI and the image; `/ui/` served; client and mount tests |
 | W4 | Status and Jobs screens, new job with plan preview, cancel, schedule controls | component tests; manual check against a local service |
 | W5 | Titles and Review screens, decisions, publish/commit buttons | component tests incl. 409 and override; manual review of a fixture queue |
-| W6 | User guide, design references moved to delivered, smoke test checks `/ui/` | docs reviewed; smoke passes in CI |
+| W6 | User guide, design references moved to delivered | docs reviewed |

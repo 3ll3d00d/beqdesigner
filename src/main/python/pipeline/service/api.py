@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
-from fastapi.responses import JSONResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -81,7 +81,7 @@ def read_version() -> str:
 
 def create_app(manager: JobManager, config: ServiceConfig, *, require_token: bool = True,
                load: Callable[..., JobContext] = load_context, env: Optional[Mapping[str, str]] = None,
-               static_dir: Optional[str] = None, version: Optional[str] = None,
+               static_dir: Optional[str] = None, ui_dir: Optional[str] = None, version: Optional[str] = None,
                checks: Optional[Callable[[], List[models.Check]]] = None,
                scheduler: Optional[AutoScheduler] = None, notifier: Optional[Notifier] = None,
                designer: Optional[DesignerProbe] = None, refresher: Optional[IndexRefresher] = None) -> FastAPI:
@@ -89,6 +89,8 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
     :param require_token: False only for a service bound to loopback and started with --no-auth.
     :param static_dir: a local copy of swagger-ui-dist and redoc, served at /static (the Docker image has one); None loads
         them from a CDN.
+    :param ui_dir: the built browser app (`src/main/web/dist`), served at /ui with `/` sent there; None: /ui says how to
+        build it.
     :param checks: what /ready checks (default: the profile, the work directory, ffmpeg and the designer: declared, and
         whether it answers, which is reported but does not make the service unready).
     :param designer: asks the designer's /health (default: one over the profile).
@@ -242,6 +244,10 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
     def redoc():
         extra = dict(redoc_js_url=f'{assets}/redoc.standalone.js', with_google_fonts=False) if assets else {}
         return get_redoc_html(openapi_url=app.openapi_url, title=f'{app.title} - ReDoc', **extra)
+
+    # --- the browser app (design/web-review.md §4) ------------------------------------------------------------------------
+
+    serve_ui(app, ui_dir)
 
     # --- /v1 ------------------------------------------------------------------------------------------------------------
 
@@ -592,6 +598,43 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
         return app.openapi_schema
     app.openapi = openapi
     return app
+
+
+def serve_ui(app: FastAPI, ui_dir: Optional[str]) -> None:
+    '''
+    The browser app at /ui: its files, and `index.html` for any other path under it (the app routes in the browser), so a
+    link to /ui/titles/x opens it. A missing file with an extension is a 404, not the page. The page and its files need no
+    token; every call it makes does. Hashed assets are cached for good, the page never.
+    '''
+    root = os.path.realpath(ui_dir) if ui_dir else ''
+    page = os.path.join(root, 'index.html') if root else ''
+    if root and not os.path.isfile(page):
+        raise ValueError(f'{ui_dir} is not a built browser app: it has no index.html (cd src/main/web && npm run build)')
+
+    @app.get('/', include_in_schema=False)
+    def home():
+        return RedirectResponse('/ui/' if root else '/docs')
+
+    @app.get('/ui', include_in_schema=False)
+    def ui_root():
+        return RedirectResponse('/ui/')
+
+    @app.get('/ui/{path:path}', include_in_schema=False)
+    def ui(path: str):
+        if not root:
+            raise ServiceProblem(404, 'Browser app not installed',
+                                 'build it (cd src/main/web && npm ci && npm run build) and start the service with '
+                                 '--ui-dir src/main/web/dist (or BEQ_SERVICE_UI); the Docker image has it')
+        target = os.path.realpath(os.path.join(root, path))
+        if target != root and not target.startswith(root + os.sep):
+            raise ServiceProblem(404, 'Not found', path)
+        if os.path.isfile(target):
+            immutable = os.path.relpath(target, root).startswith('assets' + os.sep)
+            return FileResponse(target, headers={'Cache-Control': 'public, max-age=31536000, immutable' if immutable
+                                                 else 'no-cache'})
+        if '.' in os.path.basename(path):
+            raise ServiceProblem(404, 'Not found', path)
+        return FileResponse(page, headers={'Cache-Control': 'no-cache'})
 
 
 def openapi_document() -> dict:

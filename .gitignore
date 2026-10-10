@@ -129,3 +129,6 @@ src/test/python/scratch
 out/
 *.dsp
 !src/test/python/model/jriver/resources/*.dsp
+
+# the browser app (src/main/web): its dependencies and its build
+src/main/web/node_modules/

@@ -10,3 +10,5 @@ design
 docs
 dist
 build
+src/main/web/node_modules
+src/main/web/dist

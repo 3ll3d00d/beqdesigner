@@ -72,6 +72,21 @@ def request(port: int, path: str, body=None):
         return json.load(response)
 
 
+def page(port: int, path: str) -> str:
+    ''' A page or file served without the token (the browser app's). '''
+    with urllib.request.urlopen(f'http://127.0.0.1:{port}{path}', timeout=5) as response:
+        return response.read().decode()
+
+
+def check_browser_app(port: int) -> None:
+    ''' The image serves the built browser app at /ui (design/web-review.md §5): its page, and the script the page loads. '''
+    html = page(port, '/ui/')
+    assert '<div id="root">' in html, f'/ui/ is not the browser app:\n{html[:300]}'
+    script = re.search(r'src="(/ui/assets/[^"]+\.js)"', html)
+    assert script, f'the page loads no script from /ui/assets:\n{html[:300]}'
+    assert page(port, script.group(1)), f'{script.group(1)} is empty'
+
+
 def wait_for(predicate, seconds=90):
     deadline = time.monotonic() + seconds
     while time.monotonic() < deadline:
@@ -124,6 +139,7 @@ def smoke(image: str, port: int, designer_image: str = '') -> None:
                 '--volume', f'{root / "queue"}:/queue', '--volume', f'{root / "media"}:/media:ro', image,
             ], text=True).strip()
             assert wait_for(lambda: request(port, '/ready')['ready'])
+            check_browser_app(port)
             if designer_image:   # the service says when it can reach the designer (/v1/status, TODO R2)
                 assert wait_for(lambda: request(port, '/v1/status')['designer']['reachable'])
             submitted = request(port, '/v1/jobs/run', {'filter': {'match': 'Smoke Movie'}, 'through': 'design'})
@@ -132,6 +148,8 @@ def smoke(image: str, port: int, designer_image: str = '') -> None:
             assert job['state'] == 'succeeded', job
             entries = list((root / 'queue').glob('*.json'))
             assert entries, 'design produced no review queue entry'
+            review = request(port, f'/v1/titles/{entries[0].stem}/review')   # what a person decides it on, over HTTP
+            assert review['status'] == 'pending' and review['candidates'], review
             if designer_image:
                 logged = subprocess.run(['docker', 'logs', designer], capture_output=True, text=True)
                 log = logged.stdout + logged.stderr

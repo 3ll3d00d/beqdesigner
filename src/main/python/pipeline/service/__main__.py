@@ -42,6 +42,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument('--static-dir', default=os.environ.get('BEQ_SERVICE_STATIC'),
                         help='a local copy of the API pages\' scripts (swagger-ui-dist, redoc); default '
                              '$BEQ_SERVICE_STATIC, else they load from a CDN')
+    parser.add_argument('--ui-dir', default=os.environ.get('BEQ_SERVICE_UI'),
+                        help='the built browser app (src/main/web, npm run build), served at /ui; default $BEQ_SERVICE_UI, '
+                             'else /ui says how to build it')
     parser.add_argument('--no-auth', action='store_true',
                         help='serve without a token; only allowed on a loopback address (127.0.0.1, ::1)')
     return parser
@@ -104,8 +107,14 @@ def build(argv: Optional[List[str]] = None, env: Optional[Mapping[str, str]] = N
         scheduler.stop()
         manager.stop(grace_seconds=1)
         parser.error(f'notify: {error}')
-    app = create_app(manager, config, require_token=not args.no_auth, env=env, static_dir=args.static_dir,
-                     scheduler=scheduler, notifier=notifier, designer=designer)
+    try:
+        app = create_app(manager, config, require_token=not args.no_auth, env=env, static_dir=args.static_dir,
+                         ui_dir=args.ui_dir, scheduler=scheduler, notifier=notifier, designer=designer)
+    except ValueError as error:   # a --ui-dir that is not a built app
+        notifier.stop()
+        scheduler.stop()
+        manager.stop(grace_seconds=1)
+        parser.error(str(error))
     app.state.scheduler = scheduler
     app.state.notifier = notifier
     return app, manager, config

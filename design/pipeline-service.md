@@ -345,7 +345,7 @@ only.
 A single bearer token from `BEQ_SERVICE_TOKEN` (or `BEQ_SERVICE_TOKEN_FILE`,
 for Docker secrets), compared in constant time. Without one the service
 refuses to start unless bound to `127.0.0.1` with `--no-auth`. `/health` and
-`/ready` are unauthenticated; `/docs` and `/openapi.json` are readable without
+`/ready` are unauthenticated; `/docs`, `/openapi.json` and the browser app (`/ui` and its files) are readable without
 a token (the calls made from them still need it). TLS is left to a reverse
 proxy.
 
@@ -453,7 +453,9 @@ the target's environment override.
   copied to `/app/src/main/python` with `PYTHONPATH` set to it. Swagger UI and
   ReDoc are fetched as pinned npm packages and served locally
   (`BEQ_SERVICE_STATIC`), so the try-it-out page works without internet access.
-  The runtime stage has no uv.
+  A `web` stage (Node 24, native platform like the docs assets) builds the browser app from `src/main/web` with
+  `npm ci && npm run build`; its `dist/` is `/app/ui`, served at `/ui` (`BEQ_SERVICE_UI`, `--ui-dir`;
+  [web-review.md](web-review.md) §4). The runtime stage has no uv and no Node.
 - **Dependency groups:** the desktop's Qt packages are the default `desktop`
   group in `pyproject.toml`, so a normal `uv sync` installs the app, while the
   image installs only the runtime list and the `service` group.
@@ -472,7 +474,8 @@ the target's environment override.
   profile with a filesystem source over a short synthetic six-channel WAV and
   a stub HTTP designer on the host, waits for `/ready`, submits a run of that
   title through `design`, polls the job to `succeeded` and asserts a queue
-  entry exists. It runs in `.github/workflows/test.yaml` on every push (Linux
+  entry exists. It also checks the image serves the browser app at `/ui/` (the page and the script it loads) and
+  reads the designed title's `GET /v1/titles/{id}/review`. It runs in `.github/workflows/test.yaml` on every push (Linux
   only) and in `create-image.yaml` before publishing.
   `test_pipeline_service_docker.py` loads `docker/smoke.py` by path and runs
   the same fixture through the real local service, ffmpeg and HTTP designer
