@@ -1,0 +1,133 @@
+# Web review — a browser front end for the pipeline service
+
+**Document type:** Design, not built. Agreed on 2026-10-10; the chunks are W1–W6 in [TODO](TODO.md), each "Not started"
+until its commit lands. When a chunk lands, move what it built into [pipeline-service.md](pipeline-service.md) (or a
+reference of its own) and shrink this file; delete it when W6 lands.
+
+## 1. Goal
+
+The pipeline service (`pipeline/service/`, [pipeline-service.md](pipeline-service.md)) gets a browser app, served by the
+service itself, that gives a basic view of what the desktop work list and title page do:
+
+1. **Workload and status** -- the index counts by what each title needs, the sources and their last scan, the designer's
+   reachability, the schedule, the current job and the queue, followed live.
+2. **Trigger jobs** -- scan; run a filtered selection through a stage, previewed first with `POST /v1/plan`; cancel; run or
+   pause the schedule.
+3. **Review** -- for one title: its candidates (and the designs the designer rejected), commentary, the chart of the
+   measured curves before and after the highlighted candidate, and **Accept** / **Reject** / **Skip** (go to the next
+   waiting title).
+4. **Publish and commit** accepted titles, through the existing run job `through: publish | commit`, which stays refused
+   unless `service.yaml` has `allow_repository_writes: true` (pipeline-service.md §6.4).
+
+Out of scope (stays in the desktop app): editing metadata, TMDB reload and artwork, Revise/Reopen, opening projects,
+editing the profile, Review Folder. A title whose metadata is incomplete shows what is missing and Accept is disabled
+with that reason, as on the title page.
+
+This reverses pipeline-service.md §1's "reviewing titles over HTTP ... stays in the app" and the initial release
+milestone's "results reviewed from the desktop app". Both texts change when W2 lands.
+
+## 2. Decision rules are shared, not copied
+
+Today the rules for a decision live in the Qt mixin `model/worklist_title_decide.py` (`TitleDecisions._decide`) and the
+pure helpers in `model/worklist_title_text.py` (`decision_blocked`, `ACCEPTABLE`, `REJECTABLE`, `STATUS_WORDS`,
+`chart_data`). **W1** moves the parts that do not touch widgets into a Qt-free `pipeline/library/decide.py`, which the
+title page and the service both call:
+
+- `ACCEPTABLE`, `REJECTABLE`, `STATUS_WORDS`, `decision_blocked()` move there unchanged; `model.worklist_title_text`
+  re-exports them so existing imports keep working.
+- `offered_digest(entry)` -- a stable hash of `entry.offered` (and the entry's `fs`), what the page "saw".
+- `decide(queue_dir, title_id, decision, *, picked, seen_digest, row, running, meta_defaults, override_rejection)` does
+  the write half of `_decide`: read the entry again; refuse if its status is not in `ACCEPTABLE`/`REJECTABLE`, its
+  digest differs from `seen_digest`, `picked` is out of range, `decision_blocked()` says so, the metadata is incomplete
+  (accept), or `picked` is a rejected design and `override_rejection` is false; otherwise `update_entry()`. It returns
+  the written entry or raises `DecisionRefused(reason, kind)`, where `kind` is `changed | blocked | override | invalid`
+  (the service maps them to 409/409/409/422).
+- `chart_series(entry, picked)` returns plain arrays: `[{name, kind: average|peak, filtered: bool, x: [...], y: [...]}]`,
+  computed as `chart_data` does today (`chart_data` becomes a thin wrapper that adds the colours and line styles the
+  desktop chart wants).
+
+`pipeline/library/decide.py` joins `test_qt_free_modules.py`'s list. The gui suite (`gui/test_worklist_title.py`,
+`test_worklist_metadata*.py`) passes unchanged; new unit tests cover each refusal of `decide()` without Qt.
+
+## 3. HTTP additions (W2) — API 1.3.0
+
+| Method & path | Body → response | Notes |
+|---|---|---|
+| `GET /v1/titles/{id}/review` | → `Review` | 404 no title; 409 "Not designed" when there is no queue entry |
+| `GET /v1/titles/{id}/chart` | query `candidate` (int, optional) → `Chart` | the series of §2; `candidate` absent: unfiltered only |
+| `POST /v1/titles/{id}/decision` | `Decision` → `Review` | 409 `Problem` naming why (changed/blocked/override), 422 invalid |
+| `GET /v1/review/next` | query `after` (title id), plus the `TitleFilter` fields → `NextTitle` | the next title waiting for a decision after `after`, wrapping round (`next_waiting_id`); 204 if none |
+
+- `Review`: `id`, `title`, `year`, `status` (`QueueStatus` enum), `status_text`, `digest` (`offered_digest`),
+  `candidates[]` and `rejected[]` (`CandidateView`: `index` into `offered`, `method`, `confidence`, `mv_adjust_db`,
+  `gain_reduction_db`, `residual_db`, `residual_band_hz`, `commentary`, `rejection_reasons`, `filters` as the
+  `.filter` JSON), `chosen_index`, `declined` (`reason`, `message`), `metadata` (the entry's `meta`), `metadata_problems`,
+  `blocked` (`{accept, reject}`: `decision_blocked()`'s words, empty when offered), `playback` (bass management text),
+  `designer`, `designer_build`, and the index row's `needs`/`detail`.
+- `Decision`: `decision` (`accept | reject`), `candidate` (required for accept), `digest`, `override_rejection`
+  (default false). `extra='forbid'`.
+- **In flight:** `running` for `decide()` is true when the service's current run job has started the title and not
+  finished it (`JobControl` keeps that set from `on_progress`/`on_event`), or when another process holds the work-directory
+  lease and the row needs extract or design. A decision on a title in flight is a 409.
+- **Authority:** a per-title decision needs only the bearer token. It is a person's choice made in front of the chart,
+  unlike the unattended bulk accept, which stays behind `allow_repository_writes`. It writes only the queue entry, which
+  the index already treats as the truth for review.
+- **Capabilities:** `ServiceStatus` gains `repository_writes: bool` and `commit_configured: bool`, so the app can
+  disable Publish/Commit with the reason up front instead of waiting for a 403.
+- The committed `docs/schema/service.openapi.json` is regenerated; `info.version` becomes 1.3.0.
+
+## 4. The app (W3–W5)
+
+- **Where:** `src/main/web/` -- React 18, TypeScript, Vite; React Router; TanStack Query for fetching and cache; uPlot for
+  the chart (log-frequency x axis, a small canvas library). The API types are generated from
+  `docs/schema/service.openapi.json` with `openapi-typescript` into `src/main/web/src/api/schema.d.ts` (committed); a
+  check in the web CI job regenerates it and fails on any difference, so the app and the contract cannot drift.
+- **Served:** the service mounts the built `dist/` at `/ui` (`--ui-dir` / `BEQ_SERVICE_UI`; absent, `/ui` is a 404 that
+  says how to build it) with an SPA fallback to `index.html`, and `/` redirects to `/ui/`. The page and its assets need no
+  token; every `/v1` call does.
+- **Auth in the browser:** a sign-in screen takes the token and keeps it in `sessionStorage` ("remember on this device"
+  puts it in `localStorage`). A 401 returns to sign-in. Live events use `fetch` with a streamed body reader (EventSource
+  cannot send the `Authorization` header), resuming with `Last-Event-ID`.
+- **Screens:**
+  - *Status* (W4): the pipeline strip (count per `needs`), sources, designer, schedule (Run now, Pause/Resume), current
+    job with live progress (title, stage, ffmpeg percent), queue length; polls `/v1/status` every 10 s and follows the
+    current job's events.
+  - *Jobs* (W4): history newest first with state filter; a job's page shows its request, result counts, failures, and
+    its log (live while running); Cancel. *New job*: scan, or run with a filter form (needs, source, kind, year, search)
+    and `through`, showing `/v1/plan`'s preview before submitting.
+  - *Titles* (W5): the filter form, a paged table (title, year, needs, detail, confidence, candidates, flags) linked to
+    review.
+  - *Review* (W5): header (title, year, status, position in the filtered list), candidate list (rejected designs
+    separately, with their reasons), commentary, chart for the highlighted candidate, metadata problems, and Accept /
+    Reject / Skip with keyboard shortcuts A / R / S. Accepting a rejected design asks first and sends
+    `override_rejection`. A 409 shows its reason and reloads the title. After a decision it goes to `/v1/review/next`.
+    *Publish accepted* / *Commit published* buttons submit run jobs through publish/commit for the filter's accepted
+    titles, disabled with the reason when `repository_writes` or `commit_configured` is false.
+- **Tests:** Vitest + React Testing Library + MSW against fixtures shaped by the generated types: each screen's
+  rendering, the decision flow including 409 and override, the token flow and the event-stream parser. The Python side
+  tests the mount, fallback and redirect (`test_pipeline_service_ui.py`).
+
+## 5. Build and delivery (W3, W6)
+
+- `src/main/web/package.json` scripts: `dev` (Vite, proxying `/v1` to a local service), `build`, `test`, `typecheck`,
+  `lint`, `gen:api`. `package-lock.json` is committed; `dist/` and `node_modules/` are ignored.
+- **CI:** a `web` job in `.github/workflows/test.yaml` (Node 22): `npm ci`, generated-types check, typecheck, lint, test,
+  build.
+- **Image:** the Dockerfile's native-platform node stage gains a `web` stage that runs `npm ci && npm run build`; the
+  runtime copies `dist/` to `/app/ui` and sets `BEQ_SERVICE_UI=/app/ui`. `docker/smoke.py` also fetches `/ui/` and checks
+  it is the app's HTML.
+- **Desktop:** unaffected; the PyInstaller bundle carries neither the web source nor the service.
+- **Docs (W6):** `docs/library/service.md` gains a "Review in a browser" section; pipeline-service.md takes §3–§5 of this
+  file as delivered behavior, its §12 gains decision 9 (review over HTTP, per-title with the token), and the milestone
+  text in TODO is corrected.
+
+## 6. Chunks
+
+| ID | What | Done when |
+|---|---|---|
+| W1 | `pipeline/library/decide.py`; title page uses it | gui suite unchanged and green; `decide()` refusal tests; Qt-free list updated |
+| W2 | Review/chart/decision/next routes, in-flight set, status capabilities, API 1.3.0 | route tests for each 2xx/4xx incl. a race with a redesign; OpenAPI doc regenerated |
+| W3 | `src/main/web` scaffold, generated types, sign-in, API client and event stream, `/ui` mount, CI job, Docker stage | app builds in CI and the image; `/ui/` served; client and mount tests |
+| W4 | Status and Jobs screens, new job with plan preview, cancel, schedule controls | component tests; manual check against a local service |
+| W5 | Titles and Review screens, decisions, publish/commit buttons | component tests incl. 409 and override; manual review of a fixture queue |
+| W6 | User guide, design references moved to delivered, smoke test checks `/ui/` | docs reviewed; smoke passes in CI |
