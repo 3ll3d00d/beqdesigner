@@ -3,23 +3,21 @@ Deciding a title on the title page -- design/archive/library-sync/workflow-rewor
 **Reject**, the rule for which title is "next", and what is checked before a decision is written. A mixin of
 `model.worklist_title.TitlePage` (which owns the widgets, the entry and the signals), split out of it so each file stays readable.
 
-The queue entry is the truth for a decision: it is read again before it is written, and nothing is written if its status no longer
-allows the decision, its candidates are not the ones on screen (it was redesigned), or -- for an accept -- its metadata is incomplete.
+The queue entry is the truth for a decision: `pipeline.library.decide.decide()` (shared with the pipeline service) reads it again
+before it is written, and nothing is written if its status no longer allows the decision, its candidates are not the ones on screen
+(it was redesigned), or -- for an accept -- its metadata is incomplete.
 Accepting a design the designer rejected (contract 1.1) is an override: the page's `confirm_override` asks first, with the reasons.
 '''
 import logging
 from typing import Mapping
 
-from model.worklist_title_text import ACCEPTABLE, REJECTABLE, decision_blocked, next_waiting_id, override_question, \
-    sent_back
+from model.worklist_title_text import override_question
+from pipeline.library.decide import DECISION_FROM, DECISION_STATUS, DecisionRefused, decide, decision_blocked, \
+    next_waiting_id, offered_digest, sent_back  # noqa: F401 (DECISION_FROM: re-exported for the title page)
 from pipeline.library.index import TitleRow
-from pipeline.library.status import metadata_problems
-from pipeline.review import read_entry, update_entry
+from pipeline.review import read_entry
 
 logger = logging.getLogger('worklist')
-
-DECISION_STATUS = {'accept': 'accepted', 'reject': 'rejected'}
-DECISION_FROM = {'accept': ACCEPTABLE, 'reject': REJECTABLE}
 
 
 class TitleDecisions:
@@ -110,19 +108,16 @@ class TitleDecisions:
             self._say('Not accepted: the designer rejected this design, and it was not overridden.')
             return False
         try:
-            fresh = read_entry(queue_dir, title_id)
-            if fresh.status not in DECISION_FROM[decision]:
-                return self._changed(f'Not changed: this title is {fresh.status} now.')
-            if fresh.offered != shown.offered or (decision == 'accept' and not 0 <= picked < len(fresh.offered)):
-                return self._changed(f'Not {word}: the design of this title changed while it was open. Look at it again.')
-            if decision == 'accept':
-                problems = metadata_problems(fresh.meta, self._defaults())
-                if problems:    # somebody else's edit: the page is showing what was saved before it
-                    return self._changed('Not accepted: the metadata is not complete now: ' + '; '.join(problems) + '.')
-            fields = {'status': word}
-            if decision == 'accept':
-                fields['chosen_candidate_index'] = picked
-            update_entry(queue_dir, title_id, **fields)
+            # the override was asked above, so the write half (pipeline.library.decide) is told it was given
+            decide(queue_dir, title_id, decision, seen_digest=offered_digest(shown), picked=picked,
+                   row=self._rows().get(title_id), running=title_id in self._running(),
+                   revised=self._revised_here.get(title_id, ''), redo=self._hooks.redo, meta_defaults=self._defaults(),
+                   override_rejection=True)
+        except DecisionRefused as refused:
+            if refused.kind == 'blocked':
+                self._say(refused.reason, problem=True)
+                return False
+            return self._changed(refused.reason)
         except Exception as error:   # a full disk, a permission, a file damaged since it was read
             logger.exception('Could not %s %s', decision, title_id)
             self._say(f'Not saved: {type(error).__name__}: {error}', problem=True)

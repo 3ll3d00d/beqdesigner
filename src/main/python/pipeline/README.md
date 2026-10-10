@@ -65,6 +65,8 @@ pipeline/
         drift.py                           # accepted/published titles designed under other settings (the work list's banner)
         setup.py                           # a profile file (and options over it) to a run: shared by the CLI and the service
         year.py                            # the year language of ignore rules, --year and the service's filter
+        decide.py, review_chart.py         # a person's Accept/Reject on a queue entry, and the curves it is judged on:
+                                           #   shared by the title page and the service's review routes
     service/                       # the pipeline as a long-running service (design/pipeline-service.md; HTTP is chunk S3)
         config.py, context.py        # service.yaml and the environment's secrets; a job's profile, read again per job
         jobs.py, work.py              # one job at a time, cancel, events, history; what scan/run/accept jobs do
@@ -78,7 +80,8 @@ model/batch.py                # GUI: Batch Extract & Design dialog -- search/ext
 model/worklist_review.py      # GUI: the Review folder window (Tools > Review Folder...) -- the work list's title page
                               #   over a queue directory; publishes through publish_library()/commit_library()
 model/worklist_title.py       # GUI: the title page it (and the Library Work List) review with (+ worklist_title_actions.py,
-                              #   worklist_title_decide.py: its projects/revise and its Accept/Skip/Reject)
+                              #   worklist_title_decide.py: its projects/revise and its Accept/Skip/Reject,
+                              #   which writes through pipeline/library/decide.py)
 model/worklist_folder_state.py  # GUI-free: the folder window's rows, git state of published titles, publish split
 ui/preferences.py, ui/batch.py   # the corresponding dialogs
 ```

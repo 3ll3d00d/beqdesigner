@@ -27,7 +27,7 @@ from test_worklist_revise import _Ask
 from test_worklist_title import NOW, SOURCES, _designer, _prefs, _queue, _row  # noqa: F401
 from worklist_fixture import make_index
 from worklist_project_fixture import edit_project, write_projects
-from worklist_title_fixture import write_entry
+from review_entry_fixture import write_entry
 
 
 _TIMERS = []

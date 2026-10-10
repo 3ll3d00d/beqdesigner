@@ -32,7 +32,7 @@ from test_pipeline_library_index import FakeSource, _entry as _real_entry, _extr
 from test_worklist_real_pipeline import _answer, _needs as _needs_of, _open as _open_scanned, _prefs as _real_prefs, \
     _profile_file, _world as _published_world
 from test_worklist_title import REVIEWABLE, _click, _designer, _focus, _open, _prefs, _queue, _rows, _status, _window  # noqa: F401
-from worklist_title_fixture import complete_meta, write_entry
+from review_entry_fixture import complete_meta, write_entry
 
 INCOMPLETE = {'title': 'Alien'}    # what a library run leaves: no year, no audio types
 

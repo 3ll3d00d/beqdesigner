@@ -11,7 +11,7 @@ from qtpy.QtCore import Qt
 from model.worklist_title import candidate_text, override_question, state_text
 from pipeline.review import read_entry
 from test_worklist_title import _click, _designer, _open, _queue, _window  # noqa: F401 (a fixture)
-from worklist_title_fixture import rejected_designs, write_entry
+from review_entry_fixture import rejected_designs, write_entry
 
 WITH_REJECTED = [('r-alien', {'rejected': 2}), ('r-arrival', {}), ('r-sicario', {})]
 

@@ -27,7 +27,7 @@ from model.worklist_metadata import REMOVE, _TmdbJob, apply_changes, badge_alarm
 from pipeline.review import publication_meta, read_entry, update_entry
 from test_worklist_metadata import INCOMPLETE, _clear, _found, _on_metadata, _png, _Response, _type, no_modal  # noqa: F401
 from test_worklist_title import REVIEWABLE, _click, _open, _queue, _status, _window  # noqa: F401
-from worklist_title_fixture import complete_meta
+from review_entry_fixture import complete_meta
 
 KEY = 'k3y/with space&sym+bols=1'     # every character a URL has to encode
 
@@ -446,7 +446,7 @@ def test_the_no_entry_sentence_goes_when_the_entry_appears(qtbot, tmp_path):
     page = _open(qtbot, window, 'r-alien')
     assert page.metadata.metadataStatusLabel.text().startswith('This title has no queue entry yet')
 
-    from worklist_title_fixture import write_entry
+    from review_entry_fixture import write_entry
     write_entry(_queue(tmp_path), 'r-alien')
     page.reload()
 

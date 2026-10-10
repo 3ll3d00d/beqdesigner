@@ -1,7 +1,7 @@
 # Web review — a browser front end for the pipeline service
 
-**Document type:** Design, not built. Agreed on 2026-10-10; the chunks are W1–W6 in [TODO](TODO.md), each "Not started"
-until its commit lands. When a chunk lands, move what it built into [pipeline-service.md](pipeline-service.md) (or a
+**Document type:** Design, not built except W1 (built: §2 describes it). Agreed on 2026-10-10; the chunks are W1–W6 in
+[TODO](TODO.md). When a chunk lands, move what it built into [pipeline-service.md](pipeline-service.md) (or a
 reference of its own) and shrink this file; delete it when W6 lands.
 
 ## 1. Goal
@@ -28,26 +28,29 @@ milestone's "results reviewed from the desktop app". Both texts change when W2 l
 
 ## 2. Decision rules are shared, not copied
 
-Today the rules for a decision live in the Qt mixin `model/worklist_title_decide.py` (`TitleDecisions._decide`) and the
-pure helpers in `model/worklist_title_text.py` (`decision_blocked`, `ACCEPTABLE`, `REJECTABLE`, `STATUS_WORDS`,
-`chart_data`). **W1** moves the parts that do not touch widgets into a Qt-free `pipeline/library/decide.py`, which the
-title page and the service both call:
+**Built (W1).** The rules for a decision used to live in the Qt mixin `model/worklist_title_decide.py`
+(`TitleDecisions._decide`) and the pure helpers in `model/worklist_title_text.py`. The parts that do not touch widgets are
+now the Qt-free `pipeline/library/decide.py` and `pipeline/library/review_chart.py`, which the title page calls and the
+service will:
 
-- `ACCEPTABLE`, `REJECTABLE`, `STATUS_WORDS`, `decision_blocked()` move there unchanged; `model.worklist_title_text`
-  re-exports them so existing imports keep working.
+- `ACCEPTABLE`, `REJECTABLE`, `STATUS_WORDS`, `next_waiting_id()`, `sent_back()`, `REDO_IN_*` and `decision_blocked()`
+  moved there unchanged, except that `decision_blocked()` takes `run_hint` (default "Run it from the work list.") so the
+  service can say where a run is started; `model.worklist_title_text` re-exports them.
 - `offered_digest(entry)` -- a stable hash of `entry.offered` (and the entry's `fs`), what the page "saw".
-- `decide(queue_dir, title_id, decision, *, picked, seen_digest, row, running, meta_defaults, override_rejection)` does
-  the write half of `_decide`: read the entry again; refuse if its status is not in `ACCEPTABLE`/`REJECTABLE`, its
+- `decide(queue_dir, title_id, decision, *, seen_digest, picked, row, running, revised, redo, run_hint, meta_defaults,
+  override_rejection)` is the write half of `_decide`: read the entry again; refuse if its status is not in `ACCEPTABLE`/`REJECTABLE`, its
   digest differs from `seen_digest`, `picked` is out of range, `decision_blocked()` says so, the metadata is incomplete
   (accept), or `picked` is a rejected design and `override_rejection` is false; otherwise `update_entry()`. It returns
   the written entry or raises `DecisionRefused(reason, kind)`, where `kind` is `changed | blocked | override | invalid`
   (the service maps them to 409/409/409/422).
-- `chart_series(entry, picked)` returns plain arrays: `[{name, kind: average|peak, filtered: bool, x: [...], y: [...]}]`,
-  computed as `chart_data` does today (`chart_data` becomes a thin wrapper that adds the colours and line styles the
-  desktop chart wants).
+  The title page still asks its own questions first (saving an edit, the override confirmation, its page-level
+  `decision_blocked`), then calls `decide(..., override_rejection=True)`.
+- `review_chart.chart_curves(entry, picked)` returns `ChartCurve(kind: average|peak, filtered, data: MagnitudeData)`,
+  named for a legend; `chart_data` colours them for the desktop, and the service (W2) sends `x`/`y` as arrays.
 
-`pipeline/library/decide.py` joins `test_qt_free_modules.py`'s list. The gui suite (`gui/test_worklist_title.py`,
-`test_worklist_metadata*.py`) passes unchanged; new unit tests cover each refusal of `decide()` without Qt.
+`test_qt_free_modules.py` finds both modules on disk, and now names `model.iir`, `model.xy` and `model.codec`, which
+`chart_curves` imports lazily. `test_pipeline_library_decide.py` covers each refusal of `decide()` and the curves without
+Qt; the queue-entry fixture moved from `gui/` to `src/test/python/review_entry_fixture.py` so it can be shared.
 
 ## 3. HTTP additions (W2) — API 1.3.0
 
@@ -125,7 +128,7 @@ title page and the service both call:
 
 | ID | What | Done when |
 |---|---|---|
-| W1 | `pipeline/library/decide.py`; title page uses it | gui suite unchanged and green; `decide()` refusal tests; Qt-free list updated |
+| W1 | **Built.** `pipeline/library/decide.py`; title page uses it | gui suite unchanged and green; `decide()` refusal tests; Qt-free list updated |
 | W2 | Review/chart/decision/next routes, in-flight set, status capabilities, API 1.3.0 | route tests for each 2xx/4xx incl. a race with a redesign; OpenAPI doc regenerated |
 | W3 | `src/main/web` scaffold, generated types, sign-in, API client and event stream, `/ui` mount, CI job, Docker stage | app builds in CI and the image; `/ui/` served; client and mount tests |
 | W4 | Status and Jobs screens, new job with plan preview, cancel, schedule controls | component tests; manual check against a local service |

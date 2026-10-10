@@ -17,7 +17,7 @@ from model.worklist_projects import ProjectState, badge, project_states, read_st
 from test_worklist_title import REVIEWABLE, _designer, _open, _prefs, _rows, _window, SOURCES, NOW  # noqa: F401
 from worklist_fixture import make_index
 from worklist_project_fixture import corrupt_project, edit_project, resave_unchanged, write_projects
-from worklist_title_fixture import write_entry
+from review_entry_fixture import write_entry
 
 
 def _work(tmp_path):

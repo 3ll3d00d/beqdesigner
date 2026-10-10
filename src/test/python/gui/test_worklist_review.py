@@ -22,7 +22,7 @@ from test_pipeline_library_commit import _queue_entry, _track, repos  # noqa: F4
 from test_worklist_real_pipeline import _profile_file
 from test_worklist_revise import _Ask
 from test_worklist_title import _click, _designer, _focus, _prefs  # noqa: F401
-from worklist_title_fixture import candidates, complete_meta, write_entry
+from review_entry_fixture import candidates, complete_meta, write_entry
 
 
 def _folder(qtbot, tmp_path, entries=(('a-alien', {}), ('b-arrival', {}), ('c-sicario', {})), prefs=None, **kwargs):

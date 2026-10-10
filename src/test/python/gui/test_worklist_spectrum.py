@@ -107,7 +107,7 @@ def test_comparison_uses_saved_project_edits_as_publication_would(tmp_path, edit
     mono, mc = write_projects(tmp_path / 'work', 'r-alien', multichannel=True)
     edit_project(mono if edited_side == 'mono' else mc)
     from test_worklist_title import _prefs
-    from worklist_title_fixture import write_entry
+    from review_entry_fixture import write_entry
     write_entry(str(tmp_path / 'queue'), 'r-alien')
     entry = read_entry(str(tmp_path / 'queue'), 'r-alien')
     request = spectrum.comparison_request(str(tmp_path / 'work'), entry, 1, 'Alien', AnalysisConfig(), _prefs(tmp_path))
@@ -218,7 +218,7 @@ def test_preferences_and_saved_project_changes_invalidate_the_preview(qtbot, tmp
 def test_conflicting_project_edits_refuse_the_comparison_without_changing_either_project(tmp_path):
     from test_pipeline_publish_project import _OTHER_HUMAN_FILTER, _hand_edit_filter
     from test_worklist_title import _prefs
-    from worklist_title_fixture import write_entry
+    from review_entry_fixture import write_entry
     mono, mc = write_projects(tmp_path / 'work', 'r-alien', multichannel=True)
     edit_project(mono)
     _hand_edit_filter(mc, _OTHER_HUMAN_FILTER)
@@ -244,7 +244,7 @@ def test_the_profile_analysis_config_and_missing_setup_are_supported(qtbot, tmp_
 
 def test_preview_cache_is_bounded_and_evicts_the_least_recently_used_image(qtbot, tmp_path, monkeypatch):
     from test_worklist_title import _prefs
-    from worklist_title_fixture import write_entry
+    from review_entry_fixture import write_entry
     _audio(tmp_path, 'r-alien')
     write_entry(str(tmp_path / 'queue'), 'r-alien')
     request = spectrum.comparison_request(str(tmp_path / 'work'), read_entry(str(tmp_path / 'queue'), 'r-alien'),

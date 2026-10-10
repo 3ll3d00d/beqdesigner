@@ -28,7 +28,7 @@ from test_worklist_review import _Answer, _folder, _queue, _repo_window, _status
 from test_worklist_revise import _Ask
 from test_worklist_title import _prefs
 from worklist_project_fixture import edit_project, write_projects
-from worklist_title_fixture import write_entry
+from review_entry_fixture import write_entry
 
 
 def _profile(tmp_path, xml='', images='', name='profile.json', **run):

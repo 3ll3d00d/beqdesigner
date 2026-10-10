@@ -30,7 +30,7 @@ from test_pipeline_library_index import FakeSource, _entry as _real_entry, _extr
 from test_worklist_title import NOW, REVIEWABLE, SOURCES, _click, _designer, _open, _prefs, _queue, _row, _rows, _status  # noqa: F401
 from worklist_fixture import make_index
 from modal import when_modal
-from worklist_title_fixture import write_entry
+from review_entry_fixture import write_entry
 
 
 def _window(qtbot, tmp_path, entries=REVIEWABLE, rows=None, repos_set=None, **kwargs):

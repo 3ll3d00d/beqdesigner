@@ -28,7 +28,7 @@ from pipeline.library.index import LibraryIndex
 from pipeline.review import read_entry, update_entry
 from test_pipeline_library_index import DESIGNER, FakeSource, _entry as _real_entry, _extracted, _item
 from worklist_fixture import make_index, title_row
-from worklist_title_fixture import write_entry
+from review_entry_fixture import write_entry
 
 NOW = 1_800_000_000.0
 DAY = 86400.0
@@ -551,7 +551,7 @@ def test_a_write_that_fails_is_reported_and_leaves_the_page_where_it_is(qtbot, t
     page = _open(qtbot, window, 'r-alien')
     decisions = []
     page.decided.connect(lambda *args: decisions.append(args))
-    monkeypatch.setattr('model.worklist_title_decide.update_entry', lambda *a, **k: (_ for _ in ()).throw(OSError('disk full')))
+    monkeypatch.setattr('pipeline.library.decide.update_entry', lambda *a, **k: (_ for _ in ()).throw(OSError('disk full')))
 
     assert page.accept() is False
 

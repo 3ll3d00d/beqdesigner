@@ -33,6 +33,9 @@ QT_FREE_MODEL = (
     'model.minidsp',
     'model.ffmpeg',
     'model.signal',
+    'model.iir',
+    'model.xy',
+    'model.codec',
 )
 
 _BLOCKED = ('qtpy', 'PyQt6', 'PyQt5', 'PySide6', 'qtawesome', 'pyqtgraph', 'ui')
