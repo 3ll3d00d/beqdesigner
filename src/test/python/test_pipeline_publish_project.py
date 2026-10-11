@@ -445,3 +445,51 @@ def test_pipeline_publish_project_module_has_no_qtpy_import():
             assert not any(n.name.startswith('qtpy') for n in node.names)
         elif isinstance(node, ast.ImportFrom):
             assert node.module is None or not node.module.startswith('qtpy')
+
+
+def test_a_project_written_by_the_service_finds_its_wavs_beside_it_on_the_desktop(tmp_path):
+    '''
+    The service writes a project's signal sources as the paths it sees in its container (/work/<title>/mono.wav); the
+    desktop sees the same directory elsewhere, so opening the project must find each wav beside it or the signals load
+    without their samples and cannot be analysed further.
+    '''
+    import shutil
+    session = Session(AnalysisConfig())
+    service_dir = tmp_path / 'work' / 'Title - audio 1'
+    service_dir.mkdir(parents=True)
+    _write_mono_wav(str(service_dir / 'mono.wav'))
+    _write_multichannel_wav(str(service_dir / 'multichannel.wav'), (1000, 2000, 3000, 4000, 5000, 6000))
+    write_mono_project(session, str(service_dir / 'mono.wav'), _PIPELINE_FILTER, str(service_dir / 'title.mono.beq'))
+    write_multichannel_project(session, str(service_dir / 'multichannel.wav'), _PIPELINE_FILTER, '5.1',
+                               str(service_dir / 'title.multichannel.beq'))
+    desktop_dir = tmp_path / 'media' / 'Title - audio 1'
+    shutil.move(str(service_dir), str(desktop_dir))
+
+    mono_raw = _read_raw(str(desktop_dir / 'title.mono.beq'))
+    mc_raw = _read_raw(str(desktop_dir / 'title.multichannel.beq'))
+    assert mono_raw[0]['metadata']['src'] == str(service_dir / 'mono.wav')
+    assert signalmodel_from_json(mono_raw, session.preferences)[0].signal is None
+
+    mono = signalmodel_from_json(mono_raw, session.preferences, project_dir=str(desktop_dir))[0]
+    assert mono.signal is not None
+    assert mono.signal.metadata['src'] == str(desktop_dir / 'mono.wav')
+    composite = signalmodel_from_json(mc_raw, session.preferences, project_dir=str(desktop_dir))[0]
+    assert all(c.signal is not None for c in composite.channels)
+    assert [c.signal.metadata['channel'] for c in composite.channels] == [1, 2, 3, 4, 5, 6]
+    assert {c.signal.metadata['src'] for c in composite.channels} == {str(desktop_dir / 'multichannel.wav')}
+
+
+def test_resolve_signal_source_prefers_the_recorded_path_then_the_project_dir(tmp_path):
+    from model.codec import resolve_signal_source
+    recorded = tmp_path / 'elsewhere' / 'mono.wav'
+    recorded.parent.mkdir()
+    recorded.write_bytes(b'')
+    beside = tmp_path / 'project' / 'mono.wav'
+    beside.parent.mkdir()
+    beside.write_bytes(b'')
+
+    assert resolve_signal_source(str(recorded), str(beside.parent)) == str(recorded)
+    assert resolve_signal_source('/work/t/mono.wav', str(beside.parent)) == str(beside)
+    assert resolve_signal_source('W:\\films\\t\\mono.wav', str(beside.parent)) == str(beside)
+    assert resolve_signal_source('/work/t/mono.wav', None) is None
+    assert resolve_signal_source('/work/t/other.wav', str(beside.parent)) is None

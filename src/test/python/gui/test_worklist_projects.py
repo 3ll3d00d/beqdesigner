@@ -449,3 +449,22 @@ def test_the_real_main_window_refuses_a_file_that_is_not_a_project_and_the_page_
     assert page.open_project('mono') is False
     assert 'Could not open the mono project' in page.actions_bar.messageLabel.text()
     assert len(main._BeqDesigner__signal_model) == 0
+
+
+def test_the_real_main_window_opens_a_service_written_project_with_its_signal(qtbot, tmp_path, monkeypatch, root_logging):
+    ''' The service records its own container path (/work/...) as the signal's source; the wav beside the project is used. '''
+    import gzip
+    import json
+    import os
+    mono, _ = write_projects(_work(tmp_path), 'r-alien')
+    with gzip.open(mono, 'rb') as f:
+        data = json.loads(f.read().decode('utf-8'))
+    data[0]['metadata']['src'] = '/work/r-alien/mono.wav'
+    with gzip.open(mono, 'wb') as f:
+        f.write(json.dumps(data).encode('utf-8'))
+    main, window = _main_window(qtbot, tmp_path, monkeypatch, REVIEWABLE)
+
+    assert main.open_project_file(mono) is True
+
+    signal = main._BeqDesigner__signal_model[0].signal
+    assert signal is not None and signal.metadata['src'] == os.path.join(os.path.dirname(mono), 'mono.wav')

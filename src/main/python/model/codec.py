@@ -68,13 +68,15 @@ def signaldata_to_json(signal):
     return out
 
 
-def signalmodel_from_json(input, preferences):
+def signalmodel_from_json(input, preferences, project_dir=None):
     '''
     Reassembles all signals from the json including master/slave relationships.
     :param input: the input, a list of json dicts.
+    :param project_dir: the directory of the project file, searched for a signal's source file when it is not found at the
+        path recorded (see resolve_signal_source()).
     :return: the signals
     '''
-    signals = [signaldata_from_json(x, preferences) for x in input]
+    signals = [signaldata_from_json(x, preferences, project_dir=project_dir) for x in input]
     from model.signal import SingleChannelSignalData, BassManagedSignalData
     single_signals = [x for x in signals if isinstance(x, SingleChannelSignalData)]
     bm_channels = [y for x in signals if isinstance(x, BassManagedSignalData) for y in x.channels]
@@ -105,17 +107,38 @@ def __link_master_slave(channels, signal_json):
         logger.error(f"Bad json encountered, master {master_name} not decoded")
 
 
-def signaldata_from_json(o, preferences):
+def resolve_signal_source(src, project_dir=None):
+    '''
+    Where a signal's source file is: the path recorded if it exists, else the file of the same name beside the project.
+    A project the pipeline service wrote records the path the service saw (e.g. /work/<title>/mono.wav inside its
+    container), which is not where the desktop sees the same directory; the wav always sits beside the project there.
+    :param src: the path recorded in the signal's metadata.
+    :param project_dir: the directory of the project file, if known.
+    :return: the path to read, or None if neither exists.
+    '''
+    if src and os.path.isfile(src):
+        return src
+    if src and project_dir:
+        # the recorded path may come from another OS, so split on either separator
+        candidate = os.path.join(project_dir, src.replace('\\', '/').rsplit('/', 1)[-1])
+        if os.path.isfile(candidate):
+            return candidate
+    return None
+
+
+def signaldata_from_json(o, preferences, project_dir=None):
     '''
     Converts the given dict to a SignalData if it is compatible.
     :param o: the dict (from json).
+    :param project_dir: the directory of the project file, searched for the signal's source file when it is not found at
+        the path recorded.
     :return: the SignalData (or an error)
     '''
     from model.signal import SingleChannelSignalData, BassManagedSignalData
     if '_type' not in o:
         raise ValueError(f"{o} is not SignalData")
     elif o['_type'] == BassManagedSignalData.__name__:
-        channels = [signaldata_from_json(c, preferences) for c in o['channels']]
+        channels = [signaldata_from_json(c, preferences, project_dir=project_dir) for c in o['channels']]
         lpf_fs = float(o['bm']['lpf_fs'])
         lpf_position = o['bm']['lpf_position']
         offset = float(o['offset'])
@@ -146,10 +169,13 @@ def signaldata_from_json(o, preferences):
         signal = None
         if metadata is not None:
             try:
-                if os.path.isfile(metadata['src']):
+                src = resolve_signal_source(metadata['src'], project_dir)
+                if src is not None:
                     from model.signal import readWav
-                    signal = readWav(o['name'], preferences, input_file=metadata['src'], channel=metadata['channel'],
+                    signal = readWav(o['name'], preferences, input_file=src, channel=metadata['channel'],
                                      start=metadata['start'], end=metadata['end'], target_fs=o['fs'], offset=offset)
+                else:
+                    logger.warning(f"Signal {o['name']} source not found at {metadata['src']} or beside the project")
             except:
                 logger.exception(f"Unable to load signal from {metadata['src']}")
         if 'duration_seconds' in o:

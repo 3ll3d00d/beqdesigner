@@ -539,13 +539,15 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
 
         def parser(file_name):
             with gzip.open(file_name, 'r') as infile:
-                return json.loads(infile.read().decode('utf-8'))
+                return file_name, json.loads(infile.read().decode('utf-8'))
 
-        input = self.__load('*.signal', 'Load Signal', parser)
-        if input is not None:
+        loaded = self.__load('*.signal', 'Load Signal', parser)
+        if loaded is not None:
+            file_name, input = loaded
             with (wait_cursor()):
                 from model.codec import signaldata_from_json
-                self.__signal_model.add(signaldata_from_json(input, self.preferences))
+                self.__signal_model.add(signaldata_from_json(input, self.preferences,
+                                                             project_dir=os.path.dirname(file_name)))
 
     def on_signal_selected(self):
         '''
@@ -1023,14 +1025,16 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
 
         def parser(file_name):
             with gzip.open(file_name, 'r') as infile:
-                return json.loads(infile.read().decode('utf-8'))
+                return file_name, json.loads(infile.read().decode('utf-8'))
 
-        input = self.__load('*.beq', 'Load Project', parser)
-        if input is not None:
+        loaded = self.__load('*.beq', 'Load Project', parser)
+        if loaded is not None:
+            file_name, input = loaded
             self.__project_path = self.__project_signals = None
             with (wait_cursor()):
                 from model.codec import signalmodel_from_json
-                self.__signal_model.replace(signalmodel_from_json(input, self.preferences))
+                self.__signal_model.replace(signalmodel_from_json(input, self.preferences,
+                                                                  project_dir=os.path.dirname(file_name)))
                 self.__magnitude_model.redraw()
 
     def __signals_layout(self):
@@ -1073,7 +1077,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
                 return False
         with wait_cursor():
             from model.codec import signalmodel_from_json
-            self.__signal_model.replace(signalmodel_from_json(data, self.preferences))
+            self.__signal_model.replace(signalmodel_from_json(data, self.preferences,
+                                                              project_dir=os.path.dirname(file_name)))
             self.__magnitude_model.redraw()
         self.__project_path, self.__project_signals = file_name, self.__signals_layout()
         self.statusbar.showMessage(f"Loaded {file_name}: edit the filter, then Save Project to keep the change", 10000)
