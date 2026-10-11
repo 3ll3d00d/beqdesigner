@@ -642,7 +642,8 @@ def test_publish_reviewed_queue_uses_a_saved_bass_managed_project_edit(tmp_path)
     mc_project = os.path.join(project_dir, f'{entry_id}.multichannel.beq')
     mono_project = os.path.join(project_dir, f'{entry_id}.mono.beq')
     with gzip.open(mc_project, 'rb') as f:
-        composite = signalmodel_from_json(json.loads(f.read()), Session(AnalysisConfig()).preferences)[0]
+        composite = signalmodel_from_json(json.loads(f.read()), Session(AnalysisConfig()).preferences,
+                                          project_dir=project_dir)[0]
     edited = CompleteFilter(fs=1000, filters=[PeakingEQ(1000, 55.0, 1.4, -6.0)])
     composite.channels[0].filter = edited
     with gzip.open(mc_project, 'wb') as f:

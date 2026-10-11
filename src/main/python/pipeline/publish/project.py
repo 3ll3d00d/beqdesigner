@@ -18,7 +18,7 @@ import os
 from dataclasses import dataclass
 from typing import List, Optional, Sequence, Tuple
 
-from model.codec import bassmanagedsignaldata_to_json, signaldata_to_json
+from model.codec import bassmanagedsignaldata_to_json, project_relative_source, signaldata_to_json
 from model.iir import CompleteFilter
 from model.preferences import BASS_MANAGEMENT_LPF_FS, BASS_MANAGEMENT_LPF_POSITION
 from model.signal import BassManagedSignalData, SingleChannelSignalData
@@ -38,6 +38,18 @@ def _master_json(project: dict) -> dict:
     return project['channels'][0] if project['_type'] == 'BassManagedSignalData' else project
 
 
+def _relative_sources(output: list, project_dir: str) -> None:
+    '''
+    Records each signal's source wav relative to the project (model.codec.PROJECT_DIR_TOKEN) when it sits beside it, as
+    the extraction's always do: the service sees the directory at its container path, the desktop somewhere else.
+    '''
+    for signal in output:
+        for channel in signal.get('channels', [signal]):
+            metadata = channel.get('metadata')
+            if metadata is not None:
+                metadata['src'] = project_relative_source(metadata.get('src'), project_dir)
+
+
 def write_project(path: str, signals: Sequence[SingleChannelSignalData | BassManagedSignalData],
                   filter_hash: Optional[str] = None) -> None:
     '''
@@ -53,6 +65,7 @@ def write_project(path: str, signals: Sequence[SingleChannelSignalData | BassMan
     import json
     output = [bassmanagedsignaldata_to_json(s) if isinstance(s, BassManagedSignalData) else signaldata_to_json(s)
               for s in signals]
+    _relative_sources(output, os.path.dirname(os.path.abspath(path)))
     if filter_hash is not None and output:
         _master_json(output[0])['pipeline_filter_hash'] = filter_hash
     os.makedirs(os.path.dirname(path) or '.', exist_ok=True)

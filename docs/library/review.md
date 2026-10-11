@@ -71,7 +71,7 @@ Things worth knowing:
 
 ### Projects
 
-Extracting a title writes a **mono project** (and a **multichannel project**, if you [keep the multichannel extraction](setup.md#locations)) into the title's folder in the work directory, as `<id>.mono.beq` and `<id>.multichannel.beq`, with no filter yet, so you can open the title before it is designed. Designing it then puts the designer's top pick in them, unless you have saved a project of your own in between (that is kept). They are ordinary [project files](../ui/load_save.md), the same as *File > Save Project* writes.
+Extracting a title writes a **mono project** (and a **multichannel project**, if you [keep the multichannel extraction](setup.md#locations)) into the title's folder in the work directory, as `<id>.mono.beq` and `<id>.multichannel.beq`, with no filter yet, so you can open the title before it is designed. Designing it then puts the designer's top pick in them, unless you have saved a project of your own in between (that is kept). They are ordinary [project files](../ui/load_save.md), the same as *File > Save Project* writes. A project refers to the audio beside it in the same folder rather than by full path, so it opens with its signals wherever that folder is seen from: on the desktop, a work directory the pipeline service wrote to under a different path (such as `/work` in its container) works too.
 
 New multichannel projects group the linked channels in a bass-managed track, so the main window can calculate their sum. The project uses the bass-management low-pass settings in Preferences (or the app defaults for a headless library run). Older multichannel projects still open and publish.
 

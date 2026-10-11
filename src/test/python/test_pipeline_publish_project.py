@@ -116,7 +116,7 @@ def test_write_multichannel_project_round_trips_the_sum_links_and_filter(tmp_pat
     write_multichannel_project(session, wav_path, _PIPELINE_FILTER, '5.1', out_path)
 
     raw = _read_raw(out_path)
-    signals = signalmodel_from_json(raw, session.preferences)
+    signals = signalmodel_from_json(raw, session.preferences, project_dir=str(tmp_path))
     assert len(signals) == 1
     composite = signals[0]
     assert isinstance(composite, BassManagedSignalData)
@@ -164,7 +164,7 @@ def test_app_resave_of_bass_managed_project_keeps_the_edit_and_blocks_overwrite(
     write_mono_project(session, mono_wav, _PIPELINE_FILTER, mono_out)
     write_multichannel_project(session, mc_wav, _PIPELINE_FILTER, '5.1', mc_out)
 
-    composite = signalmodel_from_json(_read_raw(mc_out), session.preferences)[0]
+    composite = signalmodel_from_json(_read_raw(mc_out), session.preferences, project_dir=str(tmp_path))[0]
     composite.channels[0].filter = _HUMAN_FILTER
     _write_raw(mc_out, [bassmanagedsignaldata_to_json(composite)])  # the app's project serializer
     saved = open(mc_out, 'rb').read()
@@ -447,7 +447,7 @@ def test_pipeline_publish_project_module_has_no_qtpy_import():
             assert node.module is None or not node.module.startswith('qtpy')
 
 
-def test_a_project_written_by_the_service_finds_its_wavs_beside_it_on_the_desktop(tmp_path):
+def test_a_project_records_its_wavs_relative_to_itself_so_the_desktop_finds_them(tmp_path):
     '''
     The service writes a project's signal sources as the paths it sees in its container (/work/<title>/mono.wav); the
     desktop sees the same directory elsewhere, so opening the project must find each wav beside it or the signals load
@@ -467,7 +467,8 @@ def test_a_project_written_by_the_service_finds_its_wavs_beside_it_on_the_deskto
 
     mono_raw = _read_raw(str(desktop_dir / 'title.mono.beq'))
     mc_raw = _read_raw(str(desktop_dir / 'title.multichannel.beq'))
-    assert mono_raw[0]['metadata']['src'] == str(service_dir / 'mono.wav')
+    assert mono_raw[0]['metadata']['src'] == '${PROJECT_DIR}/mono.wav'
+    assert {c['metadata']['src'] for c in mc_raw[0]['channels']} == {'${PROJECT_DIR}/multichannel.wav'}
     assert signalmodel_from_json(mono_raw, session.preferences)[0].signal is None
 
     mono = signalmodel_from_json(mono_raw, session.preferences, project_dir=str(desktop_dir))[0]
@@ -477,6 +478,32 @@ def test_a_project_written_by_the_service_finds_its_wavs_beside_it_on_the_deskto
     assert all(c.signal is not None for c in composite.channels)
     assert [c.signal.metadata['channel'] for c in composite.channels] == [1, 2, 3, 4, 5, 6]
     assert {c.signal.metadata['src'] for c in composite.channels} == {str(desktop_dir / 'multichannel.wav')}
+
+
+def test_a_project_written_before_the_token_still_finds_its_wavs_beside_it(tmp_path):
+    ''' Projects the service already wrote record its container path (/work/<title>/mono.wav), not the token. '''
+    session = Session(AnalysisConfig())
+    _write_mono_wav(str(tmp_path / 'mono.wav'))
+    out_path = str(tmp_path / 'title.mono.beq')
+    write_mono_project(session, str(tmp_path / 'mono.wav'), _PIPELINE_FILTER, out_path)
+    raw = _read_raw(out_path)
+    raw[0]['metadata']['src'] = '/work/title/mono.wav'
+
+    assert signalmodel_from_json(raw, session.preferences)[0].signal is None
+    mono = signalmodel_from_json(raw, session.preferences, project_dir=str(tmp_path))[0]
+    assert mono.signal is not None and mono.signal.metadata['src'] == str(tmp_path / 'mono.wav')
+
+
+def test_a_wav_not_beside_the_project_keeps_its_absolute_path(tmp_path):
+    from pipeline.publish.project import write_project
+    session = Session(AnalysisConfig())
+    (tmp_path / 'wavs').mkdir()
+    wav = str(tmp_path / 'wavs' / 'mono.wav')
+    _write_mono_wav(wav)
+    out_path = str(tmp_path / 'project' / 'title.mono.beq')
+    write_project(out_path, [session.load(wav)])
+
+    assert _read_raw(out_path)[0]['metadata']['src'] == wav
 
 
 def test_resolve_signal_source_prefers_the_recorded_path_then_the_project_dir(tmp_path):
@@ -493,3 +520,7 @@ def test_resolve_signal_source_prefers_the_recorded_path_then_the_project_dir(tm
     assert resolve_signal_source('W:\\films\\t\\mono.wav', str(beside.parent)) == str(beside)
     assert resolve_signal_source('/work/t/mono.wav', None) is None
     assert resolve_signal_source('/work/t/other.wav', str(beside.parent)) is None
+    assert resolve_signal_source('${PROJECT_DIR}/mono.wav', str(beside.parent)) == str(beside)
+    assert resolve_signal_source('${PROJECT_DIR}/mono.wav', str(recorded.parent)) == str(recorded)
+    assert resolve_signal_source('${PROJECT_DIR}/other.wav', str(beside.parent)) is None
+    assert resolve_signal_source('${PROJECT_DIR}/mono.wav', None) is None

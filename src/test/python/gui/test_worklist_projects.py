@@ -451,15 +451,20 @@ def test_the_real_main_window_refuses_a_file_that_is_not_a_project_and_the_page_
     assert len(main._BeqDesigner__signal_model) == 0
 
 
-def test_the_real_main_window_opens_a_service_written_project_with_its_signal(qtbot, tmp_path, monkeypatch, root_logging):
-    ''' The service records its own container path (/work/...) as the signal's source; the wav beside the project is used. '''
+@pytest.mark.parametrize('recorded', ['${PROJECT_DIR}/mono.wav', '/work/r-alien/mono.wav'], ids=['token', 'container path'])
+def test_the_real_main_window_opens_a_service_written_project_with_its_signal(qtbot, tmp_path, monkeypatch, root_logging,
+                                                                              recorded):
+    '''
+    The pipeline records the signal's source relative to the project; one written before that records the service's own
+    container path (/work/...). Either way the wav beside the project is loaded.
+    '''
     import gzip
     import json
     import os
     mono, _ = write_projects(_work(tmp_path), 'r-alien')
     with gzip.open(mono, 'rb') as f:
         data = json.loads(f.read().decode('utf-8'))
-    data[0]['metadata']['src'] = '/work/r-alien/mono.wav'
+    data[0]['metadata']['src'] = recorded
     with gzip.open(mono, 'wb') as f:
         f.write(json.dumps(data).encode('utf-8'))
     main, window = _main_window(qtbot, tmp_path, monkeypatch, REVIEWABLE)

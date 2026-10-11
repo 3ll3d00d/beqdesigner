@@ -107,18 +107,39 @@ def __link_master_slave(channels, signal_json):
         logger.error(f"Bad json encountered, master {master_name} not decoded")
 
 
+# A signal source recorded relative to the project file: what the pipeline writes, as the service sees the project's
+# directory at a different path (e.g. /work/<title> in its container) than the desktop does.
+PROJECT_DIR_TOKEN = '${PROJECT_DIR}'
+
+
+def project_relative_source(src, project_dir):
+    '''
+    :return: src as PROJECT_DIR_TOKEN/<name> if it is a file directly in project_dir, else src unchanged.
+    '''
+    if src and os.path.dirname(os.path.abspath(src)) == os.path.abspath(project_dir):
+        return f"{PROJECT_DIR_TOKEN}/{os.path.basename(src)}"
+    return src
+
+
 def resolve_signal_source(src, project_dir=None):
     '''
-    Where a signal's source file is: the path recorded if it exists, else the file of the same name beside the project.
-    A project the pipeline service wrote records the path the service saw (e.g. /work/<title>/mono.wav inside its
-    container), which is not where the desktop sees the same directory; the wav always sits beside the project there.
+    Where a signal's source file is. A PROJECT_DIR_TOKEN path is resolved against the project's directory. Otherwise the
+    path recorded, if it exists; failing that the file of the same name beside the project, for a project the pipeline
+    wrote before it recorded the token (its absolute path is the service's, e.g. /work/<title>/mono.wav).
     :param src: the path recorded in the signal's metadata.
     :param project_dir: the directory of the project file, if known.
-    :return: the path to read, or None if neither exists.
+    :return: the path to read, or None if it cannot be found.
     '''
-    if src and os.path.isfile(src):
+    if not src:
+        return None
+    if src.startswith(PROJECT_DIR_TOKEN):
+        if not project_dir:
+            return None
+        candidate = os.path.join(project_dir, src[len(PROJECT_DIR_TOKEN):].lstrip('/\\'))
+        return candidate if os.path.isfile(candidate) else None
+    if os.path.isfile(src):
         return src
-    if src and project_dir:
+    if project_dir:
         # the recorded path may come from another OS, so split on either separator
         candidate = os.path.join(project_dir, src.replace('\\', '/').rsplit('/', 1)[-1])
         if os.path.isfile(candidate):
