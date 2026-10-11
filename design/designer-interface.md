@@ -131,7 +131,11 @@ it** — sample `i` of every array corresponds to the same instant. Provided
 so you can tell a mastering-wide rolloff (present on every channel) apart
 from an authoring decision on one channel (present on LFE alone, say) — a
 diagnostic input, not a replacement for `mono_mix`. See `channel_scope` in
-§3 for reporting what you conclude from it.
+§3 for reporting what you conclude from it. A mono source's decomposition is
+its one channel, sent as `{"FC": ...}` (ffmpeg's label for the mono layout)
+rather than omitted: a designer cannot otherwise tell a mono title from a
+caller that supplied no decomposition, and may decline the latter for want of
+channel evidence.
 
 **`fs` will typically be low** — a decimated analysis rate (1000 Hz in the
 common case), not the source material's native rate. Whatever content exists

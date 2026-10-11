@@ -170,12 +170,20 @@ def test_load_channels_decomposes_a_multichannel_wav_with_layout_labels(tmp_path
     assert all(v > 0 for v in ordered)
 
 
-def test_load_channels_of_a_mono_wav_is_empty(tmp_path):
+def test_load_channels_of_a_mono_wav_is_its_one_channel(tmp_path):
+    '''
+    A mono source's decomposition is the source itself, labelled as ffmpeg's mono layout labels it: sent empty,
+    a designer could not tell a mono title from a caller that supplied no decomposition, and declined it for
+    missing channel evidence (Bande A Part, 2026-10).
+    '''
     session = Session(AnalysisConfig())
     path = str(tmp_path / 'mono.wav')
     _write_mono_wav(path)
 
-    assert session.load_channels(path) == {}
+    channels = session.load_channels(path, decimate=False)
+
+    assert list(channels) == ['FC']
+    np.testing.assert_array_equal(channels['FC'], session.load(path, decimate=False).signal.samples)
 
 
 def test_design_threads_channels_through_to_the_request(loaded_signal, tmp_path):

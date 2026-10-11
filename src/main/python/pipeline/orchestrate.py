@@ -74,6 +74,8 @@ from pipeline.publish.xml import to_beq_xml as render_beq_xml
 from pipeline.stats import Stats, signal_stats
 
 _CURVE_INDEX = {'avg': 0, 'peak': 1, 'median': 2}
+# a mono source's one channel, as ffmpeg's mono layout names it: load_channels() still decomposes it
+MONO_CHANNEL_LABEL = 'FC'
 
 
 @dataclass(frozen=True)
@@ -351,17 +353,17 @@ class Session:
         FL/FR/FC/LFE/... labels the GUI already assigns a multichannel extraction's per-channel signals.
         :param channel_layout_name: the source's ffmpeg channel layout name (Executor.channel_layout_name,
             populated once update_spec() has run), e.g. '5.1'.
-        :return: {label: ndarray}, or {} if path is actually mono (nothing to decompose).
+        :return: {label: ndarray} -- a mono source's decomposition is its one channel, labelled `FC` (ffmpeg's mono
+            layout), so a designer can tell a mono title from a caller that sent no decomposition at all.
         '''
         from model.ffmpeg import get_channel_name
         loader = AutoWavLoader(self.__preferences)
         loader.load(path)
         channel_count = loader.info.channels
-        if channel_count <= 1:
-            return {}
         channels = {}
         for idx in range(channel_count):
-            label = get_channel_name(None, idx, channel_count, channel_layout_name=channel_layout_name)
+            label = MONO_CHANNEL_LABEL if channel_count == 1 else \
+                get_channel_name(None, idx, channel_count, channel_layout_name=channel_layout_name)
             loader.prepare(channel=idx + 1, name=label, channel_count=channel_count, decimate=decimate)
             channels[label] = loader.get_signal(idx + 1, label).signal.samples
         return channels
@@ -412,8 +414,8 @@ class Session:
             infer one from sig, which is always single-channel.
         :param channels: DesignRequest.channels (design/designer-interface.md §2) -- a per-channel
             diagnostic decomposition of the same signal sig was mixed down from, if the caller has one
-            (see load_channels()). Optional; None if the source was mono to begin with, or the caller
-            chose not to supply it.
+            (see load_channels(); a mono source's is its one channel). Optional; None if the caller chose
+            not to supply it.
         :param sources: the WAV columns mono_mix and channels were loaded from (pipeline.designer.sources), if known --
             passed on only to a designer registered as taking them, which may then send the arrays by reference
             (design/designer-interface.md §7.1, 1.2). Every other designer gets the request alone.

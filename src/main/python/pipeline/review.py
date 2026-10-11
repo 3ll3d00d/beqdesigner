@@ -307,7 +307,8 @@ def design_and_queue(session: Session, entry_id: str, wav_path: str, designer: s
         Session.load_channel_signals() for the multichannel project's channel labels.
     :param project_dir: if given, writes output 1's `.beq` project file(s)
         (design/archive/library-sync-pipeline-plan.md §3.3/Appendix B) -- `<project_dir>/<name>.mono.beq`
-        always (see project_name()), plus `<project_dir>/<name>.multichannel.beq` when multichannel_wav_path is also given.
+        always (see project_name()), plus `<project_dir>/<name>.multichannel.beq` when multichannel_wav_path is also given
+        and is not a mono source's one channel.
         A Declined outcome's are flat (its candidate). Omitted (the default), no project files are written.
     :param on_projects: called with write_title_projects_if_safe()'s result ({'mono': bool, 'multichannel':
         bool|None}; False = an existing human-edited project was left alone) whenever projects were attempted.
@@ -334,10 +335,12 @@ def design_and_queue(session: Session, entry_id: str, wav_path: str, designer: s
         from model.codec import filter_from_json
         name = project_name(project_dir, entry_id)
         mono_out = os.path.join(project_dir, f"{name}.mono.beq")
-        mc_out = os.path.join(project_dir, f"{name}.multichannel.beq") if multichannel_wav_path else None
+        # a mono source's one-channel decomposition goes to the designer, but makes no multichannel project
+        mc_wav = None if channels is not None and len(channels) == 1 else multichannel_wav_path
+        mc_out = os.path.join(project_dir, f"{name}.multichannel.beq") if mc_wav else None
         filters = outcome.filters if isinstance(outcome, Applied) else filter_from_json(entry.candidates[0].filters)
         written = write_title_projects_if_safe(session, wav_path, filters, mono_out,
-                                               multichannel_wav_path=multichannel_wav_path,
+                                               multichannel_wav_path=mc_wav,
                                                channel_layout_name=channel_layout_name,
                                                multichannel_out_path=mc_out)
         if on_projects is not None:

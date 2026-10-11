@@ -319,6 +319,42 @@ def test_design_and_queue_writes_a_multichannel_project_when_given_one(tmp_path)
     assert os.path.isfile(os.path.join(project_dir, 'title-one.multichannel.beq'))
 
 
+def test_design_and_queue_sends_a_mono_sources_channel_but_writes_no_multichannel_project(tmp_path):
+    ''' A mono source's one channel (Session.load_channels()) goes to the designer, by reference too -- one label for
+    the file's one column -- but a one-channel "multichannel" project would only repeat the mono one. '''
+    from pipeline.designer.sources import ArraySource
+
+    mono_wav = str(tmp_path / 'mono.wav')
+    _write_synthetic_wav(mono_wav, channel_values=(1000,))
+    mc_wav = str(tmp_path / 'multi.wav')
+    _write_synthetic_wav(mc_wav, channel_values=(1000,))
+    queue_dir = str(tmp_path / 'queue')
+    project_dir = str(tmp_path / 'projects')
+    session = Session(AnalysisConfig())
+    channels = session.load_channels(mc_wav)
+    seen = []
+
+    def recording_designer(request, sources=None):
+        seen.append((request, sources))
+        return DesignResponse(contract_version='1.0', candidates=[
+            DesignCandidate(filters=[BiquadSpec(type='low_shelf', freq_hz=18.0, gain_db=4.5, q=0.7)],
+                            confidence=0.9, mv_adjust_db=4.0, method='fitted'),
+        ])
+
+    register_designer('test.mono_channel', recording_designer, takes_sources=True)
+    try:
+        design_and_queue(session, 'title-one', mono_wav, 'test.mono_channel', queue_dir, channels=channels,
+                         multichannel_wav_path=mc_wav, project_dir=project_dir)
+    finally:
+        unregister_designer('test.mono_channel')
+
+    request, sources = seen[0]
+    assert list(request.channels) == ['FC']
+    assert sources.channels == {'FC': ArraySource(mc_wav, 0)}
+    assert os.path.isfile(os.path.join(project_dir, 'title-one.mono.beq'))
+    assert not os.path.exists(os.path.join(project_dir, 'title-one.multichannel.beq'))
+
+
 @pytest.mark.requires_ffmpeg
 def test_design_and_queue_does_not_write_projects_without_project_dir(tmp_path):
     ''' Backward compatibility: today's call shape (project_dir omitted) writes no .beq files. '''
