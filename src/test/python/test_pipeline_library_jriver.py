@@ -539,3 +539,20 @@ def test_artwork_is_resolved_at_design_time_from_the_candidates(tmp_path):
     assert resolve_art(item, {}, None) == str(cover)
     cover.unlink()
     assert resolve_art(item, {}, None) is None
+
+
+@pytest.mark.parametrize('operation', ['items', 'children', 'fields'])
+@pytest.mark.parametrize('username,password,missing', [('saved-user', None, 'password'), (None, 'secret', 'username')])
+def test_incomplete_authentication_is_reported_before_allocating_a_client(monkeypatch, operation, username, password, missing):
+    from pipeline.library import jriver
+
+    monkeypatch.setattr(jriver, 'get_mcws_connection', lambda *args, **kwargs: pytest.fail('must not allocate a session'))
+    with pytest.raises(ValueError, match=f'JRiver {missing} is missing') as error:
+        if operation == 'items':
+            _source(username=username, password=password).list_items()
+        elif operation == 'children':
+            list_browse_children('localhost', 52199, username=username, password=password)
+        else:
+            list_library_fields('localhost', 52199, username=username, password=password)
+    assert 'source connection settings' in str(error.value)
+    assert 'secret' not in str(error.value)

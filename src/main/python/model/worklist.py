@@ -995,7 +995,7 @@ class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkL
         self._sync_index_if_dirty()   # decisions made while it was listing may be newer than what it read
         message = f'Scan finished: {result.titles:,} titles, {len(result.new):,} new'
         if result.errors:
-            message += f'; {len(result.errors)} source(s) could not be listed'
+            message = 'Scan incomplete: ' + '; '.join(f'{source}: {error}' for source, error in result.errors.items())
         self.statusBar.showMessage(message)
         self.scan_finished.emit(result)
 

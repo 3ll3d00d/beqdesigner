@@ -75,8 +75,19 @@ def _names(names) -> tuple[str, ...]:
     return tuple(name.strip() for name in names if name and name.strip())
 
 
+def _connection(host, port, *, username, password, ssl, timeout):
+    # hamcws allocates its ClientSession before constructing BasicAuth: a missing password raises there and leaks it.
+    # Reject incomplete saved credentials before asking it to allocate anything; anonymous MCWS remains supported.
+    if username is not None and password is None:
+        raise ValueError('JRiver password is missing. Set the password in the source connection settings, '
+                         'or clear the username for a server that does not require authentication.')
+    if username is None and password is not None:
+        raise ValueError('JRiver username is missing. Set the username in the source connection settings.')
+    return get_mcws_connection(host, port, username=username, password=password, ssl=ssl, timeout=timeout)
+
+
 async def _library_fields(host, port, username, password, ssl, timeout) -> list[LibraryField]:
-    connection = get_mcws_connection(host, port, username=username, password=password, ssl=ssl, timeout=timeout)
+    connection = _connection(host, port, username=username, password=password, ssl=ssl, timeout=timeout)
     server = MediaServer(connection)
     try:
         fields = await server.get_library_fields()
@@ -117,7 +128,7 @@ def list_browse_children(host: str, port: int, node_id: int = -1, *, username: O
 
 
 async def _browse_children(host, port, node_id, username, password, ssl, timeout) -> list[BrowseNode]:
-    connection = get_mcws_connection(host, port, username=username, password=password, ssl=ssl, timeout=timeout)
+    connection = _connection(host, port, username=username, password=password, ssl=ssl, timeout=timeout)
     try:
         ok, nodes = await connection.get('Browse/Children', _parse_children,
                                          params={'Version': 2, 'ErrorOnMissing': 0, 'ID': node_id})
@@ -203,7 +214,7 @@ class JRiverLibrarySource:
         raise RuntimeError('JRiverLibrarySource.list_items() cannot run inside an active event loop')
 
     async def _list_items(self) -> list[LibraryItem]:
-        connection = get_mcws_connection(self.host, self.port, username=self.username, password=self.password,
+        connection = _connection(self.host, self.port, username=self.username, password=self.password,
                                          ssl=self.ssl, timeout=self.timeout)
         server = MediaServer(connection)
         try:

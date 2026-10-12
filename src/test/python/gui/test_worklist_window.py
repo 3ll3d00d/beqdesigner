@@ -513,7 +513,7 @@ def test_a_source_that_fails_during_a_rescan_is_flagged_and_keeps_its_last_title
     assert window.sourceStatusLabel.isVisibleTo(window)
     assert 'server is down' in window.sourceStatusLabel.text()
     assert window.sourceCombo.findText('filesystem (!)') >= 0
-    assert 'source(s) could not be listed' in window.statusBar.currentMessage()
+    assert window.statusBar.currentMessage() == 'Scan incomplete: filesystem: ConnectionError: server is down'
 
 
 def test_selection_survives_a_rescan(qtbot, tmp_path):
