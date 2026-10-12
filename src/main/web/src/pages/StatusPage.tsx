@@ -6,6 +6,7 @@ import type { Schemas } from '../api/client'
 import { filterToQuery } from '../api/filter'
 import { useJobEvents, useSaveSchedule, useSchedule, useStatus, useTriggerSchedule, type Job } from '../api/hooks'
 import { describeJob, JobProgress, StateBadge } from '../components/JobBits'
+import { ScanSources } from '../components/ScanSources'
 import { count, NEEDS_ORDER, NEEDS_WORDS, when } from '../format'
 
 function Strip({ counts }: { counts: Record<string, number> }) {
@@ -108,7 +109,10 @@ export function StatusPage() {
   const status = useStatus()
   return (
     <section>
-      <h1>Status</h1>
+      <div className="title-row">
+        <h1>Status</h1>
+        {status.data && <ScanSources scanned={!!status.data.index} />}
+      </div>
       {status.isPending && <p className="muted">Asking the service…</p>}
       {status.isError && <p role="alert" className="problem">{status.error.message}</p>}
       {status.data && (

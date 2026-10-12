@@ -5,6 +5,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router'
 
 import { cleanFilter, describeFilter, filterFromQuery, filterToQuery, type TitleFilter } from '../api/filter'
 import { PAGE_SIZE, useNextTitle, usePlan, useStatus, useSubmitRun, useTitles } from '../api/hooks'
+import { ScanSources } from '../components/ScanSources'
 import { FilterForm } from '../components/FilterForm'
 import { count, NEEDS_WORDS, type NeedsWord } from '../format'
 import { repositoryRefusal } from './NewJobPage'
@@ -100,7 +101,10 @@ export function TitlesPage() {
     <section>
       <div className="title-row">
         <h1>Titles</h1>
-        <button type="button" onClick={reviewNext}>Review next waiting</button>
+        <div className="actions">
+          {status.data && <ScanSources scanned={!!status.data.index} />}
+          <button type="button" onClick={reviewNext}>Review next waiting</button>
+        </div>
       </div>
       {nothing && <p role="status" className="muted">{nothing}</p>}
       <FilterForm value={filter} onChange={(f) => update(f)} sources={sources} />

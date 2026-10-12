@@ -24,6 +24,45 @@ describe('the filter in the address bar', () => {
   })
 })
 
+describe('scan sources shortcut', () => {
+  it.each([
+    ['/', false], ['/', true], ['/titles?source=films', true],
+  ])('queues every source from %s (scanned: %s) and opens the job', async (path, scanned) => {
+    const requests: unknown[] = []
+    server.use(statusRoute(status({ index: scanned ? index() : null })),
+      http.get('/v1/schedule', () => json(schedule())),
+      http.get('/v1/titles', () => json({ titles: [], total: 0, offset: 0, limit: 100 })),
+      http.post('/v1/jobs/scan', async ({ request }) => {
+        requests.push(await request.json())
+        return json(scanJob(), 202)
+      }),
+      http.get('/v1/jobs/scan-1', () => json(scanJob())),
+      http.get('/v1/jobs/scan-1/log', () => json([])))
+    const router = renderApp(path as string)
+    await userEvent.click(await screen.findByRole('button', { name: scanned ? 'Rescan sources' : 'Scan sources' }))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/jobs/scan-1'))
+    expect(requests).toEqual([{ sources: [], allow_empty: false }])
+  })
+
+  it('prevents duplicate submissions while pending and displays a refusal', async () => {
+    let refuse!: () => void
+    server.use(statusRoute(status({ index: index() })),
+      http.get('/v1/schedule', () => json(schedule())),
+      http.post('/v1/jobs/scan', async () => {
+        await new Promise<void>((resolve) => { refuse = resolve })
+        return json({ title: 'Queue full', status: 409, detail: 'The job queue is full.' }, 409)
+      }))
+    const router = renderApp('/')
+    await userEvent.click(await screen.findByRole('button', { name: 'Rescan sources' }))
+    expect(screen.getByRole('button', { name: 'Queuing scan…' })).toBeDisabled()
+    await waitFor(() => expect(refuse).toBeDefined())
+    refuse()
+    expect(await screen.findByRole('alert')).toHaveTextContent('The job queue is full.')
+    expect(screen.getByRole('button', { name: 'Rescan sources' })).toBeEnabled()
+    expect(router.state.location.pathname).toBe('/')
+  })
+})
+
 describe('status', () => {
   it('shows what titles need, each linked to the list of them', async () => {
     server.use(statusRoute(status({ index: index() })), http.get('/v1/schedule', () => json(schedule())))

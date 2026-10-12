@@ -84,7 +84,8 @@ message. Tests: `test_pipeline_library_decide.py`.
   - *Status*: the pipeline strip (titles per `needs`, each linked to the Titles list filtered to it), the job running
     now with live progress (title-stages, the stage and title in hand, ffmpeg's percent, time to go), how many wait, the
     designer and whether it answers, the schedule (Pause/Resume over `PUT /v1/schedule`, Run now, the last run and skip),
-    the sources and their last error. Polls `/v1/status` every 10 s.
+    the sources and their last error. *Scan sources* (or *Rescan sources* after the first scan) queues a scan
+    of every configured source and opens its job page. The same action is available on Titles. Polls `/v1/status` every 10 s.
   - *Jobs*: history newest first, by state. A job's page: its state and times, the result (counts; failures,
     unavailable, failed earlier, not published, designed and skipped titles, each linked to its review), why the job
     itself failed, its log (live while it runs) and Cancel (Drop for a queued job; "Stopping after the title in hand" for
