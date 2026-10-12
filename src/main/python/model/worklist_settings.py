@@ -54,11 +54,13 @@ _PROFILE_FILTER = 'Library profile (*.yaml *.yml *.json);;All files (*)'
 
 def default_profile_path() -> str:
     '''
-    Where a new profile file is offered: **the app's configuration folder**, not the work directory. The profile is the one
+    Where a new profile file is offered: **the organisation's configuration folder**, not the work directory. The profile is the one
     durable record of what the catalogue is made from, and the work directory is where extracted audio and the disposable
     index live, which a person may clear to reclaim space.
     '''
-    root = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppConfigLocation) or os.path.expanduser('~')
+    app_root = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppConfigLocation)
+    # QSettings' file is in the organisation folder; AppConfigLocation adds the application name beneath it.
+    root = os.path.dirname(app_root) if app_root else os.path.join(os.path.expanduser('~'), '3ll3d00d')
     return os.path.join(root, PROFILE_FILE_NAME)
 
 

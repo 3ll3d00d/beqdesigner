@@ -1613,13 +1613,15 @@ def flatten(l):
 
 def make_app():
     app = QApplication(sys.argv)
+    app.setOrganizationName("3ll3d00d")
+    app.setApplicationName("beqdesigner")
     if getattr(sys, 'frozen', False):
         icon_path = os.path.join(sys._MEIPASS, 'Icon.ico')
     else:
         icon_path = os.path.abspath(os.path.join(os.path.dirname('__file__'), '../icons/Icon.ico'))
     if os.path.exists(icon_path):
         app.setWindowIcon(QIcon(icon_path))
-    prefs = Preferences(QSettings("3ll3d00d", "beqdesigner"))
+    prefs = Preferences(QSettings())
     font_size = prefs.get(APP_FONT_SIZE, default_if_unset=False)
     if font_size:
         new_font = app.font()

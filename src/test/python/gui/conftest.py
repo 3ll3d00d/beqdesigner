@@ -116,3 +116,18 @@ def _delete_windows_deterministically():
     QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete.value)
     QApplication.processEvents()
     gc.collect()
+
+
+@pytest.fixture(autouse=True)
+def _configuration_folder_is_temporary(tmp_path, monkeypatch):
+    """Every GUI test's default profile writes stay under its own temporary configuration folder."""
+    from qtpy.QtCore import QStandardPaths
+    writable = QStandardPaths.writableLocation
+
+    def location(kind):
+        if kind == QStandardPaths.StandardLocation.AppConfigLocation:
+            return str(tmp_path / 'config' / '3ll3d00d' / 'beqdesigner')
+        return writable(kind)
+
+    monkeypatch.setattr(QStandardPaths, 'writableLocation', location)
+    return writable

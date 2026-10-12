@@ -23,6 +23,7 @@ architecture references rather than duplicated as active plans.
 | [Published BEQs](worklist-published.md) | Completed title-page catalogue lookup and image pane, with regression evidence |
 | [Initial release milestone](initial-release.md) | Completed R items, with regression evidence |
 | [Web review](web-review.md) | Completed W1–W6 (2026-10-10; not the work-list W1/W3 above): the browser app's plan, commits and manual check |
+| [Configuration-folder hygiene](configuration-folder.md) | R10: Qt application identity, profile default and isolated GUI config paths |
 | Other files | Original headless pipeline, HTTP binding and candidate review plans |
 
 Historical proposals may differ from delivered code. The current designer

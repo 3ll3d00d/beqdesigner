@@ -199,7 +199,13 @@ sources are constructed from the profile rather than registered globally.
 The profile orders multiple sources, combines them with sticky ownership and
 hard/soft conflict rules, and applies ignore rules. The Settings drawer edits
 the profile with validation and atomic writes, including source ordering,
-location checks, ignore previews, and a first-save path preference.
+location checks, ignore previews, and a first-save path preference. Desktop
+startup sets Qt's organization to `3ll3d00d` and application to `beqdesigner`;
+`QSettings()` therefore retains the existing preferences namespace. New
+library profiles default to the organization configuration folder beside the
+preferences file (`~/.config/3ll3d00d/library-profile.yaml` on Linux), rather
+than a folder named after the launch script. Explicit profile paths remain
+unchanged. GUI tests redirect default config locations into temporary folders.
 
 JRiver connections are managed in Preferences and shared with the filter
 manager. Source setup includes a browse-node picker, local path mappings,

@@ -500,10 +500,10 @@ def test_the_first_change_with_no_profile_file_creates_the_default_profile_and_r
     assert drawer.flush()                                                          # not asked again
 
 
-def test_the_default_place_for_a_new_profile_is_the_apps_configuration_folder_not_the_work_directory(tmp_path):
+def test_the_default_place_for_a_new_profile_is_the_organisation_configuration_folder(tmp_path):
     from model.worklist_settings import PROFILE_FILE_NAME, default_profile_path
     default = default_profile_path()
-    assert os.path.basename(default) == PROFILE_FILE_NAME and str(tmp_path / 'work') not in default
+    assert default == str(tmp_path / 'config' / '3ll3d00d' / PROFILE_FILE_NAME)
 
 
 def test_the_first_save_never_opens_a_profile_file_dialog(qtbot, tmp_path):

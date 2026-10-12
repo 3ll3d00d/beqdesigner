@@ -55,7 +55,6 @@ outside it. A beqforge version bump invalidates its bundled optimiser seed
 | 20 | T2 | | -- | Watch; seen twice | Recurrence with its failure message |
 | 20a | T3 | | -- | Watch; seen once | Recurrence |
 | 20b | T4 | | -- | Watch; seen once | Recurrence with its failure message |
-| 21 | R10 | | -- | Not started | -- |
 | 22 | D2 | | by-reference §5 | Planned; optional, not started | beqforge loader coordination |
 | 23 | D3 | | by-reference §5 | Planned; optional, not started | Contract addition; beqforge coordination |
 | 24 | O2 | | former §9 reviewer questions | Behavior exists; acceptance decision missing | Real reviewer feedback |
@@ -180,21 +179,6 @@ On 2026-10-10 one `pytest -n auto` run of the gui suite failed
 failure message was not kept. It passed in the next three full runs and 15 of 15 repeats under `-n 8`. It does not
 touch the code changed that day (W1, the decision write). If it recurs, record the assertion and fix what it shows;
 close it after a few weeks without recurrence.
-
-### R10 — Configuration-folder hygiene
-
-Two things write `library-profile.yaml` where they should not.
-`worklist_settings.py` offers the file in `QStandardPaths`'
-`AppConfigLocation`; run from source with no application name set, that is
-`~/.config/app.py/`. And a gui test run left
-`~/.config/pytest-qt-qapp/library-profile.yaml` in the real configuration
-folder, so a test reaches the real location instead of a temp directory. Set
-the application and organisation names before the location is read, and make
-the gui tests redirect it (for example `QStandardPaths.setTestModeEnabled`
-in `gui/conftest.py`).
-
-**Done when:** a test pins the offered folder to the application's name and
-the gui suite writes nothing under the real configuration folder.
 
 ### D2 — Export a reusable request file
 
