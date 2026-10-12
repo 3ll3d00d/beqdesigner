@@ -156,7 +156,7 @@ describe('titles', () => {
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/jobs/pub'))
     const expected = { filter: { needs: ['publish'], kind: 'movie', new_since_scan: false }, through: 'publish',
-                       scan_first: false, retry_failed: false }
+                       scan_first: false, retry_failed: false, redesign: false }
     expect(bodies).toEqual([expected, expected])
   })
 })
@@ -281,5 +281,48 @@ describe('reviewing a title', () => {
     renderApp('/titles/x')
     expect(await screen.findByRole('alert')).toHaveTextContent('Not designed: x has no design to review yet')
     expect(screen.getByText('Run it through design…')).toHaveAttribute('href', '/jobs/new?ids=x')
+  })
+})
+
+
+describe('redesigning one title', () => {
+  it('confirms, queues only this title and opens the job', async () => {
+    reviewRoutes({ status: 'accepted', chosen_index: 0 })
+    const requests: unknown[] = []
+    server.use(http.post('/v1/jobs/run', async ({ request }) => {
+      requests.push(await request.json())
+      return json(runJob(), 202)
+    }), http.get('/v1/jobs/job-1', () => json(runJob())),
+    http.get('/v1/jobs/job-1/log', () => json([])))
+    const router = renderApp('/titles/a?source=films&needs=review')
+    await userEvent.click(await screen.findByRole('button', { name: 'Redesign…' }))
+    expect(requests).toEqual([])
+    const confirm = screen.getByRole('group', { name: 'Redesign title' })
+    expect(confirm).toHaveTextContent('Any acceptance is undone')
+    await userEvent.click(within(confirm).getByRole('button', { name: 'Redesign' }))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/jobs/job-1'))
+    expect(requests).toEqual([{ filter: { ids: ['a'], new_since_scan: false }, through: 'design', scan_first: false,
+      retry_failed: true, redesign: true }])
+  })
+
+  it.each([
+    [{ in_flight: true }, 'A run is working on this title.'],
+    [{ status: 'published' as const }, 'Redesigning a published title requires repository writes to be enabled.'],
+  ])('blocks redesign when %j', async (fields, reason) => {
+    reviewRoutes(fields)
+    renderApp('/titles/a')
+    expect(await screen.findByRole('button', { name: 'Redesign…' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Redesign…' })).toHaveAttribute('title', reason)
+  })
+
+  it('shows submission errors and keeps the title open', async () => {
+    reviewRoutes()
+    server.use(http.post('/v1/jobs/run', () => json({ title: 'Queue full', status: 409,
+      detail: 'The job queue is full.' }, 409)))
+    const router = renderApp('/titles/a')
+    await userEvent.click(await screen.findByRole('button', { name: 'Redesign…' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Redesign' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('The job queue is full.')
+    expect(router.state.location.pathname).toBe('/titles/a')
   })
 })

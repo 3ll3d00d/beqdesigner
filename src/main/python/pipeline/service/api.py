@@ -495,7 +495,7 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
     def submit_run(body: models.RunJobRequest):
         check_sources(context(), body.filter)
         return accepted(manager.submit(RunRequest(body.filter.to_selection(), body.through.value, body.scan_first,
-                                                  body.retry_failed)))
+                                                  body.retry_failed, redesign=body.redesign)))
 
     @v1.post('/jobs/accept', status_code=202, response_model=models.Job, tags=['jobs'],
              summary="Accept the designer's top pick for confident titles (needs allow_repository_writes, unless a dry run)",

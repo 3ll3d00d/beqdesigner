@@ -134,3 +134,11 @@ the first's frequencies (`chartData()`).
   it loads, and reads a designed title's review over HTTP. `test_pipeline_service_docker.py` holds every base image to
   ECR Public.
 - **Desktop:** unaffected; the PyInstaller bundle carries neither the web source nor the service.
+
+Per-title redesign is available on the review page through *Redesign…*. The confirmation explains that acceptance
+is undone and the new designs need review. It submits `POST /v1/jobs/run` with `redesign: true`, exactly one id,
+`through: design`, no scan and retry enabled, then opens the job page. The job waits for the work-directory lease
+rather than joining another run, checks the designer before changing state, calls `redesign_entry()`, refreshes the
+index and runs the normal stages. Existing extraction, metadata, artwork and hand-edited projects are retained.
+Published titles require `allow_repository_writes`; the existing revise rules revert uncommitted catalogue files
+and preserve committed files for a subsequent revision. Publish and commit remain separate actions.

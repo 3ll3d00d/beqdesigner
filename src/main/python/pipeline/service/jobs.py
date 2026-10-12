@@ -58,7 +58,12 @@ class RunRequest:
     retry_failed: bool = False
     unattended: bool = False     # the schedule's: a failed extraction is not tried again until its source or settings change
 
+    redesign: bool = False      # explicitly invalidate one title's existing design before running
+
     def __post_init__(self):
+        if self.redesign and (self.through != 'design' or len(self.selection.ids) != 1 or
+                              self.selection != Selection(ids=self.selection.ids)):
+            raise ValueError('redesign requires exactly one title id, no other filters, and through=design')
         if self.through not in THROUGH:
             raise ValueError(f"through must be one of {', '.join(THROUGH)}; got {self.through!r}")
 
@@ -369,7 +374,7 @@ class JobManager:
         from pipeline.library.join import JOINABLE, JoinRequest
         host = self.__jobs.get(self.__executing) if self.__executing else None
         join = self.__join_queues.get(host.id) if host is not None else None
-        if join is None or not isinstance(job.request, RunRequest) or job.request.through not in JOINABLE:
+        if join is None or not isinstance(job.request, RunRequest) or job.request.through not in JOINABLE or job.request.redesign:
             return False
         request = job.request
         if not join.offer(JoinRequest(request.selection, request.through, request.retry_failed, id=job.id)):

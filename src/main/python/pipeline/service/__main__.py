@@ -87,7 +87,7 @@ def build(argv: Optional[List[str]] = None, env: Optional[Mapping[str, str]] = N
     if not config.token and not args.no_auth:
         parser.error('no token: set BEQ_SERVICE_TOKEN (or BEQ_SERVICE_TOKEN_FILE), or use --no-auth on 127.0.0.1')
     from pipeline.service.api import create_app
-    manager = JobManager(executor(args.profile, env), state_dir=config.state_dir, history_limit=config.history_limit,
+    manager = JobManager(executor(args.profile, env, allow_repository_writes=config.allow_repository_writes), state_dir=config.state_dir, history_limit=config.history_limit,
                          allow_repository_writes=config.allow_repository_writes, failed=job_failed)
     designer = DesignerProbe(args.profile, env)
     notifier = None

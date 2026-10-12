@@ -9,14 +9,14 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Annotated, Any, Dict, List, Literal, Optional, Union
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, RootModel
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, RootModel, model_validator
 
 from pipeline.library.bulk import DEFAULT_ACCEPT_THRESHOLD
 from pipeline.library.selection import Selection
 from pipeline.library.state import FLAG_DUPLICATE, FLAG_GONE, FLAG_IGNORED, FLAG_IN_CATALOGUE, FLAG_SHADOWED
 from pipeline.library.year import YEAR_PATTERN, YearRange
 
-API_VERSION = '1.4.0'
+API_VERSION = '1.5.0'
 
 
 class Needs(str, Enum):
@@ -294,6 +294,17 @@ class RunJobRequest(Input):
     scan_first: bool = Field(True, description='List the sources before selecting, so new titles are seen.')
     retry_failed: bool = Field(False, description='Also run titles whose extraction or design failed before.')
 
+    redesign: bool = Field(False, description='Invalidate the existing design before running. Requires exactly one id, '
+                                            'no other filters, and through=design; the title must be reviewed again.')
+
+    @model_validator(mode='after')
+    def validate_redesign(self):
+        if self.redesign:
+            selection = self.filter.to_selection()
+            if self.through != Through.design or len(selection.ids) != 1 or selection != Selection(ids=selection.ids):
+                raise ValueError('redesign requires exactly one title id, no other filters, and through=design')
+        return self
+
 
 class AcceptJobRequest(Input):
     filter: TitleFilter = Field(default_factory=TitleFilter)
@@ -541,7 +552,8 @@ def job_model(job, now: Optional[float] = None) -> Union[ScanJob, RunJob, Accept
     if job.kind == 'run':
         return RunJob(request=RunJobRequest(filter=selection, through=request.get('through', 'design'),
                                             scan_first=bool(request.get('scan_first', True)),
-                                            retry_failed=bool(request.get('retry_failed'))),
+                                            retry_failed=bool(request.get('retry_failed')),
+                                            redesign=bool(request.get('redesign'))),
                       result=run_result(job.result) if finished_ok else None, **common)
     return AcceptJob(request=AcceptJobRequest(filter=selection, threshold=request.get('threshold', DEFAULT_ACCEPT_THRESHOLD),
                                               dry_run=bool(request.get('dry_run'))),

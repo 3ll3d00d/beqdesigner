@@ -33,7 +33,7 @@ function Repositories({ filter }: { filter: TitleFilter }) {
   const [asking, setAsking] = useState<'publish' | 'commit' | null>(null)
   const refusal = repositoryRefusal(status.data)
   const request = (through: 'publish' | 'commit') => ({
-    filter: cleanFilter({ ...filter, needs: [through] }), through, scan_first: false, retry_failed: false,
+    filter: cleanFilter({ ...filter, needs: [through] }), through, scan_first: false, retry_failed: false, redesign: false,
   })
 
   function ask(through: 'publish' | 'commit') {

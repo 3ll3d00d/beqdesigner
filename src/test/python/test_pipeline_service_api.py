@@ -283,7 +283,7 @@ def test_a_run_job_takes_the_filter_and_reports_a_typed_result(service):
     assert job['kind'] == 'run' and job['state'] == 'succeeded' and job['origin'] == 'api'
     assert job['request'] == {'filter': {'needs': [], 'new_since_scan': False, 'source': None, 'match': None, 'ids': [],
                                          'kind': 'movie', 'year': '2026'},
-                              'through': 'design', 'scan_first': True, 'retry_failed': False}
+                              'through': 'design', 'scan_first': True, 'retry_failed': False, 'redesign': False}
     assert job['result']['scan']['titles'] == 3 and job['result']['attempted'] == ['x'] and job['result']['failed'] == []
     assert job['progress'] == {'done': 1, 'total': 1, 'title': 'Alien', 'stage': 'design', 'id': 'x',
                                'per_hour': None, 'remaining_seconds': None, 'estimated_finish': None}   # finished: no estimate
@@ -469,3 +469,14 @@ def test_the_published_event_schema_is_one_shape_per_type():
     assert schemas['JobEvent']['discriminator']['propertyName'] == 'type'
     assert set(schemas['JobEvent']['discriminator']['mapping']) == {'state', 'run_progress', 'extract_progress', 'event'}
     assert {'done_ms', 'total_ms', 'percent'} <= set(schemas['ExtractProgressEvent']['properties'])
+
+
+@pytest.mark.parametrize('body', [
+    {}, {'filter': {'ids': ['a', 'b']}}, {'filter': {'ids': ['a'], 'needs': ['review']}},
+    {'filter': {'ids': ['a']}, 'through': 'publish'},
+])
+def test_redesign_requires_a_single_id_and_design_only(service, body):
+    client, _, calls = service
+    response = client.post('/v1/jobs/run', json={**body, 'redesign': True}, headers=AUTH)
+    assert response.status_code == 422
+    assert calls == []

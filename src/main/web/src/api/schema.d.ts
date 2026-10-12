@@ -1084,6 +1084,12 @@ export interface components {
              * @default false
              */
             retry_failed: boolean;
+            /**
+             * Redesign
+             * @description Invalidate the existing design before running. Requires exactly one id, no other filters, and through=design; the title must be reviewed again.
+             * @default false
+             */
+            redesign: boolean;
         };
         /**
          * RunProgressEvent

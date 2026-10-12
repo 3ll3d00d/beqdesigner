@@ -54,7 +54,7 @@ function RunForm({ sources, initial, status }: { sources: string[]; initial: Tit
   const [scanFirst, setScanFirst] = useState(true)
   const [retryFailed, setRetryFailed] = useState(false)
   const refusal = repositoryRefusal(status)
-  const body = (): Schemas['RunJobRequest'] => ({ filter: cleanFilter(filter), through, scan_first: scanFirst,
+  const body = (): Schemas['RunJobRequest'] => ({ filter: cleanFilter(filter), through, redesign: false, scan_first: scanFirst,
                                                   retry_failed: retryFailed })
   const preview = plan.data
   const stale = plan.variables && JSON.stringify(plan.variables) !== JSON.stringify(body())

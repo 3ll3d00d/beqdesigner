@@ -14,6 +14,9 @@ from pipeline.library.inbox import WorkDirInbox
 from pipeline.library.index import LibraryIndex, ScanResult, index_path
 from pipeline.library.handoff import STOPPED, WITHDRAWN, hand_off, outcomes as title_outcomes
 from pipeline.library.join import JOINABLE, JoinQueue, JoinRequest
+from pipeline.library.revise import redesign_entry
+from pipeline.publish.git import RepoTarget
+from pipeline.review import read_entry
 from pipeline.library.selection import Selection, plan_stages
 from model.execution_events import ExecutionEvent
 from pipeline.library.stages import StagesReport, run_stages
@@ -58,7 +61,7 @@ def scan(context: JobContext, request: ScanRequest) -> ScanResult:
         return index.scan(context.profile, settings, only=list(request.sources) or None, allow_empty=request.allow_empty)
 
 
-def run(context: JobContext, request: RunRequest, control: JobControl) -> RunOutcome:
+def run(context: JobContext, request: RunRequest, control: JobControl, *, allow_repository_writes: bool = False) -> RunOutcome:
     run_config = context.run_config()
     if request.through == 'design':
         # every design would fail: refuse before extracting anything. A run through publish or commit is not refused
@@ -73,6 +76,21 @@ def run(context: JobContext, request: RunRequest, control: JobControl) -> RunOut
         scanned = None
         if request.scan_first or not index.generation:   # never scanned: there is nothing to select from
             scanned = index.scan(context.profile, settings)
+        if request.redesign:
+            title_id = request.selection.ids[0]
+            if index.title(title_id) is None:
+                raise ValueError(f'no such title: {title_id}')
+            entry = read_entry(settings.queue_dir, title_id)
+            if entry.status == 'published' and not allow_repository_writes:
+                raise ValueError('redesigning a published title requires allow_repository_writes in service config')
+            if control.cancelled():
+                return RunOutcome(scanned, StagesReport('design', 0, cancelled=True))
+            redesign_entry(settings.queue_dir, title_id,
+                           xml_repo=RepoTarget(settings.xml_repo) if settings.xml_repo else None,
+                           images_repo=RepoTarget(settings.images_repo) if settings.images_repo else None,
+                           xml_dir=settings.xml_dir, image_dir=settings.image_dir,
+                           category_folders=settings.category_folders, meta_defaults=settings.meta_defaults)
+            index.refresh(context.profile, settings)
         report = run_stages(context.profile, request.selection, request.through, run_config=run_config, index=index,
                             publish=publish, settings=settings, retry_failed=request.retry_failed,
                             unattended=request.unattended, join=join, should_cancel=control.cancelled, on_progress=control.progress, on_event=control.event)
@@ -97,7 +115,8 @@ def accept(context: JobContext, request: AcceptRequest):
 
 def executor(profile_path: str, env: Optional[Mapping[str, str]] = None,
              load: Callable[..., JobContext] = load_context, *, poll_seconds: float = 2.0,
-             sleep: Callable[[float], None] = time.sleep) -> Callable[[Job, JobControl], Any]:
+             sleep: Callable[[float], None] = time.sleep,
+             allow_repository_writes: bool = False) -> Callable[[Job, JobControl], Any]:
     ''' The JobManager's `execute`: reads the profile for each job, then does it holding the work directory's lease. '''
     def execute(job: Job, control: JobControl):
         context = load(profile_path, env)
@@ -109,7 +128,7 @@ def executor(profile_path: str, env: Optional[Mapping[str, str]] = None,
                 # the work list or a command-line run has it (design/archive/library-sync/worklist-feedback.md F5):
                 # extract and design go to that run; anything else waits for it to end
                 holder = read_lease(work_dir)
-                if holder is not None and isinstance(job.request, RunRequest) and job.request.through in JOINABLE:
+                if holder is not None and isinstance(job.request, RunRequest) and job.request.through in JOINABLE and not job.request.redesign:
                     outcome = handed_off(context, job.request, control, holder)
                     if outcome is not WAIT_AGAIN:
                         return outcome
@@ -122,7 +141,7 @@ def executor(profile_path: str, env: Optional[Mapping[str, str]] = None,
                 if isinstance(job.request, ScanRequest):
                     return scan(context, job.request)
                 if isinstance(job.request, RunRequest):
-                    return run(context, job.request, control)
+                    return run(context, job.request, control, allow_repository_writes=allow_repository_writes)
                 if isinstance(job.request, AcceptRequest):
                     return accept(context, job.request)
                 raise TypeError(f'not a job request: {job.request!r}')

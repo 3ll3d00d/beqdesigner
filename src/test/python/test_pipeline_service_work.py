@@ -191,3 +191,54 @@ def test_a_run_job_while_the_work_list_holds_the_work_directory_hands_its_titles
     report = job.result.report
     assert len(report.attempted) == 2 and [message for _, message in report.run.failed] == ['extract failed: boom']
     assert any(e.get('kind') == 'handed_off' for e in job.events)
+
+
+@pytest.mark.parametrize('status', ['pending', 'accepted', 'rejected'])
+def test_redesign_reopens_only_the_requested_title_before_running(manager, profile, monkeypatch, status):
+    from pipeline.library.index import LibraryIndex, index_path
+    from pipeline.review import read_entry, update_entry
+    from pipeline.service.context import load_context
+    from review_entry_fixture import write_entry
+
+    _done(manager, ScanRequest())
+    ctx = load_context(str(profile), {})
+    with LibraryIndex(index_path(ctx.work_dir)) as index:
+        ids = [row.id for row in index.titles()]
+    queue = ctx.scan_settings().queue_dir
+    for title_id in ids:
+        write_entry(queue, title_id, status=status)
+        update_entry(queue, title_id, design_fingerprint='old')
+    seen = []
+
+    def stages(profile_, selection, through, **kwargs):
+        entry = read_entry(queue, ids[0])
+        seen.append(selection.ids)
+        assert entry.status == 'pending' and entry.chosen_candidate_index is None
+        assert entry.design_fingerprint is None
+        assert entry.meta['title'] == ids[0] and len(entry.candidates) == 2
+        assert read_entry(queue, ids[1]).design_fingerprint == 'old'
+        return StagesReport(through, 1)
+
+    monkeypatch.setattr(work, 'run_stages', stages)
+    job = _done(manager, RunRequest(Selection(ids=(ids[0],)), scan_first=False, redesign=True))
+    assert job.state == 'succeeded', job.error
+    assert seen == [(ids[0],)]
+    assert 'Sent back for redesign' in read_entry(queue, ids[0]).reviewer_note
+
+
+def test_redesign_refuses_published_titles_without_repository_permission(manager, profile, monkeypatch):
+    from pipeline.library.index import LibraryIndex, index_path
+    from pipeline.review import read_entry
+    from pipeline.service.context import load_context
+    from review_entry_fixture import write_entry
+
+    _done(manager, ScanRequest())
+    ctx = load_context(str(profile), {})
+    with LibraryIndex(index_path(ctx.work_dir)) as index:
+        title_id = index.titles()[0].id
+    queue = ctx.scan_settings().queue_dir
+    write_entry(queue, title_id, status='published')
+    monkeypatch.setattr(work, 'run_stages', lambda *args, **kwargs: pytest.fail('must not run'))
+    job = _done(manager, RunRequest(Selection(ids=(title_id,)), scan_first=False, redesign=True))
+    assert job.state == 'failed' and 'allow_repository_writes' in job.error
+    assert read_entry(queue, title_id).status == 'published'

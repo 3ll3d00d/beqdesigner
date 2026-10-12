@@ -9,7 +9,7 @@ export function describeJob(job: Job): string {
     case 'scan':
       return job.request.sources?.length ? `Scan ${job.request.sources.join(', ')}` : 'Scan every source'
     case 'run':
-      return `Run through ${job.request.through}: ${describeFilter(job.request.filter ?? {})}`
+      return `${job.request.redesign ? 'Redesign' : `Run through ${job.request.through}`}: ${describeFilter(job.request.filter ?? {})}`
     case 'accept':
       return `${job.request.dry_run ? 'Dry run of bulk accept' : 'Bulk accept'}: ${describeFilter(job.request.filter ?? {})}`
   }

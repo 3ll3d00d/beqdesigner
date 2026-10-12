@@ -30,7 +30,7 @@ export function runJob(overrides: Partial<Schemas['RunJob']> = {}): Schemas['Run
     kind: 'run', id: 'job-1', origin: 'api', state: 'succeeded', submitted_at: NOW, started_at: NOW, finished_at: NOW,
     progress: null, error: null, joined_to: null,
     request: { filter: { needs: ['extract', 'design'], new_since_scan: false, kind: 'movie' }, through: 'design',
-               scan_first: true, retry_failed: false },
+               scan_first: true, retry_failed: false, redesign: false },
     result: runResult(),
     ...overrides,
   }
