@@ -841,3 +841,19 @@ def test_choosing_the_not_available_entry_keeps_the_name_not_the_label(qtbot, tm
     assert drawer.flush()
 
     assert load_profile(path).config['run']['designer'] == 'nobody.registered'
+
+
+def test_opening_the_work_list_loads_an_existing_default_profile_and_shows_it_in_settings(qtbot, tmp_path):
+    from pipeline.library.profile import write_config_file
+    prefs = make_prefs(tmp_path, configured=True)
+    path = settings_module.default_profile_path()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    write_config_file(path, profile_config(tmp_path))
+
+    window = open_window(qtbot, tmp_path, prefs)
+    drawer = window.open_settings()
+
+    assert window.setup.origin == 'file' and window.setup.path == path
+    assert window.setup.source_names == ['films', 'disk']
+    assert drawer.path == path and drawer.tabs.isEnabled()
+    assert prefs.get(LIBRARY_PROFILE_PATH) == path

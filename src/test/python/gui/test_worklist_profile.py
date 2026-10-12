@@ -214,3 +214,51 @@ def test_a_by_reference_designer_in_the_profile_shares_its_work_dir(tmp_path):
     unregister_designer('test.shared')
     [problem] = register_profile_designers(profile_from_config({'sources': sources, 'designers': declared}))
     assert 'no work directory to share' in problem
+
+
+def _default_profile(tmp_path):
+    from pathlib import Path
+    from model.worklist_profile import default_profile_path
+    path = Path(default_profile_path())
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({
+        'sources': [{'name': 'default-disk', 'kind': 'filesystem', 'globs': ['/from/default']}],
+        'run': {'work_dir': str(tmp_path / 'work'), 'queue_dir': str(tmp_path / 'default-queue'),
+                'designer': DESIGNER}}))
+    return path
+
+
+def test_startup_discovers_and_remembers_the_default_profile_when_no_path_is_saved(prefs, tmp_path):
+    path = _default_profile(tmp_path)
+    setup = load_setup(prefs)
+    assert setup.origin == ORIGIN_FILE and setup.path == str(path) and setup.ready
+    assert setup.source_names == ['default-disk']
+    assert setup.settings.queue_dir == str(tmp_path / 'default-queue')
+    assert prefs.get(LIBRARY_PROFILE_PATH) == str(path)
+    assert load_setup(prefs).path == str(path)
+
+
+def test_an_explicit_profile_wins_over_the_default_file(prefs, tmp_path):
+    _default_profile(tmp_path)
+    path = tmp_path / 'explicit.json'
+    path.write_text(json.dumps({'sources': [{'name': 'chosen', 'kind': 'filesystem', 'globs': ['/explicit']}]}))
+    prefs.set(LIBRARY_PROFILE_PATH, str(path))
+    assert load_setup(prefs).source_names == ['chosen']
+
+
+def test_reset_to_preferences_does_not_rediscover_the_retained_default_file(prefs, tmp_path):
+    _default_profile(tmp_path)
+    prefs.set(LIBRARY_FILESYSTEM_GLOBS, ['/from/preferences'])
+    prefs.set(LIBRARY_PROFILE_PATH, '')
+    setup = load_setup(prefs)
+    assert setup.origin == ORIGIN_PREFERENCES and setup.path == ''
+    assert setup.source_names == ['filesystem']
+
+
+def test_an_invalid_default_profile_reports_its_error_instead_of_using_preferences(prefs, tmp_path):
+    path = _default_profile(tmp_path)
+    path.write_text('sources: [oops')
+    setup = load_setup(prefs)
+    assert setup.origin == ORIGIN_FILE and setup.path == str(path)
+    assert setup.profile is None and setup.error
+    assert prefs.get(LIBRARY_PROFILE_PATH, default_if_unset=False) is None

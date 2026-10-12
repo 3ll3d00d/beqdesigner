@@ -1,21 +1,17 @@
-'''
-Where the work list gets its catalogue profile -- design/archive/library-sync/workflow-rework/implementation-order.md, chunk 26a.
+"""
+Where the work list gets its catalogue profile.
 
-The settings editor is chunk 26c. Until then nobody should have to hand-write a profile file, so:
+An explicit `LIBRARY_PROFILE_PATH` selects the file. If the preference is unset, an existing default
+`library-profile.yaml` is loaded and its path remembered. An explicitly blank path (Reset to preferences),
+or no default file, uses `bootstrap_profile()` to build a single-source profile from legacy library preferences.
 
-* if the `LIBRARY_PROFILE_PATH` preference names a file, that file is the profile (`pipeline.library.profile.load_profile`);
-* otherwise the profile is **built from the library preferences saved before profile files existed** -- one source (the kind in
-  `LIBRARY_SOURCE_DEFAULT` with that kind's saved settings), the work and queue directories, the two repositories, the
-  designer and the TV mode; no ignore rules.
-
-`bootstrap_profile()` is the whole of that second case, in one place, so chunk 26c can replace it with an editor that
-writes a real profile file and leaves `load_setup()` reading it.
-
-Everything here is UI-free apart from reading the JRiver server list, which lives in a Qt-side module.
-'''
+This module reads Qt preferences, Qt configuration paths and the saved JRiver server list.
+"""
 import os
 from dataclasses import dataclass, replace
 from typing import Any, Dict, List, Optional, Tuple
+
+from qtpy.QtCore import QStandardPaths
 
 from model.jriver.connections import load_connections
 from model.library_sources import jriver_source_settings
@@ -29,6 +25,21 @@ from pipeline.designer.manual import MANUAL_DESIGNER
 
 ORIGIN_FILE = 'file'
 ORIGIN_PREFERENCES = 'preferences'
+
+
+PROFILE_FILE_NAME = 'library-profile.yaml'
+
+
+def default_profile_path() -> str:
+    '''
+    Where a new profile file is offered: **the organisation's configuration folder**, not the work directory. The profile is the one
+    durable record of what the catalogue is made from, and the work directory is where extracted audio and the disposable
+    index live, which a person may clear to reclaim space.
+    '''
+    app_root = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppConfigLocation)
+    # QSettings' file is in the organisation folder; AppConfigLocation adds the application name beneath it.
+    root = os.path.dirname(app_root) if app_root else os.path.join(os.path.expanduser('~'), '3ll3d00d')
+    return os.path.join(root, PROFILE_FILE_NAME)
 
 
 def _bootstrap_source(prefs) -> Optional[Dict[str, Any]]:
@@ -131,7 +142,12 @@ def load_setup(prefs) -> WorkListSetup:
     that cannot be read is an `error`, shown by the window as its empty state.
     '''
     designer = default_designer(prefs)
-    path = (prefs.get(LIBRARY_PROFILE_PATH) or '').strip()
+    saved_path = prefs.get(LIBRARY_PROFILE_PATH, default_if_unset=False)
+    path = (saved_path or '').strip()
+    if saved_path is None:
+        default = default_profile_path()
+        if os.path.isfile(default):
+            path = default
     extra: List[str] = []
     if path:
         try:
@@ -148,6 +164,8 @@ def load_setup(prefs) -> WorkListSetup:
         else:
             origin = ORIGIN_FILE
             extra = register_profile_designers(profile)
+            if saved_path is None:
+                prefs.set(LIBRARY_PROFILE_PATH, path)
     else:
         profile = bootstrap_profile(prefs, designer)
         origin = ORIGIN_PREFERENCES

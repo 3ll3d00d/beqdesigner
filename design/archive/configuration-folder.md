@@ -20,3 +20,11 @@ Verification (with `PYTHONPATH=src/main/python`, `QT_QPA_PLATFORM=offscreen`,
 
 - `.venv/bin/python -m pytest src/test/python/gui/test_app_settings.py src/test/python/gui/test_worklist_settings.py -q`: 44 passed.
 - `.venv/bin/python -m pytest src/test/python/gui -n 4 -q`: 791 passed (two existing matplotlib layout warnings).
+
+The startup follow-up, `Discover the default library profile when no path is saved`,
+loads an existing file at that default location and remembers its path. Explicit
+paths retain priority, and Reset to preferences suppresses discovery of the
+retained file. Invalid default files are reported rather than silently ignored.
+Regression coverage exercises both `load_setup()` and opening the work list's
+settings drawer. Verification with the same environment:
+`.venv/bin/python -m pytest src/test/python/gui/test_worklist_profile.py src/test/python/gui/test_worklist_settings.py src/test/python/gui/test_app_settings.py src/test/python/gui/test_worklist_window.py src/test/python/gui/test_worklist_review.py src/test/python/gui/test_worklist_review_fixes.py -n 4 -q`: 203 passed.

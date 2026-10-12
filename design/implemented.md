@@ -205,7 +205,11 @@ startup sets Qt's organization to `3ll3d00d` and application to `beqdesigner`;
 library profiles default to the organization configuration folder beside the
 preferences file (`~/.config/3ll3d00d/library-profile.yaml` on Linux), rather
 than a folder named after the launch script. Explicit profile paths remain
-unchanged. GUI tests redirect default config locations into temporary folders.
+unchanged. When the profile-path preference is unset, the work list discovers
+an existing default profile, loads it and remembers its path. An explicitly
+blank path from Reset to preferences suppresses discovery; an invalid default
+file produces the same visible error as an invalid explicitly selected file.
+GUI tests redirect default config locations into temporary folders.
 
 JRiver connections are managed in Preferences and shared with the filter
 manager. Source setup includes a browse-node picker, local path mappings,

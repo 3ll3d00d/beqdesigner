@@ -35,7 +35,7 @@ from model.worklist_edit import LEVEL_ERROR, LEVEL_INFO, LEVEL_OK, PathCheck, ch
     remote_owner_and_name, repository_display, repository_location, with_config
 from model.worklist_ignore import IgnoreTab
 from model.worklist_model import warning_colour
-from model.worklist_profile import WorkListSetup
+from model.worklist_profile import PROFILE_FILE_NAME, WorkListSetup, default_profile_path
 from model.worklist_sources import SourcesTab
 from pipeline.library.index import TitleRow
 from pipeline.library.profile import Profile, profile_from_config, save_profile
@@ -45,23 +45,10 @@ from pipeline.designer.manual import MANUAL_DESIGNER
 
 logger = logging.getLogger('worklist.settings')
 
-PROFILE_FILE_NAME = 'library-profile.yaml'
 REVIEW_QUEUE_FOLDER = 'review-queue'
 DEBOUNCE_MS = 400
 TV_MODE_LABELS = {'episode': 'One filter per episode', 'season': 'Whole season as a single track'}
 _PROFILE_FILTER = 'Library profile (*.yaml *.yml *.json);;All files (*)'
-
-
-def default_profile_path() -> str:
-    '''
-    Where a new profile file is offered: **the organisation's configuration folder**, not the work directory. The profile is the one
-    durable record of what the catalogue is made from, and the work directory is where extracted audio and the disposable
-    index live, which a person may clear to reclaim space.
-    '''
-    app_root = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppConfigLocation)
-    # QSettings' file is in the organisation folder; AppConfigLocation adds the application name beneath it.
-    root = os.path.dirname(app_root) if app_root else os.path.join(os.path.expanduser('~'), '3ll3d00d')
-    return os.path.join(root, PROFILE_FILE_NAME)
 
 
 def default_library_folder() -> str:
