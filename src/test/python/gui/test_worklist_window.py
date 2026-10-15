@@ -516,6 +516,34 @@ def test_a_source_that_fails_during_a_rescan_is_flagged_and_keeps_its_last_title
     assert window.statusBar.currentMessage() == 'Scan incomplete: filesystem: ConnectionError: server is down'
 
 
+def test_a_rescan_lists_a_shared_profiles_jriver_source_with_the_password_saved_in_preferences(qtbot, tmp_path, monkeypatch):
+    from model.jriver.connections import SavedConnection, save_connections
+    from pipeline.library import index as index_module
+    profile_file = tmp_path / 'shared-profile.json'
+    profile_file.write_text(json.dumps({
+        'run': {'work_dir': str(tmp_path / 'work'), 'queue_dir': str(tmp_path / 'queue'), 'designer': DESIGNER},
+        'sources': [{'name': 'jriver', 'kind': 'jriver', 'host': 'media.local', 'port': 52199, 'browse_node_id': 7,
+                     'username': 'user'}]}))
+    prefs = _prefs(tmp_path, **{LIBRARY_PROFILE_PATH: str(profile_file)})
+    save_connections(prefs, [SavedConnection('media.local:52199', 'user', 'saved')])
+    built = []
+
+    def build(kind, settings):
+        built.append(dict(settings))
+        return _Source(['Alpha'])
+
+    monkeypatch.setattr(index_module, 'build_source', build)
+    monkeypatch.delenv('JRIVER_PASSWORD', raising=False)
+    monkeypatch.delenv('JRIVER_PASSWORD_JRIVER', raising=False)
+    window = _window(qtbot, tmp_path, prefs=prefs)
+    with qtbot.waitSignal(window.scan_finished, timeout=10000) as scan:
+        assert window.rescan()
+
+    assert scan.args[0].errors == {}
+    assert [s['password'] for s in built] == ['saved']
+    assert 'password' not in profile_file.read_text()
+
+
 def test_selection_survives_a_rescan(qtbot, tmp_path):
     source = _Source(['Alpha', 'Beta', 'Gamma'])
     window = _scan_window(qtbot, tmp_path, source, auto_scan=False)

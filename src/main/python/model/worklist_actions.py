@@ -20,6 +20,7 @@ from qtpy.QtCore import QTimer, Qt, QThreadPool
 from qtpy.QtWidgets import QDialog, QLabel
 
 from model.preferences import WORKLIST_PUSH
+from model.worklist_profile import profile_with_secrets
 from model.execution_events import ExecutionEvent
 from model.worklist_failure import retry_label
 from model.worklist_confirm import ConfirmDialog, commit_text, machine_text, publish_text, retry_text
@@ -426,7 +427,8 @@ class WorkListActions:
             logger.exception('Could not prepare the run')
             self._say(f'Cannot start: {error}', LEVEL_ERROR)
             return False
-        job = RunJob(setup.index_file, setup.profile, setup.settings, run_config, publish, request, self._run_stages)
+        profile = profile_with_secrets(setup.profile, self._preferences)   # the password the shared file leaves out
+        job = RunJob(setup.index_file, profile, setup.settings, run_config, publish, request, self._run_stages)
         job.signals.progress.connect(lambda progress, source=job: self._on_run_progress(source, progress))
         job.signals.event.connect(lambda event, source=job: self._on_execution_event(source, event))
         job.signals.finished.connect(lambda report, source=job: self._on_run_finished(source, report))

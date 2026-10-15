@@ -197,6 +197,7 @@ the review count. Text, Slack and Discord send a one-line count summary.
 headers. A failed webhook never changes the pipeline job's result.
 
 Secrets come from the environment rather than a file, each also as `NAME_FILE` naming a file that holds it (a Docker secret): `BEQ_SERVICE_TOKEN`; `TMDB_API_KEY`; `JRIVER_PASSWORD` or `JRIVER_PASSWORD_<SOURCE>` (the source's name in capitals, `_` for anything else); and `BEQ_DESIGNER_HEADERS_<NAME>`, a JSON object of HTTP headers for that designer.
+A profile shared with the desktop app can leave the JRiver password out: the app's Library Work List reads the same `JRIVER_PASSWORD` variables, and otherwise uses the password saved in Preferences > JRiver for the same server and user. It never writes that password into the profile.
 For a notification target `phone`, `BEQ_NOTIFY_URL_PHONE` overrides its URL
 and `BEQ_NOTIFY_HEADERS_PHONE` supplies a JSON object of request headers.
 Those values also accept the `_FILE` form and are kept out of service status

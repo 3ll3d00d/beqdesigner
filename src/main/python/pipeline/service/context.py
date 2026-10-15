@@ -27,12 +27,7 @@ from pipeline.library.setup import DesignerEndpoint, configured_values, designer
     run_config_from_values, run_profile, scan_values, stage_settings
 from pipeline.library.stages import PublishSettings
 from pipeline.library.status import ScanSettings
-from pipeline.service.config import secret
-
-
-def env_name(name: str) -> str:
-    ''' A source's or designer's name as it appears in an environment variable: upper case, _ for anything else. '''
-    return re.sub(r'[^A-Za-z0-9]', '_', name).upper()
+from pipeline.service.config import env_name, jriver_password, secret
 
 
 def apply_secrets(config: Mapping[str, Any], env: Mapping[str, str]) -> Dict[str, Any]:
@@ -47,7 +42,7 @@ def apply_secrets(config: Mapping[str, Any], env: Mapping[str, str]) -> Dict[str
     for entry in named:
         if entry.get('kind') != 'jriver':
             continue
-        password = secret(env, f"JRIVER_PASSWORD_{env_name(str(entry.get('name', '')))}") or secret(env, 'JRIVER_PASSWORD')
+        password = jriver_password(env, str(entry.get('name', '')))
         if password:
             if isinstance(sources, list):
                 entry['password'] = password

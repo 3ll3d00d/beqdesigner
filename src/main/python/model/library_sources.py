@@ -308,7 +308,9 @@ class JRiverSourcePage(SourcePage):
         if not self._loaded or connection is None or self._loaded.get('host') != connection.host:
             return False
         saved = jriver_source_settings(connection, 0)
-        keys = ('username', 'password', 'ssl', 'path_mappings', 'external_id_fields')
+        # a profile shared with the pipeline service leaves the password out (the scan fills it in, worklist_profile)
+        keys = ('username', 'ssl', 'path_mappings', 'external_id_fields') + (('password',) if self._loaded.get('password')
+                                                                              else ())
         return any(saved.get(k) != self._loaded.get(k) and (saved.get(k) or self._loaded.get(k)) for k in keys)
 
     def __update_mappings_note(self, *_):

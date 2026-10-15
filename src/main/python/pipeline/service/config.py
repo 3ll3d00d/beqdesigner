@@ -12,6 +12,7 @@ in the image: `NAME` or, for Docker secrets, `NAME_FILE` naming a file that hold
     notify: [...]                      # webhooks (chunk S6)
 '''
 import os
+import re
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Optional, Tuple
 
@@ -38,6 +39,19 @@ def secret(env: Mapping[str, str], name: str) -> Optional[str]:
             raise ValueError(f'{name}_FILE names {path}, which cannot be read: {error.strerror}')
     value = (value or '').strip()
     return value or None
+
+
+def env_name(name: str) -> str:
+    ''' A source's or designer's name as it appears in an environment variable: upper case, _ for anything else. '''
+    return re.sub(r'[^A-Za-z0-9]', '_', name).upper()
+
+
+def jriver_password(env: Mapping[str, str], source_name: str) -> Optional[str]:
+    '''
+    A JRiver source's password from the environment: `JRIVER_PASSWORD_<SOURCE>`, else `JRIVER_PASSWORD` (each also as
+    `_FILE`). The service and the app read the same variables, so a profile they share never has to hold the password.
+    '''
+    return secret(env, f'JRIVER_PASSWORD_{env_name(source_name)}') or secret(env, 'JRIVER_PASSWORD')
 
 
 @dataclass(frozen=True)

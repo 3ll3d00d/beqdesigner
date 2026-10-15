@@ -60,7 +60,7 @@ from model.worklist_model import ALL_CHIPS, CHIP_ALL, CHIP_DONE, CHIP_WORKING, C
     COL_RUN_PROGRESS, COL_SOURCE, COL_TITLE, COL_WAITING, COL_YEAR, ID_ROLE, WorkListModel, WorkListProxy, \
     warning_colour
 from model.worklist_edit import discovery_changed
-from model.worklist_profile import WorkListSetup, load_setup
+from model.worklist_profile import WorkListSetup, load_setup, profile_with_secrets
 from model.execution_events import ExecutionEvent
 from model.worklist_failure import failure_text
 from model.worklist_run import FailedTitle, ResultLine, RunJob, failed_titles
@@ -972,7 +972,8 @@ class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkL
         setup = self._setup
         if self._scanning or self._syncing or self.is_running or not setup.ready or setup.index_file is None:
             return False
-        job = _ScanJob(setup.index_file, setup.profile, setup.settings, only, self._sources)
+        profile = profile_with_secrets(setup.profile, self._preferences)   # the password the shared file leaves out
+        job = _ScanJob(setup.index_file, profile, setup.settings, only, self._sources)
         job.signals.finished.connect(self._on_scan_finished)
         job.signals.errored.connect(self._on_scan_failed)
         self._active_job = job

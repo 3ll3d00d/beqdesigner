@@ -385,6 +385,12 @@ Secrets come from the environment or `*_FILE` variables rather than the YAML:
 headers as JSON in `BEQ_DESIGNER_HEADERS_<NAME>`. Precedence is environment,
 then `service.yaml`, then the profile.
 
+The app's Library Work List shares the profile and leaves its JRiver password out
+the same way: a scan or run fills in a JRiver source that names a user and no
+password from `JRIVER_PASSWORD[_<SOURCE>]`, else from the Preferences > JRiver
+server with the same address and user (`model/worklist_profile.profile_with_secrets`).
+That copy is never written back; the settings drawer edits the file as read.
+
 ## 8. Auto mode
 
 `AutoScheduler` holds `{enabled, interval_minutes, filter, through,

@@ -9,7 +9,7 @@ This module reads Qt preferences, Qt configuration paths and the saved JRiver se
 """
 import os
 from dataclasses import dataclass, replace
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 from qtpy.QtCore import QStandardPaths
 
@@ -19,9 +19,10 @@ from model.preferences import DESIGNER_DEFAULT, DESIGNER_QUEUE_DIR, LIBRARY_FILE
     LIBRARY_JRIVER_BROWSE_NODE, LIBRARY_JRIVER_CONNECTION, LIBRARY_PROFILE_PATH, LIBRARY_SOURCE_DEFAULT, \
     LIBRARY_TV_MODE, LIBRARY_WORK_DIR, LIBRARY_XML_REPO, LIBRARY_FILTER_REPO
 from pipeline.library.index import index_path
-from pipeline.library.profile import Profile, load_profile, profile_from_config
+from pipeline.library.profile import Profile, SourceSpec, load_profile, profile_from_config
 from pipeline.library.status import ScanSettings
 from pipeline.designer.manual import MANUAL_DESIGNER
+from pipeline.service.config import jriver_password
 
 ORIGIN_FILE = 'file'
 ORIGIN_PREFERENCES = 'preferences'
@@ -173,6 +174,32 @@ def load_setup(prefs) -> WorkListSetup:
     if not settings.designer and designer:
         settings = replace(settings, designer=designer)
     return WorkListSetup(profile, settings, origin, path, tuple(extra + setup_problems(profile, settings)))
+
+
+def profile_with_secrets(profile: Profile, prefs, env: Optional[Mapping[str, str]] = None) -> Profile:
+    '''
+    The profile a scan or run lists its sources with: a JRiver source that names a user and no password gets one, from the
+    environment the pipeline service reads (`JRIVER_PASSWORD_<SOURCE>`, `JRIVER_PASSWORD`), else from the server saved in
+    Preferences > JRiver with the same address and user. A profile shared with the service leaves the password out, and
+    this copy is never written back to the file: the settings drawer edits the profile as it was read.
+    '''
+    env = os.environ if env is None else env
+    connections = None
+    sources = []
+    for spec in profile.sources:
+        settings = spec.settings
+        if spec.kind == 'jriver' and settings.get('username') and not settings.get('password'):
+            password = jriver_password(env, spec.name)
+            if not password:
+                if connections is None:
+                    connections = load_connections(prefs)
+                endpoint = f"{settings.get('host', '')}:{settings.get('port', '')}"
+                password = next((c.password for c in connections
+                                 if c.endpoint == endpoint and c.username == settings['username'] and c.password), None)
+            if password:
+                spec = SourceSpec(spec.name, spec.kind, {**settings, 'password': password})
+        sources.append(spec)
+    return replace(profile, sources=tuple(sources))
 
 
 def register_profile_designers(profile: Profile) -> List[str]:

@@ -15,12 +15,13 @@ from model.library_sources import JRiverSourcePage
 from model.preferences import DESIGNER_DEFAULT, DESIGNER_QUEUE_DIR, LIBRARY_FILESYSTEM_GLOBS, LIBRARY_IMAGES_REPO, \
     LIBRARY_JRIVER_BROWSE_NODE, LIBRARY_JRIVER_CONNECTION, LIBRARY_PROFILE_PATH, LIBRARY_SOURCE_DEFAULT, \
     LIBRARY_TV_MODE, LIBRARY_WORK_DIR, LIBRARY_XML_REPO, LIBRARY_FILTER_REPO, Preferences
-from model.worklist_profile import ORIGIN_FILE, ORIGIN_PREFERENCES, bootstrap_profile, default_designer, load_setup
+from model.worklist_profile import ORIGIN_FILE, ORIGIN_PREFERENCES, bootstrap_profile, default_designer, load_setup, \
+    profile_with_secrets
 from pipeline.designer.registry import register_designer, unregister_designer
 from pipeline.library.filesystem import FilesystemLibrarySource
 from pipeline.library.jriver import JRiverLibrarySource
 from pipeline.library.pathmap import PathMapping
-from pipeline.library.profile import build_source
+from pipeline.library.profile import build_source, profile_from_config
 from pipeline.library.status import ScanSettings
 
 DESIGNER = 'test.profile'
@@ -262,3 +263,46 @@ def test_an_invalid_default_profile_reports_its_error_instead_of_using_preferenc
     assert setup.origin == ORIGIN_FILE and setup.path == str(path)
     assert setup.profile is None and setup.error
     assert prefs.get(LIBRARY_PROFILE_PATH, default_if_unset=False) is None
+
+
+def _shared_profile(**jriver):
+    ''' A profile shared with the pipeline service: its JRiver source names the user and leaves the password out. '''
+    return profile_from_config({'sources': [
+        {'name': 'jriver', 'kind': 'jriver', 'host': 'media.local', 'port': 52199, 'browse_node_id': 7, 'username': 'user',
+         **jriver},
+        {'name': 'films', 'kind': 'filesystem', 'globs': ['/films/*.mkv']}]})
+
+
+def test_a_shared_profile_takes_the_password_the_service_reads_from_the_environment(prefs):
+    profile = _shared_profile()
+
+    assert profile_with_secrets(profile, prefs, {'JRIVER_PASSWORD': 'everyone'}).source('jriver').settings['password'] \
+        == 'everyone'
+    assert profile_with_secrets(profile, prefs, {'JRIVER_PASSWORD': 'everyone', 'JRIVER_PASSWORD_JRIVER': 'mine'}) \
+        .source('jriver').settings['password'] == 'mine'
+    assert 'password' not in profile.source('jriver').settings   # the profile the drawer edits and writes is untouched
+    assert 'password' not in json.dumps(profile.to_config())
+
+
+def test_a_shared_profile_takes_the_password_saved_in_preferences_for_the_same_server_and_user(prefs):
+    save_connections(prefs, [SavedConnection('other.local:52199', 'user', 'wrong-server'),
+                             SavedConnection('media.local:52199', 'someone-else', 'wrong-user'),
+                             SavedConnection('media.local:52199', 'user', 'saved')])
+
+    with_secrets = profile_with_secrets(_shared_profile(), prefs, {})
+
+    assert with_secrets.source('jriver').settings['password'] == 'saved'
+    assert with_secrets.source('films') == _shared_profile().source('films')
+    built = build_source('jriver', with_secrets.source('jriver').settings)
+    assert (built.username, built.password) == ('user', 'saved')
+
+
+def test_a_password_in_the_profile_wins_and_none_is_invented(prefs):
+    save_connections(prefs, [SavedConnection('media.local:52199', 'user', 'saved')])
+
+    assert profile_with_secrets(_shared_profile(password='own'), prefs, {'JRIVER_PASSWORD': 'env'}) \
+        .source('jriver').settings['password'] == 'own'
+    anonymous = _shared_profile(username=None)
+    assert 'password' not in profile_with_secrets(anonymous, prefs, {'JRIVER_PASSWORD': 'env'}).source('jriver').settings
+    unknown = profile_with_secrets(_shared_profile(host='nowhere.local'), prefs, {})
+    assert 'password' not in unknown.source('jriver').settings   # still reported as missing when the scan runs

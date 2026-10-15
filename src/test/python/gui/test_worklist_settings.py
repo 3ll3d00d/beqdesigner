@@ -823,6 +823,31 @@ def test_a_profile_sources_own_mappings_can_be_replaced_by_those_in_preferences(
     assert load_profile(path).source('nas').settings['path_mappings'] == [{'from': 'W:\\Films', 'to': '/mnt/films'}]
 
 
+def test_a_shared_profile_that_leaves_the_password_out_is_not_flagged_as_differing_from_preferences(qtbot, tmp_path):
+    config = profile_config(tmp_path)
+    config['sources'].insert(0, {'name': 'nas', 'kind': 'jriver', 'host': 'media.local', 'port': 52199,
+                                 'browse_node_id': 5, 'username': 'user'})
+    path = str(tmp_path / 'p.yaml')
+    from pipeline.library.profile import write_config_file
+    write_config_file(path, config)
+    prefs = make_prefs(tmp_path, path)
+    save_connections(prefs, [SavedConnection('media.local:52199', 'user', 'saved')])
+    dialogs = Dialogs()
+    window = open_window(qtbot, tmp_path, prefs, dialogs)
+    drawer = window.open_settings()
+    drawer.sourcesTab.select('nas')
+    seen = {}
+
+    def edit(dialog):
+        seen['note'] = dialog.page.mappingsNote.isVisibleTo(dialog)
+
+    dialogs.next = accepting(edit)
+    assert drawer.sourcesTab.edit_selected() and drawer.flush()
+
+    assert seen == {'note': False}
+    assert 'password' not in load_profile(path).source('nas').settings
+
+
 def test_choosing_the_not_available_entry_keeps_the_name_not_the_label(qtbot, tmp_path):
     config = profile_config(tmp_path)
     config['run']['designer'] = 'nobody.registered'
