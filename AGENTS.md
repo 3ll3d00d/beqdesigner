@@ -272,6 +272,9 @@ renders the notes.
   a paired `QObject` signals class (`FileSearchSignals`, `ProbeJobSignals`,
   `JobSignals`, `VersionSignals`, …) to marshal results back. That pairing
   is the pattern — follow it rather than inventing new threading.
+  The app waits for that pool after the event loop ends, while Python is still
+  alive (`model/shutdown.py`): Qt's own wait in `~QCoreApplication` comes
+  after finalisation and hung for ever on a runnable that was still running.
 - **Qt-free modules.** The headless pipeline (and its Docker image, which
   has no Qt installed) imports some of `model/`. Those modules must not
   import `qtpy`, `PyQt6`, `qtawesome`, `pyqtgraph` or `ui.*`, even

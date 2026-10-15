@@ -1662,6 +1662,8 @@ if __name__ == '__main__':
     # show the form and exec the app
     form.show()
     app.exec_()
+    from model.shutdown import finish_background_work
+    finish_background_work()   # while Python is alive: waiting in Qt's teardown can hang for ever
 
 
 class PlotWidgetWithDateAxis(pg.PlotWidget):
