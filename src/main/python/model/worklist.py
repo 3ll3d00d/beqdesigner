@@ -46,12 +46,12 @@ import logging
 import os
 import sqlite3
 import time
-from typing import Callable, Dict, List, Mapping, Optional
+from typing import Callable, Dict, List, Mapping, Optional, Tuple
 
-from qtpy.QtCore import QEvent, QItemSelectionModel, QObject, QPoint, QRunnable, Qt, QThreadPool, Signal
+from qtpy.QtCore import QEvent, QItemSelectionModel, QObject, QPoint, QRunnable, Qt, QThreadPool, QTimer, Signal
 from qtpy.QtGui import QKeySequence, QShortcut
 from qtpy.QtWidgets import QAbstractItemView, QButtonGroup, QDockWidget, QHeaderView, QHBoxLayout, QInputDialog, \
-    QLineEdit, QMainWindow, QMenu, QMessageBox, QProgressBar, QPushButton, QSizePolicy, QWidget
+    QLineEdit, QMainWindow, QMenu, QMessageBox, QPushButton, QSizePolicy, QWidget
 
 from model.preferences import WORKLIST_GEOMETRY
 from model.worklist_actions import WorkListActions
@@ -68,7 +68,8 @@ from model.worklist_run import FailedTitle, ResultLine, RunJob, failed_titles
 from model.worklist_run_details import EventBuffer, RunDetailsDialog, RunStatusDelegate, load_run_details
 from model.worklist_settings import SettingsDrawer
 from model.worklist_titles import WorkListTitles
-from pipeline.library.index import LibraryIndex, ScanResult, SourceRow, TitleRow
+from pipeline.library.index import STEP_LISTED, STEP_LISTING, STEP_NOT_LISTED, STEP_OUTPUTS, \
+    STEP_CATALOGUE, STEP_SAVING, STEP_TITLES, ScanNotSaved, ScanStep, LibraryIndex, ScanResult, SourceRow, TitleRow
 from pipeline.library.profile import Profile
 from pipeline.library.selection import CHIP_NEW, Selection, selection_from_chip
 from pipeline.library.source import LibrarySource
@@ -122,9 +123,55 @@ def sentence(text: str) -> str:
 def describe_scan_failure(error: Exception, index_file: str) -> str:
     ''' Why a scan could not finish, in words: a locked index is another program writing it, not a broken scan. '''
     if isinstance(error, sqlite3.OperationalError) and 'locked' in str(error):
-        return (f'The scan could not save what it found: another program, such as the pipeline service, kept the library '
-                f'index ({index_file}) locked. Nothing was changed. Rescan to try again.')
+        return (f'The scan was not saved: another program, such as the pipeline service, kept the library index '
+                f'({index_file}) locked. Nothing was changed. Rescan to try again.')
+    if isinstance(error, ScanNotSaved):
+        return f'The scan was not saved: {error}. Nothing was changed.'
     return f'The scan failed: {type(error).__name__}: {error}'
+
+
+def describe_step(step: Optional[ScanStep], elapsed: float) -> str:
+    ''' What a scan is doing now, in words; `elapsed` is how long it has been doing it, in seconds. '''
+    if step is None:
+        return 'starting'
+    if step.stage == STEP_LISTING:
+        return f'listing {step.source}'
+    if step.stage == STEP_LISTED:
+        return f'{step.source} listed {step.total:,} title{"" if step.total == 1 else "s"}'
+    if step.stage == STEP_NOT_LISTED:
+        return f'{step.source} could not be listed'
+    if step.stage == STEP_OUTPUTS:
+        return 'reading what has been extracted, designed and published'
+    if step.stage == STEP_CATALOGUE:
+        return 'reading the catalogue repository'
+    if step.stage == STEP_TITLES:
+        return f'working out what each title needs: {step.done:,} of {step.total:,}'
+    if step.stage == STEP_SAVING:
+        return ('saving to the library index' if elapsed < 3 else
+                'saving to the library index: waiting for it, as another program is using it')
+    return step.stage
+
+
+def scan_panel(sources: List[SourceRow], last_scan_at: Optional[float], now: float, *, scanning: bool,
+               started_at: Optional[float] = None, step: Optional[ScanStep] = None, step_at: Optional[float] = None,
+               found: Optional[Mapping[str, Tuple[str, bool]]] = None, not_saved: str = '') -> List[tuple]:
+    '''
+    Everything about scanning, in one place, as (text, is_error): which scan the list shows and when it ran, what each
+    source gave in it; while a scan runs, what it is doing now and what it has found so far; and a scan that found things
+    but could not save them, with what it found (the list still shows the scan before it).
+    '''
+    lines = [(f'Showing the scan from {format_time(last_scan_at, now)}.' if last_scan_at else
+              'No scan has been saved yet.', False)]
+    lines += [(f'\u2003{text}', bad) for text, bad in describe_sources(sources, now)]
+    if scanning:
+        elapsed = max(0.0, now - (step_at if step_at is not None else started_at or now))
+        since = f' since {format_time(started_at, now)}' if started_at else ''
+        lines.append((f'Scanning{since}. Now: {describe_step(step, elapsed)} ({int(elapsed)} s).', False))
+    elif not_saved:
+        lines.append((not_saved, True))
+    if found and (scanning or not_saved):
+        lines += [(f'\u2003{text}', bad) for text, bad in found.values()]
+    return lines
 
 
 def describe_sources(sources: List[SourceRow], now: float) -> List[tuple]:
@@ -149,7 +196,8 @@ def describe_sources(sources: List[SourceRow], now: float) -> List[tuple]:
 
 class _ScanSignals(QObject):
     finished = Signal(object)  # ScanResult
-    errored = Signal(str)
+    errored = Signal(str, object)   # why, in words; the ScanNotSaved (what it found) or None
+    step = Signal(object)      # ScanStep: what the scan is doing now
 
 
 class _ScanJob(QRunnable):
@@ -168,11 +216,13 @@ class _ScanJob(QRunnable):
     def run(self):
         try:
             with LibraryIndex(self._path) as index:
-                result = index.scan(self._profile, self._settings, only=self._only, sources=self._sources)
+                result = index.scan(self._profile, self._settings, only=self._only, sources=self._sources,
+                                    progress=self.signals.step.emit)
             self.signals.finished.emit(result)
         except Exception as error:
             logger.exception('Library scan failed')
-            self.signals.errored.emit(describe_scan_failure(error, self._path))
+            self.signals.errored.emit(describe_scan_failure(error, self._path),
+                                      error if isinstance(error, ScanNotSaved) else None)
 
 
 
@@ -258,6 +308,11 @@ class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkL
         self._generation = 0
         self._scanning = False
         self._active_job: Optional[_ScanJob] = None
+        self._scan_started_at: Optional[float] = None
+        self._scan_step: Optional[ScanStep] = None
+        self._step_at: Optional[float] = None
+        self._scan_found: Dict[str, Tuple[str, bool]] = {}   # this attempt's findings per source, as panel lines
+        self._scan_not_saved = ''                            # why the last attempt's findings are not in the index
         self._sort_column = -1
         self._sort_order = Qt.SortOrder.AscendingOrder
 
@@ -273,11 +328,9 @@ class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkL
         self.workTable.setItemDelegateForColumn(COL_RUN_PROGRESS, status_delegate)
         self.workTable.setItemDelegateForColumn(COL_RUN_DETAILS, status_delegate)
         self._configure_chips()
-        self._progress = QProgressBar()
-        self._progress.setRange(0, 0)
-        self._progress.setMaximumWidth(140)
-        self._progress.setVisible(False)
-        self.statusBar.addPermanentWidget(self._progress)
+        self._step_timer = QTimer(self)   # the panel's "Now" line counts the seconds of the step in hand
+        self._step_timer.setInterval(1000)
+        self._step_timer.timeout.connect(self._refresh_source_status)
 
         self._configure_actions()
         self._configure_titles()
@@ -913,12 +966,6 @@ class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkL
         self.staleBannerButton.setEnabled(setup.ready and not self._busy())
 
     def _refresh_scan_text(self) -> None:
-        if self._scanning:
-            self.lastScanLabel.setText('scanning...')
-        elif self._last_scan_at:
-            self.lastScanLabel.setText(f'last scan {format_time(self._last_scan_at, self._clock())}')
-        else:
-            self.lastScanLabel.setText('never scanned')
         problems = self._setup.problems
         self.rescanButton.setEnabled(self._setup.ready and not self._scanning and not self.is_running)
         self.rescanButton.setText('Scanning...' if self._scanning else 'Rescan')
@@ -929,13 +976,16 @@ class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkL
             'Nothing is extracted, designed or published.')
 
     def _refresh_source_status(self) -> None:
-        lines = describe_sources(self._sources_seen, self._clock())
-        if not (any(bad for _, bad in lines) or len(lines) > 1):
-            self.sourceStatusLabel.setVisible(False)
-            return
+        lines = scan_panel(self._sources_seen, self._last_scan_at, self._clock(), scanning=self._scanning,
+                           started_at=self._scan_started_at, step=self._scan_step, step_at=self._step_at,
+                           found=self._scan_found, not_saved=self._scan_not_saved)
         colour = warning_colour().name()
-        parts = [f'<span style="color:{colour}">{html.escape(text)}</span>' if bad else html.escape(text)
-                 for text, bad in lines]
+        parts = []
+        for text, bad in lines:   # a heading (which scan), then its lines indented beneath it
+            indented = text.startswith('\u2003')
+            body = html.escape(text.lstrip('\u2003'))
+            body = f'<span style="color:{colour}">{body}</span>' if bad else body
+            parts.append(f'&nbsp;&nbsp;&nbsp;&nbsp;{body}' if indented else f'<b>{body}</b>')
         self.sourceStatusLabel.setText('<br>'.join(parts))
         self.sourceStatusLabel.setVisible(True)
 
@@ -992,35 +1042,44 @@ class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkL
         job = _ScanJob(setup.index_file, profile, setup.settings, only, self._sources)
         job.signals.finished.connect(self._on_scan_finished)
         job.signals.errored.connect(self._on_scan_failed)
+        job.signals.step.connect(self._on_scan_step)
         self._active_job = job
+        self._scan_started_at = self._step_at = self._clock()
+        self._scan_step, self._scan_found, self._scan_not_saved = None, {}, ''
         self._set_scanning(True)
-        self.statusBar.showMessage('Scanning the library sources...')
         QThreadPool.globalInstance().start(job)
         return True
 
     def _set_scanning(self, scanning: bool) -> None:
         self._scanning = scanning
-        self._progress.setVisible(scanning)
+        if scanning:
+            self._step_timer.start()
+        else:
+            self._step_timer.stop()
         self._refresh_view()
+
+    def _on_scan_step(self, step: ScanStep) -> None:
+        self._scan_step, self._step_at = step, self._clock()
+        if step.stage == STEP_LISTED:
+            self._scan_found[step.source] = (f'{step.source}: listed {step.total:,} title{"" if step.total == 1 else "s"}',
+                                             False)
+        elif step.stage == STEP_NOT_LISTED:
+            self._scan_found[step.source] = (f'{step.source} could not be listed: {sentence(step.error)}', True)
+        self._refresh_source_status()
 
     def _on_scan_finished(self, result: ScanResult) -> None:
         self._active_job = None
-        self._scanning = False
         self._stale = False   # the index describes the current settings again
-        self._progress.setVisible(False)
+        self._scan_found, self._scan_not_saved = {}, ''   # the scan the list shows is this one now
+        self._set_scanning(False)
         self.refresh_from_index()
         self._sync_index_if_dirty()   # decisions made while it was listing may be newer than what it read
-        message = f'Scan finished: {result.titles:,} titles, {len(result.new):,} new'
-        if result.errors:
-            message = 'Scan incomplete. ' + ' '.join(f'{source} could not be listed: {sentence(error)}'
-                                                     for source, error in result.errors.items())
-        self.statusBar.showMessage(message)
         self.scan_finished.emit(result)
 
-    def _on_scan_failed(self, message: str) -> None:
+    def _on_scan_failed(self, message: str, not_saved: Optional[ScanNotSaved]) -> None:
         self._active_job = None
+        self._scan_not_saved = message   # what it found stays shown, under why it is not in the index
         self._set_scanning(False)
-        self.statusBar.showMessage(message)
         self.scan_failed.emit(message)
 
     def changeEvent(self, event) -> None:

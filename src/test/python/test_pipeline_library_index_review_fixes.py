@@ -554,3 +554,38 @@ def test_scan_settings_read_owner_repo_and_report_spec_from_the_profile_file():
     assert (settings.image_owner, settings.image_repo_name, settings.report_spec.width_px) == ('me', 'imgs', 1200)
     with pytest.raises(ValueError, match='report_spec is not valid'):
         ScanSettings.from_values({'report_spec': {'nonsense': 1}})
+
+
+# --- what a scan is doing, and one that cannot save ----------------------------------------------------------------------
+
+def test_a_scan_reports_each_step_as_it_starts(env):
+    from pipeline.library.index import STEP_CATALOGUE, STEP_LISTED, STEP_LISTING, STEP_NOT_LISTED, STEP_OUTPUTS, \
+        STEP_SAVING, STEP_TITLES, ScanStep
+    down = FakeSource([])
+    down.list_items = lambda **query: (_ for _ in ()).throw(ConnectionError('server is down'))
+    steps = []
+
+    _scan(env, sources={'films': FakeSource([_item('a'), _item('b')]), 'nas': down}, progress=steps.append)
+
+    assert [s.stage for s in steps] == [STEP_LISTING, STEP_LISTED, STEP_LISTING, STEP_NOT_LISTED, STEP_OUTPUTS,
+                                        STEP_CATALOGUE, STEP_TITLES, STEP_SAVING]
+    assert steps[1] == ScanStep(STEP_LISTED, 'films', total=2)
+    assert steps[3] == ScanStep(STEP_NOT_LISTED, 'nas', error='ConnectionError: server is down')
+    assert steps[6] == ScanStep(STEP_TITLES, done=0, total=2)
+
+
+def test_a_scan_that_cannot_write_the_index_changes_nothing_and_says_what_it_found(env, monkeypatch):
+    from pipeline.library.index import ScanNotSaved
+    _scan(env, _item('a'))
+    before = env.index.summary()
+
+    def locked(*args, **kwargs):
+        raise sqlite3.OperationalError('database is locked')
+
+    monkeypatch.setattr(LibraryIndex, '_LibraryIndex__save_scan', locked)
+    with pytest.raises(ScanNotSaved) as raised:
+        _scan(env, _item('a'), _item('b'), now=12345.0)
+
+    assert isinstance(raised.value, sqlite3.OperationalError) and 'locked' in str(raised.value)
+    assert (raised.value.listed, raised.value.errors, raised.value.started_at) == ({'films': 2}, {}, 12345.0)
+    assert env.index.summary() == before and [r.id for r in env.index.titles()] == ['fs-a']

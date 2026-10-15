@@ -339,7 +339,7 @@ def test_a_configured_library_that_was_never_scanned_says_so_and_can_be_scanned(
 
     assert window.contentStack.currentWidget() is window.emptyPage
     assert 'has not been scanned' in window.emptyTitleLabel.text()
-    assert window.lastScanLabel.text() == 'never scanned'
+    assert _panel(window).startswith('No scan has been saved yet.')
     assert window.rescanButton.isEnabled()
     assert not window.openSettingsButton.isVisibleTo(window)
 
@@ -383,11 +383,20 @@ def test_a_source_that_failed_to_list_is_flagged_with_why_and_which_listing_is_s
     assert window.listed_ids()  # its titles are still listed: the last listing is kept
 
 
-def test_a_single_healthy_source_needs_no_status_line(qtbot, tmp_path):
+def test_the_panel_says_which_scan_the_list_shows_and_when_it_ran(qtbot, tmp_path):
     window = _window(qtbot, tmp_path, _rows(), sources=SOURCES[:1])
 
-    assert not window.sourceStatusLabel.isVisibleTo(window)
-    assert window.lastScanLabel.text() == f'last scan {format_time(NOW - 900, NOW)}'
+    assert window.sourceStatusLabel.isVisibleTo(window)
+    assert _panel(window) == (f'Showing the scan from {format_time(NOW - 900, NOW)}.\n'
+                              f'\u2003jriver: scanned {format_time(NOW - 900, NOW)}, 6 titles')
+
+
+def _panel(window):
+    ''' The scan panel's text as a person reads it, one line per line. '''
+    import html as html_module
+    import re
+    text = window.sourceStatusLabel.text().replace('<br>', '\n').replace('&nbsp;&nbsp;&nbsp;&nbsp;', '\u2003')
+    return html_module.unescape(re.sub(r'<[^>]+>', '', text))
 
 
 def test_describe_sources_covers_ok_never_scanned_failed_and_never_listed():
@@ -464,8 +473,9 @@ def test_rescan_lists_the_sources_on_a_worker_thread_and_never_blocks_the_ui(qtb
     # the click returned while the source is still listing: the UI thread was not the one waiting
     assert window.is_scanning
     assert window.rescanButton.text() == 'Scanning...' and not window.rescanButton.isEnabled()
-    assert window.lastScanLabel.text() == 'scanning...'
+    assert 'Now: starting' in _panel(window)
     qtbot.waitUntil(source.entered.is_set, timeout=5000)
+    qtbot.waitUntil(lambda: 'Now: listing filesystem (' in _panel(window), timeout=5000)
     assert source.thread is not threading.current_thread()
     QApplication.processEvents()  # the event loop still turns
     assert window.is_scanning and window.listed_ids() == []
@@ -477,8 +487,10 @@ def test_rescan_lists_the_sources_on_a_worker_thread_and_never_blocks_the_ui(qtb
     assert not window.is_scanning and window.rescanButton.isEnabled()
     assert scan.args[0].titles == 2 and len(scan.args[0].new) == 2
     assert sorted(window.listed_ids()) == ['fs-Alpha', 'fs-Beta']
-    assert 'Scan finished: 2 titles, 2 new' in window.statusBar.currentMessage()
-    assert window.lastScanLabel.text().startswith('last scan ')
+    assert window.statusBar.currentMessage() == ''   # the panel says it all: one place to look
+    lines = _panel(window).split('\n')
+    assert lines[0].startswith('Showing the scan from ') and 'Now:' not in _panel(window)
+    assert lines[1].startswith('\u2003filesystem: scanned ') and lines[1].endswith(', 2 titles')
     assert window.chip_counts()['New'] == 2 and window.chip_counts()['Extract'] == 2
 
 
@@ -514,8 +526,7 @@ def test_a_source_that_fails_during_a_rescan_is_flagged_and_keeps_its_last_title
     assert window.sourceStatusLabel.isVisibleTo(window)
     assert 'server is down' in window.sourceStatusLabel.text()
     assert window.sourceCombo.findText('filesystem (!)') >= 0
-    assert window.statusBar.currentMessage() == \
-        'Scan incomplete. filesystem could not be listed: ConnectionError: server is down.'
+    assert window.statusBar.currentMessage() == ''
 
 
 def test_a_rescan_lists_a_shared_profiles_jriver_source_with_the_password_saved_in_preferences(qtbot, tmp_path, monkeypatch):
@@ -546,23 +557,54 @@ def test_a_rescan_lists_a_shared_profiles_jriver_source_with_the_password_saved_
     assert 'password' not in profile_file.read_text()
 
 
-def test_a_scan_that_cannot_write_a_locked_index_says_another_program_holds_it(qtbot, tmp_path, monkeypatch):
+def test_a_scan_that_cannot_save_shows_what_it_found_beside_the_scan_the_list_still_shows(qtbot, tmp_path, monkeypatch):
     import sqlite3
     from pipeline.library.index import LibraryIndex as Index
+    source = _Source(['Alpha'])
+    window = _scan_window(qtbot, tmp_path, source, auto_scan=False)
+    with qtbot.waitSignal(window.scan_finished, timeout=10000):
+        window.rescan()
+    saved = _panel(window).split('\n')[0]
 
     def locked(*args, **kwargs):
         raise sqlite3.OperationalError('database is locked')
 
-    monkeypatch.setattr(Index, 'scan', locked)
-    window = _scan_window(qtbot, tmp_path, _Source(['Alpha']), auto_scan=False)
+    monkeypatch.setattr(Index, '_LibraryIndex__save_scan', locked)
+    source.titles = ['Alpha', 'Beta']
     with qtbot.waitSignal(window.scan_failed, timeout=10000) as failed:
         window.rescan()
 
     path = index_path(str(tmp_path / 'work'))
-    assert failed.args[0] == (f'The scan could not save what it found: another program, such as the pipeline service, '
-                              f'kept the library index ({path}) locked. Nothing was changed. Rescan to try again.')
-    assert window.statusBar.currentMessage() == failed.args[0]
-    assert not window.is_scanning and window.rescanButton.text() == 'Rescan'
+    assert failed.args[0] == (f'The scan was not saved: another program, such as the pipeline service, kept the library '
+                              f'index ({path}) locked. Nothing was changed. Rescan to try again.')
+    lines = _panel(window).split('\n')
+    assert lines[0] == saved                      # the list is still the scan that was saved, and says when it ran
+    assert lines[-2:] == [failed.args[0], '\u2003filesystem: listed 2 titles']   # and what this attempt found
+    assert sorted(window.listed_ids()) == ['fs-Alpha']
+    assert not window.is_scanning and window.rescanButton.text() == 'Rescan' and window.statusBar.currentMessage() == ''
+
+
+def test_the_panel_says_what_a_scan_is_doing_now_and_for_how_long():
+    from model.worklist import scan_panel
+    from pipeline.library.index import STEP_NOT_LISTED, STEP_SAVING, STEP_TITLES, ScanStep
+    stored = [__row('jriver', NOW - DAY, NOW - 2 * DAY, 'listed nothing', 1291)]
+    when = format_time(NOW - DAY, NOW)
+
+    def now_line(step, step_at):
+        return scan_panel(stored, NOW - DAY, NOW, scanning=True, started_at=NOW - 60, step=step, step_at=step_at)[-1][0]
+
+    assert scan_panel(stored, NOW - DAY, NOW, scanning=False)[0] == (f'Showing the scan from {when}.', False)
+    assert now_line(ScanStep(STEP_TITLES, done=400, total=1291), NOW - 2) == \
+        f'Scanning since {format_time(NOW - 60, NOW)}. Now: working out what each title needs: 400 of 1,291 (2 s).'
+    assert now_line(ScanStep(STEP_SAVING), NOW - 1).endswith('Now: saving to the library index (1 s).')
+    assert now_line(ScanStep(STEP_SAVING), NOW - 12).endswith(
+        'Now: saving to the library index: waiting for it, as another program is using it (12 s).')
+    found = {'jriver': ('jriver could not be listed: JRiver password is missing.', True)}
+    lines = scan_panel(stored, NOW - DAY, NOW, scanning=True, started_at=NOW - 5,
+                       step=ScanStep(STEP_NOT_LISTED, 'jriver', error='x'), step_at=NOW, found=found)
+    assert lines[-1] == ('\u2003jriver could not be listed: JRiver password is missing.', True)
+    assert lines[0] == (f'Showing the scan from {when}.', False)   # the stored failure is dated as the old scan's
+    assert lines[1][0].startswith(f'\u2003jriver could not be listed at {when}: listed nothing.')
 
 
 def test_selection_survives_a_rescan(qtbot, tmp_path):

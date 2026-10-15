@@ -15,8 +15,8 @@ The result is a **cache**. You can delete `library-index.sqlite` from the work d
 
 ### When it happens
 
-* **When you open the window** for the first time (or the index is missing), or when the last scan was **more than 12 hours ago**, the list is scanned by itself, in the background. Otherwise the window shows the last scan immediately and does not rescan. *last scan 08:53* (or a date, if it was not today) at the top right says how old it is.
-* **When you press *Rescan*.** It scans in the background: the button reads *Scanning...*, a progress bar appears at the bottom of the window and the list stays usable. It scans every source; there is no button to rescan just one. A scan cannot be cancelled, and *Rescan*, the action buttons and the settings are disabled until it finishes.
+* **When you open the window** for the first time (or the index is missing), or when the last scan was **more than 12 hours ago**, the list is scanned by itself, in the background. Otherwise the window shows the last scan immediately and does not rescan. The scan panel under the strip says which scan the list shows and when it ran: *Showing the scan from 08:53* (or a date, if it was not today).
+* **When you press *Rescan*.** It scans in the background: the button reads *Scanning...* and the list stays usable, still showing the previous scan. The scan panel says exactly what the scan is doing and for how long, for example *Scanning since 08:47. Now: listing jriver (12 s).*, then reading the outputs, working out what each title needs (*400 of 1,291*), and saving. Each source's result appears under it as soon as it is listed. It scans every source; there is no button to rescan just one. A scan cannot be cancelled, and *Rescan*, the action buttons and the settings are disabled until it finishes.
 * **Whenever you change something that affects the answer**, a banner offers *Rescan now*. See [the settings drawer](setup.md#the-settings-drawer).
 
 After a scan that found new titles, the *New* button on the strip counts them, they are shaded grey in the list (a title being worked on is shaded amber instead; neither is the selection colour) and their *Waiting* column reads *new · 4h* (*new*, then how long the title has been in its current state). *New* means first seen by the **most recent** scan, so a title stays new until the next scan.
@@ -55,13 +55,17 @@ Some titles carry a label. It is shown at the end of the *Detail* column.
 
 ### A source that cannot be read
 
-If a source cannot be listed (a server is down, a network share is not mounted), the scan does not lose its titles. It keeps the last listing and says so in red under the strip:
+If a source cannot be listed (a server is down, a network share is not mounted), the scan does not lose its titles. It keeps the last listing and says so in red in the scan panel, with when it tried:
 
-> films: could not be listed (why). Showing its listing from 09:14.
+> films could not be listed at 09:20: why. The titles shown are from its listing at 09:14.
 
 The same happens if a source that listed some titles last time now lists **none**: an unmounted share looks like an empty library, so the previous listing is kept and the scan reports it. There is no way to say "it really is empty" in the work list (the command line has `scan --allow-empty` for that).
 
-With more than one source, a line per source (*films: scanned 08:53, 26 titles*) is always shown under the strip.
+The panel always has a line per source (*films: scanned 08:53, 26 titles*).
+
+### A scan that cannot be saved
+
+The index is a file that the [pipeline service](service.md) may share. If another program keeps it locked when a scan has finished listing, the scan cannot save, and nothing changes. The panel keeps saying which scan the list shows, and adds in red why this one was not saved and, under it, what this scan found: each source's titles, or why it could not be listed. *Rescan* tries again.
 
 ### Nothing is shown
 

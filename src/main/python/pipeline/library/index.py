@@ -22,7 +22,7 @@ import threading
 import time
 from pathlib import Path
 from dataclasses import asdict, dataclass, field, replace
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 from pipeline.library.catalogue_scan import XmlRecord, scan_xml_repo, tmdb_index
 from pipeline.library.profile import Profile, SourceSpec, build_source
@@ -257,6 +257,38 @@ class ScanResult:
     errors: Dict[str, str] = field(default_factory=dict)  # source name -> why it could not be listed
     counts: Dict[str, int] = field(default_factory=dict)  # needs -> titles
     superseded: List[str] = field(default_factory=list)   # ids now grouped under another row (tv_mode changed), kept for a person
+
+
+# what a scan is doing, for ScanStep.stage
+STEP_LISTING = 'listing'            # listing `source`
+STEP_LISTED = 'listed'              # `source` listed `total` titles
+STEP_NOT_LISTED = 'not-listed'      # `source` could not be listed: `error` (its previous listing is kept)
+STEP_OUTPUTS = 'outputs'            # reading what has been extracted, designed and published so far
+STEP_CATALOGUE = 'catalogue'        # reading the catalogue repository's XML
+STEP_TITLES = 'titles'              # working out what each title needs: `done` of `total`
+STEP_SAVING = 'saving'              # writing the index (it waits here while another program holds the file)
+
+
+@dataclass(frozen=True)
+class ScanStep:
+    ''' One step of a scan, as it starts, for a caller that shows what the scan is doing now. '''
+    stage: str
+    source: str = ''
+    done: int = 0
+    total: int = 0
+    error: str = ''
+
+
+class ScanNotSaved(sqlite3.OperationalError):
+    '''
+    A scan that listed its sources and could not write the index (another program held it longer than the busy timeout):
+    nothing was changed. It carries what the scan found, since the index still describes the previous scan.
+    '''
+
+    def __init__(self, cause: Exception, started_at: float, listed: Mapping[str, int], errors: Mapping[str, str]):
+        super().__init__(str(cause))
+        self.cause, self.started_at = cause, started_at
+        self.listed, self.errors = dict(listed), dict(errors)   # source name -> titles listed / why it was not listed
 
 
 @dataclass(frozen=True)
@@ -632,7 +664,8 @@ class LibraryIndex:
 
     def scan(self, profile: Profile, settings: Optional[ScanSettings] = None, *,
              only: Optional[Iterable[str]] = None, sources: Optional[Mapping[str, LibrarySource]] = None,
-             now: Optional[float] = None, refresh: bool = False, allow_empty: bool = False) -> ScanResult:
+             now: Optional[float] = None, refresh: bool = False, allow_empty: bool = False,
+             progress: Optional[Callable[[ScanStep], None]] = None) -> ScanResult:
         '''
         Lists the sources, merges them, reads the outputs and rewrites the index. A new source audio type is copied
         into an existing queue entry only when its value is still the previous automatic value (or missing). Never
@@ -651,7 +684,10 @@ class LibraryIndex:
             are not here are built from their settings.
         :param refresh: see refresh(): keep the generation and the "last scan" time.
         :param allow_empty: accept a source's empty listing as the truth even though it listed some titles before.
+        :param progress: called with a ScanStep as each step starts (on this thread).
+        :raises ScanNotSaved: if the index could not be written; nothing was changed.
         '''
+        report = progress or (lambda step: None)
         settings = settings or ScanSettings.from_profile(profile)
         now = time.time() if now is None else now
         rescan = set() if refresh else None if only is None else set(only)
@@ -680,6 +716,7 @@ class LibraryIndex:
                 scanned, ok, error, count = source_state.get(spec.name, (None, None, '', 0))
                 items: Optional[List[LibraryItem]] = None
                 if rescan is None or spec.name in rescan:
+                    report(ScanStep(STEP_LISTING, spec.name))
                     try:
                         source = built.get(spec.name) or build_source(spec.kind, spec.settings)
                         items = list(source.list_items())
@@ -696,13 +733,16 @@ class LibraryIndex:
                     if items is not None:
                         scanned, ok, error, count = now, now, '', len(items)
                         listed_ok.add(spec.name)
+                        report(ScanStep(STEP_LISTED, spec.name, total=len(items)))
                     else:
                         scanned, error = now, errors[spec.name]
+                        report(ScanStep(STEP_NOT_LISTED, spec.name, error=error))
                 if items is None:
                     items = self.__listing_from(previous, spec.name)
                 source_state[spec.name] = (scanned, ok, error, count)
                 listings.append((spec.name, items))
 
+            report(ScanStep(STEP_OUTPUTS))
             claims = reconstruct_claims(settings.work_dir, settings.queue_dir)
             union = union_of(listings, ignore=profile.ignore, ignored_titles=profile.ignored_titles, claims=claims)
             units = plan_units([t.item for t in union.active()], settings.tv_mode, claims.season_id)
@@ -711,6 +751,7 @@ class LibraryIndex:
             left_out = {t.id for t in union.active()} - member_ids   # e.g. a second copy of an episode, in season mode
             ignored_titles = [t for t in union.titles if t.ignored]
 
+            report(ScanStep(STEP_CATALOGUE))
             records = scan_xml_repo(settings.xml_repo, known_xml)
             own = frozenset(claims.ids) | frozenset(by_id) | {(u.item if isinstance(u, SeasonGroup) else u).id
                                                              for u in units}
@@ -725,7 +766,11 @@ class LibraryIndex:
                 order.append((unit, ignore_label(profile.ignored_titles[item.id])
                               if isinstance(unit, SeasonGroup) and item.id in profile.ignored_titles else ''))
             order += [(t.item, t.ignored) for t in ignored_titles]
-            for unit, ignored in order:
+            reported_at = 0.0
+            for done, (unit, ignored) in enumerate(order):
+                if time.monotonic() - reported_at >= 0.5:   # often enough to watch, not once a title
+                    report(ScanStep(STEP_TITLES, done=done, total=len(order)))
+                    reported_at = time.monotonic()
                 item = unit.item if isinstance(unit, SeasonGroup) else unit
                 before = previous.get(item.id)
                 if before is not None and not isinstance(unit, SeasonGroup):   # J2: keep the stream chosen for it
@@ -777,31 +822,40 @@ class LibraryIndex:
                 else:
                     dropped.append(title_id)
 
-            with self.__lock:
-                with self.__db:
-                    self.__db.execute('DELETE FROM titles')
-                    self.__db.executemany(
-                        f'INSERT INTO titles ({",".join(_TITLE_COLUMNS)}) VALUES ({",".join("?" * len(_TITLE_COLUMNS))})',
-                        [[row[c] for c in _TITLE_COLUMNS] for row in rows.values()])
-                    # only the failures as this scan read them: one recorded meanwhile, by a run, is a newer fact
-                    self.__db.executemany('DELETE FROM failures WHERE id = ? AND fingerprint = ? AND key = ?',
-                                          [(i, failures[i].fingerprint, failures[i].key) for i in cleared
-                                           if i in failures])
-                    self.__db.execute('DELETE FROM repo_xml')
-                    self.__db.executemany('INSERT INTO repo_xml VALUES (?, ?, ?, ?, ?)',
-                                          [(p, r.mtime_ns, r.size, r.tmdb, int(r.is_tv)) for p, r in records.items()])
-                    self.__db.execute('DELETE FROM sources')
-                    self.__db.executemany('INSERT INTO sources VALUES (?, ?, ?, ?, ?, ?, ?)', [
-                        (spec.name, position, spec.kind, *source_state[spec.name])
-                        for position, spec in enumerate(specs)])
-                    if not refresh:
-                        self.__set_meta('generation', generation)
-                        self.__set_meta('last_scan_at', now)
+            report(ScanStep(STEP_SAVING))
+            try:
+                self.__save_scan(rows, cleared, failures, records, specs, source_state, refresh, generation, now)
+            except sqlite3.OperationalError as error:
+                logger.warning('scan: the index could not be written: %s', error)
+                raise ScanNotSaved(error, now, {name: source_state[name][3] for name in listed_ok}, errors) from error
             counts = {needs: 0 for needs in NEEDS}
             for row in rows.values():
                 counts[row['needs']] += 1
         return ScanResult(generation, len(rows), new_ids, gone, dropped, errors=errors, counts=counts,
                           superseded=superseded)
+
+    def __save_scan(self, rows, cleared, failures, records, specs, source_state, refresh, generation, now) -> None:
+        ''' Writes what a scan found, in one transaction; sqlite3.OperationalError if the file stays locked. '''
+        with self.__lock:
+            with self.__db:
+                self.__db.execute('DELETE FROM titles')
+                self.__db.executemany(
+                    f'INSERT INTO titles ({",".join(_TITLE_COLUMNS)}) VALUES ({",".join("?" * len(_TITLE_COLUMNS))})',
+                    [[row[c] for c in _TITLE_COLUMNS] for row in rows.values()])
+                # only the failures as this scan read them: one recorded meanwhile, by a run, is a newer fact
+                self.__db.executemany('DELETE FROM failures WHERE id = ? AND fingerprint = ? AND key = ?',
+                                      [(i, failures[i].fingerprint, failures[i].key) for i in cleared
+                                       if i in failures])
+                self.__db.execute('DELETE FROM repo_xml')
+                self.__db.executemany('INSERT INTO repo_xml VALUES (?, ?, ?, ?, ?)',
+                                      [(p, r.mtime_ns, r.size, r.tmdb, int(r.is_tv)) for p, r in records.items()])
+                self.__db.execute('DELETE FROM sources')
+                self.__db.executemany('INSERT INTO sources VALUES (?, ?, ?, ?, ?, ?, ?)', [
+                    (spec.name, position, spec.kind, *source_state[spec.name])
+                    for position, spec in enumerate(specs)])
+                if not refresh:
+                    self.__set_meta('generation', generation)
+                    self.__set_meta('last_scan_at', now)
 
     @staticmethod
     def __sync_audio_type(queue_dir: str, item: LibraryItem, before: Optional[Mapping[str, Any]]) -> None:
