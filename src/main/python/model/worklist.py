@@ -44,6 +44,7 @@ index has never been scanned.
 import html
 import logging
 import os
+import sqlite3
 import time
 from typing import Callable, Dict, List, Mapping, Optional
 
@@ -112,6 +113,20 @@ def format_time(when: float, now: float) -> str:
     return time.strftime('%Y-%m-%d %H:%M', moment)
 
 
+def sentence(text: str) -> str:
+    ''' `text` ending in a full stop, so the next sentence can follow it. '''
+    text = text.strip()
+    return text if not text or text[-1] in '.!?' else f'{text}.'
+
+
+def describe_scan_failure(error: Exception, index_file: str) -> str:
+    ''' Why a scan could not finish, in words: a locked index is another program writing it, not a broken scan. '''
+    if isinstance(error, sqlite3.OperationalError) and 'locked' in str(error):
+        return (f'The scan could not save what it found: another program, such as the pipeline service, kept the library '
+                f'index ({index_file}) locked. Nothing was changed. Rescan to try again.')
+    return f'The scan failed: {type(error).__name__}: {error}'
+
+
 def describe_sources(sources: List[SourceRow], now: float) -> List[tuple]:
     '''
     What the index recorded for each source, as (text, is_error): when it was last listed, how many titles it gave, or why
@@ -120,9 +135,10 @@ def describe_sources(sources: List[SourceRow], now: float) -> List[tuple]:
     lines = []
     for source in sources:
         if source.last_error:
-            kept = (f'Showing its listing from {format_time(source.last_ok, now)}.' if source.last_ok
+            when = f' at {format_time(source.last_scanned, now)}' if source.last_scanned else ''
+            kept = (f'The titles shown are from its listing at {format_time(source.last_ok, now)}.' if source.last_ok
                     else 'It has never been listed, so it has no titles here.')
-            lines.append((f'{source.name}: could not be listed ({source.last_error}). {kept}', True))
+            lines.append((f'{source.name} could not be listed{when}: {sentence(source.last_error)} {kept}', True))
         elif source.last_scanned is None:
             lines.append((f'{source.name}: not scanned yet', False))
         else:
@@ -156,7 +172,7 @@ class _ScanJob(QRunnable):
             self.signals.finished.emit(result)
         except Exception as error:
             logger.exception('Library scan failed')
-            self.signals.errored.emit(f'{type(error).__name__}: {error}')
+            self.signals.errored.emit(describe_scan_failure(error, self._path))
 
 
 
@@ -996,14 +1012,15 @@ class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkL
         self._sync_index_if_dirty()   # decisions made while it was listing may be newer than what it read
         message = f'Scan finished: {result.titles:,} titles, {len(result.new):,} new'
         if result.errors:
-            message = 'Scan incomplete: ' + '; '.join(f'{source}: {error}' for source, error in result.errors.items())
+            message = 'Scan incomplete. ' + ' '.join(f'{source} could not be listed: {sentence(error)}'
+                                                     for source, error in result.errors.items())
         self.statusBar.showMessage(message)
         self.scan_finished.emit(result)
 
     def _on_scan_failed(self, message: str) -> None:
         self._active_job = None
         self._set_scanning(False)
-        self.statusBar.showMessage(f'The scan failed: {message}')
+        self.statusBar.showMessage(message)
         self.scan_failed.emit(message)
 
     def changeEvent(self, event) -> None:

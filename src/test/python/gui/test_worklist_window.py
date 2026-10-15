@@ -375,8 +375,8 @@ def test_a_source_that_failed_to_list_is_flagged_with_why_and_which_listing_is_s
 
     text = window.sourceStatusLabel.text()
     assert window.sourceStatusLabel.isVisibleTo(window)
-    assert 'disk: could not be listed (ConnectionRefusedError: no route to host)' in text
-    assert 'Showing its listing from' in text
+    assert (f'disk could not be listed at {format_time(NOW - 60, NOW)}: ConnectionRefusedError: no route to host. '
+            f'The titles shown are from its listing at {format_time(NOW - 2 * DAY, NOW)}.') in text
     assert 'jriver: scanned' in text
     assert window.sourceCombo.findText('disk (!)') >= 0
     assert window.sourceCombo.findData('disk') >= 0
@@ -397,7 +397,8 @@ def test_describe_sources_covers_ok_never_scanned_failed_and_never_listed():
 
     assert lines[0] == (f'ok: scanned {format_time(NOW - 60, NOW)}, 1 title', False)
     assert lines[1] == ('fresh: not scanned yet', False)
-    assert lines[2][1] and 'could not be listed (boom)' in lines[2][0] and 'Showing its listing from' in lines[2][0]
+    assert lines[2] == (f'bad could not be listed at {format_time(NOW - 60, NOW)}: boom. '
+                        f'The titles shown are from its listing at {format_time(NOW - DAY, NOW)}.', True)
     assert lines[3][1] and 'never been listed' in lines[3][0]
 
 
@@ -513,7 +514,8 @@ def test_a_source_that_fails_during_a_rescan_is_flagged_and_keeps_its_last_title
     assert window.sourceStatusLabel.isVisibleTo(window)
     assert 'server is down' in window.sourceStatusLabel.text()
     assert window.sourceCombo.findText('filesystem (!)') >= 0
-    assert window.statusBar.currentMessage() == 'Scan incomplete: filesystem: ConnectionError: server is down'
+    assert window.statusBar.currentMessage() == \
+        'Scan incomplete. filesystem could not be listed: ConnectionError: server is down.'
 
 
 def test_a_rescan_lists_a_shared_profiles_jriver_source_with_the_password_saved_in_preferences(qtbot, tmp_path, monkeypatch):
@@ -542,6 +544,25 @@ def test_a_rescan_lists_a_shared_profiles_jriver_source_with_the_password_saved_
     assert scan.args[0].errors == {}
     assert [s['password'] for s in built] == ['saved']
     assert 'password' not in profile_file.read_text()
+
+
+def test_a_scan_that_cannot_write_a_locked_index_says_another_program_holds_it(qtbot, tmp_path, monkeypatch):
+    import sqlite3
+    from pipeline.library.index import LibraryIndex as Index
+
+    def locked(*args, **kwargs):
+        raise sqlite3.OperationalError('database is locked')
+
+    monkeypatch.setattr(Index, 'scan', locked)
+    window = _scan_window(qtbot, tmp_path, _Source(['Alpha']), auto_scan=False)
+    with qtbot.waitSignal(window.scan_failed, timeout=10000) as failed:
+        window.rescan()
+
+    path = index_path(str(tmp_path / 'work'))
+    assert failed.args[0] == (f'The scan could not save what it found: another program, such as the pipeline service, '
+                              f'kept the library index ({path}) locked. Nothing was changed. Rescan to try again.')
+    assert window.statusBar.currentMessage() == failed.args[0]
+    assert not window.is_scanning and window.rescanButton.text() == 'Rescan'
 
 
 def test_selection_survives_a_rescan(qtbot, tmp_path):

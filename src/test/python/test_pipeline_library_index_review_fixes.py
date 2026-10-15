@@ -66,11 +66,12 @@ def test_a_source_that_lists_nothing_after_listing_something_keeps_its_previous_
 
     result = _scan(env)   # an unmounted share: glob matches nothing and raises nothing
 
-    assert 'listed 0 items (previously 2)' in result.errors['films']
+    assert result.errors['films'].startswith('it listed no titles, but 2 last time, so its last listing is kept.')
+    assert '(' not in result.errors['films'] and '--' not in result.errors['films']   # read in the app and the web too
     assert result.gone == [] and result.dropped == []
     assert sorted(r.id for r in env.index.titles()) == ['fs-a', 'fs-b'] and _row(env, 'fs-a').flags == []
     (source,) = env.index.sources()
-    assert 'listed 0 items' in source.last_error and source.item_count == 2
+    assert 'listed no titles' in source.last_error and source.item_count == 2
     assert _scan(env, _item('a'), _item('b')).errors == {}          # the share is back: fine again
 
 
@@ -99,7 +100,7 @@ def test_the_cli_scan_reports_an_empty_listing_and_has_a_flag_for_a_really_empty
     (media / 'a.mkv').unlink()
 
     assert cli.main(['scan', '--profile', str(config)]) == 1
-    assert 'listed 0 items' in json.loads(capsys.readouterr().out)['errors']['disk']
+    assert 'listed no titles' in json.loads(capsys.readouterr().out)['errors']['disk']
     assert cli.main(['scan', '--profile', str(config), '--allow-empty']) == 0
     assert json.loads(capsys.readouterr().out)['dropped']
 

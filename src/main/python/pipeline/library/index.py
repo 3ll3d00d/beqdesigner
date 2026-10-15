@@ -688,9 +688,10 @@ class LibraryIndex:
                         errors[spec.name] = f'{type(failure).__name__}: {failure}'
                     else:
                         if not items and count and not allow_empty:
-                            errors[spec.name] = (f'listed 0 items (previously {count}); keeping the previous listing '
-                                                 f'(an unmounted share looks like this; --allow-empty if it really is empty)')
-                            logger.warning('scan: source %r %s', spec.name, errors[spec.name])
+                            errors[spec.name] = (f'it listed no titles, but {count:,} last time, so its last listing is kept. '
+                                                 f'A share that is not mounted looks like this. If the source really is '
+                                                 f'empty now, scan it again allowing an empty listing.')
+                            logger.warning('scan: source %r: %s', spec.name, errors[spec.name])
                             items = None
                     if items is not None:
                         scanned, ok, error, count = now, now, '', len(items)
