@@ -40,6 +40,7 @@ logger = logging.getLogger('library_index')
 
 INDEX_FILE_NAME = 'library-index.sqlite'
 _ID_BATCH = 500   # ids per query, as units() does
+BUSY_TIMEOUT_S = 30   # how long a connection waits for another program's lock on the file before it gives up
 SCHEMA_VERSION = 1  # PRAGMA user_version. A different one means drop the file's tables and rescan: it is a cache.
 
 SCHEMA = f'''
@@ -345,7 +346,7 @@ class LibraryIndex:
             self.__db.close()
 
     def __connect(self, target: Optional[str] = None, uri: bool = False) -> sqlite3.Connection:
-        db = sqlite3.connect(target or self.path, timeout=30, check_same_thread=False, uri=uri)
+        db = sqlite3.connect(target or self.path, timeout=BUSY_TIMEOUT_S, check_same_thread=False, uri=uri)
         db.row_factory = sqlite3.Row
         db.create_function('casefold', 1, _casefold, deterministic=True)  # what the work list's search box folds with
         return db
@@ -835,9 +836,17 @@ class LibraryIndex:
                           superseded=superseded)
 
     def __save_scan(self, rows, cleared, failures, records, specs, source_state, refresh, generation, now) -> None:
-        ''' Writes what a scan found, in one transaction; sqlite3.OperationalError if the file stays locked. '''
+        '''
+        Writes what a scan found, in one transaction; sqlite3.OperationalError if the file stays locked.
+
+        The write lock is taken **before** anything is written: a write that starts without it needs it later, part way
+        through, when SQLite spills pages to the file, and each spill waits the whole busy timeout again -- with a reader
+        holding the file (another machine, over a share), a scan of a big library never finished and the process could
+        not exit. Taken first, it waits once, BUSY_TIMEOUT_S, and nothing has been written if it fails.
+        '''
         with self.__lock:
             with self.__db:
+                self.__db.execute('BEGIN EXCLUSIVE')
                 self.__db.execute('DELETE FROM titles')
                 self.__db.executemany(
                     f'INSERT INTO titles ({",".join(_TITLE_COLUMNS)}) VALUES ({",".join("?" * len(_TITLE_COLUMNS))})',

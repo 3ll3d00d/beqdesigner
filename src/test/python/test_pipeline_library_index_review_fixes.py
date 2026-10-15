@@ -589,3 +589,30 @@ def test_a_scan_that_cannot_write_the_index_changes_nothing_and_says_what_it_fou
     assert isinstance(raised.value, sqlite3.OperationalError) and 'locked' in str(raised.value)
     assert (raised.value.listed, raised.value.errors, raised.value.started_at) == ({'films': 2}, {}, 12345.0)
     assert env.index.summary() == before and [r.id for r in env.index.titles()] == ['fs-a']
+
+
+def test_a_scan_held_up_by_a_reader_gives_up_once_rather_than_at_every_page_it_writes(env, monkeypatch):
+    '''
+    A reader holding the file (another machine on the share) made the write wait the whole busy timeout at every page
+    SQLite spilled, so a big scan never ended and the app could not exit. The write lock is taken first: one wait.
+    '''
+    from pipeline.library import index as index_module
+    from pipeline.library.index import ScanNotSaved
+    items = [_item(f'title-{n:04d}') for n in range(1500)]
+    _scan(env, *items[:1])
+    monkeypatch.setattr(index_module, 'BUSY_TIMEOUT_S', 0.2)
+    scanner = LibraryIndex(env.index.path)
+    scanner._LibraryIndex__db.execute('PRAGMA cache_size = 1')   # spill pages from the very start of the write
+    reader = sqlite3.connect(env.index.path, isolation_level=None)
+    reader.execute('BEGIN')
+    reader.execute('SELECT COUNT(*) FROM titles').fetchall()   # a read transaction holds a shared lock until it ends
+    try:
+        started = time.monotonic()
+        with pytest.raises(ScanNotSaved):
+            scanner.scan(_profile(env, 'films'), env.settings, sources={'films': FakeSource(items)})
+        assert time.monotonic() - started < 2
+    finally:
+        reader.execute('COMMIT')
+        reader.close()
+        scanner.close()
+    assert [r.id for r in env.index.titles()] == ['fs-title-0000']   # nothing was written
