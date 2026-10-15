@@ -68,7 +68,7 @@ from model.worklist_run import FailedTitle, ResultLine, RunJob, failed_titles
 from model.worklist_run_details import EventBuffer, RunDetailsDialog, RunStatusDelegate, load_run_details
 from model.worklist_settings import SettingsDrawer
 from model.worklist_titles import WorkListTitles
-from pipeline.library.index import STEP_LISTED, STEP_LISTING, STEP_NOT_LISTED, STEP_OUTPUTS, \
+from pipeline.library.index import folder_can_lock, STEP_LISTED, STEP_LISTING, STEP_NOT_LISTED, STEP_OUTPUTS, \
     STEP_CATALOGUE, STEP_SAVING, STEP_TITLES, ScanNotSaved, ScanStep, LibraryIndex, ScanResult, SourceRow, TitleRow
 from pipeline.library.profile import Profile
 from pipeline.library.selection import CHIP_NEW, Selection, selection_from_chip
@@ -120,9 +120,17 @@ def sentence(text: str) -> str:
     return text if not text or text[-1] in '.!?' else f'{text}.'
 
 
-def describe_scan_failure(error: Exception, index_file: str) -> str:
-    ''' Why a scan could not finish, in words: a locked index is another program writing it, not a broken scan. '''
+def describe_scan_failure(error: Exception, index_file: str, can_lock: Callable[[str], bool] = folder_can_lock) -> str:
+    '''
+    Why a scan could not finish, in words. A locked index is another program holding it -- unless the folder refuses every
+    write lock (a share that does not pass locks through), which no waiting or retrying will change.
+    '''
     if isinstance(error, sqlite3.OperationalError) and 'locked' in str(error):
+        if not can_lock(os.path.dirname(index_file)):
+            return (f'The scan was not saved: the folder holding the library index ({os.path.dirname(index_file)}) '
+                    f'refuses the file locks needed to write it, for every program, so it cannot be saved there. '
+                    f'This happens on a network share that does not pass file locks through; on Unraid, a share '
+                    f'served through /mnt/user. Nothing was changed.')
         return (f'The scan was not saved: another program, such as the pipeline service, kept the library index '
                 f'({index_file}) locked. Nothing was changed. Rescan to try again.')
     if isinstance(error, ScanNotSaved):

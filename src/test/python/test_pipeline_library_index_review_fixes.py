@@ -616,3 +616,9 @@ def test_a_scan_held_up_by_a_reader_gives_up_once_rather_than_at_every_page_it_w
         reader.close()
         scanner.close()
     assert [r.id for r in env.index.titles()] == ['fs-title-0000']   # nothing was written
+
+
+def test_a_folder_that_allows_locks_says_so_and_leaves_nothing_behind(tmp_path):
+    from pipeline.library.index import folder_can_lock
+    assert folder_can_lock(str(tmp_path))
+    assert list(tmp_path.iterdir()) == []

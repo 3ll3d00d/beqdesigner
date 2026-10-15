@@ -124,6 +124,36 @@ _TITLE_COLUMNS = tuple(
     if line.startswith('    ') and not line.startswith('     ') and line.split()[0] not in (')', ');'))
 
 
+def folder_can_lock(directory: str) -> bool:
+    '''
+    Whether SQLite can take a write lock on a new file in `directory`. A network share that does not pass byte-range
+    locks through (an Unraid share served via /mnt/user, say) refuses every write lock, to every program: an index there
+    can never be written, and "database is locked" means that, not another program holding it.
+    '''
+    import tempfile
+    try:
+        handle, probe = tempfile.mkstemp(prefix='.lock-probe-', suffix='.sqlite', dir=directory)
+        os.close(handle)
+    except OSError:
+        return True   # cannot tell: say nothing about locking
+    try:
+        db = sqlite3.connect(probe, timeout=0, isolation_level=None)
+        try:
+            db.execute('BEGIN EXCLUSIVE')
+            db.execute('ROLLBACK')
+            return True
+        except sqlite3.OperationalError:
+            return False
+        finally:
+            db.close()
+    finally:
+        for leftover in (probe, f'{probe}-journal'):
+            try:
+                os.remove(leftover)
+            except OSError:
+                pass
+
+
 def index_path(work_dir: str) -> str:
     ''' Where a work directory's index lives. '''
     return os.path.join(work_dir, INDEX_FILE_NAME)
