@@ -68,8 +68,8 @@ from model.worklist_run import FailedTitle, ResultLine, RunJob, failed_titles
 from model.worklist_run_details import EventBuffer, RunDetailsDialog, RunStatusDelegate, load_run_details
 from model.worklist_settings import SettingsDrawer
 from model.worklist_titles import WorkListTitles
-from pipeline.library.index import folder_can_lock, STEP_LISTED, STEP_LISTING, STEP_NOT_LISTED, STEP_OUTPUTS, \
-    STEP_CATALOGUE, STEP_SAVING, STEP_TITLES, ScanNotSaved, ScanStep, LibraryIndex, ScanResult, SourceRow, TitleRow
+from pipeline.library.index import folder_can_lock, lock_held_for, STALE_LOCK_S, STEP_LISTED, STEP_LISTING, \
+    STEP_NOT_LISTED, STEP_OUTPUTS, STEP_CATALOGUE, STEP_SAVING, STEP_TITLES, ScanNotSaved, ScanStep, LibraryIndex, ScanResult, SourceRow, TitleRow
 from pipeline.library.profile import Profile
 from pipeline.library.selection import CHIP_NEW, Selection, selection_from_chip
 from pipeline.library.source import LibrarySource
@@ -120,10 +120,12 @@ def sentence(text: str) -> str:
     return text if not text or text[-1] in '.!?' else f'{text}.'
 
 
-def describe_scan_failure(error: Exception, index_file: str, can_lock: Optional[Callable[[str], bool]] = None) -> str:
+def describe_scan_failure(error: Exception, index_file: str, can_lock: Optional[Callable[[str], bool]] = None,
+                          held_for: Optional[Callable[[str], Optional[float]]] = None) -> str:
     '''
-    Why a scan could not finish, in words. A locked index is another program holding it -- unless the folder refuses every
-    write lock (a share that does not pass locks through), which no waiting or retrying will change.
+    Why a scan could not finish, in words. A locked index is another program holding it -- for how long, where the index
+    is locked with a lock folder (index.uses_lock_folder()) -- unless the folder refuses every write lock (a share that
+    passes neither kind of lock through), which no waiting or retrying will change.
     '''
     if isinstance(error, sqlite3.OperationalError) and 'locked' in str(error):
         if not (can_lock or folder_can_lock)(os.path.dirname(index_file)):
@@ -131,6 +133,11 @@ def describe_scan_failure(error: Exception, index_file: str, can_lock: Optional[
                     f'refuses the file locks needed to write it, for every program, so it cannot be saved there. '
                     f'This happens on a network share that does not pass file locks through; on Unraid, a share '
                     f'served through /mnt/user. Nothing was changed.')
+        held = (held_for or lock_held_for)(index_file)
+        if held is not None:
+            return (f'The scan was not saved: another program, such as the pipeline service, has held the lock on the '
+                    f'library index ({index_file}) for {held:.0f} s. A lock left by a program that stopped while '
+                    f'writing is removed once it is {STALE_LOCK_S} s old. Nothing was changed. Rescan to try again.')
         return (f'The scan was not saved: another program, such as the pipeline service, kept the library index '
                 f'({index_file}) locked. Nothing was changed. Rescan to try again.')
     if isinstance(error, ScanNotSaved):

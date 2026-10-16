@@ -80,6 +80,8 @@ The index (`library-index.sqlite`) is a small SQLite database. SQLite needs file
 * on Unraid, a small **exclusive share** on one pool (Settings > Global Share Settings > *Permit exclusive shares*, and the share with primary storage on the pool and no secondary storage), which is served without `shfs`;
 * the same path in the profile for everyone: mount the share at the same place on each machine, or give the service the folder at that path.
 
+Some shares refuse the ordinary locks but can still create a folder (the Linux SMB3 client cannot upgrade a read lock to a write lock, for example). There the index is locked with a lock folder instead (`library-index.sqlite.lock`, present only while a program writes), and a file beside it, `library-index.sqlite.locking`, tells every program to lock it that way. It is written by the first program that finds it needs to. A lock folder older than two minutes was left by a program that stopped mid-write, and it is removed. This does not work on Windows, so an index locked this way should only be written from Linux or macOS.
+
 The index is a cache, so changing the folder needs nothing moved: the next scan builds it there.
 
 ### Sources

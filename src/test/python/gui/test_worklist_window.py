@@ -593,7 +593,19 @@ def test_a_folder_that_refuses_every_lock_is_named_as_the_reason_not_another_pro
         'The scan was not saved: the folder holding the library index (/media/beq/work) refuses the file locks needed to '
         'write it, for every program, so it cannot be saved there. This happens on a network share that does not pass '
         'file locks through; on Unraid, a share served through /mnt/user. Nothing was changed.')
-    assert 'another program' in describe_scan_failure(locked, '/work/library-index.sqlite', lambda folder: True)
+    assert 'another program' in describe_scan_failure(locked, '/work/library-index.sqlite', lambda folder: True,
+                                                      lambda index_file: None)
+
+
+def test_a_lock_folder_held_by_another_program_says_for_how_long():
+    import sqlite3
+    from model.worklist import describe_scan_failure
+    locked = sqlite3.OperationalError('database is locked')
+
+    assert describe_scan_failure(locked, '/work/library-index.sqlite', lambda folder: True, lambda index_file: 42.4) == (
+        'The scan was not saved: another program, such as the pipeline service, has held the lock on the library index '
+        '(/work/library-index.sqlite) for 42 s. A lock left by a program that stopped while writing is removed once it '
+        'is 120 s old. Nothing was changed. Rescan to try again.')
 
 
 def test_the_panel_says_what_a_scan_is_doing_now_and_for_how_long():

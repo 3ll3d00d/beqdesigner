@@ -401,7 +401,12 @@ scan is more than 12 hours old.
   file locks: a share that does not pass them through (Unraid's `/mnt/user`)
   holds the audio but refuses every write to the index. A scan takes the write
   lock before writing (`BEGIN EXCLUSIVE`, one busy wait) and a failed save is
-  `ScanNotSaved`, naming a folder that refuses locks (`folder_can_lock`). It is
+  `ScanNotSaved`, naming a folder that refuses locks (`folder_can_lock`). Where
+  byte-range locks fail but a folder can be made (the Linux SMB3 client), the
+  index is locked with a lock folder (SQLite's unix-dotfile VFS, not on
+  Windows); the first writer to find that writes `library-index.sqlite.locking`
+  and every program follows it (`uses_lock_folder`), and a lock folder older
+  than `STALE_LOCK_S` (120 s) is taken as left by a killed writer and removed. It is
   not written from two machines at once: a desktop reviewing a container's work
   uses Review Folder while a run goes.
 - Catalogue-as-input, which would apply an existing published BEQ without

@@ -124,20 +124,28 @@ _TITLE_COLUMNS = tuple(
     if line.startswith('    ') and not line.startswith('     ') and line.split()[0] not in (')', ');'))
 
 
-def folder_can_lock(directory: str) -> bool:
+LOCK_FOLDER_SUFFIX = '.lock'         # SQLite's unix-dotfile lock: a folder beside the file, there while one program has it
+LOCKING_FILE_SUFFIX = '.locking'      # beside the index, 'dotfile': every program locks it with the lock folder
+LOCKING_DOTFILE = 'dotfile'
+STALE_LOCK_S = 120                    # a lock folder older than this was left by a program that stopped mid-write
+_LOCK_FOLDER_SUPPORTED = os.name != 'nt'   # SQLite has no unix-dotfile VFS on Windows
+_ORDINARY_LOCKS_WORK: set = set()          # folders where byte-range locks were found to work
+
+
+def _probe(directory: str, use_lock_folder: bool) -> Optional[bool]:
     '''
-    Whether SQLite can take a write lock on a new file in `directory`. A network share that does not pass byte-range
-    locks through (an Unraid share served via /mnt/user, say) refuses every write lock, to every program: an index there
-    can never be written, and "database is locked" means that, not another program holding it.
+    Whether SQLite can take a write lock on a new file in `directory`, by byte-range locks or with a lock folder; None if
+    no file can be made there at all.
     '''
     import tempfile
     try:
         handle, probe = tempfile.mkstemp(prefix='.lock-probe-', suffix='.sqlite', dir=directory)
         os.close(handle)
     except OSError:
-        return True   # cannot tell: say nothing about locking
+        return None
     try:
-        db = sqlite3.connect(probe, timeout=0, isolation_level=None)
+        target = f'{Path(probe).resolve().as_uri()}?vfs=unix-{LOCKING_DOTFILE}' if use_lock_folder else probe
+        db = sqlite3.connect(target, timeout=0, isolation_level=None, uri=use_lock_folder)
         try:
             db.execute('BEGIN EXCLUSIVE')
             db.execute('ROLLBACK')
@@ -152,6 +160,133 @@ def folder_can_lock(directory: str) -> bool:
                 os.remove(leftover)
             except OSError:
                 pass
+        try:
+            os.rmdir(f'{probe}{LOCK_FOLDER_SUFFIX}')
+        except OSError:
+            pass
+
+
+def byte_range_locks_work(directory: str) -> bool:
+    '''
+    Whether SQLite's ordinary locks work in `directory`. A network share may refuse them to every program: the Linux SMB3
+    client cannot turn a read lock into a write lock, which is how SQLite takes one, and an Unraid share served through
+    /mnt/user refuses them too. True if it cannot tell (nothing can be made there).
+    '''
+    return _probe(directory, False) is not False
+
+
+def lock_folder_works(directory: str) -> bool:
+    ''' Whether SQLite can lock a file in `directory` with a lock folder beside it (making a folder is atomic on a share). '''
+    return _LOCK_FOLDER_SUPPORTED and _probe(directory, True) is True
+
+
+def folder_can_lock(directory: str) -> bool:
+    '''
+    Whether the index can be written in `directory`, by either kind of lock (see uses_lock_folder()). Where neither works,
+    "database is locked" means that, not another program holding the index.
+    '''
+    return byte_range_locks_work(directory) or lock_folder_works(directory)
+
+
+def locking_file(index_file: str) -> str:
+    return f'{index_file}{LOCKING_FILE_SUFFIX}'
+
+
+def lock_folder(index_file: str) -> str:
+    return f'{index_file}{LOCK_FOLDER_SUFFIX}'
+
+
+def uses_lock_folder(index_file: str, *, decide: bool = True) -> bool:
+    '''
+    Whether every program locks `index_file` with a lock folder rather than byte-range locks. The choice is a file beside
+    the index (`library-index.sqlite.locking`), so the desktop app, the command line and the pipeline service all make the
+    same one whatever their own view of the folder allows: a program that locked another way would not see the others'
+    locks. The first program to find that its folder refuses ordinary locks but takes a lock folder writes it (`decide`).
+    '''
+    if index_file == ':memory:':
+        return False
+    if os.path.isfile(locking_file(index_file)):
+        if not _LOCK_FOLDER_SUPPORTED:
+            logger.warning('%s is locked with a lock folder, which this platform cannot use: its locks are not shared '
+                           'with the other programs using it', index_file)
+            return False
+        return True
+    if not decide:
+        return False
+    directory = os.path.dirname(os.path.abspath(index_file))
+    if directory in _ORDINARY_LOCKS_WORK:
+        return False
+    if byte_range_locks_work(directory):
+        _ORDINARY_LOCKS_WORK.add(directory)   # probed once per process: an index is opened for every request
+        return False
+    if not lock_folder_works(directory):
+        return False
+    try:
+        with open(locking_file(index_file), 'x') as f:
+            f.write(f'{LOCKING_DOTFILE}\n')
+        logger.info('%s refuses ordinary file locks: the index there is locked with a lock folder from now on', directory)
+    except FileExistsError:
+        pass
+    return True
+
+
+def clear_stale_lock(index_file: str, *, max_age: float = STALE_LOCK_S, now: Callable[[], float] = time.time) -> bool:
+    '''
+    Removes the index's lock folder if a program that stopped mid-write left it: it is older than `max_age`, longer than
+    any write holds it. True if there is no lock folder now (removed, or gone already), so the caller may try again.
+    '''
+    folder = lock_folder(index_file)
+    try:
+        age = now() - os.stat(folder).st_mtime
+    except FileNotFoundError:
+        return True
+    except OSError:
+        return False
+    if age < max_age:
+        return False
+    try:
+        os.rmdir(folder)
+        logger.warning('removed the lock on %s, left %.0f s ago by a program that stopped while writing it', index_file,
+                       age)
+    except FileNotFoundError:
+        pass
+    except OSError as error:
+        logger.warning('could not remove the stale lock %s: %s', folder, error)
+        return False
+    return True
+
+
+def lock_held_for(index_file: str, now: Callable[[], float] = time.time) -> Optional[float]:
+    ''' How long the index's lock folder has existed, in seconds; None if there is none. '''
+    try:
+        return max(0.0, now() - os.stat(lock_folder(index_file)).st_mtime)
+    except OSError:
+        return None
+
+
+class _LockFolderConnection(sqlite3.Connection):
+    '''
+    A connection to an index locked with a lock folder. A statement refused for the lock, once its busy wait is over,
+    clears a stale lock folder (clear_stale_lock()) and is tried once more: a program killed mid-write never removes it.
+    '''
+    index_file = ''
+
+    def __retry(self, call, *args):
+        try:
+            return call(*args)
+        except sqlite3.OperationalError as error:
+            if 'locked' not in str(error) or not clear_stale_lock(self.index_file):
+                raise
+            return call(*args)
+
+    def execute(self, *args):
+        return self.__retry(super().execute, *args)
+
+    def executemany(self, *args):
+        return self.__retry(super().executemany, *args)
+
+    def executescript(self, *args):
+        return self.__retry(super().executescript, *args)
 
 
 def index_path(work_dir: str, index_dir: str = '') -> str:
@@ -367,6 +502,8 @@ class LibraryIndex:
         self.__scan_guard = threading.RLock()      # one scan (or rebuild) at a time; never held by a reader
         if path != ':memory:' and not readonly:
             os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+        # every program using the file must lock it the same way: see uses_lock_folder()
+        self.__lock_folder = path != ':memory:' and uses_lock_folder(path, decide=not readonly)
         self.__db = self.__open_readonly() if readonly else self.__open()
 
     def __enter__(self) -> 'LibraryIndex':
@@ -379,8 +516,18 @@ class LibraryIndex:
         with self.__lock:
             self.__db.close()
 
-    def __connect(self, target: Optional[str] = None, uri: bool = False) -> sqlite3.Connection:
-        db = sqlite3.connect(target or self.path, timeout=BUSY_TIMEOUT_S, check_same_thread=False, uri=uri)
+    def __connect(self, readonly: bool = False) -> sqlite3.Connection:
+        if self.__lock_folder:
+            clear_stale_lock(self.path)
+            query = f'vfs=unix-{LOCKING_DOTFILE}' + ('&mode=ro' if readonly else '')
+            db = sqlite3.connect(f'{Path(self.path).resolve().as_uri()}?{query}', timeout=BUSY_TIMEOUT_S,
+                                 check_same_thread=False, uri=True, factory=_LockFolderConnection)
+            db.index_file = self.path
+        elif readonly and self.path != ':memory:':
+            db = sqlite3.connect(f'{Path(self.path).resolve().as_uri()}?mode=ro', timeout=BUSY_TIMEOUT_S,
+                                 check_same_thread=False, uri=True)
+        else:
+            db = sqlite3.connect(self.path, timeout=BUSY_TIMEOUT_S, check_same_thread=False)
         db.row_factory = sqlite3.Row
         db.create_function('casefold', 1, _casefold, deterministic=True)  # what the work list's search box folds with
         return db
@@ -389,8 +536,7 @@ class LibraryIndex:
         if self.path != ':memory:' and not os.path.isfile(self.path):
             raise IndexFileError(f'no index at {self.path}')
         try:
-            db = self.__connect(Path(self.path).resolve().as_uri() + '?mode=ro', uri=True) \
-                if self.path != ':memory:' else self.__connect()
+            db = self.__connect(readonly=True)
             version = db.execute('PRAGMA user_version').fetchone()[0]
             tables = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
         except sqlite3.DatabaseError as error:
