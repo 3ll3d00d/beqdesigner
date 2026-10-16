@@ -398,6 +398,13 @@ def _design_work(session: Session, work: UnitWork, run_config: LibraryRunConfig,
         channels = session.load_channels(multichannel_path, work.channel_layout_name)
         if not channels:
             multichannel_path = None
+    elif not isinstance(work.unit, SeasonGroup) and run_config.keep_multichannel \
+            and read_source_channel_count(work.project_dir) == 1:
+        # a mono source keeps no multichannel file -- its one channel is the mono extraction -- but its decomposition is
+        # still that channel, which load_channels() labels FC so a designer can tell a mono title from a request with
+        # no decomposition at all. Batch Extract / Design sends it the same way. A season's joined track has none.
+        channels = session.load_channels(work.wav_path, work.channel_layout_name)
+        multichannel_path = work.wav_path if channels else None
     _design(session, work.item, work.wav_path, run_config, report, work.project_dir, channels=channels,
             multichannel_path=multichannel_path, channel_layout_name=work.channel_layout_name,
             recorded_source=work.recorded_source)
