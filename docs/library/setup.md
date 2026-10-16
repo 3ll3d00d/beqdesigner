@@ -52,6 +52,7 @@ Press *Settings...* in the work list (or *Settings...* in the banner that appear
 **Where things go**
 
 * **Work directory**: where extracted audio, `.beq` projects and the discovery index go. It must exist and be writable. If you type a folder that does not exist yet, the drawer creates it.
+* **Index folder**: optional; empty means the work directory. The discovery index is the only file that needs working file locks, so set this when the work directory is on a share where they do not work. The drawer refuses a folder where they do not, and the work directory's note warns when locks fail there and no index folder is set. See [the index folder](#the-index-folder).
 * **Review queue**: where designed titles wait for review, and where your decisions are kept. This is the same folder that [Batch Extract](../ui/batch_extract.md) and [Review Folder](review.md#review-folder) use.
 
 **Catalogue repositories (publish and commit)**
@@ -71,6 +72,15 @@ See [the two repositories](#the-two-repositories) below.
 * **Concurrent extractions** and **Concurrent designs**: the maximum number of titles allowed in each machine stage, from 1 to 4. Both default to 1. The limits are independent, so design can use its own capacity while other titles are extracting. Publish and Commit stay serialized because they update shared catalogue files and repository state.
 * **Accept threshold**: the confidence at or above which [bulk accept](review.md#bulk-accept) will take a title's top pick. Default 0.90. This is a preference of this installation, not part of the profile.
 * **TMDB key**: whether a [TMDB](https://www.themoviedb.org/) key is set. It is used to fill in titles, years and other metadata, and is kept in Preferences and never in the profile. The button opens Preferences, but note that the Preferences dialog has no field for it: BEQDesigner has a built-in key, which you can override by setting the `BEQDESIGNER_TMDB_API_KEY` environment variable before starting the application.
+
+#### The index folder
+
+The index (`library-index.sqlite`) is a small SQLite database. SQLite needs file locks to write it, and some network shares do not pass them through: on Unraid, a share served through `/mnt/user` (the `shfs` layer) refuses every write lock, to every program. The audio and projects are plain files and are fine there; the index is not. If the work directory is on such a share, set the index folder to one where locks work, reachable by every program that uses the index (this app, the command line, the [pipeline service](service.md)):
+
+* on Unraid, a small **exclusive share** on one pool (Settings > Global Share Settings > *Permit exclusive shares*, and the share with primary storage on the pool and no secondary storage), which is served without `shfs`;
+* the same path in the profile for everyone: mount the share at the same place on each machine, or give the service the folder at that path.
+
+The index is a cache, so changing the folder needs nothing moved: the next scan builds it there.
 
 ### Sources
 

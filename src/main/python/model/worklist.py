@@ -120,13 +120,13 @@ def sentence(text: str) -> str:
     return text if not text or text[-1] in '.!?' else f'{text}.'
 
 
-def describe_scan_failure(error: Exception, index_file: str, can_lock: Callable[[str], bool] = folder_can_lock) -> str:
+def describe_scan_failure(error: Exception, index_file: str, can_lock: Optional[Callable[[str], bool]] = None) -> str:
     '''
     Why a scan could not finish, in words. A locked index is another program holding it -- unless the folder refuses every
     write lock (a share that does not pass locks through), which no waiting or retrying will change.
     '''
     if isinstance(error, sqlite3.OperationalError) and 'locked' in str(error):
-        if not can_lock(os.path.dirname(index_file)):
+        if not (can_lock or folder_can_lock)(os.path.dirname(index_file)):
             return (f'The scan was not saved: the folder holding the library index ({os.path.dirname(index_file)}) '
                     f'refuses the file locks needed to write it, for every program, so it cannot be saved there. '
                     f'This happens on a network share that does not pass file locks through; on Unraid, a share '

@@ -21,7 +21,7 @@ from pipeline.library.season import DEFAULT_TV_MODE
 from pipeline.library.stages import PublishSettings
 from pipeline.library.status import ScanSettings, analysis_from_values
 
-PROFILE_PATHS = ('work_dir', 'queue_dir', 'xml_repo', 'xml_dir', 'images_repo', 'image_dir')
+PROFILE_PATHS = ('work_dir', 'index_dir', 'queue_dir', 'xml_repo', 'xml_dir', 'images_repo', 'image_dir')
 
 
 def configured_values(config: Mapping[str, Any], section: str,
@@ -164,7 +164,7 @@ def stage_settings(profile: Profile, config: Mapping[str, Any], values: Mapping[
     everything = {**dict(config.get('sync') or {}), **values}   # publish and commit take the `sync:` options
     for current in ('filter_repo', 'filter_dir'):
         everything.pop(current, None)  # profile_from_config already checked and resolved the file's aliases
-    for name in ('xml_repo', 'xml_dir', 'images_repo', 'image_dir'):
+    for name in ('index_dir', 'xml_repo', 'xml_dir', 'images_repo', 'image_dir'):
         if not everything.get(name) and getattr(profile, name):
             everything[name] = getattr(profile, name)
     settings = ScanSettings.from_values(everything)
@@ -179,4 +179,5 @@ def stage_settings(profile: Profile, config: Mapping[str, Any], values: Mapping[
 def index_settings(profile: Profile, values: Mapping[str, Any]) -> ScanSettings:
     ''' The settings a scan or a bulk accept judges titles by: `values` (see scan_values), the profile's directories under. '''
     return ScanSettings.from_values({**values, 'work_dir': values.get('work_dir') or profile.work_dir,
+                                     'index_dir': values.get('index_dir') or profile.index_dir,
                                      'queue_dir': values.get('queue_dir') or profile.queue_dir})

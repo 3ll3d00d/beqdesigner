@@ -14,7 +14,7 @@ from dataclasses import dataclass, replace
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 from pipeline.library.ignore import IgnoreRule, evaluate
-from pipeline.library.index import TitleRow
+from pipeline.library.index import TitleRow, folder_can_lock
 from pipeline.library.profile import Profile
 from pipeline.library.source import LibraryItem
 from pipeline.publish.git import RepoTarget, is_repo, parse_github_remote
@@ -22,6 +22,7 @@ from pipeline.publish.git import RepoTarget, is_repo, parse_github_remote
 LEVEL_OK = 'ok'
 LEVEL_INFO = 'info'       # fine, and something to know ("will be created")
 LEVEL_ERROR = 'error'     # cannot be used: the edit is refused
+LEVEL_WARNING = 'warning' # can be used, but something will not work until it is dealt with
 LEVEL_EMPTY = 'empty'     # not set
 
 
@@ -104,6 +105,32 @@ def check_directory(path: str) -> PathCheck:
     if os.path.isdir(parent) and os.access(parent, os.W_OK | os.X_OK):
         return PathCheck(LEVEL_INFO, 'Does not exist yet: it will be created')
     return PathCheck(LEVEL_ERROR, f'Does not exist and cannot be created (no write access under {parent})')
+
+
+def check_index_directory(path: str, can_lock=None) -> PathCheck:
+    '''
+    Whether a folder can hold the library index: as check_directory(), and SQLite can lock a file in it. A share that
+    does not pass file locks through (an Unraid share served via /mnt/user) refuses every write, so it is refused here.
+    '''
+    check = check_directory(path)
+    if check.level != LEVEL_OK:
+        return check
+    if not (can_lock or folder_can_lock)(path.strip()):
+        return PathCheck(LEVEL_ERROR, 'File locks do not work in this folder, so the library index cannot be written '
+                                      'here: choose a folder where they do')
+    return PathCheck(LEVEL_OK, 'Folder exists, is writable, and file locks work in it')
+
+
+def check_work_directory(path: str, index_dir: str, can_lock=None) -> PathCheck:
+    '''
+    As check_directory(), and -- when the index lives here, no index folder being set -- whether file locks work in it:
+    the audio does not need them, the index does, so it is a warning that names the fix rather than a refusal.
+    '''
+    check = check_directory(path)
+    if check.level == LEVEL_OK and not index_dir.strip() and not (can_lock or folder_can_lock)(path.strip()):
+        return PathCheck(LEVEL_WARNING, 'File locks do not work in this folder, so the library index cannot be saved '
+                                        'here: set an index folder where they do')
+    return check
 
 
 def check_repository(path: str) -> PathCheck:

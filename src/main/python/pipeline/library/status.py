@@ -73,6 +73,7 @@ class ScanSettings:
     '''
     work_dir: str
     queue_dir: str
+    index_dir: str = ''   # where the index is, if not in work_dir: see index.index_path()
     designer: str = ''
     config: AnalysisConfig = field(default_factory=AnalysisConfig)
     coverage: Coverage = 'complete_programme'
@@ -103,7 +104,7 @@ class ScanSettings:
             return new_value or old_value
 
         return cls(
-            work_dir=text('work_dir'), queue_dir=text('queue_dir'), designer=text('designer'),
+            work_dir=text('work_dir'), queue_dir=text('queue_dir'), index_dir=text('index_dir'), designer=text('designer'),
             config=analysis_from_values(values), coverage=values.get('coverage') or 'complete_programme',
             keep_multichannel=bool(values.get('keep_multichannel', False)),
             tv_mode=values.get('tv_mode') or DEFAULT_TV_MODE,
@@ -119,7 +120,7 @@ class ScanSettings:
         sync, run = profile.config.get('sync') or {}, profile.config.get('run') or {}
         values = {**sync, **run}
         values.update({name: getattr(profile, name) for name in
-                       ('work_dir', 'queue_dir', 'xml_repo', 'xml_dir', 'images_repo', 'image_dir')
+                       ('work_dir', 'index_dir', 'queue_dir', 'xml_repo', 'xml_dir', 'images_repo', 'image_dir')
                        if getattr(profile, name)})
         return cls.from_values(values)
 

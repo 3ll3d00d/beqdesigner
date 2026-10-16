@@ -13,7 +13,7 @@ from typing import Callable, Mapping, Optional
 from urllib.parse import urlsplit
 
 from model.execution_events import redact_text
-from pipeline.library.index import LibraryIndex, index_path
+from pipeline.library.index import LibraryIndex
 from pipeline.service import models
 from pipeline.service.config import secret
 from pipeline.service.context import env_name, load_context
@@ -79,7 +79,7 @@ def targets_from_config(values, env: Mapping[str, str]) -> tuple[Target, ...]:
 def _index_details(profile_path: str, env: Mapping[str, str], ids: list[str]):
     try:
         ctx = load_context(profile_path, env)
-        with LibraryIndex(index_path(ctx.work_dir), readonly=True) as index:
+        with LibraryIndex(ctx.index_file, readonly=True) as index:
             return ({row.id: row for row in index.titles(ids=ids)} if ids else {},
                     index.summary().counts.get('review', 0))
     except (OSError, ValueError):

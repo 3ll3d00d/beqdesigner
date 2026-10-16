@@ -396,9 +396,14 @@ scan is more than 12 hours old.
 - A missing source file under an empty folder is taken for an unmounted share
   and retried, never remembered; a file missing from a populated folder is the
   title's own failure.
-- The discovery index is a database file in the work folder and is not written
-  from two machines at once: a desktop reviewing a container's work uses
-  Review Folder while a run goes.
+- The discovery index is a database file in the work folder -- or in
+  `run.index_dir` (`--index-dir`), since it is the only file that needs working
+  file locks: a share that does not pass them through (Unraid's `/mnt/user`)
+  holds the audio but refuses every write to the index. A scan takes the write
+  lock before writing (`BEGIN EXCLUSIVE`, one busy wait) and a failed save is
+  `ScanNotSaved`, naming a folder that refuses locks (`folder_can_lock`). It is
+  not written from two machines at once: a desktop reviewing a container's work
+  uses Review Folder while a run goes.
 - Catalogue-as-input, which would apply an existing published BEQ without
   extracting or designing, was never part of the delivered pipeline. It is
   an optional future feature in **O1**.

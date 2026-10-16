@@ -306,3 +306,18 @@ def test_a_password_in_the_profile_wins_and_none_is_invented(prefs):
     assert 'password' not in profile_with_secrets(anonymous, prefs, {'JRIVER_PASSWORD': 'env'}).source('jriver').settings
     unknown = profile_with_secrets(_shared_profile(host='nowhere.local'), prefs, {})
     assert 'password' not in unknown.source('jriver').settings   # still reported as missing when the scan runs
+
+
+def test_an_index_folder_that_does_not_exist_is_a_setup_problem_and_no_index_is_opened(prefs, tmp_path):
+    from model.worklist_profile import setup_problems, WorkListSetup
+    from pipeline.library.index import INDEX_FILE_NAME
+    profile = profile_from_config({'sources': [{'name': 'films', 'kind': 'filesystem', 'globs': ['/films/*.mkv']}],
+                                   'run': {'work_dir': str(tmp_path / 'work'), 'queue_dir': str(tmp_path / 'q'),
+                                           'designer': DESIGNER, 'index_dir': str(tmp_path / 'locks')}})
+    settings = ScanSettings.from_profile(profile)
+
+    assert f'The index folder {tmp_path / "locks"} does not exist.' in setup_problems(profile, settings)
+    assert WorkListSetup(profile, settings, ORIGIN_FILE).index_file is None
+    (tmp_path / 'locks').mkdir()
+    assert setup_problems(profile, settings) == []
+    assert WorkListSetup(profile, settings, ORIGIN_FILE).index_file == str(tmp_path / 'locks' / INDEX_FILE_NAME)

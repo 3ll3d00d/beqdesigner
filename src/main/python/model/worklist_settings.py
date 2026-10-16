@@ -31,7 +31,8 @@ from qtpy.QtWidgets import QCheckBox, QComboBox, QDoubleSpinBox, QFileDialog, QF
 
 from pipeline.publish.catalogue import DEFAULT_MOVIES_DIR, DEFAULT_TV_DIR
 from model.preferences import LIBRARY_PROFILE_PATH, TMDB_API_KEY, WORKLIST_ACCEPT_THRESHOLD
-from model.worklist_edit import LEVEL_ERROR, LEVEL_INFO, LEVEL_OK, PathCheck, check_directory, config_value, \
+from model.worklist_edit import LEVEL_ERROR, LEVEL_INFO, LEVEL_OK, LEVEL_WARNING, PathCheck, check_directory, \
+    check_index_directory, check_work_directory, config_value, \
     remote_owner_and_name, repository_display, repository_location, with_config
 from model.worklist_ignore import IgnoreTab
 from model.worklist_model import warning_colour
@@ -116,7 +117,8 @@ class _PathRow(QWidget):
         if check is None:
             self.status.setText('')
             return
-        colour = {LEVEL_ERROR: warning_colour().name(), LEVEL_OK: '#3a8f3a', LEVEL_INFO: ''}.get(check.level, '')
+        colour = {LEVEL_ERROR: warning_colour().name(), LEVEL_WARNING: warning_colour().name(), LEVEL_OK: '#3a8f3a',
+                  LEVEL_INFO: ''}.get(check.level, '')
         self.status.setStyleSheet(f'color: {colour}' if colour else 'color: palette(mid)')
         self.status.setText(check.message)
 
@@ -197,6 +199,9 @@ class SettingsDrawer(QWidget):
         self.workDir = _PathRow(lambda start: QFileDialog.getExistingDirectory(
             self, 'Library workspace', start or default_library_folder()),
                                 'Contains extracted audio, projects and the library index')
+        self.indexDir = _PathRow(lambda start: QFileDialog.getExistingDirectory(
+            self, 'Index folder', start or self.workDir.edit.text().strip() or default_library_folder()),
+                                 'Optional: the workspace folder. Set it when file locks do not work there')
         self.queueDir = _PathRow(lambda start: QFileDialog.getExistingDirectory(
             self, 'Review queue directory', start or self.workDir.edit.text().strip() or default_library_folder()),
                                  'Defaults to review-queue inside the workspace; choose another folder only to share a queue')
@@ -247,6 +252,7 @@ class SettingsDrawer(QWidget):
         form = QFormLayout(where)
         form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapAllRows)   # labels above the fields: a narrow drawer
         form.addRow('Workspace folder', self.workDir)
+        form.addRow('Index folder', self.indexDir)
         form.addRow('Review queue folder', self.queueDir)
         repos = QGroupBox('Catalogue repositories (publish and commit)')
         form = QFormLayout(repos)
@@ -300,6 +306,7 @@ class SettingsDrawer(QWidget):
 
         self.workDir.committed.connect(lambda text: self.__set_directory('work_dir', self.workDir, text))
         self.queueDir.committed.connect(lambda text: self.__set_directory('queue_dir', self.queueDir, text))
+        self.indexDir.committed.connect(self.__set_index_dir)
         self.filterLocation.committed.connect(
             lambda text: self.__set_repo_location('xml_repo', 'xml_dir', self.filterLocation, text))
         self.imagesLocation.committed.connect(
@@ -381,6 +388,7 @@ class SettingsDrawer(QWidget):
         self.tabs.setEnabled(True)
         self.statusLabel.setStyleSheet('')
         self.workDir.set_text(profile.work_dir)
+        self.indexDir.set_text(profile.index_dir)
         self.queueDir.set_text(profile.queue_dir)
         self.filterLocation.set_text(repository_display(profile.xml_repo, profile.xml_dir))
         self.imagesLocation.set_text(repository_display(profile.images_repo, profile.image_dir))
@@ -389,7 +397,8 @@ class SettingsDrawer(QWidget):
         self.tvDir.setText(str(config_value(profile, 'sync', 'tv_dir', '') or ''))
         self.moviesDir.setEnabled(self.categoryFolders.isChecked())
         self.tvDir.setEnabled(self.categoryFolders.isChecked())
-        self.workDir.show_check(check_directory(profile.work_dir) if profile.work_dir else None)
+        self.workDir.show_check(check_work_directory(profile.work_dir, profile.index_dir) if profile.work_dir else None)
+        self.indexDir.show_check(check_index_directory(profile.index_dir) if profile.index_dir else None)
         self.queueDir.show_check(check_directory(profile.queue_dir) if profile.queue_dir else None)
         self.filterLocation.show_check(repository_location(self.filterLocation.edit.text())[2] if profile.xml_repo else None)
         self.imagesLocation.show_check(repository_location(self.imagesLocation.edit.text())[2] if profile.images_repo else None)
@@ -469,7 +478,12 @@ class SettingsDrawer(QWidget):
     def __set_directory(self, name: str, row: _PathRow, text: str) -> None:
         if self._loading or self._profile is None or text == getattr(self._profile, name):
             return
-        check = check_directory(text) if text else None
+        if not text:
+            check = None
+        elif name == 'work_dir':
+            check = check_work_directory(text, self._profile.index_dir)
+        else:
+            check = check_directory(text)
         row.show_check(check)
         if check is not None and not check.usable:
             return   # refused: the message says why, and the profile keeps its value
@@ -503,6 +517,28 @@ class SettingsDrawer(QWidget):
                     self.queueDir.set_text(queue_dir)
                     self.queueDir.show_check(PathCheck(LEVEL_OK, 'Folder created' if queue_check.level == LEVEL_INFO
                                                        else queue_check.message))
+        self.__edit(profile)
+
+    def __set_index_dir(self, text: str) -> None:
+        ''' The folder for the index ('' = the workspace): created if need be, and refused if file locks do not work there. '''
+        if self._loading or self._profile is None or text == self._profile.index_dir:
+            return
+        check = None
+        if text:
+            check = check_index_directory(text)
+            if check.level == LEVEL_INFO:
+                try:
+                    os.makedirs(text, exist_ok=True)
+                except OSError as error:
+                    self.indexDir.show_check(PathCheck(LEVEL_ERROR, f'Could not create this folder: {error}'))
+                    return
+                check = check_index_directory(text)
+            if not check.usable:
+                self.indexDir.show_check(check)
+                return   # refused: the message says why, and the profile keeps its value
+        self.indexDir.show_check(check)
+        profile = replace(self._profile, index_dir=text)
+        self.workDir.show_check(check_work_directory(profile.work_dir, text) if profile.work_dir else None)
         self.__edit(profile)
 
     def __set_repo_location(self, repo_name: str, dir_name: str, row: _PathRow, text: str) -> None:

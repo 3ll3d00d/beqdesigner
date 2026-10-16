@@ -94,6 +94,8 @@ def setup_problems(profile: Profile, settings: ScanSettings) -> List[str]:
         problems.append('No work directory is chosen.')
     elif not os.path.isdir(settings.work_dir):
         problems.append(f'The work directory {settings.work_dir} does not exist.')
+    if settings.index_dir and not os.path.isdir(settings.index_dir):
+        problems.append(f'The index folder {settings.index_dir} does not exist.')
     if not settings.queue_dir:
         problems.append('No review queue directory is chosen.')
     if not settings.designer:
@@ -130,7 +132,9 @@ class WorkListSetup:
         ''' The discovery index of this profile's work directory, if there is one to look in (it is not created). '''
         if self.settings is None or not self.settings.work_dir or not os.path.isdir(self.settings.work_dir):
             return None
-        return index_path(self.settings.work_dir)
+        if self.settings.index_dir and not os.path.isdir(self.settings.index_dir):
+            return None
+        return index_path(self.settings.work_dir, self.settings.index_dir)
 
     @property
     def source_names(self) -> List[str]:

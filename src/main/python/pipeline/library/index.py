@@ -154,9 +154,13 @@ def folder_can_lock(directory: str) -> bool:
                 pass
 
 
-def index_path(work_dir: str) -> str:
-    ''' Where a work directory's index lives. '''
-    return os.path.join(work_dir, INDEX_FILE_NAME)
+def index_path(work_dir: str, index_dir: str = '') -> str:
+    '''
+    Where the index lives: in `index_dir` if one is set (`run.index_dir`), else in the work directory. It is the only file
+    the pipeline needs file locks for, so it can be kept apart from the work directory's audio: on a share that does not
+    pass locks through (see folder_can_lock()), the index goes in a folder that does, and the audio stays where it is.
+    '''
+    return os.path.join(index_dir or work_dir, INDEX_FILE_NAME)
 
 
 # --- items <-> JSON -------------------------------------------------------------------------------------------------

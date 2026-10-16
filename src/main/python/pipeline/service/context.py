@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Mapping, Optional, Tuple
 
 from pipeline.designer.http_binding import DesignerUnavailable, check_designer
+from pipeline.library.index import index_path
 from pipeline.library.profile import Profile, read_config_file
 from pipeline.library.run import LibraryRunConfig
 from pipeline.library.setup import DesignerEndpoint, configured_values, designer_endpoint, index_settings, \
@@ -77,6 +78,12 @@ class JobContext:
     @property
     def work_dir(self) -> str:
         return str(self.values.get('work_dir') or self.profile.work_dir or '')
+
+    @property
+    def index_file(self) -> str:
+        ''' The discovery index: in `run.index_dir` if set, else the work directory; '' if neither is named. '''
+        index_dir = str(self.values.get('index_dir') or self.profile.index_dir or '')
+        return index_path(self.work_dir, index_dir) if (self.work_dir or index_dir) else ''
 
     def scan_settings(self) -> ScanSettings:
         ''' What a scan or a bulk accept judges titles by (`run:` over `sync:`). '''

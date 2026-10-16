@@ -13,7 +13,7 @@ import os
 import threading
 from typing import Callable, Optional
 
-from pipeline.library.index import LibraryIndex, index_path
+from pipeline.library.index import LibraryIndex
 from pipeline.service.lease import read_lease
 
 logger = logging.getLogger('service_refresh')
@@ -55,7 +55,7 @@ class IndexRefresher:
         except (OSError, ValueError) as error:
             logger.warning('index not refreshed after a decision: the profile cannot be read: %s', error)
             return False
-        path = index_path(ctx.work_dir) if ctx.work_dir else ''
+        path = ctx.index_file
         if not path or not os.path.isfile(path):
             return False
         if self.__busy() or read_lease(ctx.work_dir) is not None:

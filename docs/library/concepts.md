@@ -61,7 +61,7 @@ Extraction and design can run unattended. Review cannot. **A title is never publ
 |---|---|---|
 | the **profile** | a YAML file, [described here](setup.md#the-profile-file) | the durable record of what makes up the catalogue |
 | extracted audio and `.beq` projects | the **work directory**, one folder per title | the audio can be large, but the folder also holds the `.beq` projects that carry [any hand edits you made to a filter](review.md#projects), so do not clear it casually |
-| the discovery index | `library-index.sqlite` in the work directory | a cache of the last scan. Deleting it costs a [rescan](discover.md) and nothing else |
+| the discovery index | `library-index.sqlite` in the work directory, or in the **index folder** if one is set | a cache of the last scan. Deleting it costs a [rescan](discover.md) and nothing else. It needs a folder where file locks work: see [the index folder](setup.md#the-index-folder) |
 | designed titles waiting for a decision (and their decisions) | the **review queue directory**, one `<id>.json` per title | this is where your accept, skip and reject decisions and metadata edits live |
 | published files | your local clones of the filter record and images repositories | `<id>.json` and `<id>.png` |
 

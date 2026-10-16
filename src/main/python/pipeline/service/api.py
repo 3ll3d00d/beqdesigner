@@ -21,7 +21,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from pipeline.library.bass import describe as describe_bass_management
 from pipeline.library.decide import DECISION_FROM, STATUS_WORDS, DecisionRefused, decide, decision_blocked, \
     next_waiting_id, offered_digest
-from pipeline.library.index import IndexFileError, LibraryIndex, index_path
+from pipeline.library.index import IndexFileError, LibraryIndex
 from pipeline.library.review_chart import chart_curves
 from pipeline.library.selection import plan_stages
 from pipeline.library.status import metadata_problems
@@ -134,7 +134,7 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
 
     @contextmanager
     def read_index(ctx: JobContext) -> Iterator[LibraryIndex]:
-        path = index_path(ctx.work_dir) if ctx.work_dir else ''
+        path = ctx.index_file
         if not path or not os.path.isfile(path):
             raise ServiceProblem(409, 'Not scanned', 'the library has not been scanned yet: POST /v1/jobs/scan')
         try:
@@ -258,7 +258,7 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
             responses=_responses(503))
     def status() -> models.ServiceStatus:
         ctx = context()
-        path = index_path(ctx.work_dir) if ctx.work_dir else ''
+        path = ctx.index_file
         index = None
         if path and os.path.isfile(path):
             with LibraryIndex(path, readonly=True) as opened:

@@ -11,7 +11,7 @@ A scan (the **Rescan** button) does four things:
 
 A scan **never extracts audio, never designs and never publishes**, and it **never reads a movie file**. A JRiver source is listed with a single request to the server, which is why it does not matter how large the library is. A filesystem source costs, at most, a look at the size and date of each file. Whether a JRiver file exists on this computer is not checked during a scan either: if a path mapping is wrong you find out when extraction fails, with the reason.
 
-The result is a **cache**. You can delete `library-index.sqlite` from the work directory at any time; the next scan builds it again and nothing else is lost.
+The result is a **cache**. You can delete `library-index.sqlite` from the work directory (or the index folder, if one is set) at any time; the next scan builds it again and nothing else is lost.
 
 ### When it happens
 

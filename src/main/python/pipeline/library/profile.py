@@ -134,6 +134,7 @@ class Profile:
     ignore: Tuple[IgnoreRule, ...] = ()
     ignored_titles: Dict[str, str] = field(default_factory=dict, compare=True, hash=False)  # title id -> reason
     work_dir: str = ''
+    index_dir: str = ''    # where the discovery index lives, if not in work_dir (a folder that can be locked)
     queue_dir: str = ''
     xml_repo: str = ''
     xml_dir: str = ''
@@ -219,7 +220,7 @@ class Profile:
 
 
 # where each managed path lives in the file, the winner first: (name, the sections it is read from)
-_MANAGED_PATHS = (('work_dir', ('run', 'sync')), ('queue_dir', ('run', 'sync')),
+_MANAGED_PATHS = (('work_dir', ('run', 'sync')), ('index_dir', ('run', 'sync')), ('queue_dir', ('run', 'sync')),
                   ('images_repo', ('sync',)), ('image_dir', ('sync',)))
 
 

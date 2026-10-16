@@ -310,7 +310,9 @@ PYTHONPATH=src/main/python python -m pipeline.library.cli [--config FILE] accept
   designing or publishing anything and without reading a media file (a JRiver listing is one request; a filesystem
   source costs one `stat` per file). The result is a disposable SQLite index in the work directory
   (`library-index.sqlite`, schema in `pipeline/library/index.py`); deleting it costs a rescan
-  and nothing else. A source that cannot be listed keeps the titles it had and is reported (exit status 1), so one
+  and nothing else. It is the only file that needs working file locks, so `run.index_dir` (`--index-dir`) can put it in
+  another folder: a share that does not pass locks through (an Unraid share served via `/mnt/user`) can hold the
+  audio but refuses every write to the index, and a scan that cannot save says so. A source that cannot be listed keeps the titles it had and is reported (exit status 1), so one
   library being down never makes its titles vanish -- and neither does one that lists *nothing* when it listed some at the last
   scan (an unmounted share): its previous listing is kept and it is reported, unless `--allow-empty`. `--source NAME` rescans just
   one. `--from-outputs` rebuilds a lost (or live) index from the outputs alone; the generation goes back to 0, so the next selector
@@ -528,7 +530,7 @@ either into one `Profile`.
 
 Not repeated here: `python -m pipeline.library.cli run -h` and `sync -h` are the reference (a test keeps every
 option documented). In outline, `run` takes the library source (`--source --glob --host --port --browse-node-id
---username --password --ssl --timeout --path-map`), where things go (`--work-dir --queue-dir`), design
+--username --password --ssl --timeout --path-map`), where things go (`--work-dir --index-dir --queue-dir`), design
 (`--designer --designer-url --coverage --keep-multichannel --tv-mode`), redoing work (`--force-extract
 --force-design`), which titles (`--needs --match --id --new-since-scan --kind --year --through --retry-failed`), the repositories and `--push`
 (only for `--through publish` or `commit`), metadata (`--tmdb-api-key --audio-type`) and analysis (`--target-fs --resolution --avg-window
@@ -537,11 +539,11 @@ option documented). In outline, `run` takes the library source (`--source --glob
 `--movies-dir --tv-dir`) and the same analysis options; `commit` takes `--queue-dir`, the same
 repositories (without the image-URL options), `--id` and `--push`/`--no-push`; `sync` takes everything `publish` does plus `--push`; `revise` takes `--queue-dir --id --to --reason --work-dir` and the repositories. `publish`,
 `commit`, `sync` and `revise` read the one `sync:` section of the config file. `scan` takes `--profile --source
---from-outputs --allow-empty`, where things are (`--work-dir --queue-dir`), the settings that decide what is up to date (`--designer
+--from-outputs --allow-empty`, where things are (`--work-dir --index-dir --queue-dir`), the settings that decide what is up to date (`--designer
 --coverage --keep-multichannel --tv-mode`, the repositories and the analysis options: give the values `run` and `publish`
 get, including `--image-owner`/`--image-repo-name`, and `sync.report_spec` from the file: all three are in the published digest) and
-reads both `run:` and `sync:`; `status` takes `--profile --work-dir --json`; `accept` takes `--profile --source
---match --id --new-since-scan --kind --year --threshold --dry-run`, where things are (`--work-dir --queue-dir`) and the same settings as `scan`. The boolean flags come in
+reads both `run:` and `sync:`; `status` takes `--profile --work-dir --index-dir --json`; `accept` takes `--profile --source
+--match --id --new-since-scan --kind --year --threshold --dry-run`, where things are (`--work-dir --index-dir --queue-dir`) and the same settings as `scan`. The boolean flags come in
 pairs (`--keep-multichannel` / `--no-keep-multichannel`) so a flag can turn something off that the file turned on.
 
 ### Output and exit status

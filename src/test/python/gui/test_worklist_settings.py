@@ -882,3 +882,45 @@ def test_opening_the_work_list_loads_an_existing_default_profile_and_shows_it_in
     assert window.setup.source_names == ['films', 'disk']
     assert drawer.path == path and drawer.tabs.isEnabled()
     assert prefs.get(LIBRARY_PROFILE_PATH) == path
+
+
+def test_an_index_folder_is_saved_under_run_and_the_window_reads_the_index_from_it(qtbot, tmp_path):
+    from pipeline.library.index import INDEX_FILE_NAME
+    path = write_profile(tmp_path)
+    window = open_window(qtbot, tmp_path, make_prefs(tmp_path, path))
+    drawer = window.open_settings()
+    locks = tmp_path / 'locks'
+
+    commit(drawer.indexDir, str(locks))   # does not exist: created, then checked
+    assert drawer.flush()
+
+    assert drawer.indexDir.status.text() == 'Folder exists, is writable, and file locks work in it'
+    assert read_config_file(path)['run']['index_dir'] == str(locks)
+    assert window.setup.index_file == str(locks / INDEX_FILE_NAME)
+
+    commit(drawer.indexDir, '')           # back to the work directory
+    assert drawer.flush()
+    assert 'index_dir' not in read_config_file(path)['run']
+    assert window.setup.index_file == os.path.join(window.setup.settings.work_dir, INDEX_FILE_NAME)
+
+
+def test_a_folder_where_file_locks_do_not_work_is_refused_for_the_index_and_flagged_for_the_workspace(qtbot, tmp_path,
+                                                                                                        monkeypatch):
+    import model.worklist_edit as edit_module
+    path = write_profile(tmp_path)
+    monkeypatch.setattr(edit_module, 'folder_can_lock', lambda folder: os.path.basename(folder) == 'locks')
+    window = open_window(qtbot, tmp_path, make_prefs(tmp_path, path))
+    drawer = window.open_settings()
+    no_locks = tmp_path / 'share'
+    no_locks.mkdir()
+
+    assert drawer.workDir.status.text() == ('File locks do not work in this folder, so the library index cannot be saved '
+                                            'here: set an index folder where they do')
+    commit(drawer.indexDir, str(no_locks))
+    assert drawer.indexDir.status.text().startswith('File locks do not work in this folder')
+    assert drawer.profile.index_dir == ''   # refused: the profile keeps its value
+
+    (tmp_path / 'locks').mkdir()
+    commit(drawer.indexDir, str(tmp_path / 'locks'))
+    assert drawer.profile.index_dir == str(tmp_path / 'locks')
+    assert drawer.workDir.status.text() == 'Folder exists and is writable'   # the index is not there any more

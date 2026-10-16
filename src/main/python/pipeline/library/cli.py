@@ -81,10 +81,16 @@ def _analysis_config(values: dict[str, Any]) -> AnalysisConfig:
     return analysis_from_values(values)
 
 
-def _open_index(work_dir: str) -> LibraryIndex | None:
+def _index_dir(values: dict[str, Any], config: dict[str, Any]) -> str:
+    ''' `--index-dir`, else `index_dir` under `run:`, else under `sync:` -- as for the work directory. '''
+    return str(values.get('index_dir') or (config.get('run') or {}).get('index_dir')
+               or (config.get('sync') or {}).get('index_dir') or '')
+
+
+def _open_index(work_dir: str, index_dir: str = '') -> LibraryIndex | None:
     ''' The work directory's index, or None if it cannot be opened: remembering failures must never stop a run. '''
     try:
-        return LibraryIndex(index_path(work_dir))
+        return LibraryIndex(index_path(work_dir, index_dir))
     except (OSError, sqlite3.Error) as error:
         logging.getLogger('library_cli').warning('not remembering failures, the index cannot be opened: %s', error)
         return None
@@ -149,13 +155,13 @@ def _run_stages(args: argparse.Namespace, config: dict[str, Any], values: dict[s
     settings, publish = stage_settings(profile, config, values, through)
     selection = _selection(args, args.source)
     retry, unattended = bool(args.retry_failed), bool(getattr(args, 'unattended', False))
-    work_dir = run_config.work_dir
+    work_dir, index_dir = run_config.work_dir, settings.index_dir
     # design/archive/library-sync/worklist-feedback.md F5: never alongside another run of this work directory
     while True:
         holder = read_lease(work_dir)
         if holder is not None:
             if through in JOINABLE:
-                code = _join_run_in_progress(holder, work_dir, selection, through, retry, unattended)
+                code = _join_run_in_progress(holder, work_dir, selection, through, retry, unattended, index_dir)
                 if code is not None:
                     return code
                 continue   # it ended without taking them: run them here
@@ -166,7 +172,7 @@ def _run_stages(args: argparse.Namespace, config: dict[str, Any], values: dict[s
         except LeaseHeld:   # another run took it between the look and the take
             continue
         try:
-            with LibraryIndex(index_path(work_dir)) as index:
+            with LibraryIndex(index_path(work_dir, index_dir)) as index:
                 if not index.generation:  # never scanned: there is nothing to select from
                     index.scan(profile, settings)
                 report = run_stages(profile, selection, through, run_config=run_config, index=index, publish=publish,
@@ -185,13 +191,13 @@ def _run_stages(args: argparse.Namespace, config: dict[str, Any], values: dict[s
 
 
 def _join_run_in_progress(holder, work_dir: str, selection: Selection, through: str, retry: bool,
-                          unattended: bool) -> int | None:
+                          unattended: bool, index_dir: str = '') -> int | None:
     '''
     Hands this run's titles to the run in progress (design/archive/library-sync/worklist-feedback.md F5) and waits for
     it to end, then prints what became of them. :return: the exit status (1 if any failed or was not done), or None if
     it ended without taking them.
     '''
-    with LibraryIndex(index_path(work_dir)) as index:
+    with LibraryIndex(index_path(work_dir, index_dir)) as index:
         plan = plan_stages(selection.rows(index), through, retry_failed=retry, unattended=unattended)
     ids = [p.row.id for p in plan.planned]
     skipped = [asdict(s) for s in plan.skipped]
@@ -205,7 +211,7 @@ def _join_run_in_progress(holder, work_dir: str, selection: Selection, through: 
     if outcome == WITHDRAWN:
         _say(f'{holder.who()} finished without taking them: running them here')
         return None
-    with LibraryIndex(index_path(work_dir)) as index:
+    with LibraryIndex(index_path(work_dir, index_dir)) as index:
         results = title_outcomes(index, ids, through)
     print(json.dumps({'joined': holder.who(), 'titles': {i: asdict(o) for i, o in results.items()},
                       'skipped': skipped}, sort_keys=True))
@@ -245,7 +251,7 @@ def _run(args: argparse.Namespace, config: dict[str, Any]) -> int:
         return _run_stages(args, config, values, run_config)
     source = UnionLibrarySource(profile) if profile is not None else _source(values, config)
     lease = _take_lease(run_config.work_dir)   # it writes the index and the queue: never alongside another run
-    index = _open_index(run_config.work_dir)  # remembers what failed, for `status`
+    index = _open_index(run_config.work_dir, _index_dir(values, config))  # remembers what failed, for `status`
     try:
         report = run_library(source, run_config, index=index, retry_failed=bool(args.retry_failed))
     finally:
@@ -397,7 +403,7 @@ def _scan(args: argparse.Namespace, config: dict[str, Any]) -> int:
     if not settings.work_dir:
         raise ValueError('work-dir is required')
     profile = _effective_profile(profile, values)
-    with LibraryIndex(index_path(settings.work_dir)) as index:
+    with LibraryIndex(index_path(settings.work_dir, settings.index_dir)) as index:
         if args.from_outputs:
             print(json.dumps({'rebuilt': index.rebuild_from_outputs(settings)}, sort_keys=True))
             return 0
@@ -419,7 +425,7 @@ def _accept(args: argparse.Namespace, config: dict[str, Any]) -> int:
     if not settings.work_dir or not settings.queue_dir:
         raise ValueError('work-dir and queue-dir are required')
     profile = _effective_profile(profile, values)
-    path = index_path(settings.work_dir)
+    path = index_path(settings.work_dir, settings.index_dir)
     if not os.path.isfile(path):
         raise ValueError(f'no index at {path}: run `scan` first')
     threshold = float(values.get('threshold', DEFAULT_ACCEPT_THRESHOLD))
@@ -443,10 +449,11 @@ def _when(timestamp: float | None) -> str:
 
 def _status(args: argparse.Namespace, config: dict[str, Any]) -> int:
     values = _scan_values(args, config)
-    work_dir = values.get('work_dir') or profile_from_config(config).work_dir
+    profile = profile_from_config(config)
+    work_dir = values.get('work_dir') or profile.work_dir
     if not work_dir:
         raise ValueError('work-dir is required')
-    path = index_path(work_dir)
+    path = index_path(work_dir, values.get('index_dir') or profile.index_dir)
     if not os.path.isfile(path):
         print(f'no index at {path}: run `scan` first')
         return 1
@@ -601,6 +608,7 @@ def _add_run_options(parser: argparse.ArgumentParser) -> None:
 
     output = parser.add_argument_group('where things go')
     output.add_argument('--work-dir', help='directory for extracted audio, caches and .beq project files (required)')
+    output.add_argument('--index-dir', help='the folder holding the discovery index, if not the work directory: one where file locks work (default: `index_dir` in the config, else the work directory)')
     output.add_argument('--queue-dir', help='review queue directory the designed entries are written to (required)')
 
     design = parser.add_argument_group('design')
@@ -762,6 +770,7 @@ def _add_scan_options(parser: argparse.ArgumentParser) -> None:
                            'is kept and the source reported as failed)')
     where = parser.add_argument_group('where things are')
     where.add_argument('--work-dir', help='directory for extracted audio, caches and the index (required)')
+    where.add_argument('--index-dir', help='the folder holding the discovery index, if not the work directory: one where file locks work (default: `index_dir` in the config, else the work directory)')
     where.add_argument('--queue-dir', help='review queue directory')
     _add_settings_options(parser)
 
@@ -794,6 +803,7 @@ def _add_accept_options(parser: argparse.ArgumentParser) -> None:
                       help='change nothing: print the titles that would be accepted, the ones left out and why')
     where = parser.add_argument_group('where things are')
     where.add_argument('--work-dir', help='the work directory: its index and the .beq projects (required)')
+    where.add_argument('--index-dir', help='the folder holding the discovery index, if not the work directory: one where file locks work (default: `index_dir` in the config, else the work directory)')
     where.add_argument('--queue-dir', help='review queue directory (required)')
     _add_settings_options(parser)
 
@@ -802,6 +812,7 @@ def _add_status_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('--profile', metavar='FILE',
                         help='read a catalogue profile (JSON or YAML) instead of --config, to find the work directory')
     parser.add_argument('--work-dir', help='the work directory whose index to read')
+    parser.add_argument('--index-dir', help='the folder holding the discovery index, if not the work directory: one where file locks work (default: `index_dir` in the config, else the work directory)')
     parser.add_argument('--json', action='store_true',
                         help='print the summary as JSON: generation, last_scan_at, titles, counts per needs, new, '
                              'flags and each source\'s last scan and error')

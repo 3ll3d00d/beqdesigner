@@ -11,6 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from model.execution_events import ExecutionEvent
+from pipeline.library.index import index_path
 from pipeline.review import read_entry
 from pipeline.service.api import create_app
 from pipeline.service.config import ServiceConfig
@@ -418,7 +419,8 @@ def test_a_decision_reaches_a_scanned_index_through_the_refresher(scanned):
     assert _needs(env, item.id)[0] == 'review'
 
     decide(env.queue, item.id, 'accept', picked=0, seen_digest=offered_digest(read_entry(env.queue, item.id)))
-    ctx = SimpleNamespace(work_dir=env.work, profile=_profile(env), scan_settings=lambda: env.settings)
+    ctx = SimpleNamespace(work_dir=env.work, index_file=index_path(env.work), profile=_profile(env),
+                          scan_settings=lambda: env.settings)
     assert IndexRefresher(lambda: ctx, busy=lambda: False).refresh_now() is True
 
     assert _needs(env, item.id)[0] == 'publish'
