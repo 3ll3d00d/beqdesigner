@@ -95,8 +95,15 @@ jobs:
           then
             pushd dist
             rm -Rf beqdesigner
-            zip -r beqdesigner.app.zip_macos_$(sw_vers -productVersion) beqdesigner.app
+            # ditto, not zip -r: zip follows symlinks and stores copies, so every framework arrives as duplicate
+            # directories that CoreFoundation may not recognise as a bundle, and the app crashes on launch (#525)
+            ditto -c -k --sequesterRsrc --keepParent beqdesigner.app beqdesigner.app.zip_macos_$(sw_vers -productVersion)
             rm -Rf beqdesigner.app
+            python3 ../.github/scripts/check_macos_bundle.py beqdesigner.app.zip_macos_*
+            # what a user gets when they unzip it: a well-formed, consistently signed bundle
+            mkdir unzipped && ditto -x -k beqdesigner.app.zip_macos_* unzipped
+            codesign --verify --deep --strict --verbose=2 unzipped/beqdesigner.app
+            rm -Rf unzipped
             popd
             MATCHES=( dist/beqdesigner.app.zip_* )
             echo "binary_path=${MATCHES[0]}" >> $GITHUB_OUTPUT

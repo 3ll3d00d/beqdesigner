@@ -149,8 +149,13 @@ jobs:
           then
             pushd dist
             rm -Rf beqdesigner
-            zip -r beqdesigner.app.${{ matrix.os }}.zip beqdesigner.app
+            # ditto, not zip -r: zip follows symlinks and stores copies, breaking every framework (#525)
+            ditto -c -k --sequesterRsrc --keepParent beqdesigner.app beqdesigner.app.${{ matrix.os }}.zip
             rm -Rf beqdesigner.app
+            python3 ../.github/scripts/check_macos_bundle.py beqdesigner.app.${{ matrix.os }}.zip
+            mkdir unzipped && ditto -x -k beqdesigner.app.${{ matrix.os }}.zip unzipped
+            codesign --verify --deep --strict --verbose=2 unzipped/beqdesigner.app
+            rm -Rf unzipped
             popd
           fi
       - name: Archive app binaries
