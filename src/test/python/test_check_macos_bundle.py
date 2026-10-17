@@ -85,6 +85,15 @@ def test_a_current_version_present_only_as_its_contents_is_a_copy(check, tmp_pat
     assert check.problems(path) == [f'{FRAMEWORK}: Versions/Current is a copy, not a symlink']
 
 
+def test_a_framework_that_is_itself_a_link_to_one_elsewhere_is_left_to_its_target(check, tmp_path):
+    # PyInstaller links Contents/Resources/Python.framework to the framework in Contents/Frameworks
+    path = _as_ditto_stores_it(str(tmp_path / 'linked.zip'))
+    with zipfile.ZipFile(path, 'a') as archive:
+        _link(archive, 'beqdesigner.app/Contents/Resources/Python.framework', '../Frameworks/Python.framework')
+        _link(archive, 'beqdesigner.app/Contents/Resources/PyQt6', '../Frameworks/PyQt6')
+    assert check.problems(path) == []
+
+
 def test_a_framework_with_no_current_version_fails(check, tmp_path):
     path = str(tmp_path / 'partial.zip')
     with zipfile.ZipFile(path, 'w') as archive:

@@ -30,8 +30,16 @@ def problems(path: str) -> list[str]:
                          for name in entries if '.framework' in name})
     if not frameworks:
         return [f'{path}: no frameworks found, so this is not a packaged .app']
+
+    def linked(name: str) -> bool:
+        # the framework, or a folder above it, is a symlink: PyInstaller links Contents/Resources/Python.framework
+        # to the real one in Contents/Frameworks, which is checked where it is
+        parts = name.split('/')
+        return any(is_symlink(entries[prefix]) for prefix in ('/'.join(parts[:i]) for i in range(1, len(parts) + 1))
+                   if prefix in entries)
+
     found = []
-    for framework in frameworks:
+    for framework in (f for f in frameworks if not linked(f)):
         current = entries.get(f'{framework}/Versions/Current')
         copied = any(name.startswith(f'{framework}/Versions/Current/') for name in entries)
         if current is None and not copied:
