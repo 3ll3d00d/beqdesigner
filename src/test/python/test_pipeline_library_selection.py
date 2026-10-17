@@ -74,6 +74,26 @@ def test_new_since_scan_follows_the_generation(env):
 
 
 
+def test_detail_and_flags_narrow_the_rows(env):
+    from pipeline.library.state import FLAG_GONE
+    gone = _item('b')
+    _extracted(env, gone)   # a title with outputs is kept, flagged gone, when its source stops listing it
+    _scan(env, _item('a'), gone)
+    _scan(env, _item('a'))
+    rows = {r.id: r for r in env.index.titles()}
+    word = rows['fs-b'].detail.split()[0]   # "gone from source"
+
+    assert [r.id for r in Selection(flags=(FLAG_GONE,)).rows(env.index)] == ['fs-b']
+    assert [r.id for r in Selection(flags=(FLAG_GONE,), match='a').rows(env.index)] == []
+    assert sorted(r.id for r in Selection(detail=word.upper()).rows(env.index)) == sorted(
+        i for i, r in rows.items() if word.casefold() in r.detail.casefold())
+    assert Selection(detail='no such words').rows(env.index) == []
+    with pytest.raises(ValueError, match='flags must be from'):
+        Selection(flags=('Purple',))
+    assert Selection(detail='', flags=(FLAG_GONE, FLAG_GONE)) == Selection(flags=(FLAG_GONE,))
+    assert Selection(detail='waiting', flags=(FLAG_GONE,)).describe() == 'detail matching "waiting", flagged Gone'
+
+
 def test_a_selection_checks_kind_and_year_when_it_is_made():
     assert Selection(kind='', year='').is_empty and Selection(year=' >=2020 ').year == '>=2020'
     with pytest.raises(ValueError, match='kind must be one of movie, tv'):

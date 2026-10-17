@@ -95,9 +95,12 @@ message. Tests: `test_pipeline_library_decide.py`.
     stages, what would be skipped and why; marked stale when the choices change) and *Run*. Publish and commit are
     disabled, with the reason, until `/v1/status` says `repository_writes` and `repositories_configured`. Bulk accept is
     not offered: the app decides titles one at a time.
-  - *Titles*: the filter form over the address bar (`filterToQuery`/`filterFromQuery`, so a list can be linked to),
-    *Include titles that need nothing*, a table of 100 a page (title, year, needs, detail, confidence, designs, flags)
-    linked to each review with the filter kept, *Review next waiting*, and *Publish accepted…* / *Commit published…*:
+  - *Titles*: a table of 100 a page (title, year, kind, source, needs, detail, confidence, designs, flags) linked to
+    each review with the filter and sort kept. Each heading sorts by its column (ascending, descending, then back to
+    work-list order) and the row under the headings filters it (text, year, kind, source, needs, detail, flag; typed
+    text is sent once typing pauses); both are the service's (`sort`/`descending`, the filter), so they hold across pages,
+    and both live in the address bar (`filterToQuery`/`sortToQuery`, so a list can be linked to). *New since the last
+    scan* and *Include titles that need nothing* sit above it, *Review next waiting*, and *Publish accepted…* / *Commit published…*:
     a plan of the filter with `needs` publish (or commit) says how many, an inline confirmation names the repositories,
     and a run job through publish (or commit) is submitted and followed. Disabled with the reason as on New job.
   - *Review*: the title, its status, what it needs; the designs (rejected ones listed apart, with how many reasons),

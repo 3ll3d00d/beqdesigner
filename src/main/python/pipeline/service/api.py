@@ -323,7 +323,7 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
         ctx = context()
         check_sources(ctx, query)
         with read_index(ctx) as index:
-            rows = query.to_selection().rows(index, include_done=query.include_done)
+            rows = query.order(query.to_selection().rows(index, include_done=query.include_done))
         page = rows[query.offset:query.offset + query.limit]
         return models.TitlePage(total=len(rows), offset=query.offset, limit=query.limit,
                                 titles=[models.Title.of(row) for row in page])

@@ -466,6 +466,38 @@
             }
           },
           {
+            "name": "detail",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Case-insensitive text in the title's detail (what it waits for).",
+              "title": "Detail"
+            },
+            "description": "Case-insensitive text in the title's detail (what it waits for)."
+          },
+          {
+            "name": "flags",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/Flag"
+              },
+              "description": "Only titles carrying every one of these flags.",
+              "title": "Flags"
+            },
+            "description": "Only titles carrying every one of these flags."
+          },
+          {
             "name": "include_done",
             "in": "query",
             "required": false,
@@ -476,6 +508,36 @@
               "title": "Include Done"
             },
             "description": "Include titles that need nothing (as the work list does only on Done)."
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/TitleSort"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Order by this column (work-list order within equal values); a title without a year or confidence comes last either way.",
+              "title": "Sort"
+            },
+            "description": "Order by this column (work-list order within equal values); a title without a year or confidence comes last either way."
+          },
+          {
+            "name": "descending",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Order `sort` high to low.",
+              "default": false,
+              "title": "Descending"
+            },
+            "description": "Order `sort` high to low."
           },
           {
             "name": "limit",
@@ -1060,6 +1122,38 @@
               ],
               "title": "Year"
             }
+          },
+          {
+            "name": "detail",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Case-insensitive text in the title's detail (what it waits for).",
+              "title": "Detail"
+            },
+            "description": "Case-insensitive text in the title's detail (what it waits for)."
+          },
+          {
+            "name": "flags",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/Flag"
+              },
+              "description": "Only titles carrying every one of these flags.",
+              "title": "Flags"
+            },
+            "description": "Only titles carrying every one of these flags."
           },
           {
             "name": "after",
@@ -4845,6 +4939,26 @@
               }
             ],
             "title": "Year"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail",
+            "description": "Case-insensitive text in the title's detail (what it waits for)."
+          },
+          "flags": {
+            "items": {
+              "$ref": "#/components/schemas/Flag"
+            },
+            "type": "array",
+            "title": "Flags",
+            "description": "Only titles carrying every one of these flags."
           }
         },
         "additionalProperties": false,
@@ -4901,6 +5015,22 @@
           "titles"
         ],
         "title": "TitlePage"
+      },
+      "TitleSort": {
+        "type": "string",
+        "enum": [
+          "title",
+          "year",
+          "kind",
+          "source",
+          "needs",
+          "detail",
+          "confidence",
+          "candidate_count",
+          "flags"
+        ],
+        "title": "TitleSort",
+        "description": "A column of the titles table to order by; without one, work-list order (tier, then oldest waiting first). "
       }
     },
     "securitySchemes": {

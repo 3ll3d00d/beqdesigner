@@ -13,8 +13,8 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field, RootModel, mo
 
 from pipeline.library.bulk import DEFAULT_ACCEPT_THRESHOLD
 from pipeline.library.selection import Selection
-from pipeline.library.state import FLAG_DUPLICATE, FLAG_GONE, FLAG_IGNORED, FLAG_IN_CATALOGUE, FLAG_SHADOWED
-from pipeline.library.year import YEAR_PATTERN, YearRange
+from pipeline.library.state import NEEDS, FLAG_DUPLICATE, FLAG_GONE, FLAG_IGNORED, FLAG_IN_CATALOGUE, FLAG_SHADOWED
+from pipeline.library.year import YEAR_PATTERN, YearRange, numeric_year
 
 API_VERSION = '1.5.0'
 
@@ -111,11 +111,14 @@ class TitleFilter(Input):
     ids: List[str] = Field(default_factory=list, description='Only these titles, by catalogue id.')
     kind: Optional[Kind] = None
     year: Optional[YearExpression] = None
+    detail: Optional[str] = Field(None, description="Case-insensitive text in the title's detail (what it waits for).")
+    flags: List[Flag] = Field(default_factory=list, description='Only titles carrying every one of these flags.')
 
     def to_selection(self) -> Selection:
         return Selection(needs=tuple(n.value for n in self.needs), source=self.source, match=self.match,
                          ids=tuple(self.ids), new_since_scan=self.new_since_scan,
-                         kind=self.kind.value if self.kind else None, year=self.year)
+                         kind=self.kind.value if self.kind else None, year=self.year, detail=self.detail,
+                         flags=tuple(f.value for f in self.flags))
 
     @classmethod
     def of(cls, selection: Any) -> 'TitleFilter':
@@ -123,14 +126,59 @@ class TitleFilter(Input):
         data = selection if isinstance(selection, dict) else selection.__dict__
         return cls(needs=list(data.get('needs') or ()), new_since_scan=bool(data.get('new_since_scan')),
                    source=data.get('source'), match=data.get('match'), ids=list(data.get('ids') or ()),
-                   kind=data.get('kind'), year=data.get('year'))
+                   kind=data.get('kind'), year=data.get('year'), detail=data.get('detail'),
+                   flags=list(data.get('flags') or ()))
+
+
+class TitleSort(str, Enum):
+    ''' A column of the titles table to order by; without one, work-list order (tier, then oldest waiting first). '''
+    title = 'title'
+    year = 'year'
+    kind = 'kind'
+    source = 'source'
+    needs = 'needs'
+    detail = 'detail'
+    confidence = 'confidence'
+    candidate_count = 'candidate_count'
+    flags = 'flags'
 
 
 class TitleQuery(TitleFilter):
-    ''' The filter as query parameters, with paging. '''
+    ''' The filter as query parameters, with ordering and paging. '''
     include_done: bool = Field(False, description='Include titles that need nothing (as the work list does only on Done).')
+    sort: Optional[TitleSort] = Field(None, description='Order by this column (work-list order within equal values); '
+                                                        'a title without a year or confidence comes last either way.')
+    descending: bool = Field(False, description='Order `sort` high to low.')
+
     limit: int = Field(100, ge=1, le=1000)
     offset: int = Field(0, ge=0)
+
+    def order(self, rows: List[Any]) -> List[Any]:
+        ''' The index rows (in work-list order) in the order asked for; a missing year or confidence goes last. '''
+        if self.sort is None:
+            return rows
+        key = _SORT_KEYS[self.sort]
+        present = [r for r in rows if key(r) is not None]
+        missing = [r for r in rows if key(r) is None]
+        return sorted(present, key=key, reverse=self.descending) + missing
+
+
+def _title_text(row) -> str:
+    return (row.title or row.display_name or row.id).casefold()
+
+
+# each returns None for a value the title does not have, which sorts last whichever way round
+_SORT_KEYS = {
+    TitleSort.title: _title_text,
+    TitleSort.year: lambda r: numeric_year(r.year),
+    TitleSort.kind: lambda r: r.kind or 'movie',
+    TitleSort.source: lambda r: r.source.casefold(),
+    TitleSort.needs: lambda r: NEEDS.index(r.needs) if r.needs in NEEDS else len(NEEDS),
+    TitleSort.detail: lambda r: r.detail.casefold() or None,
+    TitleSort.confidence: lambda r: r.confidence,
+    TitleSort.candidate_count: lambda r: r.candidate_count,
+    TitleSort.flags: lambda r: ', '.join(r.flags) or None,
+}
 
 
 # --- titles -------------------------------------------------------------------------------------------------------------

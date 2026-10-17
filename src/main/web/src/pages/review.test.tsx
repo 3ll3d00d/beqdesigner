@@ -90,6 +90,71 @@ describe('titles', () => {
     await waitFor(() => expect(router.state.location.search).toBe('?needs=review&kind=movie'))
   })
 
+  it('sorts by a column from its heading: ascending, descending, then back to work-list order', async () => {
+    const asked: URLSearchParams[] = []
+    server.use(statusRoute(status({ index: index() })),
+               http.get('/v1/titles', ({ request }) => {
+                 asked.push(new URL(request.url).searchParams)
+                 return json({ total: 1, offset: 0, limit: 100, titles: [title('a')] })
+               }))
+    const router = renderApp('/titles?needs=review&offset=100')
+    const heading = await screen.findByRole('columnheader', { name: 'Confidence' })
+    expect(heading).toHaveAttribute('aria-sort', 'none')
+
+    await userEvent.click(within(heading).getByRole('button'))
+    await waitFor(() => expect(router.state.location.search).toBe('?needs=review&sort=confidence'))   // back to page 1
+    expect(heading).toHaveAttribute('aria-sort', 'ascending')
+    await waitFor(() => expect(asked.at(-1)?.get('sort')).toBe('confidence'))
+    expect(asked.at(-1)?.get('descending')).toBe('false')
+    // the review it links to keeps the order, so the list it goes back to is the same
+    expect(screen.getByText('A')).toHaveAttribute('href', '/titles/a?needs=review&sort=confidence')
+
+    await userEvent.click(within(heading).getByRole('button'))
+    await waitFor(() => expect(router.state.location.search).toBe('?needs=review&sort=confidence&descending=true'))
+    expect(heading).toHaveAttribute('aria-sort', 'descending')
+    await waitFor(() => expect(asked.at(-1)?.get('descending')).toBe('true'))
+
+    await userEvent.click(within(heading).getByRole('button'))
+    await waitFor(() => expect(router.state.location.search).toBe('?needs=review'))
+    expect(asked.at(-1)?.has('sort')).toBe(false)
+  })
+
+  it('filters from the row under the headings, a typed one once typing pauses', async () => {
+    const asked: URLSearchParams[] = []
+    server.use(statusRoute(status({ index: index() })),
+               http.get('/v1/titles', ({ request }) => {
+                 const query = new URL(request.url).searchParams
+                 asked.push(query)
+                 return query.get('year') === '20'
+                   ? json({ title: 'Invalid', status: 422, detail: 'year: not a year' }, 422)
+                   : json({ total: 1, offset: 0, limit: 100, titles: [title('a')] })
+               }))
+    const router = renderApp('/titles')
+
+    await userEvent.type(await screen.findByLabelText('Filter title'), 'star wars')
+    await waitFor(() => expect(router.state.location.search).toBe('?match=star+wars'))
+    expect(asked.some((q) => q.get('match') === 'star')).toBe(false)   // nothing sent mid-word
+    expect(screen.getByLabelText('Filter title')).toHaveValue('star wars')
+
+    await userEvent.type(screen.getByLabelText('Filter detail'), 'Rolloff')
+    await userEvent.selectOptions(screen.getByLabelText('Filter flags'), 'Gone')
+    await userEvent.selectOptions(screen.getByLabelText('Filter kind'), 'tv')
+    await userEvent.click(within(screen.getByRole('group', { name: 'Needs' })).getByRole('checkbox', { name: 'Review' }))
+    await waitFor(() => expect(router.state.location.search)
+      .toBe('?needs=review&kind=tv&match=star+wars&detail=Rolloff&flags=Gone'))
+    await waitFor(() => expect(asked.at(-1)?.get('detail')).toBe('Rolloff'))
+    expect(asked.at(-1)?.getAll('flags')).toEqual(['Gone'])
+    expect(screen.getByText(/detail matching “Rolloff”, flagged Gone/)).toBeInTheDocument()
+
+    // a filter the service refuses leaves the row there to correct it
+    await userEvent.type(screen.getByLabelText('Filter year'), '20')
+    await waitFor(() => expect(asked.at(-1)?.get('year')).toBe('20'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('not a year')
+    await userEvent.type(screen.getByLabelText('Filter year'), '20')
+    await waitFor(() => expect(asked.at(-1)?.get('year')).toBe('2020'))
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
+  })
+
   it('opens the next title waiting, or says there is none', async () => {
     let none = false
     server.use(statusRoute(status({ index: index() })),

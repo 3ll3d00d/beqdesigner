@@ -8,6 +8,8 @@ There is one selection vocabulary, shared by the CLI and the work list (and the 
     --kind {movie,tv}     --year EXPR (2026, >=2020, <1960, 1990-1999: pipeline.library.year)
     --through {extract,design,publish,commit}                        the action button in the GUI
 
+The pipeline service's titles table also filters on a title's detail text and its flags; those have no CLI flag.
+
 A `Selection` is those filters as a value, answered by the discovery index (LibraryIndex.titles()); every field that is
 given must hold (they are ANDed), and an empty Selection is every title. `selection_from_chip()` is what the strip's
 chips select, and `plan_stages()` says, for a selection and a `through`, what would run and what would be skipped and
@@ -19,10 +21,11 @@ from dataclasses import dataclass, field
 from typing import Iterable, List, Optional, Sequence, Tuple
 
 from pipeline.library.index import LibraryIndex, TitleRow
-from pipeline.library.state import NEEDS
+from pipeline.library.state import FLAG_DUPLICATE, FLAG_GONE, FLAG_IGNORED, FLAG_IN_CATALOGUE, FLAG_SHADOWED, NEEDS
 from pipeline.library.year import YearRange
 
 KINDS = ('movie', 'tv')
+FLAGS = (FLAG_IGNORED, FLAG_SHADOWED, FLAG_GONE, FLAG_DUPLICATE, FLAG_IN_CATALOGUE)
 
 THROUGH = ('extract', 'design', 'publish', 'commit')   # the --through vocabulary, in pipeline order
 MACHINE_STAGES = ('extract', 'design')                 # what the run loop does (run.run_unit)
@@ -47,6 +50,8 @@ class Selection:
     :param new_since_scan: only titles first seen by the latest scan.
     :param kind: only `movie` or only `tv` titles.
     :param year: a year expression (pipeline.library.year): only titles with a numeric year it contains.
+    :param detail: case-insensitive text found in the title's detail (what it is waiting for, in words).
+    :param flags: only titles carrying every one of these (state.FLAG_*).
     '''
     needs: Tuple[str, ...] = ()
     source: Optional[str] = None
@@ -55,9 +60,13 @@ class Selection:
     new_since_scan: bool = False
     kind: Optional[str] = None
     year: Optional[str] = None
+    detail: Optional[str] = None
+    flags: Tuple[str, ...] = ()
 
     def __post_init__(self):
         object.__setattr__(self, 'needs', _unique(self.needs))
+        object.__setattr__(self, 'flags', _unique(self.flags))
+        object.__setattr__(self, 'detail', self.detail or None)
         object.__setattr__(self, 'ids', _unique(self.ids))
         object.__setattr__(self, 'source', self.source or None)
         object.__setattr__(self, 'match', self.match or None)
@@ -70,6 +79,9 @@ class Selection:
             raise ValueError(f"kind must be one of {', '.join(KINDS)}; got {self.kind!r}")
         if self.year is not None:
             YearRange.parse(self.year, allow_empty=False)   # a malformed or reversed one is refused, not matched as nothing
+        unknown = [f for f in self.flags if f not in FLAGS]
+        if unknown:
+            raise ValueError(f"flags must be from {', '.join(FLAGS)}; got {', '.join(unknown)}")
 
     @property
     def year_range(self) -> Optional[YearRange]:
@@ -86,9 +98,15 @@ class Selection:
         The matching titles, in work-list order (tier, then oldest waiting first).
         :param include_done: False leaves out titles that need nothing, unless `needs` asks for them (the work list's view).
         '''
-        return index.titles(needs=list(self.needs) or None, source=self.source, match=self.match,
+        rows = index.titles(needs=list(self.needs) or None, source=self.source, match=self.match,
                             ids=list(self.ids) if self.ids else None, new_only=self.new_since_scan, kind=self.kind,
                             year=self.year_range, include_done=include_done or 'done' in self.needs)
+        if self.detail:
+            text = self.detail.casefold()
+            rows = [r for r in rows if text in r.detail.casefold()]
+        if self.flags:
+            rows = [r for r in rows if set(self.flags) <= set(r.flags)]
+        return rows
 
     def describe(self) -> str:
         ''' The selection in words, for a log line or a confirmation. '''
@@ -105,6 +123,10 @@ class Selection:
             parts.append('movies' if self.kind == 'movie' else 'TV')
         if self.year:
             parts.append(f'year {self.year}')
+        if self.detail:
+            parts.append(f'detail matching "{self.detail}"')
+        if self.flags:
+            parts.append(f"flagged {' and '.join(self.flags)}")
         return ', '.join(parts) or 'every title'
 
 

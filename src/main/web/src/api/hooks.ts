@@ -7,7 +7,7 @@ import { useAuth } from '../auth/auth'
 import { FINISHED_STATES } from '../format'
 import { unwrap, type Schemas } from './client'
 import { followJob, type JobEvent } from './events'
-import { cleanFilter, type TitleFilter } from './filter'
+import { cleanFilter, type Sort, type TitleFilter } from './filter'
 import { readToken } from './token'
 
 export type Job = Schemas['ScanJob'] | Schemas['RunJob'] | Schemas['AcceptJob']
@@ -168,9 +168,10 @@ export function usePlan() {
 
 export const PAGE_SIZE = 100
 
-export function useTitles(filter: TitleFilter, includeDone: boolean, offset: number) {
+export function useTitles(filter: TitleFilter, includeDone: boolean, offset: number, order: Sort = { sort: null, descending: false }) {
   const { client } = useAuth()
-  const query = { ...cleanFilter(filter), include_done: includeDone, limit: PAGE_SIZE, offset }
+  const query = { ...cleanFilter(filter), include_done: includeDone, limit: PAGE_SIZE, offset,
+                  ...(order.sort ? { sort: order.sort, descending: order.descending } : {}) }
   return useQuery({
     queryKey: keys.titles(JSON.stringify(query)),
     queryFn: async () => unwrap(await client.GET('/v1/titles', { params: { query } })),

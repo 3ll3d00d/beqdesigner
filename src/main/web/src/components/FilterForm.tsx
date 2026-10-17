@@ -1,4 +1,4 @@
-// Which titles: the work list's filters (needs, source, kind, year, text, new) as one form, for runs and the titles list.
+// Which titles: the work list's filters (needs, source, kind, year, text, new) as one form, for a new run (the titles table filters in its own row).
 import { useId } from 'react'
 
 import type { Kind, Needs, TitleFilter } from '../api/filter'

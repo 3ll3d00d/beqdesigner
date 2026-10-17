@@ -3,7 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw/http'
 
-import { filterFromQuery, filterToQuery } from '../api/filter'
+import { filterFromQuery, filterToQuery, sortFromQuery, sortToQuery } from '../api/filter'
 import { saveToken } from '../api/token'
 import { event, eventStream, index, runJob, runResult, scanJob, schedule } from '../test/fixtures'
 import { renderApp } from '../test/render'
@@ -18,9 +18,16 @@ function json(body: unknown, init?: number) {
 describe('the filter in the address bar', () => {
   it('goes there and back', () => {
     const filter = { needs: ['extract' as const, 'design' as const], kind: 'movie' as const, year: '>=2020', match: 'alien',
-                     source: 'films', new_since_scan: true, ids: ['a'] }
+                     source: 'films', new_since_scan: true, ids: ['a'], detail: 'rolloff', flags: ['Gone' as const] }
     expect(filterFromQuery(filterToQuery(filter))).toEqual(filter)
-    expect(filterFromQuery(new URLSearchParams('needs=nonsense&kind=film&year=%20'))).toEqual({})
+    expect(filterFromQuery(new URLSearchParams('needs=nonsense&kind=film&year=%20&flags=Purple'))).toEqual({})
+  })
+
+  it('carries the titles table\'s sort beside the filter, ignoring a column that does not exist', () => {
+    const order = { sort: 'year' as const, descending: true }
+    expect(sortFromQuery(sortToQuery(order, new URLSearchParams()))).toEqual(order)
+    expect(sortFromQuery(new URLSearchParams('sort=colour&descending=true'))).toEqual({ sort: null, descending: false })
+    expect(filterFromQuery(new URLSearchParams('sort=year'))).toEqual({})
   })
 })
 

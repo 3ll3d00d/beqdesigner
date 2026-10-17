@@ -1546,6 +1546,16 @@ export interface components {
             kind?: components["schemas"]["Kind"] | null;
             /** Year */
             year?: string | null;
+            /**
+             * Detail
+             * @description Case-insensitive text in the title's detail (what it waits for).
+             */
+            detail?: string | null;
+            /**
+             * Flags
+             * @description Only titles carrying every one of these flags.
+             */
+            flags?: components["schemas"]["Flag"][];
         };
         /** TitleMessage */
         TitleMessage: {
@@ -1568,6 +1578,12 @@ export interface components {
             /** Titles */
             titles: components["schemas"]["Title"][];
         };
+        /**
+         * TitleSort
+         * @description A column of the titles table to order by; without one, work-list order (tier, then oldest waiting first).
+         * @enum {string}
+         */
+        TitleSort: "title" | "year" | "kind" | "source" | "needs" | "detail" | "confidence" | "candidate_count" | "flags";
     };
     responses: never;
     parameters: never;
@@ -1848,8 +1864,16 @@ export interface operations {
                 ids?: string[];
                 kind?: components["schemas"]["Kind"] | null;
                 year?: string | null;
+                /** @description Case-insensitive text in the title's detail (what it waits for). */
+                detail?: string | null;
+                /** @description Only titles carrying every one of these flags. */
+                flags?: components["schemas"]["Flag"][];
                 /** @description Include titles that need nothing (as the work list does only on Done). */
                 include_done?: boolean;
+                /** @description Order by this column (work-list order within equal values); a title without a year or confidence comes last either way. */
+                sort?: components["schemas"]["TitleSort"] | null;
+                /** @description Order `sort` high to low. */
+                descending?: boolean;
                 limit?: number;
                 offset?: number;
             };
@@ -2196,6 +2220,10 @@ export interface operations {
                 ids?: string[];
                 kind?: components["schemas"]["Kind"] | null;
                 year?: string | null;
+                /** @description Case-insensitive text in the title's detail (what it waits for). */
+                detail?: string | null;
+                /** @description Only titles carrying every one of these flags. */
+                flags?: components["schemas"]["Flag"][];
                 /** @description The title just decided (or open): the next one after it is found. Absent: the first waiting title in the list. */
                 after?: string | null;
             };

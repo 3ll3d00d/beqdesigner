@@ -227,7 +227,7 @@ Every request and response body is a named pydantic model in
 | `GET /health` | → `Health` | liveness and release; no auth |
 | `GET /ready` | → `Readiness` | profile loads, work dir writable, ffmpeg/ffprobe found, profile's designer registered; 503 otherwise; no auth. Also `designer_reachable` (`required: false`: reported, never unready) |
 | `GET /v1/status` | → `ServiceStatus` | index counts (the `status --json` content), current job, queue length, schedule state, notification outcomes, `designer` (`DesignerStatus`: reachable, detail, checked_at) |
-| `GET /v1/titles` | query `TitleFilter` + `limit`/`offset` → `TitlePage` | the work list's table; paged after the index query |
+| `GET /v1/titles` | query `TitleFilter` + `sort`/`descending` + `limit`/`offset` → `TitlePage` | the work list's table; sorted by a column (else work-list order; a missing year or confidence last), then paged |
 | `GET /v1/titles/{id}` | → `Title` | 404 if unknown |
 | `POST /v1/plan` | `RunRequest` → `PlanPreview` | dry run: what would run and what would be skipped and why |
 | `POST /v1/jobs/scan` | `ScanRequest` → 202 `Job` | |
@@ -270,8 +270,12 @@ discriminator in the schema; the SSE `event:` line is the same `type`). Each has
 
 ```json
 {"needs": ["extract", "design"], "new_since_scan": false, "source": "films",
- "match": "alien", "ids": [], "kind": "movie", "year": "2026"}
+ "match": "alien", "ids": [], "kind": "movie", "year": "2026",
+ "detail": "rolloff", "flags": ["Gone"]}
 ```
+
+`detail` (text in the title's detail) and `flags` (every one given) are the
+titles table's; the CLI has no flag for them.
 
 Every field is optional and they are ANDed; `{}` is every title. On
 `GET /v1/titles` they are query parameters (`needs` repeated,

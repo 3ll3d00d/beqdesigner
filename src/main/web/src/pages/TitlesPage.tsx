@@ -1,28 +1,140 @@
 // Titles (design/web-app.md §4): the work list's table over the filter in the address bar, "review the next waiting
-// title", and publishing/committing the accepted titles in it, offered only when the service allows them.
-import { useState } from 'react'
+// title", and publishing/committing the accepted titles in it, offered only when the service allows them. Each column
+// sorts from its heading and filters from the row under it; both run on the service, so they hold across pages.
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 
-import { cleanFilter, describeFilter, filterFromQuery, filterToQuery, type TitleFilter } from '../api/filter'
+import {
+  cleanFilter, describeFilter, filterFromQuery, filterToQuery, FLAGS, sortFromQuery, sortToQuery, type Flag, type Kind,
+  type Sort, type TitleFilter, type TitleSort,
+} from '../api/filter'
 import { PAGE_SIZE, useNextTitle, usePlan, useStatus, useSubmitRun, useTitles } from '../api/hooks'
 import { ScanSources } from '../components/ScanSources'
-import { FilterForm } from '../components/FilterForm'
-import { count, NEEDS_WORDS, type NeedsWord } from '../format'
+import { count, NEEDS_ORDER, NEEDS_WORDS, type NeedsWord } from '../format'
 import { repositoryRefusal } from './NewJobPage'
 
-/** The filter and paging the page is showing, read from and written to the address bar. */
+/** The filter, sort and paging the page is showing, read from and written to the address bar. */
 export function useListParams() {
   const [params, setParams] = useSearchParams()
   const filter = filterFromQuery(params)
+  const order = sortFromQuery(params)
   const includeDone = params.get('include_done') === 'true'
   const offset = Math.max(0, Number(params.get('offset')) || 0)
-  const update = (next: TitleFilter, done = includeDone, at = 0) => {
-    const query = filterToQuery(next)
+  const update = (next: TitleFilter, done = includeDone, at = 0, by: Sort = order) => {
+    const query = sortToQuery(by, filterToQuery(next))
     if (done) query.set('include_done', 'true')
     if (at) query.set('offset', String(at))
     setParams(query, { replace: true })
   }
-  return { filter, includeDone, offset, update, query: filterToQuery(filter).toString() }
+  return { filter, order, includeDone, offset, update, query: sortToQuery(order, filterToQuery(filter)).toString() }
+}
+
+const TYPING_MS = 300
+
+/** A text filter that follows the address bar but writes to it only once typing pauses (and untrimmed while typing). */
+function FilterText({ label, value, placeholder, onChange }: {
+  label: string; value: string; placeholder?: string; onChange: (value: string | null) => void
+}) {
+  const [text, setText] = useState(value)
+  const latest = useRef(onChange)
+  useEffect(() => { latest.current = onChange })
+  const [seen, setSeen] = useState(value)
+  if (seen !== value) {   // the address bar changed under it (Back, a link): show that, unless it is what was typed
+    setSeen(value)
+    if (text.trim() !== value) setText(value)
+  }
+  useEffect(() => {
+    if (text.trim() === value) return
+    const timer = setTimeout(() => latest.current(text.trim() || null), TYPING_MS)
+    return () => clearTimeout(timer)
+  }, [text, value])
+  return <input type="text" aria-label={label} value={text} placeholder={placeholder} onChange={(e) => setText(e.target.value)} />
+}
+
+/** Which needs to show, as a drop-down of checkboxes in the Needs column. */
+function NeedsPicker({ value, onChange }: { value: TitleFilter['needs']; onChange: (needs: TitleFilter['needs']) => void }) {
+  const chosen = new Set(value ?? [])
+  const toggle = (need: NeedsWord) => {
+    const next = new Set(chosen)
+    if (next.has(need)) next.delete(need)
+    else next.add(need)
+    onChange(NEEDS_ORDER.filter((n) => next.has(n)))
+  }
+  return (
+    <details className="pick">
+      <summary aria-label="Filter needs">{chosen.size ? [...chosen].map((n) => NEEDS_WORDS[n as NeedsWord]).join(', ') : 'Any'}</summary>
+      <div className="pick-menu" role="group" aria-label="Needs">
+        {NEEDS_ORDER.map((need) => (
+          <label key={need} className="check">
+            <input type="checkbox" checked={chosen.has(need)} onChange={() => toggle(need)} />
+            {NEEDS_WORDS[need]}
+          </label>
+        ))}
+      </div>
+    </details>
+  )
+}
+
+const COLUMNS: { sort: TitleSort; label: string; num?: boolean }[] = [
+  { sort: 'title', label: 'Title' }, { sort: 'year', label: 'Year' }, { sort: 'kind', label: 'Kind' },
+  { sort: 'source', label: 'Source' }, { sort: 'needs', label: 'Needs' }, { sort: 'detail', label: 'Detail' },
+  { sort: 'confidence', label: 'Confidence', num: true }, { sort: 'candidate_count', label: 'Designs', num: true },
+  { sort: 'flags', label: 'Flags' },
+]
+
+/** A heading that sorts by its column: first click ascending, then descending, then back to work-list order. */
+function SortHeading({ column, order, onSort }: {
+  column: (typeof COLUMNS)[number]; order: Sort; onSort: (order: Sort) => void
+}) {
+  const on = order.sort === column.sort
+  const next: Sort = !on ? { sort: column.sort, descending: false }
+    : !order.descending ? { sort: column.sort, descending: true } : { sort: null, descending: false }
+  return (
+    <th className={column.num ? 'num' : undefined} aria-sort={on ? (order.descending ? 'descending' : 'ascending') : 'none'}>
+      <button type="button" className="sort" onClick={() => onSort(next)}>
+        {column.label}<span aria-hidden="true">{on ? (order.descending ? ' ▼' : ' ▲') : ''}</span>
+      </button>
+    </th>
+  )
+}
+
+/** The row of filters under the headings, one per column that can be filtered. */
+function FilterRow({ filter, sources, onChange }: {
+  filter: TitleFilter; sources: string[]; onChange: (filter: TitleFilter) => void
+}) {
+  const set = (patch: Partial<TitleFilter>) => onChange({ ...filter, ...patch })
+  return (
+    <tr className="filters">
+      <td><FilterText label="Filter title" value={filter.match ?? ''} placeholder="title, name, id or path"
+                      onChange={(match) => set({ match })} /></td>
+      <td><FilterText label="Filter year" value={filter.year ?? ''} placeholder=">=2020" onChange={(year) => set({ year })} /></td>
+      <td>
+        <select aria-label="Filter kind" value={filter.kind ?? ''}
+                onChange={(e) => set({ kind: (e.target.value || null) as Kind | null })}>
+          <option value="">Any</option>
+          <option value="movie">Movies</option>
+          <option value="tv">TV</option>
+        </select>
+      </td>
+      <td>
+        <select aria-label="Filter source" value={filter.source ?? ''} onChange={(e) => set({ source: e.target.value || null })}>
+          <option value="">Any</option>
+          {sources.map((name) => <option key={name} value={name}>{name}</option>)}
+        </select>
+      </td>
+      <td><NeedsPicker value={filter.needs} onChange={(needs) => set({ needs })} /></td>
+      <td><FilterText label="Filter detail" value={filter.detail ?? ''} onChange={(detail) => set({ detail })} /></td>
+      <td />
+      <td />
+      <td>
+        <select aria-label="Filter flags" value={filter.flags?.[0] ?? ''}
+                onChange={(e) => set({ flags: e.target.value ? [e.target.value as Flag] : [] })}>
+          <option value="">Any</option>
+          {FLAGS.map((flag) => <option key={flag} value={flag}>{flag}</option>)}
+        </select>
+      </td>
+    </tr>
+  )
 }
 
 function Repositories({ filter }: { filter: TitleFilter }) {
@@ -76,9 +188,9 @@ function Repositories({ filter }: { filter: TitleFilter }) {
 }
 
 export function TitlesPage() {
-  const { filter, includeDone, offset, update, query } = useListParams()
+  const { filter, order, includeDone, offset, update, query } = useListParams()
   const status = useStatus()
-  const titles = useTitles(filter, includeDone, offset)
+  const titles = useTitles(filter, includeDone, offset, order)
   const next = useNextTitle()
   const navigate = useNavigate()
   const [nothing, setNothing] = useState('')
@@ -107,38 +219,44 @@ export function TitlesPage() {
         </div>
       </div>
       {nothing && <p role="status" className="muted">{nothing}</p>}
-      <FilterForm value={filter} onChange={(f) => update(f)} sources={sources} />
-      <label className="check">
-        <input type="checkbox" checked={includeDone} onChange={(e) => update(filter, e.target.checked)} />
-        Include titles that need nothing
-      </label>
+      <div className="actions">
+        <label className="check">
+          <input type="checkbox" checked={!!filter.new_since_scan}
+                 onChange={(e) => update({ ...filter, new_since_scan: e.target.checked })} />
+          New since the last scan
+        </label>
+        <label className="check">
+          <input type="checkbox" checked={includeDone} onChange={(e) => update(filter, e.target.checked)} />
+          Include titles that need nothing
+        </label>
+      </div>
       <Repositories filter={filter} />
       {titles.isError && <p role="alert" className="problem">{titles.error.message}</p>}
-      {page && (
-        <>
-          <p className="muted">{count(page.total, 'title')} ({describeFilter(filter)}).</p>
-          <div className="table-wrap">
-            <table className="list">
-              <thead>
-                <tr><th>Title</th><th>Year</th><th>Needs</th><th>Detail</th><th className="num">Confidence</th>
-                  <th className="num">Designs</th><th>Flags</th></tr>
-              </thead>
-              <tbody>
-                {page.titles.map((t) => (
-                  <tr key={t.id} className={`tier-${t.tier}`}>
-                    <td><Link to={link(t.id)}>{t.title || t.display_name || t.id}</Link>{t.is_new && <span className="badge">new</span>}</td>
-                    <td>{t.year}</td>
-                    <td>{NEEDS_WORDS[t.needs as NeedsWord] ?? t.needs}</td>
-                    <td className="detail">{t.detail}</td>
-                    <td className="num">{t.confidence === null ? '—' : t.confidence.toFixed(2)}</td>
-                    <td className="num">{t.candidate_count || '—'}</td>
-                    <td>{t.flags.join(', ')}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {page.total > PAGE_SIZE && (
+      <p className="muted">{page ? `${count(page.total, 'title')} (${describeFilter(filter)}).` : ' '}</p>
+      <div className="table-wrap">
+        <table className="list">
+          <thead>
+            <tr>{COLUMNS.map((c) => <SortHeading key={c.sort} column={c} order={order} onSort={(by) => update(filter, includeDone, 0, by)} />)}</tr>
+            <FilterRow filter={filter} sources={sources} onChange={(f) => update(f)} />
+          </thead>
+          <tbody>
+            {page?.titles.map((t) => (
+              <tr key={t.id} className={`tier-${t.tier}`}>
+                <td><Link to={link(t.id)}>{t.title || t.display_name || t.id}</Link>{t.is_new && <span className="badge">new</span>}</td>
+                <td>{t.year}</td>
+                <td>{t.kind === 'tv' ? 'TV' : 'Movie'}</td>
+                <td>{t.source}</td>
+                <td>{NEEDS_WORDS[t.needs as NeedsWord] ?? t.needs}</td>
+                <td className="detail">{t.detail}</td>
+                <td className="num">{t.confidence === null ? '—' : t.confidence.toFixed(2)}</td>
+                <td className="num">{t.candidate_count || '—'}</td>
+                <td>{t.flags.join(', ')}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {page && page.total > PAGE_SIZE && (
             <div className="actions pager">
               <button type="button" className="secondary" disabled={offset === 0}
                       onClick={() => update(filter, includeDone, Math.max(0, offset - PAGE_SIZE))}>Previous</button>
@@ -146,8 +264,6 @@ export function TitlesPage() {
               <button type="button" className="secondary" disabled={offset + PAGE_SIZE >= page.total}
                       onClick={() => update(filter, includeDone, offset + PAGE_SIZE)}>Next</button>
             </div>
-          )}
-        </>
       )}
     </section>
   )

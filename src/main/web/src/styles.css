@@ -160,3 +160,13 @@ td.detail { color: var(--muted); max-width: 32rem; }
 tr.tier-attention td:first-child { box-shadow: inset 3px 0 var(--problem); }
 .pager { align-items: center; }
 .fields label.check { display: flex; align-self: center; }
+th button.sort { background: none; border: none; padding: 0; color: inherit; font-weight: inherit; white-space: nowrap; }
+th[aria-sort='ascending'], th[aria-sort='descending'] { color: var(--fg); }
+th.num button.sort { width: 100%; text-align: right; }
+tr.filters td { padding: 0.25rem 0.3rem; background: var(--panel); }
+tr.filters input[type='text'], tr.filters select { padding: 0.2rem 0.35rem; font-size: 0.9rem; min-width: 5rem; }
+details.pick { position: relative; margin: 0; }
+details.pick summary { padding: 0.2rem 0.35rem; border: 1px solid var(--line); border-radius: 6px; font-size: 0.9rem;
+                       white-space: nowrap; }
+details.pick .pick-menu { position: absolute; z-index: 1; margin-top: 0.2rem; padding: 0.4rem 0.6rem; min-width: 9rem;
+                          border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }

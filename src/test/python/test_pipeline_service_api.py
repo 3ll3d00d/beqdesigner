@@ -240,6 +240,28 @@ def test_titles_are_filtered_as_the_work_list_filters_them_and_paged(service):
     assert client.get('/v1/titles/nope', headers=AUTH).status_code == 404
 
 
+def test_titles_are_sorted_by_any_column_and_filtered_on_detail_and_flags(service):
+    client, _, _ = service
+    _scanned(client)
+
+    def titles(**params):
+        return [t['title'] for t in client.get('/v1/titles', params=params, headers=AUTH).json()['titles']]
+
+    assert titles(sort='title') == ['Alien', 'Dune', 'Heat']
+    assert titles(sort='title', descending=True) == ['Heat', 'Dune', 'Alien']
+    years = [t['year'] for t in client.get('/v1/titles', params={'sort': 'year'}, headers=AUTH).json()['titles']]
+    assert years == sorted(years)
+    # paging is over the sorted list, not each page sorted on its own
+    assert titles(sort='title', descending=True, limit=1, offset=1) == ['Dune']
+    every = client.get('/v1/titles', headers=AUTH).json()['titles']
+    word = every[0]['detail'].split()[0]
+    assert titles(detail=word.upper()) == [t['title'] for t in every if word.casefold() in t['detail'].casefold()]
+    assert titles(detail='no such words') == []
+    assert titles(flags=['Gone']) == []
+    assert client.get('/v1/titles', params={'sort': 'colour'}, headers=AUTH).status_code == 422
+    assert client.get('/v1/titles', params={'flags': 'purple'}, headers=AUTH).status_code == 422
+
+
 @pytest.mark.parametrize('params, where', [({'year': '2026-2020'}, 'year'), ({'year': '20s'}, 'year'),
                                            ({'kind': 'film'}, 'kind'), ({'needs': 'nothing'}, 'needs'),
                                            ({'limit': 0}, 'limit'), ({'colour': 'red'}, 'colour')])
@@ -282,7 +304,7 @@ def test_a_run_job_takes_the_filter_and_reports_a_typed_result(service):
 
     assert job['kind'] == 'run' and job['state'] == 'succeeded' and job['origin'] == 'api'
     assert job['request'] == {'filter': {'needs': [], 'new_since_scan': False, 'source': None, 'match': None, 'ids': [],
-                                         'kind': 'movie', 'year': '2026'},
+                                         'kind': 'movie', 'year': '2026', 'detail': None, 'flags': []},
                               'through': 'design', 'scan_first': True, 'retry_failed': False, 'redesign': False}
     assert job['result']['scan']['titles'] == 3 and job['result']['attempted'] == ['x'] and job['result']['failed'] == []
     assert job['progress'] == {'done': 1, 'total': 1, 'title': 'Alien', 'stage': 'design', 'id': 'x',
