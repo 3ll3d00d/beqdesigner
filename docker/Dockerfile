@@ -1,8 +1,9 @@
-# Base images come from AWS's copy of Docker's official images: GitHub's runners share addresses, so anonymous Docker
-# Hub pulls are refused (429 Too Many Requests) whenever others have used up the limit.
+# Base images are Docker Hub's official images. CI logs in to Docker Hub before building (DOCKERHUB_USERNAME and
+# DOCKERHUB_TOKEN): GitHub's runners share addresses, so anonymous pulls are refused (429 Too Many Requests) whenever
+# others have used up the limit -- from Docker Hub and from AWS's ECR Public copy alike.
 # The docs assets and the browser app are plain JS/CSS whatever the target, so npm runs natively: under QEMU (arm64) node
 # dies of SIGILL.
-FROM --platform=$BUILDPLATFORM public.ecr.aws/docker/library/node:24-alpine AS docs-assets
+FROM --platform=$BUILDPLATFORM node:24-alpine AS docs-assets
 ENV SCARF_ANALYTICS=false
 RUN npm install --omit=dev --prefix /assets swagger-ui-dist@5.18.2 redoc@2.4.0 \
     && mkdir -p /static \
@@ -12,14 +13,14 @@ RUN npm install --omit=dev --prefix /assets swagger-ui-dist@5.18.2 redoc@2.4.0 \
     && cp /assets/node_modules/redoc/bundles/redoc.standalone.js /static/
 
 # The browser app (src/main/web, design/web-app.md): served by the service at /ui
-FROM --platform=$BUILDPLATFORM public.ecr.aws/docker/library/node:24-alpine AS web
+FROM --platform=$BUILDPLATFORM node:24-alpine AS web
 WORKDIR /web
 COPY src/main/web/package.json src/main/web/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY src/main/web/ ./
 RUN npm run build
 
-FROM public.ecr.aws/docker/library/python:3.13-slim AS dependencies
+FROM python:3.13-slim AS dependencies
 COPY --from=ghcr.io/astral-sh/uv:0.9.18 /uv /usr/local/bin/uv
 WORKDIR /app
 COPY pyproject.toml uv.lock ./
@@ -27,7 +28,7 @@ ENV UV_PROJECT_ENVIRONMENT=/opt/venv UV_COMPILE_BYTECODE=1
 RUN uv sync --frozen --no-default-groups --group service --no-install-project \
     && /opt/venv/bin/python -c 'import importlib.util; assert all(importlib.util.find_spec(n) is None for n in ("PyQt6", "qtpy", "pyqtgraph", "qtawesome"))'
 
-FROM public.ecr.aws/docker/library/python:3.13-slim
+FROM python:3.13-slim
 ARG PUID=1000
 ARG PGID=1000
 ARG VERSION=0.0.0-alpha.1

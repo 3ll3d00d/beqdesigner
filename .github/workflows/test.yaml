@@ -58,8 +58,17 @@ jobs:
     name: Build and smoke pipeline image
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    env:
+      # a pull request from a fork has no secrets: it builds with anonymous pulls, as before
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v7
+      - name: Log in to Docker Hub
+        if: env.DOCKERHUB_TOKEN != ''
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Build image
         run: docker build -f docker/Dockerfile -t beqdesigner-pipeline:smoke .
       - name: Extract, design and check the review queue

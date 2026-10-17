@@ -150,13 +150,19 @@ def test_ci_smokes_before_tag_publish_and_builds_both_platforms():
 def test_the_docs_assets_stage_runs_natively_rather_than_under_qemu():
     ''' The release builds arm64 under QEMU, where node dies of SIGILL; the assets are the same on every platform. '''
     dockerfile = (ROOT / 'docker' / 'Dockerfile').read_text()
-    assert 'FROM --platform=$BUILDPLATFORM public.ecr.aws/docker/library/node:' in dockerfile
+    assert 'FROM --platform=$BUILDPLATFORM node:' in dockerfile
 
 
-def test_base_images_come_from_a_registry_that_does_not_rate_limit_ci():
-    ''' Anonymous Docker Hub pulls from GitHub's shared runners are refused with 429; ECR Public mirrors the same images. '''
+def test_base_images_are_pulled_logged_in_so_ci_is_not_rate_limited():
+    ''' Anonymous pulls from GitHub's shared runners are refused with 429, by Docker Hub and by ECR Public (2.2.0-alpha.13's
+    image): both workflows that build the image log in to Docker Hub first. '''
     dockerfile = (ROOT / 'docker' / 'Dockerfile').read_text()
     bases = [line.split()[-3] if ' AS ' in line else line.split()[-1]
              for line in dockerfile.splitlines() if line.startswith('FROM ')]
     # the docs assets and the browser app (node), the dependencies and the runtime (python)
-    assert bases == ['public.ecr.aws/docker/library/node:24-alpine'] * 2 + ['public.ecr.aws/docker/library/python:3.13-slim'] * 2
+    assert bases == ['node:24-alpine'] * 2 + ['python:3.13-slim'] * 2
+    for name in ('create-image.yaml', 'test.yaml'):
+        workflow = (ROOT / '.github' / 'workflows' / name).read_text()
+        login = workflow.index('name: Log in to Docker Hub')
+        assert 'secrets.DOCKERHUB_USERNAME' in workflow and 'secrets.DOCKERHUB_TOKEN' in workflow, name
+        assert login < workflow.index('docker build -f docker/Dockerfile'), name
