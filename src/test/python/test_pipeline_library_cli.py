@@ -62,7 +62,7 @@ run:
     assert cli.main(['--config', str(config), 'run']) == 0
     assert seen['source'] == ('media.local', 52199, 42,
                               {'username': None, 'password': None, 'ssl': False, 'timeout': 5,
-                               'external_id_fields': None, 'path_mappings': []})
+                               'external_id_fields': None, 'path_mappings': [], 'browse_path': ''})
     assert seen['config'].work_dir == '/work'
     assert seen['config'].keep_multichannel is True
     assert seen['config'].audio_types == ('Atmos',)

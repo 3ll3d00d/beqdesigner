@@ -176,6 +176,10 @@ def test_build_source_builds_each_kind_and_says_what_is_missing(monkeypatch):
                             'path_mappings': [{'from': 'W:\\', 'to': '/w'}]})
     assert (seen['host'], seen['port'], seen['node'], seen['ssl']) == ('h', 52199, 3, True)
     assert [(m.source, m.target) for m in seen['path_mappings']] == [('W:\\', '/w')]
+    assert seen['browse_path'] == ''
+    # the node picker's path reaches the source, which walks it before listing (a saved id can mean nothing)
+    build_source('jriver', {'host': 'h', 'port': 1, 'browse_node_id': 3, 'browse_path': 'Video > Movies'})
+    assert seen['browse_path'] == 'Video > Movies'
     with pytest.raises(ValueError, match='glob is required'):
         build_source('filesystem', {})
     with pytest.raises(ValueError, match='host is required'):

@@ -335,7 +335,9 @@ profile did not publish) are labels only. A title decided by a person is never m
 its source.
 
 **Libraries.** `--source jriver` reads the files under one Media Center *browse node*; `--source filesystem` reads
-folders or globs. A DVD or Blu-ray rip folder is one title. TV can be run as a filter per episode (the default) or a
+folders or globs. JRiver hands out a browse node's id only once its parent is browsed, so after the server restarts a
+saved `browse_node_id` lists nothing; a source with a `browse_path` (`Video > Movies`, as the node picker saves it)
+walks that path from the top first, and lists whatever node it leads to. A DVD or Blu-ray rip folder is one title. TV can be run as a filter per episode (the default) or a
 whole season joined into one track (`--tv-mode season`); the published metadata lists the episodes covered.
 
 **Needs.** `ffmpeg`/`ffprobe` (DVDs also need a build with the `dvdvideo` demuxer), a designer (below), `pyyaml` to

@@ -239,6 +239,86 @@ def test_listing_children_rejects_a_running_event_loop():
     asyncio.run(call_from_loop())
 
 
+@contextmanager
+def _lazy_jriver(tree, files):
+    '''
+    A JRiver that gives a browse node its id only once its parent is browsed, as a real server does after a restart:
+    Browse/Children of an id it does not know yet answers with the root's children, and Browse/Files of one with
+    nothing. tree: {parent id: {name: child id}}, the root as -1; files: {node id: rows}.
+    '''
+    known = {-1}
+    requests = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            url = urlparse(self.path)
+            requests.append(url)
+            node = int(parse_qs(url.query).get('ID', ['-1'])[0])
+            if url.path == '/MCWS/v1/Browse/Children':
+                node = node if node in known else -1
+                known.update(int(child) for child in tree.get(node, {}).values())
+                items = ''.join(f'<Item Name="{name}">{child}</Item>' for name, child in tree.get(node, {}).items())
+                body, kind = f'<Response Status="OK">{items}</Response>'.encode('utf-8'), 'text/xml'
+            elif url.path == '/MCWS/v1/Browse/Files':
+                body, kind = json.dumps(files.get(node, []) if node in known else []).encode('utf-8'), 'application/json'
+            else:
+                self.send_error(404)
+                return
+            self.send_response(200)
+            self.send_header('Content-Type', kind)
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, format, *args):
+            pass
+
+    server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield server.server_port, requests
+    finally:
+        server.shutdown()
+        thread.join()
+        server.server_close()
+
+
+_TREE = {-1: {'Audio': '1', 'Video': '3'}, 3: {'Movies - Unwatched': '1003', 'Movies': '1004', 'Shows': '1005'}}
+
+
+def test_a_saved_node_id_jriver_has_not_handed_out_yet_lists_nothing():
+    # what a scan saw after the server restarted: the stored id alone, with nothing having browsed down to it yet
+    with _lazy_jriver(_TREE, {1004: [_row()]}) as (port, _):
+        assert list(JRiverLibrarySource('127.0.0.1', port, 1004).list_items()) == []
+
+
+def test_the_browse_path_is_walked_so_the_node_exists_before_its_files_are_listed():
+    with _lazy_jriver(_TREE, {1004: [_row()]}) as (port, requests):
+        items = list(JRiverLibrarySource('127.0.0.1', port, 1004, browse_path='Video > Movies').list_items())
+
+    assert [item.title for item in items] == ['Example']
+    assert [(r.path, parse_qs(r.query)['ID'][0]) for r in requests] == [
+        ('/MCWS/v1/Browse/Children', '-1'), ('/MCWS/v1/Browse/Children', '3'), ('/MCWS/v1/Browse/Files', '1004')]
+
+
+def test_the_node_the_path_leads_to_is_listed_even_when_its_id_has_changed():
+    tree = {-1: {'Video': '3'}, 3: {'Movies': '1007'}}
+    with _lazy_jriver(tree, {1007: [_row()]}) as (port, requests):
+        items = list(JRiverLibrarySource('127.0.0.1', port, 1004, browse_path='Video > Movies').list_items())
+
+    assert len(items) == 1
+    assert parse_qs(requests[-1].query)['ID'] == ['1007']
+
+
+def test_a_browse_path_that_leads_nowhere_says_which_step_is_missing():
+    with _lazy_jriver(_TREE, {}) as (port, _):
+        with pytest.raises(ValueError, match="no 'Films' under Video"):
+            list(JRiverLibrarySource('127.0.0.1', port, 1004, browse_path='Video > Films').list_items())
+        with pytest.raises(ValueError, match="no 'Pictures' under the top level"):
+            list(JRiverLibrarySource('127.0.0.1', port, 1004, browse_path='Pictures').list_items())
+
+
 def test_the_year_is_read_from_the_display_name_jriver_actually_returns():
     # a live server answers a request for 'Year' with the key 'Date (year)'
     live_style = _row(**{'Date (year)': '2019'})

@@ -125,7 +125,8 @@ def build_source(kind: str, settings: Mapping[str, Any]) -> LibrarySource:
         required('host'), int(required('port')), int(required('browse_node_id')), username=settings.get('username'),
         password=settings.get('password'), ssl=bool(settings.get('ssl', False)),
         timeout=int(settings.get('timeout', 5)), external_id_fields=settings.get('external_id_fields'),
-        path_mappings=mappings_from_config(settings.get('path_mappings')))
+        path_mappings=mappings_from_config(settings.get('path_mappings')),
+        browse_path=str(settings.get('browse_path') or ''))
 
 
 @dataclass(frozen=True)

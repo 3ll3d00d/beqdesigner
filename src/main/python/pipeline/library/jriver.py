@@ -171,17 +171,20 @@ class JRiverLibrarySource:
     def __init__(self, host: str, port: int, browse_node_id: int, *, username: Optional[str] = None,
                  password: Optional[str] = None, ssl: bool = False, timeout: int = 5,
                  external_id_fields: Optional[Mapping[str, Any]] = None,
-                 path_mappings: Sequence[PathMapping] = ()):
+                 path_mappings: Sequence[PathMapping] = (), browse_path: str = ''):
         '''
         :param external_id_fields: which fields hold the IMDb / TMDb ids, see normalise_external_id_fields().
         :param path_mappings: server folder -> local folder rules. JRiver reports paths as its own host sees them
             (Windows form), which this machine usually can't open; every path is translated through these, and one
             no rule contains is passed through unchanged (design/archive/library-sync-pipeline-plan.md §11.6).
+        :param browse_path: the node's names from the root, `Video > Movies`, as the node picker saves them. When given,
+            listing walks it first (see _resolve_node()); `browse_node_id` is then only what the node was last time.
         '''
         self.path_mappings = tuple(path_mappings)
         self.host = host
         self.port = port
         self.browse_node_id = browse_node_id
+        self.browse_path = browse_path
         self.username = username
         self.password = password
         self.ssl = ssl
@@ -218,10 +221,36 @@ class JRiverLibrarySource:
                                          ssl=self.ssl, timeout=self.timeout)
         server = MediaServer(connection)
         try:
-            rows = await server.browse_files(self.browse_node_id, self.requested_fields)
+            node = await self._resolve_node(connection) if self.browse_path else self.browse_node_id
+            rows = await server.browse_files(node, self.requested_fields)
         finally:
             await server.close()
         return self._map_rows(rows)
+
+    async def _resolve_node(self, connection) -> int:
+        '''
+        The browse node `browse_path` names, found by walking it from the root.
+
+        JRiver gives a browse node its id only when its parent is browsed, so after the server restarts a saved id
+        means nothing until something walks down to it: Browse/Children of an unknown id answers with the root's
+        children and Browse/Files with nothing, and the scan read that as a library that listed no titles (a library
+        of 1,292 films, 2026-10-17). Walking the path makes the ids exist, and finds the node's own.
+        :raises ValueError: naming the step that is missing, if the path no longer leads anywhere.
+        '''
+        names = [name.strip() for name in self.browse_path.split('>') if name.strip()]
+        node, walked = -1, []
+        for name in names:
+            ok, children = await connection.get('Browse/Children', _parse_children,
+                                                params={'Version': 2, 'ErrorOnMissing': 0, 'ID': node})
+            match = next((child for child in children if child.name == name), None) if ok else None
+            if match is None:
+                where = ' > '.join(walked) if walked else 'the top level'
+                raise ValueError(f'JRiver has no browse node {self.browse_path!r}: there is no {name!r} under {where}')
+            node = match.id
+            walked.append(name)
+        if node != self.browse_node_id:
+            logger.info('JRiver browse node %r is %s now, not the saved %s', self.browse_path, node, self.browse_node_id)
+        return node
 
     def _map_rows(self, rows: Iterable[Mapping[str, Any]]) -> list[LibraryItem]:
         items: list[LibraryItem] = []
