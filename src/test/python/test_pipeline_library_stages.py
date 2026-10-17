@@ -465,7 +465,8 @@ def test_cancel_while_a_dispatched_title_waits_for_design_finishes_dispatched_ti
     worker.start()
     assert two_waiting_for_design.wait(5), 'two extracted titles never reached the design queue'
     release_design.set()
-    worker.join(5)
+    # a hang still fails; 5 s was too short for a Windows runner under coverage (2.2.0-alpha.13's build)
+    worker.join(30)
     assert not worker.is_alive()
 
     report = result['report']
