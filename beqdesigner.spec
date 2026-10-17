@@ -263,11 +263,20 @@ if platform.system() == 'Darwin':
                    strip=False,
                    upx=False,
                    name='beqdesigner')
+    import importlib.util
+    _spec = importlib.util.spec_from_file_location('bundle_version',
+                                                   os.path.join(spec_root, '.github', 'scripts', 'bundle_version.py'))
+    _bundle_version = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_bundle_version)
+    short_version, full_version = _bundle_version.bundle_versions_from(
+        os.path.join(spec_root, 'src', 'main', 'python', 'VERSION'))
     app = BUNDLE(coll,
                  name='beqdesigner.app',
                  bundle_identifier='com.3ll3d00d.beqdesigner',
                  icon='src/main/icons/icon.icns',
+                 version=short_version,
                  info_plist={
+                     'CFBundleVersion': full_version,
                      'NSHighResolutionCapable': 'True',
                      'LSBackgroundOnly': 'False',
                      'NSRequiresAquaSystemAppearance': 'False',

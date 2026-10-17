@@ -147,6 +147,11 @@ jobs:
           uv run pyinstaller --clean --log-level=INFO beqdesigner.spec
           if [[ "$RUNNER_OS" == "macOS" ]]
           then
+            # the bundle carries the build's version, not 0.0.0 (#525)
+            expected="$(python3 .github/scripts/bundle_version.py)"
+            actual="$(plutil -extract CFBundleShortVersionString raw dist/beqdesigner.app/Contents/Info.plist) $(plutil -extract CFBundleVersion raw dist/beqdesigner.app/Contents/Info.plist)"
+            echo "Info.plist versions: ${actual} (expected ${expected})"
+            [[ "${actual}" == "${expected}" ]]
             pushd dist
             rm -Rf beqdesigner
             # ditto, not zip -r: zip follows symlinks and stores copies, breaking every framework (#525)
