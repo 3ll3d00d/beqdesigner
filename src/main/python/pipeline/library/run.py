@@ -414,8 +414,8 @@ def resolve_selected_stream(session: Session, item: LibraryItem) -> tuple[Librar
     The audio stream the source plays, as this file numbers its audio streams (J2): the source's selection
     (`selected_streams`, ffprobe global indices) matched against a probe of the file, as extraction opens it. A reviewer's
     choice, or one already resolved, is left alone.
-    :return: (the item, '') -- or (the item unchanged, why the selection was not used, for the run to say): the first
-        audio stream is then extracted, as before.
+    :return: (the item, '') -- or (the item unchanged, why the selection was not used, for the run to say): the default
+        audio stream is then extracted (streams.preferred_stream()).
     '''
     if item.audio_stream_source in ('manual', 'source') or not item.selected_streams:
         return item, ''
@@ -426,10 +426,10 @@ def resolve_selected_stream(session: Session, item: LibraryItem) -> tuple[Librar
         streams = session.probe_streams(item.source_path, item.playlist_name, title_hint(item))
     except Exception as error:
         return item, f"the file could not be probed for the source's stream selection ({type(error).__name__}), so " \
-                     f"the first audio stream is used"
+                     f"the default audio stream is used"
     ordinal, why = audio_ordinal(streams, item.selected_streams)
     if ordinal is None:
-        return item, f"the source's stream selection ({said}) does not match the file: {why}; the first audio stream " \
+        return item, f"the source's stream selection ({said}) does not match the file: {why}; the default audio stream " \
                      f"is used"
     return with_audio_stream(item, ordinal, 'source'), ''
 

@@ -4,6 +4,7 @@ A title's audio streams in words, for a person choosing which one is extracted (
 A source lists each stream as a detail dict, in the container's audio-stream order (its ordinal is the
 `LibraryItem.audio_stream` that selects it): `codec`, `channels` and `audio_types` always, and `sample_rate` (Hz),
 `bitrate` (kbps), `language` and `title` when the source knows them. No Qt: the pipeline and the work list share it.
+`preferred_stream()` is the one extracted when nobody has chosen; Batch Extract defaults to it too.
 '''
 import re
 from typing import Mapping, Optional, Sequence
@@ -103,6 +104,37 @@ def details_from_ffprobe(streams: Sequence[Mapping]) -> tuple[dict, ...]:
                 detail[key] = str(tags[key])
         details.append(detail)
     return tuple(details)
+
+
+_LOSSLESS = ('truehd', 'dts-hd ma', 'pcm', 'flac', 'mlp', 'alac')
+
+
+def is_lossless(codec: str) -> bool:
+    ''' True for a codec name (JRiver's, or details_from_ffprobe()'s) that carries the master unreduced. '''
+    text = str(codec).lower()
+    return any(name in text for name in _LOSSLESS)
+
+
+def _channel_count(detail: Mapping) -> int:
+    try:
+        return int(str(detail.get('channels', '')).strip())
+    except ValueError:
+        return 0
+
+
+def preferred_stream(details: Sequence[Mapping]) -> int:
+    '''
+    The audio stream extracted when nobody has chosen one: the most channels, lossless before lossy on a tie, then the
+    earlier. Only streams in the first stream's language compete (when it has one), so a dub never wins over the
+    original. Discs often put a stereo or mono track first (Free Solo: LPCM 2.0 before DTS-HD MA 5.1; Jaws: DTS 2.0
+    before TrueHD Atmos), and taking the first designed those from the wrong track. 0 for a source that listed none.
+    '''
+    if not details:
+        return 0
+    language = str(details[0].get('language') or '').strip().casefold()
+    candidates = [i for i, d in enumerate(details)
+                  if not language or str(d.get('language') or '').strip().casefold() in ('', language)]
+    return max(candidates, key=lambda i: (_channel_count(details[i]), is_lossless(details[i].get('codec', '')), -i))
 
 
 def stream_choice(details: Sequence[Mapping], audio_stream: int, keep_multichannel: bool, chosen_by: str = '') -> str:

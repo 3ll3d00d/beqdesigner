@@ -15,7 +15,7 @@ import pytest
 from pipeline.library.index import carried_choice
 from pipeline.library.jriver import JRiverLibrarySource
 from pipeline.library.source import LibraryItem
-from pipeline.library.streams import audio_ordinal, selected_streams
+from pipeline.library.streams import audio_ordinal, preferred_stream, selected_streams
 from test_pipeline_library_index import _item, _scan, env  # noqa: F401
 
 FIXTURE = pathlib.Path(__file__).parent / 'fixtures' / 'jriver'
@@ -73,14 +73,15 @@ def test_the_matched_stream_is_the_one_jriver_lists_at_that_place_and_a_doubtful
     assert sorted(disagree) == ['A Star Is Born', 'Rocky']
 
 
-def test_listing_records_the_selection_and_still_lists_the_first_stream():
+def test_listing_records_the_selection_and_still_lists_the_default_stream():
     rows = [row for row in FILES if row['Key'] in {t['Key'] for t in EVIDENCE}]
     items = JRiverLibrarySource('127.0.0.1', 1, 1004)._map_rows(rows)
     by_key = {item.id.rpartition('-')[2]: item for item in items}
     for title in EVIDENCE:
         item = by_key[str(title['Key'])]
         assert item.selected_streams == tuple(int(n) for n in title['Streams'].split(','))
-        assert item.audio_stream == 0 and item.audio_stream_source == ''   # resolved when the file is probed
+        # the selection is resolved when the file is probed; until then the default (streams.preferred_stream())
+        assert item.audio_stream == preferred_stream(item.audio_stream_details) and item.audio_stream_source == ''
 
 
 # --- a scan keeps the stream chosen ----------------------------------------------------------------------------------
@@ -189,4 +190,4 @@ def test_a_selection_that_does_not_match_the_file_falls_back_to_the_first_stream
 
     notes = [e.message for e in events if e.kind == 'note']
     assert notes == ["The source's stream selection (1,2) does not match the file: stream 1 of the file is not a video "
-                     "stream; the first audio stream is used"]
+                     "stream; the default audio stream is used"]

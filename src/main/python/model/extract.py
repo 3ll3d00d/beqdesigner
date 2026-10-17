@@ -331,6 +331,8 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
                 text, duration_micros = parse_audio_stream(self.__executor.probe, a)
                 self.audioStreams.addItem(text)
                 self.__stream_duration_micros.append(duration_micros)
+            from pipeline.library.streams import details_from_ffprobe, preferred_stream
+            self.audioStreams.setCurrentIndex(preferred_stream(details_from_ffprobe(self.__executor.audio_stream_data)))
             self.videoStreams.addItem('No Video')
             for a in self.__executor.video_stream_data:
                 self.videoStreams.addItem(parse_video_stream(self.__executor.probe, a))

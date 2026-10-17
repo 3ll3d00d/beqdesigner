@@ -470,3 +470,27 @@ def test_design_names_the_wavs_it_loaded_for_a_designer_that_takes_arrays_by_ref
     assert data[:, 3].tobytes() == request.channels[fourth].tobytes()
     mono, _ = sf.read(sources.mono.path, dtype='float64', always_2d=True)
     assert mono[:, 0].tobytes() == request.mono_mix.tobytes()
+
+
+def _stereo_then_surround(path):
+    ''' A disc's usual order: a stereo stream first, then the 5.1 main track (Free Solo, Jaws). '''
+    import subprocess
+    subprocess.run(['ffmpeg', '-v', 'error', '-y',
+                    '-f', 'lavfi', '-i', 'sine=frequency=100:sample_rate=48000:duration=1',
+                    '-f', 'lavfi', '-i', 'sine=frequency=40:sample_rate=48000:duration=1',
+                    '-filter_complex', '[0:a]pan=stereo|c0=c0|c1=c0[a0];[1:a]pan=5.1|c0=c0|c1=c0|c2=c0|c3=c0|c4=c0|c5=c0[a1]',
+                    '-map', '[a0]', '-map', '[a1]', '-c:a', 'flac', path], check=True)
+
+
+@pytest.mark.requires_ffmpeg
+def test_each_file_defaults_to_its_richest_stream_as_the_library_does(qtbot, dialog, tmp_path):
+    os.makedirs(tmp_path / 'in')
+    _stereo_then_surround(str(tmp_path / 'in' / 'a-movie.mkv'))
+    dialog.outputDir.setText(str(tmp_path / 'out'))
+    dialog.filter.setText(str(tmp_path / 'in' / '*.mkv'))
+
+    dialog.search()
+    qtbot.waitUntil(lambda: dialog.extractButton.isEnabled(), timeout=15000)
+
+    candidate = dialog._BatchExtractDialog__candidates[0]
+    assert candidate.audioStreams.count() == 2 and candidate.audioStreams.currentIndex() == 1

@@ -1167,6 +1167,20 @@ def test_a_season_episodes_failure_is_dropped_by_a_scan_once_it_no_longer_applie
     assert 'tv-2' not in env.index.failures()
 
 
+def test_a_probed_stream_list_defaults_to_its_richest_stream_unless_someone_chose(env):
+    _scan(env, _item('a'), _item('b'))
+    probed = ({'codec': 'PCM_BLURAY', 'channels': '2', 'audio_types': ()},
+              {'codec': 'DTS-HD MA', 'channels': '6', 'audio_types': ('DTS-HD MA 5.1',)})
+
+    chosen = env.index.set_audio_stream_details('fs-a', probed)
+    assert (chosen.audio_stream, chosen.audio_stream_source) == (1, '')
+    assert chosen.meta['audio_types'] == ['DTS-HD MA 5.1']
+
+    env.index.set_audio_stream_details('fs-b', probed)
+    env.index.select_audio_stream('fs-b', 0)   # a person's choice of the stereo is kept when the list is read again
+    assert env.index.set_audio_stream_details('fs-b', probed).audio_stream == 0
+
+
 def test_a_probed_stream_list_is_recorded_and_keeps_a_choice_it_has(env):
     ''' W2: a source that listed no streams gets the list read from the file, without listing the source again. '''
     _scan(env, _item('a', audio_stream=1))

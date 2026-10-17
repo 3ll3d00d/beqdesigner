@@ -180,3 +180,24 @@ def test_extract_with_design_disabled_does_not_design(qtbot, dialog, tmp_path):
     qtbot.waitUntil(lambda: dialog._ExtractAudioDialog__extracted is True, timeout=15000)
 
     assert dialog._ExtractAudioDialog__design_entry is None
+
+
+def _stereo_then_surround(path):
+    ''' A disc's usual order: a stereo stream first, then the 5.1 main track (Free Solo, Jaws). '''
+    import subprocess
+    subprocess.run(['ffmpeg', '-v', 'error', '-y',
+                    '-f', 'lavfi', '-i', 'sine=frequency=100:sample_rate=48000:duration=1',
+                    '-f', 'lavfi', '-i', 'sine=frequency=40:sample_rate=48000:duration=1',
+                    '-filter_complex', '[0:a]pan=stereo|c0=c0|c1=c0[a0];[1:a]pan=5.1|c0=c0|c1=c0|c2=c0|c3=c0|c4=c0|c5=c0[a1]',
+                    '-map', '[a0]', '-map', '[a1]', '-c:a', 'flac', path], check=True)
+
+
+@pytest.mark.requires_ffmpeg
+def test_the_richest_stream_is_chosen_when_the_first_is_stereo(qtbot, dialog, tmp_path):
+    source = str(tmp_path / 'two streams.mkv')
+    _stereo_then_surround(source)
+
+    dialog._ExtractAudioDialog__handle_drop(source)
+    qtbot.waitUntil(lambda: dialog.audioStreams.count() == 2, timeout=15000)
+
+    assert dialog.audioStreams.currentIndex() == 1   # the library's default too (streams.preferred_stream())

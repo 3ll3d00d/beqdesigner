@@ -1,7 +1,7 @@
 '''pipeline.library.streams: a title's audio streams in words, for choosing one (TODO W2).'''
 import pytest
 
-from pipeline.library.streams import describe_stream, describe_streams
+from pipeline.library.streams import describe_stream, describe_streams, is_lossless, preferred_stream
 
 
 @pytest.mark.parametrize('detail, said', [
@@ -150,3 +150,37 @@ def test_the_extract_stage_says_which_stream_it_takes_and_what_it_found(tmp_path
     assert ('stage_started', 'Extracting audio stream 2: FLAC 5.1, fre; multichannel kept') in said
     assert any(kind == 'stage_completed' and message.startswith('Extraction complete: 6 channels')
                for kind, message in said), said
+
+
+def _d(codec, channels, language=None):
+    return {'codec': codec, 'channels': channels, 'audio_types': (), **({'language': language} if language else {})}
+
+
+@pytest.mark.parametrize('details, expected', [
+    ((), 0),
+    ((_d('PCM_BLURAY', '2'), _d('DTS-HD MA', '6')), 1),                         # Free Solo: LPCM 2.0 before DTS-HD MA 5.1
+    ((_d('DTS', '2'), _d('TrueHD Atmos', '8'), _d('AC-3', '6'), _d('DTS-HD HRA', '8')), 1),   # Jaws: lossless wins the tie
+    ((_d('AC-3', '6'), _d('DTS-HD MA', '6')), 1),                               # same channels: lossless
+    ((_d('DTS-HD MA', '6'), _d('PCM_BLURAY', '6')), 0),                          # both lossless: the earlier
+    ((_d('AC-3', '2', 'eng'), _d('AC-3', '6', 'ger')), 0),                       # a dub never beats the original
+    ((_d('AC-3', '2', 'English'), _d('DTS-HD MA', '6', 'english'), _d('AC-3', '6')), 1),
+    ((_d('DTS', '0'), _d('PCM_BLURAY', '2')), 1),                                # an unknown count is no count
+    ((_d('DTS', ''), _d('AC-3', 'x')), 0),
+])
+def test_the_default_stream_is_the_most_channels_then_lossless_then_the_earlier(details, expected):
+    assert preferred_stream(details) == expected
+
+
+def test_lossless_is_read_from_either_sources_codec_names():
+    assert all(is_lossless(c) for c in ('TrueHD Atmos', 'TrueHD', 'DTS-HD MA', 'PCM_BLURAY', 'PCM_S24LE', 'FLAC'))
+    assert not any(is_lossless(c) for c in ('DTS-HD HRA', 'DTS', 'DTS-ES', 'AC-3', 'E-AC3 Atmos', 'AAC', ''))
+
+
+@needs_ffmpeg
+def test_a_probed_files_default_is_its_multichannel_stream(tmp_path):
+    from pipeline.config import AnalysisConfig
+    from pipeline.orchestrate import Session
+
+    details = details_from_ffprobe(Session(AnalysisConfig()).probe_audio_streams(_two_stream_file(tmp_path)))
+
+    assert preferred_stream(details) == 1

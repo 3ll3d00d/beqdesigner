@@ -780,7 +780,9 @@ class ExtractCandidate:
                 text, duration_micros = parse_audio_stream(self.executor.probe, a)
                 self.audioStreams.addItem(text)
                 self.__stream_duration_micros.append(duration_micros)
-            self.audioStreams.setCurrentIndex(0)
+            # the library's default too (parity, AGENTS.md): most channels, lossless first, in the first stream's language
+            from pipeline.library.streams import details_from_ffprobe, preferred_stream
+            self.audioStreams.setCurrentIndex(preferred_stream(details_from_ffprobe(self.executor.audio_stream_data)))
             self.__on_probe_complete(self.__idx)
         else:
             self.probe_failed()

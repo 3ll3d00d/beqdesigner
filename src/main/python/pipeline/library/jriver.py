@@ -20,7 +20,7 @@ from hamcws import MediaServer, get_mcws_connection
 from model.dvd import pseudo_file_root as dvd_pseudo_file_root
 from pipeline.library.pathmap import PathMapping, is_windows_absolute, translate_path, unmapped_path_problem
 from pipeline.library.source import LibraryItem
-from pipeline.library.streams import audio_types, playback_records, selected_streams
+from pipeline.library.streams import audio_types, playback_records, preferred_stream, selected_streams
 
 logger = logging.getLogger('library_jriver')
 
@@ -289,6 +289,9 @@ class JRiverLibrarySource:
 
         disc_path = _disc_root(filename)
         source_path = translate_path(disc_path, self.path_mappings)
+        details = _audio_stream_details(row)
+        # only per-stream fields say which stream is which: the legacy aggregate `Audio Format` keeps the first
+        stream = preferred_stream(details) if _value(row, 'Audio Codec') else 0
         return LibraryItem(
             id=f'jriver-{self._server_id}-{key}',
             source_path=source_path,
@@ -297,12 +300,12 @@ class JRiverLibrarySource:
             year=_value(row, 'Year') or _value(row, 'Date (year)') or None,
             kind=kind,
             external_ids=self._external_ids(row, kind),
-            meta=_metadata(row, 0),
-            audio_stream=0,
+            meta=_metadata(row, stream),
+            audio_stream=stream,
             selected_streams=selected_streams(_value(row, 'Playback Info')) or (),
             playlist_name=_mpls_entry(filename)[1] or _bluray_playlist(row, filename),
             duration_s=_duration(row),
-            audio_stream_details=_audio_stream_details(row),
+            audio_stream_details=details,
             art_candidates=self._art_candidates(_value(row, 'Image File'), source_path),
             fingerprint=fingerprint,
             season=season,

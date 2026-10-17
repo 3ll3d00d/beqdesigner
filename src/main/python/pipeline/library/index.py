@@ -28,6 +28,7 @@ from pipeline.library.catalogue_scan import XmlRecord, scan_xml_repo, tmdb_index
 from pipeline.library.profile import Profile, SourceSpec, build_source
 from pipeline.library.season import SeasonGroup, Unit, plan_units
 from pipeline.library.source import LibraryItem, LibrarySource
+from pipeline.library.streams import preferred_stream
 from pipeline.library.state import FLAG_DUPLICATE, FLAG_GONE, FLAG_IGNORED, FLAG_IN_CATALOGUE, FLAG_SHADOWED, NEEDS, \
     TIER_ORDER, TIER_OF_NEEDS, StageStates, derive_needs
 from pipeline.library.status import Evaluation, Evaluator, FailureMemory, ScanSettings, failure_applies, \
@@ -726,8 +727,8 @@ class LibraryIndex:
     def set_audio_stream_details(self, title_id: str, details: Sequence[dict]) -> LibraryItem:
         '''
         Record a title's audio-stream list found by probing its file (streams.details_from_ffprobe()), for a source that
-        supplied none, without re-listing the source. The chosen stream is kept; a choice the list does not have is
-        reset to the first. A season's episodes are separate files, so it is refused, as select_audio_stream() is.
+        supplied none, without re-listing the source. A person's or the source's choice is kept if the list has it;
+        otherwise the title extracts the list's preferred stream (streams.preferred_stream()). A season's episodes are separate files, so it is refused, as select_audio_stream() is.
         '''
         with self.__lock, self.__db:
             row = self.__db.execute('SELECT unit, items FROM titles WHERE id = ?', (title_id,)).fetchone()
@@ -738,8 +739,11 @@ class LibraryIndex:
                 raise ValueError('a grouped season has an audio-stream list per episode, not one for the season')
             item = items[0]
             details = tuple(dict(detail) for detail in details)
-            chosen = replace(item, audio_stream_details=details,
-                             audio_stream=item.audio_stream if 0 <= item.audio_stream < len(details) else 0)
+            listed = replace(item, audio_stream_details=details)
+            if item.audio_stream_source in ('manual', 'source') and 0 <= item.audio_stream < len(details):
+                chosen = listed
+            else:
+                chosen = with_audio_stream(listed, preferred_stream(details), '')
             self.__db.execute('UPDATE titles SET items = ? WHERE id = ?',
                               (json.dumps([item_to_json(chosen)]), title_id))
         return chosen

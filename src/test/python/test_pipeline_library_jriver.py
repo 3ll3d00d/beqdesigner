@@ -102,6 +102,21 @@ def test_maps_a_browse_file_row():
     assert item.audio_stream == 0  # Playback Info resolver is intentionally stubbed to the first audio stream.
 
 
+def test_a_title_defaults_to_its_richest_stream_not_its_first():
+    ''' Free Solo's disc: LPCM 2.0 first, then DTS-HD MA 5.1. The first stream designed the stereo track. '''
+    item = _source()._map_rows([_row(**{'Audio Codec': 'PCM_BLURAY; DTS-HD MA', 'Audio Channels': '2; 6',
+                                        'Audio Language': 'English; English'})])[0]
+
+    assert item.audio_stream == 1 and item.audio_stream_source == ''
+    assert item.meta['audio_types'] == ['DTS-HD MA 5.1']
+
+
+def test_the_legacy_aggregate_audio_format_keeps_the_first_stream():
+    item = _source()._map_rows([_row(**{'Audio Format': 'AC-3; DTS-HD MA', 'Audio Channels': '2; 6'})])[0]
+
+    assert item.audio_stream == 0
+
+
 def test_requests_playback_info_before_it_can_select_a_nondefault_stream():
     assert 'Playback Info' in JRiverLibrarySource.FIELDS
     assert _source()._map_row(_row(**{'Playback Info': '(1:2)(7:Streams)(6:0,2,13)(2:CC)(1:0)'})).audio_stream == 0
