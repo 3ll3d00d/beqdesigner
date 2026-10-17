@@ -135,7 +135,7 @@ jobs:
           uv pip install pyinstaller
       - name: Get version
         id: get_version
-        run: echo "name=sha_short::$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
       - name: Append version
         run: |
           echo ${{ steps.get_version.outputs.sha_short }} > src/main/python/VERSION
