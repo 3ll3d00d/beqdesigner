@@ -205,7 +205,10 @@ def test_the_history_is_kept_on_disk_and_a_job_cut_off_by_a_stop_is_interrupted(
     cut_off = first.submit(RunRequest(Selection(year='2026'), through='extract'))
 
     def saved_states():
-        return [(j['id'], j['state']) for j in json.loads((tmp_path / 'jobs.json').read_text())]
+        try:
+            return [(j['id'], j['state']) for j in json.loads((tmp_path / 'jobs.json').read_text())]
+        except PermissionError:   # Windows: the manager's os.replace is swapping the file in as the test reads it
+            return None
 
     # the job's state reads 'running' a moment before the history holding it is written (the test reads it without
     # the manager's lock), so wait for the file itself
