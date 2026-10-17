@@ -53,3 +53,13 @@ export function between(start: string | null | undefined, end: string | null | u
 export function count(n: number, one: string, many = `${one}s`): string {
   return `${n.toLocaleString()} ${n === 1 ? one : many}`
 }
+
+/** A metadata value as words: a list joined, and a TMDB-style `{ name }` object (a genre, say) as its name. */
+export function metadataText(value: unknown): string {
+  if (Array.isArray(value)) return value.map(metadataText).filter(Boolean).join(', ')
+  if (value && typeof value === 'object') {
+    const named = value as { name?: unknown }
+    return named.name !== undefined ? String(named.name) : Object.values(value).map(metadataText).filter(Boolean).join(' ')
+  }
+  return String(value ?? '')
+}

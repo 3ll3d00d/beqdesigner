@@ -142,6 +142,8 @@ ol.log .event-state { font-weight: 600; }
 
 .review-grid { display: grid; grid-template-columns: minmax(280px, 1fr) minmax(320px, 2fr); gap: 1rem; margin-top: 1rem; }
 .review-grid .chart-card { min-width: 0; }
+.review-grid .commentary { grid-column: 1 / -1; }
+.review .metadata { margin: -0.4rem 0 0.5rem; color: var(--muted); }
 @media (max-width: 900px) { .review-grid { grid-template-columns: 1fr; } }
 .chart { width: 100%; min-height: 200px; }
 .chart .u-legend { font-size: 0.8rem; color: var(--fg); }

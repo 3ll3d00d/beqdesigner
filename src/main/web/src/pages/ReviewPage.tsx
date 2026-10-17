@@ -1,5 +1,5 @@
 // Deciding one title (design/web-app.md §4, design/review-over-http.md): its designs, the chart of the one highlighted,
-// commentary and metadata problems, and Accept / Reject / Skip (A, R, S; 1-9 highlight a design). Accepting a design the
+// commentary, the metadata (one line under the heading) and its problems, and Accept / Reject / Skip (A, R, S; 1-9 highlight a design). Accepting a design the
 // designer rejected asks first. After a decision, or Skip, the next title waiting in the same filtered list opens.
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
@@ -7,7 +7,7 @@ import { Link, useNavigate, useParams } from 'react-router'
 import type { Schemas } from '../api/client'
 import { useChart, useDecide, useNextTitle, useReview, useStatus, useSubmitRun } from '../api/hooks'
 import { MagnitudeChart } from '../components/MagnitudeChart'
-import { NEEDS_WORDS, type NeedsWord } from '../format'
+import { metadataText, NEEDS_WORDS, type NeedsWord } from '../format'
 import { useListParams } from './TitlesPage'
 
 type Candidate = Schemas['CandidateView']
@@ -48,7 +48,7 @@ function Entry({ name, value }: { name: string; value: unknown }) {
 function Commentary({ candidate, review }: { candidate: Candidate | undefined; review: Review }) {
   const commentary = candidate?.commentary
   return (
-    <section className="card" aria-labelledby="commentary">
+    <section className="card commentary" aria-labelledby="commentary">
       <h2 id="commentary">Commentary</h2>
       {review.declined && (
         <p>The designer found nothing to correct ({review.declined.reason}): {review.declined.message}</p>
@@ -68,22 +68,20 @@ function Commentary({ candidate, review }: { candidate: Candidate | undefined; r
   )
 }
 
+/** The title's metadata as one line under its heading, and what stops it being accepted. */
 function Metadata({ review }: { review: Review }) {
   const meta = review.metadata as Record<string, unknown>
-  const shown = ['title', 'year', 'audio_types', 'genres', 'content_type'].filter((k) => meta[k] !== undefined && meta[k] !== '')
+  const parts = ['content_type', 'audio_types', 'genres'].map((k) => metadataText(meta[k])).filter(Boolean)
   return (
-    <section className="card" aria-labelledby="metadata">
-      <h2 id="metadata">Metadata</h2>
+    <>
+      {parts.length > 0 && <p className="metadata" aria-label="Metadata">{parts.join(' · ')}</p>}
       {review.metadata_problems.length > 0 && (
         <div className="problem" role="note">
-          <p>Not complete, so it cannot be accepted (fix it in the BEQDesigner app):</p>
+          <p>Metadata not complete, so it cannot be accepted (fix it in the BEQDesigner app):</p>
           <ul>{review.metadata_problems.map((p) => <li key={p}>{p}</li>)}</ul>
         </div>
       )}
-      <dl className="facts">
-        {shown.map((k) => <Entry key={k} name={k} value={Array.isArray(meta[k]) ? (meta[k] as unknown[]).join(', ') : meta[k]} />)}
-      </dl>
-    </section>
+    </>
   )
 }
 
@@ -182,6 +180,7 @@ export function ReviewPage() {
         <h1>{data!.year ? `${data!.title} (${data!.year})` : data!.title}</h1>
         <span className={`badge status-${data!.status}`}>{data!.status_text}</span>
       </div>
+      <Metadata review={data!} />
       <p className="muted">Needs {(NEEDS_WORDS[data!.needs as NeedsWord] ?? data!.needs).toLowerCase()}
         {data!.detail && data!.detail !== data!.needs ? `: ${data!.detail}` : ''}.
         {data!.in_flight && <strong> A run is working on this title.</strong>}</p>
@@ -271,7 +270,6 @@ export function ReviewPage() {
             : <MagnitudeChart series={chart.data?.series ?? []} />}
         </section>
         <Commentary candidate={candidate} review={data!} />
-        <Metadata review={data!} />
       </div>
     </section>
   )

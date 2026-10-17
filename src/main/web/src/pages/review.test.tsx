@@ -183,6 +183,20 @@ describe('reviewing a title', () => {
     expect(options.series.map((s) => !!s.dash)).toEqual([false, true, true, false])   // before dashed, after solid
   })
 
+  it('puts the metadata on one line under the heading, with genres by name', async () => {
+    reviewRoutes({ metadata: { title: 'Alien', year: '1979', content_type: 'film', audio_types: ['DTS-HD MA 5.1', 'AC3 5.1'],
+                               genres: [{ id: 27, name: 'Horror' }, { name: 'Science Fiction' }] } })
+    renderApp('/titles/a')
+
+    const line = await screen.findByLabelText('Metadata')
+    expect(line).toHaveTextContent(/^film · DTS-HD MA 5.1, AC3 5.1 · Horror, Science Fiction$/)
+    expect(screen.queryByText(/object Object/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Metadata' })).not.toBeInTheDocument()
+    // straight under the title's heading, not in a card of its own beside the commentary
+    expect(screen.getByRole('heading', { name: 'Alien (1979)' }).parentElement!.nextElementSibling).toBe(line)
+    expect(screen.getByRole('heading', { name: 'Commentary' }).closest('section')).toHaveClass('commentary')
+  })
+
   it('accepts the design highlighted, then opens the next title waiting in the same list', async () => {
     const { decisions, charts, after } = reviewRoutes()
     const router = renderApp('/titles/a?needs=review')

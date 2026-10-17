@@ -101,7 +101,8 @@ message. Tests: `test_pipeline_library_decide.py`.
     a plan of the filter with `needs` publish (or commit) says how many, an inline confirmation names the repositories,
     and a run job through publish (or commit) is submitted and followed. Disabled with the reason as on New job.
   - *Review*: the title, its status, what it needs; the designs (rejected ones listed apart, with how many reasons),
-    commentary of the one highlighted (or the decline), the playback chain and designer, the metadata and what it lacks,
+    commentary of the one highlighted (or the decline; full width under the designs and chart), the playback chain and
+    designer, the metadata as one line under the heading (content type, audio types, genres by name) and what it lacks,
     and the chart (§4.1). *Accept design N*, *Reject* and *Skip*, with keys A, R, S, and 1–9 to highlight a design; the keys
     stand aside while a text field has focus. A blocked decision is disabled and says why. Accepting a rejected design
     asks first, with the designer's reasons, and sends `override_rejection`. A refused decision shows the service's
