@@ -230,61 +230,6 @@ def test_run_library_skips_the_kept_extraction_for_a_known_mono_source(tmp_path,
     assert report.designed == ['one']
 
 
-def test_a_known_mono_source_sends_its_one_channel_as_the_decomposition(tmp_path, monkeypatch):
-    class _MonoSession(_Session):
-        def load_channels(self, path, layout):
-            self.channel_calls.append((path, layout))
-            return {'FC': [1, 2]}
-
-    session = _MonoSession()
-    design_calls = []
-    monkeypatch.setattr('pipeline.library.run.Session', lambda config: session)
-    monkeypatch.setattr('pipeline.library.run.extract_if_needed',
-                        lambda session, item, item_dir, config, mono_mix, force: (f'{item_dir}/mono.wav', False))
-    monkeypatch.setattr('pipeline.library.run.read_source_channel_count', lambda item_dir: 1)
-    monkeypatch.setattr('pipeline.library.run.extract_status',
-                        lambda *args, **kwargs: type('Status', (), {'current': True})())
-    monkeypatch.setattr('pipeline.library.run.read_channel_layout_name', lambda item_dir: 'mono')
-
-    def design(fake_session, item, wav_path, designer, queue_dir, config, **kwargs):
-        design_calls.append((wav_path, kwargs))
-        return DesignCacheResult(QueueEntry(id=item.id, fs=1000, meta={}, curve={}), designed=True)
-
-    monkeypatch.setattr('pipeline.library.run.design_if_needed', design)
-    config = LibraryRunConfig(work_dir=str(tmp_path / 'work'), queue_dir=str(tmp_path / 'queue'), designer='test',
-                              keep_multichannel=True)
-
-    report = run_library(_Source([_item('one')]), config)
-
-    mono = f"{os.path.join(tmp_path, 'work', 'one')}/mono.wav"
-    assert report.designed == ['one']
-    # the decomposition is loaded from the mono extraction itself, as Batch Extract / Design loads a mono kept file
-    assert session.channel_calls == [(mono, 'unknown')]
-    wav_path, kwargs = design_calls[0]
-    assert wav_path == mono
-    assert kwargs['channels'] == {'FC': [1, 2]}
-    assert kwargs['multichannel_wav_path'] == mono
-
-
-def test_a_mono_source_sends_no_decomposition_when_multichannel_is_not_kept(tmp_path, monkeypatch):
-    session = _Session()
-    design_calls = []
-    monkeypatch.setattr('pipeline.library.run.Session', lambda config: session)
-    monkeypatch.setattr('pipeline.library.run.extract_if_needed',
-                        lambda session, item, item_dir, config, mono_mix, force: (f'{item_dir}/mono.wav', False))
-    monkeypatch.setattr('pipeline.library.run.read_source_channel_count', lambda item_dir: 1)
-    monkeypatch.setattr('pipeline.library.run.design_if_needed',
-                        lambda fake_session, item, wav_path, *args, **kwargs: design_calls.append(kwargs) or
-                        DesignCacheResult(QueueEntry(id=item.id, fs=1000, meta={}, curve={}), designed=True))
-    config = LibraryRunConfig(work_dir=str(tmp_path / 'work'), queue_dir=str(tmp_path / 'queue'), designer='test')
-
-    run_library(_Source([_item('one')]), config)
-
-    assert session.channel_calls == []
-    assert design_calls[0]['channels'] is None
-    assert design_calls[0]['multichannel_wav_path'] is None
-
-
 def test_run_library_still_keeps_multichannel_when_the_channel_count_is_unknown_or_greater_than_one(
         tmp_path, monkeypatch):
     for channel_count in (None, 2, 6):

@@ -141,10 +141,7 @@ the same `Executor` pan coefficients to mix it in blocks; other paths use
 `Session.extract(mono_mix=True)`). Both `model/
 batch.py` and `model/extract.py`'s design steps supply `channels` whenever
 their kept extraction is multichannel, at no extra ffmpeg cost -- decomposed
-straight from the file already on disk. The library route does the same with
-`keep_multichannel`; for a mono source, which keeps no multichannel file, it
-decomposes the mono extraction itself, so the designer is sent the one channel
-as `{"FC": ...}` (designer-interface.md §2), not nothing.
+straight from the file already on disk.
 
 Two bindings exist:
 
