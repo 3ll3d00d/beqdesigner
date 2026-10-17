@@ -203,9 +203,14 @@ def test_the_history_is_kept_on_disk_and_a_job_cut_off_by_a_stop_is_interrupted(
     _until(lambda: done.finished)
     gate.release.clear()
     cut_off = first.submit(RunRequest(Selection(year='2026'), through='extract'))
-    _until(lambda: cut_off.state == 'running')
+
+    def saved_states():
+        return [(j['id'], j['state']) for j in json.loads((tmp_path / 'jobs.json').read_text())]
+
+    # the job's state reads 'running' a moment before the history holding it is written (the test reads it without
+    # the manager's lock), so wait for the file itself
+    _until(lambda: saved_states() == [(done.id, 'succeeded'), (cut_off.id, 'running')])
     saved = json.loads((tmp_path / 'jobs.json').read_text())
-    assert [(j['id'], j['state']) for j in saved] == [(done.id, 'succeeded'), (cut_off.id, 'running')]
     assert saved[1]['request']['selection']['year'] == '2026' and saved[1]['request']['through'] == 'extract'
 
     restarted = managers(lambda job, control: 'ok', state_dir=str(tmp_path))   # as if the process had died
