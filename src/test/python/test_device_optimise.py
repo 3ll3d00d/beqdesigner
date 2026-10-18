@@ -73,6 +73,14 @@ def test_a_filter_unstable_as_stored_is_said_so_not_called_unimprovable():
     assert 'unstable or cannot be realised' in result.describe() and HD.name in result.describe()
 
 
+def test_a_cascade_with_a_high_pass_raises_no_numpy_warnings():
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter('error', RuntimeWarning)
+        result = optimise_for([PeakingEQ(1000, 5, 6, 12), SecondOrder_HighPass(1000, 10)], [FIXED])
+    assert result.profiles[0].before_db != float('inf')
+
+
 def test_a_result_that_makes_any_profile_worse_is_not_applicable():
     old, new = PeakingEQ(1000, 5, 6, 12), PeakingEQ(1000, 5.01, 6, 12)
     better, worse = ProfileOutcome(HD, 10, 2), ProfileOutcome(FIXED, 1, 1.5)

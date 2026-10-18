@@ -115,9 +115,13 @@ def optimise_for(filters: Sequence, profiles: Sequence[DeviceProfile], settings=
     if not profiles:
         raise ValueError('choose at least one device profile')
     filters = list(filters)
-    # cache=False: the result cache identifies its implementation by hashing its source, which a packaged app lacks
-    result = optimise_parameters(to_sections(filters), profiles=[(p.rate, p.precision()) for p in profiles],
-                                 settings=settings, cache=False)
+    # cache=False: the result cache identifies its implementation by hashing its source, which a packaged app lacks.
+    # errstate: before beqforge 0.2.6 a high-pass, zero at DC in both responses, made its guard error divide by zero
+    # (-inf - -inf); only the reported guard error was affected, never the outcome
+    import numpy as np
+    with np.errstate(divide='ignore', invalid='ignore'):
+        result = optimise_parameters(to_sections(filters), profiles=[(p.rate, p.precision()) for p in profiles],
+                                     settings=settings, cache=False)
     by_key = {(e.rate, e.precision): e for e in result.profiles}
     outcomes = tuple(ProfileOutcome(p, by_key[(p.rate, p.precision().name)].original_error_db,
                                     by_key[(p.rate, p.precision().name)].candidate_error_db) for p in profiles)
