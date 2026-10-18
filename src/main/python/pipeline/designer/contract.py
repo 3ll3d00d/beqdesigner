@@ -19,6 +19,10 @@ BiquadType = Literal['peaking_eq', 'low_shelf', 'high_shelf']
 DesignMethod = Literal['exact', 'fitted', 'non_parametric']
 ChannelScope = Literal['all_channels', 'lfe_only', 'mixed']
 ResidualDirection = Literal['over', 'under']
+
+# 1.3: the fields that describe how well a candidate's filters match their target, beside residual_db/residual_band_hz
+FIT_FIELDS = ('residual_at_hz', 'residual_direction', 'residual_rms_db', 'residual_within_tolerance',
+              'residual_tolerance_db')
 Coverage = Literal['complete_programme', 'excerpt']
 
 

@@ -23,9 +23,9 @@ from typing import Callable, Collection, List, Optional, Sequence, Tuple
 
 from pipeline import fileops
 from pipeline.config import AnalysisConfig
-from pipeline.designer.contract import Coverage
+from pipeline.designer.contract import FIT_FIELDS, Coverage
 from pipeline.library.workdir import TITLE_ID_MARKER, entry_directory
-from pipeline.orchestrate import Applied, Declined, DesignOutcome, Session, write_aggregate_for
+from pipeline.orchestrate import Applied, Declined, DesignOutcome, Session, fit_of, write_aggregate_for
 from pipeline.publish.catalogue import catalogue_paths, catalogue_stem, category_for_metadata, heatmap_path, \
     lettered_stem, publish_digest, record_folder, unique_stem
 from pipeline.publish.heatmap import HeatmapSpec, heatmap_for
@@ -60,6 +60,13 @@ class CandidateSummary:
     residual_band_hz: Optional[tuple] = None
     commentary: Optional[dict] = None
     rejection_reasons: Optional[List[str]] = None  # a rejected design (contract 1.1): why the designer judged it unfit
+    # contract 1.3: how well its filters match their target (pipeline.designer.contract.FIT_FIELDS); written only when
+    # the designer measured them, so an older reader of the queue never meets them otherwise
+    residual_at_hz: Optional[float] = None
+    residual_direction: Optional[str] = None
+    residual_rms_db: Optional[float] = None
+    residual_within_tolerance: Optional[float] = None
+    residual_tolerance_db: Optional[float] = None
 
 
 @dataclass
@@ -147,6 +154,39 @@ class QueueEntry:
         return bool(self.decline_reason)
 
 
+def _hz(value: float) -> str:
+    return f'{value:.4g}'
+
+
+def fit_text(candidate) -> str:
+    '''
+    How well a design's filters match the target they were fitted to, in a line (contract 1.3, and `residual_db` before
+    it): "0.3 dB RMS over 5-212 Hz; 96% of the boost within ±0.5 dB; worst 1.1 dB short at 9 Hz". '' when the designer
+    measured nothing. It says how well the filters do what was asked, not whether the target is right.
+    '''
+    worst = getattr(candidate, 'residual_db', None)
+    if worst is None:
+        return ''
+    band = getattr(candidate, 'residual_band_hz', None)
+    over = f' over {_hz(band[0])}-{_hz(band[1])} Hz' if band else ''
+    parts = []
+    rms = getattr(candidate, 'residual_rms_db', None)
+    if rms is not None:
+        parts.append(f'{rms:.1f} dB RMS{over}')
+    share, tolerance = getattr(candidate, 'residual_within_tolerance', None), getattr(candidate, 'residual_tolerance_db', None)
+    if share is not None and tolerance is not None:
+        parts.append(f'{share:.0%} of the boost within ±{tolerance:g} dB')
+    at, direction = getattr(candidate, 'residual_at_hz', None), getattr(candidate, 'residual_direction', None)
+    where = f' {"too much" if direction == "over" else "short"} at {_hz(at)} Hz' if at is not None and direction else ''
+    parts.append(f'worst {worst:.1f} dB{where}{"" if rms is not None else over}')
+    return '; '.join(parts)
+
+
+def has_measured_fit(candidate) -> bool:
+    ''' The designer reported the 1.3 fit fields: its own "fit" commentary would then only repeat fit_text(). '''
+    return any(getattr(candidate, name, None) is not None for name in FIT_FIELDS)
+
+
 def flat_candidate(fs: int) -> CandidateSummary:
     '''
     What a decline is offered as (design/archive/library-sync/worklist-feedback.md F3): no filters at all, which a
@@ -179,7 +219,7 @@ def write_queue_entry(queue_dir: str, entry: QueueEntry) -> None:
     handle, temporary = tempfile.mkstemp(prefix=f'.{entry.id}.', suffix='.tmp', dir=queue_dir)
     try:
         with os.fdopen(handle, 'w', encoding='utf-8') as f:
-            json.dump(asdict(entry), f)
+            json.dump(_entry_to_dict(entry), f)
         fileops.replace(temporary, _entry_path(queue_dir, entry.id))   # a scan may be reading it (Windows)
     except BaseException:
         try:
@@ -189,10 +229,31 @@ def write_queue_entry(queue_dir: str, entry: QueueEntry) -> None:
         raise
 
 
+_SUMMARY_FIELDS = None
+
+
+def _summary_from_dict(c: dict) -> CandidateSummary:
+    ''' A stored candidate; a field this version does not know (written by a later one) is left out, not fatal. '''
+    global _SUMMARY_FIELDS
+    if _SUMMARY_FIELDS is None:
+        _SUMMARY_FIELDS = {f.name for f in fields(CandidateSummary)}
+    return CandidateSummary(**{k: v for k, v in c.items() if k in _SUMMARY_FIELDS})
+
+
+def _entry_to_dict(entry: QueueEntry) -> dict:
+    ''' The entry as written: a candidate's 1.3 fit fields only when measured, so older readers meet them only then. '''
+    d = asdict(entry)
+    for candidate in [*d.get('candidates', []), *d.get('rejected', [])]:
+        for name in FIT_FIELDS:
+            if candidate.get(name) is None:
+                candidate.pop(name, None)
+    return d
+
+
 def _entry_from_dict(d: dict) -> QueueEntry:
     d = dict(d)
-    d['candidates'] = [CandidateSummary(**c) for c in d.get('candidates', [])]
-    d['rejected'] = [CandidateSummary(**c) for c in d.get('rejected', [])]
+    d['candidates'] = [_summary_from_dict(c) for c in d.get('candidates', [])]
+    d['rejected'] = [_summary_from_dict(c) for c in d.get('rejected', [])]
     return QueueEntry(**d)
 
 
@@ -239,7 +300,8 @@ def _summary_of(design) -> CandidateSummary:
                             mv_adjust_db=design.mv_adjust_db, gain_reduction_db=design.gain_reduction_db,
                             residual_db=design.residual_db, residual_band_hz=design.residual_band_hz,
                             commentary=design.commentary,
-                            rejection_reasons=list(design.rejection_reasons) if design.rejection_reasons else None)
+                            rejection_reasons=list(design.rejection_reasons) if design.rejection_reasons else None,
+                            **fit_of(design))
 
 
 # commentary keys in which a designer names its own build (the contract has no field for it): beqforge's, then generic
@@ -271,7 +333,7 @@ def _outcome_to_entry(entry_id: str, fs: int, meta: dict, curve: dict, outcome: 
                                    method=outcome.method, mv_adjust_db=outcome.mv_adjust_db,
                                    gain_reduction_db=outcome.gain_reduction_db,
                                    residual_db=outcome.residual_db, residual_band_hz=outcome.residual_band_hz,
-                                   commentary=outcome.commentary)]
+                                   commentary=outcome.commentary, **fit_of(outcome))]
     candidates += [_summary_of(alt) for alt in outcome.alternatives]
     return QueueEntry(id=entry_id, fs=fs, meta=meta, curve=curve, peak_curve=peak_curve, candidates=candidates,
                       rejected=rejected)

@@ -53,6 +53,10 @@ function Commentary({ candidate, review }: { candidate: Candidate | undefined; r
       {review.declined && (
         <p>The designer found nothing to correct ({review.declined.reason}): {review.declined.message}</p>
       )}
+      {candidate?.fit && (
+        <p className="fit"><strong>Fit</strong>: {candidate.fit}
+          <span className="muted"> — how well its filters match the target it was fitted to, not whether that target is right</span></p>
+      )}
       {candidate && reasons(candidate).length ? (
         <div className="problem">
           <p>The designer rejected this design:</p>

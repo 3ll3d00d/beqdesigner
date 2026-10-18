@@ -124,6 +124,30 @@
             { "type": "null" }
           ]
         },
+        "residual_at_hz": {
+          "description": "designer contract 1.3: where the worst error (residual_db) is; written only when measured",
+          "type": "number"
+        },
+        "residual_direction": {
+          "description": "designer contract 1.3: 'over' or 'under' the target there; written only when measured",
+          "enum": ["over", "under"]
+        },
+        "residual_rms_db": {
+          "description": "designer contract 1.3: boost-weighted RMS error over residual_band_hz; written only when measured",
+          "type": "number",
+          "minimum": 0
+        },
+        "residual_within_tolerance": {
+          "description": "designer contract 1.3: share of the requested boost within residual_tolerance_db; written only when measured",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "residual_tolerance_db": {
+          "description": "designer contract 1.3: the tolerance residual_within_tolerance uses; written only when measured",
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
         "commentary": {
           "description": "structured, human-facing notes about this candidate -- dict[str, str], rendered as-is; not machine-parsed.",
           "oneOf": [

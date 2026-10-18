@@ -2377,6 +2377,71 @@
             ],
             "title": "Residual Band Hz"
           },
+          "residual_at_hz": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Residual At Hz",
+            "description": "1.3: where the worst error (residual_db) is."
+          },
+          "residual_direction": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Residual Direction",
+            "description": "1.3: 'over' or 'under' the target there."
+          },
+          "residual_rms_db": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Residual Rms Db",
+            "description": "1.3: boost-weighted RMS error over residual_band_hz."
+          },
+          "residual_within_tolerance": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Residual Within Tolerance",
+            "description": "1.3: share of the requested boost within residual_tolerance_db of the target."
+          },
+          "residual_tolerance_db": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Residual Tolerance Db"
+          },
+          "fit": {
+            "type": "string",
+            "title": "Fit",
+            "description": "How well its filters match their target, in words (pipeline.review.fit_text); '' when the designer measured nothing. Not whether the target is right.",
+            "default": ""
+          },
           "commentary": {
             "anyOf": [
               {

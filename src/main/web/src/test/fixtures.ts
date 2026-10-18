@@ -66,7 +66,7 @@ export function eventStream(events: JobEvent[]): ReadableStream<Uint8Array> {
 
 export function candidate(index: number, overrides: Partial<Schemas['CandidateView']> = {}): Schemas['CandidateView'] {
   return { index, rejected: false, method: 'fitted', confidence: 0.9 - index * 0.3, mv_adjust_db: 4 - index,
-           gain_reduction_db: -1, residual_db: null, residual_band_hz: null,
+           gain_reduction_db: -1, residual_db: null, residual_band_hz: null, fit: '',
            commentary: index === 0 ? { note: 'top pick', found: ['shelf at 20 Hz', 'roll-off'] } : { note: 'alternative' },
            rejection_reasons: [], filters: { filters: [] }, ...overrides }
 }

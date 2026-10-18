@@ -6,7 +6,7 @@ import { http, HttpResponse } from 'msw/http'
 
 import { saveToken } from '../api/token'
 import { chartData, FREQUENCY_RANGE, resample } from '../components/MagnitudeChart'
-import { chart, index, review, runJob, title } from '../test/fixtures'
+import { candidate, chart, index, review, runJob, title } from '../test/fixtures'
 import { renderApp } from '../test/render'
 import { server, status, statusRoute, TOKEN } from '../test/server'
 
@@ -281,6 +281,17 @@ describe('reviewing a title', () => {
     // straight under the title's heading, not in a card of its own beside the commentary
     expect(screen.getByRole('heading', { name: 'Alien (1979)' }).parentElement!.nextElementSibling).toBe(line)
     expect(screen.getByRole('heading', { name: 'Commentary' }).closest('section')).toHaveClass('commentary')
+  })
+
+  it('shows how well the highlighted design fits its target, when the designer measured it', async () => {
+    reviewRoutes({ candidates: [candidate(0, { fit: '0.3 dB RMS over 5-212 Hz; 96% of the boost within ±0.5 dB; worst 1.1 dB short at 9 Hz' }),
+                                candidate(1)] })
+    renderApp('/titles/a')
+
+    expect(await screen.findByText(/0\.3 dB RMS over 5-212 Hz; 96% of the boost within ±0\.5 dB; worst 1\.1 dB short at 9 Hz/))
+      .toBeInTheDocument()
+    await userEvent.click(screen.getByText(/^2\./))
+    expect(screen.queryByText(/dB RMS over/)).not.toBeInTheDocument()   // the second design reported none
   })
 
   it('accepts the design highlighted, then opens the next title waiting in the same list', async () => {

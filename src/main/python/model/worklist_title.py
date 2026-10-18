@@ -57,8 +57,8 @@ from model.worklist_metadata import MetadataPanel, badge_alarms, badge_text, ok_
 from model.worklist_model import warning_colour
 from model.worklist_title_actions import TitleActions, TitleHooks
 from model.worklist_title_decide import DECISION_FROM, TitleDecisions
-from model.worklist_title_text import ACCEPTABLE, REJECTABLE, candidate_text, chart_data, playback_html, \
-    commentary_html, decline_commentary, decision_blocked, entry_title, entry_year, next_waiting_id, notice_text, \
+from model.worklist_title_text import ACCEPTABLE, REJECTABLE, candidate_commentary_html, candidate_text, chart_data, \
+    playback_html, commentary_html, decline_commentary, decision_blocked, entry_title, entry_year, next_waiting_id, notice_text, \
     override_question, position_text, rejected_heading, rejection_html, revised_note, \
     state_text  # noqa: F401 (the pure functions are re-exported: tests and callers import them from here)
 from pipeline.library.index import TitleRow
@@ -382,17 +382,19 @@ class TitlePage(TitleDecisions, TitleActions, QWidget, Ui_titlePage):
         selected = entry.offered[self._picked] if entry is not None and 0 <= self._picked < len(entry.offered) else None
         self._proposed_filters.filter = filter_from_json(selected.filters) if selected else None
         self.proposedFiltersHeading.setText(f'Proposed filters — design {self._picked + 1}' if selected else 'No proposed filters')
-        commentary = {}
         rejected = self._picked_rejected()
         declined = entry is not None and bool(entry.decline_reason) and not rejected
-        if declined:
-            commentary = decline_commentary(entry.decline_reason, entry.decline_message)
+        if rejected:
+            text = rejection_html(entry.offered[self._picked])
+        elif declined:
+            text = commentary_html(decline_commentary(entry.decline_reason, entry.decline_message))
         elif entry is not None and 0 <= self._picked < len(entry.candidates):
-            commentary = entry.candidates[self._picked].commentary or {}
+            text = candidate_commentary_html(entry.candidates[self._picked])   # its fit, then its commentary
+        else:
+            text = ''
         self.commentaryHeading.setText('Rejected by the designer' if rejected else
                                        'Why the designer declined' if declined else 'Commentary')
-        self.commentaryText.setHtml((rejection_html(entry.offered[self._picked]) if rejected else commentary_html(commentary))
-                                    + playback_html(entry))
+        self.commentaryText.setHtml(text + playback_html(entry))
 
     def _render_decisions(self, rows: Mapping[str, TitleRow]) -> None:
         entry, row = self._entry, rows.get(self._title_id)

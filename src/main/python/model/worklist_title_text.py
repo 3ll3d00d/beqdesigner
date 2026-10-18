@@ -53,7 +53,21 @@ def rejection_html(candidate) -> str:
     '''
     reasons = ''.join(f'<li>{html.escape(reason)}</li>' for reason in candidate.rejection_reasons or [])
     return (f'<p style="margin-bottom:2px"><b>Why the designer rejected it</b></p><ul style="margin-top:0">{reasons}</ul>'
-            + commentary_html(candidate.commentary))
+            + candidate_commentary_html(candidate))
+
+
+def candidate_commentary_html(candidate) -> str:
+    '''
+    A design's fit (pipeline.review.fit_text) as a "Fit" heading over its line, then its commentary; a designer's own "fit"
+    note is left out when the fit was measured, since it says the same thing in other words.
+    '''
+    from pipeline.review import fit_text, has_measured_fit
+    fit = fit_text(candidate)
+    commentary = dict(candidate.commentary or {})
+    if has_measured_fit(candidate):
+        commentary.pop('fit', None)
+    head = f'<p style="margin-bottom:2px"><b>Fit</b></p><p style="margin-top:0">{html.escape(fit)}</p>' if fit else ''
+    return head + commentary_html(commentary)
 
 
 def playback_html(entry: Optional[QueueEntry]) -> str:

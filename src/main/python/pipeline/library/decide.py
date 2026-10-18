@@ -13,6 +13,7 @@ import json
 from dataclasses import asdict
 from typing import Callable, Mapping, Optional, Sequence
 
+from pipeline.designer.contract import FIT_FIELDS
 from pipeline.library.index import TitleRow
 from pipeline.library.status import metadata_problems
 from pipeline.review import QueueEntry, read_entry, update_entry
@@ -98,7 +99,10 @@ def offered_digest(entry: QueueEntry) -> str:
     A stable fingerprint of what a person chooses from -- the entry's `fs` and its `offered` designs, in order -- so a decision
     made on what was seen is refused once a redesign has replaced it. Status, metadata and notes are not part of it.
     '''
-    content = {'fs': entry.fs, 'offered': [asdict(candidate) for candidate in entry.offered]}
+    # contract 1.3's fit fields count only when present, so an entry without them digests as it did before they existed
+    offered = [{k: v for k, v in asdict(candidate).items() if v is not None or k not in FIT_FIELDS}
+               for candidate in entry.offered]
+    content = {'fs': entry.fs, 'offered': offered}
     return hashlib.sha256(json.dumps(content, sort_keys=True, default=list).encode('utf-8')).hexdigest()[:32]
 
 

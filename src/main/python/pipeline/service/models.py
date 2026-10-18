@@ -257,6 +257,14 @@ class CandidateView(BaseModel):
     gain_reduction_db: Optional[float] = None
     residual_db: Optional[float] = None
     residual_band_hz: Optional[List[float]] = None
+    residual_at_hz: Optional[float] = Field(None, description='1.3: where the worst error (residual_db) is.')
+    residual_direction: Optional[str] = Field(None, description="1.3: 'over' or 'under' the target there.")
+    residual_rms_db: Optional[float] = Field(None, description='1.3: boost-weighted RMS error over residual_band_hz.')
+    residual_within_tolerance: Optional[float] = Field(None, description='1.3: share of the requested boost within '
+                                                                         'residual_tolerance_db of the target.')
+    residual_tolerance_db: Optional[float] = None
+    fit: str = Field('', description='How well its filters match their target, in words (pipeline.review.fit_text); '
+                                     "'' when the designer measured nothing. Not whether the target is right.")
     commentary: Optional[Dict[str, Any]] = None
     rejection_reasons: List[str] = Field(default_factory=list)
     filters: Dict[str, Any] = Field(description='The design as a .filter document (docs/schema/filter.schema.json).')

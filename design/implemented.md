@@ -400,6 +400,12 @@ scan is more than 12 hours old.
 - A library source path must be readable by the host running ffmpeg; MCWS
   access alone does not transfer the media.
 - The source registry has no production caller until a second kind needs it.
+- A design's fit (designer contract 1.3) is kept in its queue entry, its five
+  fields written only when measured so an older reader never meets them, and
+  the reader skips any field it does not know. The review page and the title
+  page show it first in the design's commentary as one line
+  (`pipeline.review.fit_text`), without the designer's own `fit` note, which
+  says the same; it measures the match to the target, not the target.
 - Redesigning pending work resets its selected candidate, while preserving
   reviewer metadata, art, and note.
 - A service redesign job takes 1-500 titles (a retry phase after a designer

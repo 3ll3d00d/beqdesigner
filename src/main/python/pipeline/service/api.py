@@ -35,7 +35,7 @@ from pipeline.service.scheduler import AutoScheduler
 from pipeline.service.lease import read_lease
 from pipeline.service.notify import Notifier
 from pipeline.service.refresh import IndexRefresher
-from pipeline.review import read_entry
+from pipeline.review import fit_text, has_measured_fit, read_entry
 
 PROBLEM_JSON = 'application/problem+json'
 
@@ -78,6 +78,13 @@ def read_version() -> str:
             return f.read().strip() or '0.0.0-alpha.1'
     except OSError:
         return '0.0.0-alpha.1'
+
+
+def _without_repeated_fit(candidate):
+    ''' Its commentary, less a designer's own "fit" note when the fit was measured: `fit` says the same. '''
+    if candidate.commentary is None or not has_measured_fit(candidate):
+        return candidate.commentary
+    return {k: v for k, v in candidate.commentary.items() if k != 'fit'}
 
 
 def create_app(manager: JobManager, config: ServiceConfig, *, require_token: bool = True,
@@ -381,7 +388,10 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
                 mv_adjust_db=candidate.mv_adjust_db, gain_reduction_db=candidate.gain_reduction_db,
                 residual_db=candidate.residual_db,
                 residual_band_hz=list(candidate.residual_band_hz) if candidate.residual_band_hz else None,
-                commentary=candidate.commentary, rejection_reasons=list(candidate.rejection_reasons or []),
+                residual_at_hz=candidate.residual_at_hz, residual_direction=candidate.residual_direction,
+                residual_rms_db=candidate.residual_rms_db, residual_within_tolerance=candidate.residual_within_tolerance,
+                residual_tolerance_db=candidate.residual_tolerance_db, fit=fit_text(candidate),
+                commentary=_without_repeated_fit(candidate), rejection_reasons=list(candidate.rejection_reasons or []),
                 filters=candidate.filters)
         count = len(entry.candidates)
         return models.Review(

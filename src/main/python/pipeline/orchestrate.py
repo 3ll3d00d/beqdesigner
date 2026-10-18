@@ -59,7 +59,7 @@ from model.signal import AutoWavLoader, SingleChannelSignalData
 from model.xy import MagnitudeData
 
 from pipeline.config import AnalysisConfig
-from pipeline.designer.contract import ChannelScope, Coverage, build_request
+from pipeline.designer.contract import FIT_FIELDS, ChannelScope, Coverage, build_request
 from pipeline.designer.convert import alternative_filters, rejected_filters, to_complete_filter
 from pipeline.designer.registry import get_designer, takes_sources
 from pipeline.designer.manual import MANUAL_DESIGNER, manual_response
@@ -97,6 +97,17 @@ class AlternativeDesign:
     channel_scope: Optional[ChannelScope] = None
     # a rejected design (design/designer-interface.md 1.1, §3 "rejected"): why the designer judged it unfit to publish
     rejection_reasons: tuple = ()
+    # 1.3: how well its filters match their target (contract.FIT_FIELDS)
+    residual_at_hz: Optional[float] = None
+    residual_direction: Optional[str] = None
+    residual_rms_db: Optional[float] = None
+    residual_within_tolerance: Optional[float] = None
+    residual_tolerance_db: Optional[float] = None
+
+
+def fit_of(candidate) -> dict:
+    ''' Its 1.3 fit fields (contract.FIT_FIELDS), to pass on with it. '''
+    return {name: getattr(candidate, name, None) for name in FIT_FIELDS}
 
 
 def _design_of(candidate, complete_filter: CompleteFilter) -> AlternativeDesign:
@@ -106,7 +117,7 @@ def _design_of(candidate, complete_filter: CompleteFilter) -> AlternativeDesign:
                              commentary=candidate.commentary,
                              residual_db=candidate.residual_db, residual_band_hz=candidate.residual_band_hz,
                              channel_scope=candidate.channel_scope,
-                             rejection_reasons=tuple(candidate.rejection_reasons or ()))
+                             rejection_reasons=tuple(candidate.rejection_reasons or ()), **fit_of(candidate))
 
 
 @dataclass(frozen=True)
@@ -127,6 +138,12 @@ class Applied:
     channel_scope: Optional[ChannelScope] = None
     alternatives: tuple = ()  # tuple[AlternativeDesign, ...], lower-ranked candidates, best-first
     rejected: tuple = ()      # tuple[AlternativeDesign, ...] with rejection_reasons: judged unfit to publish (1.1)
+    # 1.3: how well its filters match their target (contract.FIT_FIELDS)
+    residual_at_hz: Optional[float] = None
+    residual_direction: Optional[str] = None
+    residual_rms_db: Optional[float] = None
+    residual_within_tolerance: Optional[float] = None
+    residual_tolerance_db: Optional[float] = None
 
 
 @dataclass(frozen=True)
@@ -443,7 +460,7 @@ class Session:
                        fc_uncertainty_hz=primary.fc_uncertainty_hz, slope_uncertainty=primary.slope_uncertainty,
                        residual_db=primary.residual_db, residual_band_hz=primary.residual_band_hz,
                        commentary=primary.commentary, channel_scope=primary.channel_scope,
-                       alternatives=alternatives, rejected=rejected)
+                       alternatives=alternatives, rejected=rejected, **fit_of(primary))
 
     def set_filters(self, sig: SingleChannelSignalData,
                     filters: Union[CompleteFilter, Sequence[FilterSpec]]) -> CompleteFilter:

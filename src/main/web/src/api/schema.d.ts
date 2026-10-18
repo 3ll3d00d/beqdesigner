@@ -508,6 +508,34 @@ export interface components {
             residual_db?: number | null;
             /** Residual Band Hz */
             residual_band_hz?: number[] | null;
+            /**
+             * Residual At Hz
+             * @description 1.3: where the worst error (residual_db) is.
+             */
+            residual_at_hz?: number | null;
+            /**
+             * Residual Direction
+             * @description 1.3: 'over' or 'under' the target there.
+             */
+            residual_direction?: string | null;
+            /**
+             * Residual Rms Db
+             * @description 1.3: boost-weighted RMS error over residual_band_hz.
+             */
+            residual_rms_db?: number | null;
+            /**
+             * Residual Within Tolerance
+             * @description 1.3: share of the requested boost within residual_tolerance_db of the target.
+             */
+            residual_within_tolerance?: number | null;
+            /** Residual Tolerance Db */
+            residual_tolerance_db?: number | null;
+            /**
+             * Fit
+             * @description How well its filters match their target, in words (pipeline.review.fit_text); '' when the designer measured nothing. Not whether the target is right.
+             * @default
+             */
+            fit: string;
             /** Commentary */
             commentary?: {
                 [key: string]: unknown;
