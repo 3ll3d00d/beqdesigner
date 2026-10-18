@@ -15,7 +15,6 @@ import pytest
 from pipeline.designer.contract import DesignRequest
 from pipeline.designer.http_binding import HttpDesignerError
 from pipeline.designer.registry import get_designer
-from pipeline.library.failure import unavailable_reason
 from pipeline.library.setup import run_config_from_values
 
 DESIGN_SECONDS = 0.5
@@ -77,13 +76,15 @@ def test_with_two_designs_in_flight_the_one_that_waits_does_not_time_out(tmp_pat
     assert [o.decline_reason for o in outcomes] == ['no_rolloff_detected'] * 2
 
 
-def test_without_the_allowance_the_waiting_one_times_out_and_is_unavailable_not_failed(tmp_path, designer):
-    ''' The risk the allowance removes, and what R1 makes of it when it happens anyway. '''
+def test_one_at_a_time_the_second_waits_in_the_pool_not_at_the_designer(tmp_path, designer):
+    '''
+    A designer declared for one design at a time is never sent a second while the first runs: the pool holds it until the
+    first returns, so the wait is ours and its timeout covers only its own design (pipeline.designer.pool). Before the
+    pool, it queued at the designer and timed out there.
+    '''
     outcomes = _two_at_once(_registered(tmp_path, designer, design_parallelism=1))
 
-    errors = [o for o in outcomes if isinstance(o, HttpDesignerError)]
-    assert len(errors) == 1
-    assert unavailable_reason(errors[0]) == 'timed out'
+    assert [getattr(o, 'decline_reason', o) for o in outcomes] == ['no_rolloff_detected'] * 2
 
 
 def test_the_work_list_scales_the_profiles_designers_the_same_way(tmp_path, designer):

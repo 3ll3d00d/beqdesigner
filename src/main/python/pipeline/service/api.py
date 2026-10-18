@@ -289,7 +289,10 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
     def designer_status() -> models.DesignerStatus:
         state = designer.current()
         return models.DesignerStatus(name=state.name, reachable=state.reachable, detail=state.detail,
-                                     checked_at=models.timestamp(state.checked_at))
+                                     checked_at=models.timestamp(state.checked_at),
+                                     endpoints=[models.DesignerEndpointStatus(url=e.url, parallel=e.parallel,
+                                                                               reachable=e.reachable, detail=e.detail)
+                                                for e in state.endpoints])
 
     @v1.post('/notify/test', response_model=models.NotifyOutcome, tags=['notifications'],
              summary='Send samples of a target’s configured events', responses=_responses(404))

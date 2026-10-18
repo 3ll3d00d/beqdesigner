@@ -5,11 +5,19 @@ starting a run whose every design would fail), and `/ready` and `/v1/status` rep
 import threading
 import time
 from dataclasses import dataclass
-from typing import Callable, Mapping, Optional
+from typing import Callable, Mapping, Optional, Tuple
 
 from pipeline.service.context import JobContext, load_context
 
 MAX_AGE_SECONDS = 30.0   # how long /ready and /v1/status reuse an answer, so polling them does not poll the designer
+
+
+@dataclass(frozen=True)
+class EndpointState:
+    url: str
+    parallel: int
+    reachable: bool
+    detail: str   # the URL when it answered, else why not
 
 
 @dataclass(frozen=True)
@@ -18,6 +26,7 @@ class DesignerState:
     reachable: Optional[bool]    # None: there is nothing to ask (the manual designer) or the profile is unreadable
     detail: str
     checked_at: Optional[float]
+    endpoints: Tuple[EndpointState, ...] = ()   # each endpoint; the designer is reachable if any of them is
 
 
 class DesignerProbe:
@@ -33,16 +42,21 @@ class DesignerProbe:
         ''' Asks the designer now. '''
         try:
             ctx = self.load(self.profile_path, self.env)
-            endpoint = ctx.designer_endpoint()
+            declared = ctx.designer_endpoints()
+            asked = ctx.designer_endpoint_states(self.timeout) if declared is not None else []
         except (OSError, ValueError) as error:
             state = DesignerState('', None, f'the profile cannot be read: {error}', self.clock())
         else:
-            if endpoint is None:
+            if declared is None:
                 name = str(ctx.values.get('designer') or '')
                 state = DesignerState(name, None, 'not an HTTP designer: nothing to ask', self.clock())
             else:
-                reason = ctx.designer_unavailable(self.timeout)
-                state = DesignerState(endpoint.name, not reason, reason or endpoint.url, self.clock())
+                endpoints = tuple(EndpointState(url, parallel, not reason, reason or url) for url, parallel, reason in asked)
+                up = [e for e in endpoints if e.reachable]
+                detail = ', '.join(e.url for e in up) if up else '; '.join(e.detail for e in endpoints)
+                if up and len(up) < len(endpoints):
+                    detail += f' ({len(endpoints) - len(up)} of {len(endpoints)} endpoints down)'
+                state = DesignerState(declared.name, bool(up), detail, self.clock(), endpoints)
         with self.lock:
             self.last = state
         return state

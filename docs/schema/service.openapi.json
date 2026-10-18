@@ -2592,6 +2592,37 @@
         ],
         "title": "Decline"
       },
+      "DesignerEndpointStatus": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "parallel": {
+            "type": "integer",
+            "title": "Parallel",
+            "description": "How many designs it is sent at once."
+          },
+          "reachable": {
+            "type": "boolean",
+            "title": "Reachable",
+            "description": "Whether its /health answered (and it can take what it is declared to)."
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail",
+            "description": "Its URL when it answered, else why not."
+          }
+        },
+        "type": "object",
+        "required": [
+          "url",
+          "parallel",
+          "reachable",
+          "detail"
+        ],
+        "title": "DesignerEndpointStatus"
+      },
       "DesignerStatus": {
         "properties": {
           "name": {
@@ -2608,12 +2639,12 @@
               }
             ],
             "title": "Reachable",
-            "description": "Whether its /health answered; null when there is nothing to ask (the manual designer) or the profile cannot be read."
+            "description": "Whether any of its endpoints' /health answered; null when there is nothing to ask (the manual designer) or the profile cannot be read."
           },
           "detail": {
             "type": "string",
             "title": "Detail",
-            "description": "Its URL when it answered, else why not."
+            "description": "The URLs that answered (and how many did not), else why none did."
           },
           "checked_at": {
             "anyOf": [
@@ -2626,6 +2657,14 @@
               }
             ],
             "title": "Checked At"
+          },
+          "endpoints": {
+            "items": {
+              "$ref": "#/components/schemas/DesignerEndpointStatus"
+            },
+            "type": "array",
+            "title": "Endpoints",
+            "description": "Each endpoint the designer is served from (\u00a77.2)."
           }
         },
         "type": "object",

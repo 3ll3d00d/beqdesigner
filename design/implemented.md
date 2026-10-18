@@ -157,6 +157,17 @@ button reads *Override & accept...*. Accepting one asks first, with the reasons
 state and decision lines. A redesign that changes only the rejected designs is
 still a changed design, and is not accepted blind.
 
+Every declared HTTP designer is registered as a `pipeline.designer.pool.DesignerPool`
+under its name (contract §7.2): one endpoint for a single `url`, taking
+`run.parallelism.design` designs at once, or the `endpoints:` it lists, each taking its
+`parallel`. A run's design stage is sized to the pool's capacity (`run.design_slots`),
+and the pool holds a design until an endpoint that is up has room, so a designer is
+never sent more than its `parallel` (the timeout is still multiplied by it, for a
+designer that queues). An endpoint is asked `/health` before use and every minute; one
+that is down, or that a request cannot connect to, is skipped until it answers, and
+the design moves to another. The service's `/v1/status` lists each endpoint, and a
+tick is skipped only when none is up.
+
 A designer declared `by_reference: true` in the profile (contract 1.2, §7.1;
 [`archive/designer-by-reference.md`](archive/designer-by-reference.md)) is sent each array
 whose WAV is under the run's `work_dir` as a relative path, a column and the

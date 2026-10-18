@@ -4,7 +4,7 @@ the design/designer-interface.md contract -- D8 in design/api-headless-
 pipeline.md: start with a single in-process Python callable, registered by
 name, and defer a subprocess/HTTP binding until something actually needs it.
 '''
-from typing import Callable, Dict, Set
+from typing import Callable, Dict, Optional, Set
 
 from pipeline.designer.contract import DesignRequest, DesignResponse
 
@@ -50,3 +50,12 @@ def takes_sources(name: str) -> bool:
 
 def registered_designers() -> list:
     return sorted(_registry.keys())
+
+
+def designer_capacity(name: str) -> Optional[int]:
+    '''
+    How many designs the designer registered as `name` takes at once, if it says (a pipeline.designer.pool.DesignerPool:
+    the sum of its endpoints' `parallel`); None for one that does not, or a name not registered.
+    '''
+    capacity = getattr(_registry.get(name), 'capacity', None)
+    return capacity if isinstance(capacity, int) and capacity > 0 else None

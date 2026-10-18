@@ -19,7 +19,8 @@ import base64
 import hashlib
 import logging
 import os
-from typing import Any, Mapping, Optional
+from dataclasses import dataclass
+from typing import Any, Callable, List, Mapping, Optional
 from urllib.parse import urlsplit, urlunsplit
 
 import numpy as np
@@ -291,37 +292,97 @@ def http_designer(url: str, timeout: float = DESIGN_TIMEOUT, headers: Optional[d
     return _call
 
 
+# the most designs one endpoint is sent at once (`parallel`); a run's whole design stage is the sum over its endpoints
+MAX_ENDPOINT_PARALLEL = 8
+
+
+@dataclass(frozen=True)
+class DeclaredEndpoint:
+    ''' One endpoint of a declared designer, as the file says it (§7.2). '''
+    url: str
+    by_reference: bool = False
+    headers: Optional[dict] = None
+    parallel: int = 1
+    timeout: float = DESIGN_TIMEOUT
+
+
+def declared_endpoints(name: str, spec: Any, default_parallel: int = 1) -> List[DeclaredEndpoint]:
+    '''
+    A declared designer's endpoints: name -> URL, name -> {url, timeout, headers, by_reference} (one endpoint, taking
+    `default_parallel` designs at once: `run.parallelism.design`), or name -> {endpoints: [{url, by_reference, headers,
+    parallel}, ...], timeout, headers}. The designer's own `timeout` and `headers` apply to every endpoint; an endpoint's
+    headers are added to its designer's.
+    :raises ValueError: for an entry with no URL, both `url` and `endpoints`, or a bad option.
+    '''
+    if isinstance(spec, str):
+        spec = {'url': spec}
+    if not isinstance(spec, Mapping):
+        raise ValueError(f"designer {name!r} needs a url or endpoints")
+    if spec.get('url') and spec.get('endpoints'):
+        raise ValueError(f"designer {name!r}: give either url or endpoints, not both")
+    timeout = float(spec.get('timeout', DESIGN_TIMEOUT))
+    shared_headers = dict(spec.get('headers') or {})
+    if spec.get('endpoints') is None:
+        if not spec.get('url'):
+            raise ValueError(f"designer {name!r} needs a url")
+        entries, single = [spec], True
+    else:
+        entries, single = spec['endpoints'], False
+        if not isinstance(entries, list) or not entries:
+            raise ValueError(f"designer {name!r}: endpoints must be a non-empty list")
+    endpoints = []
+    for i, entry in enumerate(entries):
+        where = f"designer {name!r}" + ('' if single else f" endpoint {i + 1}")
+        if isinstance(entry, str):
+            entry = {'url': entry}
+        if not isinstance(entry, Mapping) or not entry.get('url'):
+            raise ValueError(f"{where} needs a url")
+        by_reference = entry.get('by_reference', False)
+        if not isinstance(by_reference, bool):
+            raise ValueError(f"{where}: by_reference must be true or false, not {by_reference!r}")
+        parallel = default_parallel if single else entry.get('parallel', 1)
+        if isinstance(parallel, bool) or not isinstance(parallel, int) or not 1 <= parallel <= MAX_ENDPOINT_PARALLEL:
+            raise ValueError(f"{where}: parallel must be an integer from 1 to {MAX_ENDPOINT_PARALLEL}")
+        headers = {**shared_headers, **(entry.get('headers') or {})} if not single else shared_headers
+        endpoints.append(DeclaredEndpoint(str(entry['url']), by_reference, headers or None, parallel, timeout))
+    return endpoints
+
+
 def register_declared_designers(declared: Optional[Mapping[str, Any]], shared_root: Optional[str] = None,
                                 queue_depth: int = 1) -> list:
     '''
-    Registers the HTTP designers a configuration file declares under `designers:` -- name -> URL, or name -> {url, timeout,
-    headers, by_reference} -- so that a run can find them. The CLI does it for its config file, and the work list for its
-    profile.
-    :param shared_root: the run's work directory: the root a designer declared `by_reference: true` shares with this
-        side (designer-interface.md §7.1, 1.2). Such a designer is sent each array whose WAV is under it by reference.
-    :param queue_depth: how many requests a run may have with a designer at once (`run.parallelism.design`). A designer
-        that answers one at a time (beqforge's does) queues the rest, so a request may wait for `queue_depth - 1` others
-        before its own design starts: each `timeout` (default DESIGN_TIMEOUT, the time for one design) is multiplied by it, so
-        waiting in that queue is not mistaken for a designer that stopped answering.
+    Registers the HTTP designers a configuration file declares under `designers:` (declared_endpoints() says the forms) so
+    that a run can find them. The CLI does it for its config file, and the work list for its profile. Each is registered as
+    a pipeline.designer.pool.DesignerPool under its name, so a run's design stage is sized to its endpoints (`capacity`)
+    and a design goes to whichever endpoint is up and has room.
+    :param shared_root: the run's work directory: the root an endpoint declared `by_reference: true` shares with this
+        side (designer-interface.md §7.1, 1.2). Such an endpoint is sent each array whose WAV is under it by reference.
+    :param queue_depth: how many designs at once a designer declared with a single `url` takes (`run.parallelism.design`).
+        A designer that answers one at a time (beqforge's does) queues the rest, so a request may wait for `parallel - 1`
+        others before its own design starts: each endpoint's `timeout` (default DESIGN_TIMEOUT, the time for one design)
+        is multiplied by its `parallel`, so waiting in that queue is not mistaken for a designer that stopped answering.
     :return: the names registered.
-    :raises ValueError: if an entry has no URL, or is by_reference with no work directory to share (nothing after it is
-        registered).
+    :raises ValueError: if an entry has no URL, a bad option, or is by_reference with no work directory to share
+        (nothing after it is registered).
     '''
+    from pipeline.designer.pool import DesignerPool, PoolEndpoint
     names = []
     for name, spec in (declared or {}).items():
-        if isinstance(spec, str):
-            spec = {'url': spec}
-        if not isinstance(spec, Mapping) or not spec.get('url'):
-            raise ValueError(f"designer {name!r} needs a url")
-        options = {'timeout': float(spec.get('timeout', DESIGN_TIMEOUT)) * max(1, queue_depth),
-                   'headers': spec.get('headers') or None}
-        by_reference = spec.get('by_reference', False)
-        if not isinstance(by_reference, bool):
-            raise ValueError(f"designer {name!r}: by_reference must be true or false, not {by_reference!r}")
-        if by_reference:
-            if not shared_root:
+        endpoints = []
+        for endpoint in declared_endpoints(name, spec, max(1, queue_depth)):
+            if endpoint.by_reference and not shared_root:
                 raise ValueError(f"designer {name!r} is by_reference, but there is no work directory to share with it")
-            options['shared_root'] = shared_root
-        register_designer(name, http_designer(spec['url'], **options), takes_sources=by_reference)
+            options = {'timeout': endpoint.timeout * endpoint.parallel, 'headers': endpoint.headers}
+            if endpoint.by_reference:
+                options['shared_root'] = shared_root
+            call = http_designer(endpoint.url, **options)
+            endpoints.append(PoolEndpoint(
+                endpoint.url, call, _health(endpoint), parallel=endpoint.parallel, takes_sources=endpoint.by_reference))
+        pool = DesignerPool(name, endpoints)
+        register_designer(name, pool, takes_sources=pool.takes_sources)
         names.append(name)
     return names
+
+
+def _health(endpoint: DeclaredEndpoint) -> Callable[[], None]:
+    return lambda: check_designer(endpoint.url, by_reference=endpoint.by_reference, headers=endpoint.headers)

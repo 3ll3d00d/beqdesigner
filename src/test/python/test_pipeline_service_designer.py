@@ -119,6 +119,49 @@ def test_the_profiles_designer_is_the_one_asked(tmp_path, designer):
     assert 'HTTP 503' in ctx.designer_unavailable()
 
 
+def _pool_profile(tmp_path, urls):
+    config = {'sources': [{'name': 'disk', 'kind': 'filesystem', 'globs': [str(tmp_path / 'media')]}],
+              'designers': {'rolloff': {'endpoints': [{'url': url, 'parallel': i + 1} for i, url in enumerate(urls)]}},
+              'run': {'work_dir': str(tmp_path / 'work'), 'queue_dir': str(tmp_path / 'queue'), 'designer': 'rolloff'}}
+    path = tmp_path / 'profile.json'
+    path.write_text(json.dumps(config))
+    return str(path)
+
+
+def test_a_designer_with_several_endpoints_is_up_while_any_of_them_is(tmp_path, designer):
+    ''' §7.2: one endpoint down is reported, not a reason to skip a tick; all of them down is. '''
+    gone = _nothing_listening()
+    path = _pool_profile(tmp_path, [gone, designer.url])
+    ctx = load_context(path, {})
+
+    assert ctx.designer_unavailable(timeout=2) == ''
+    state = DesignerProbe(path, {}, timeout=2).check()
+    assert state.reachable is True and state.detail == f'{designer.url} (1 of 2 endpoints down)'
+    assert [(e.url, e.parallel, e.reachable) for e in state.endpoints] == [(gone, 1, False), (designer.url, 2, True)]
+
+    designer.health = 503
+    reason = ctx.designer_unavailable(timeout=2)
+    assert 'HTTP 503' in reason and '/health failed' in reason
+    assert DesignerProbe(path, {}, timeout=2).check().reachable is False
+
+
+def test_the_status_lists_each_endpoint(tmp_path, designer):
+    (tmp_path / 'work').mkdir()
+    profile = _pool_profile(tmp_path, [designer.url, _nothing_listening()])
+    manager = JobManager(lambda job, control: None)
+    app = create_app(manager, ServiceConfig(profile_path=profile, token=TOKEN), env={},
+                     designer=DesignerProbe(profile, {}, timeout=2))
+    client = TestClient(app)
+    try:
+        status = client.get('/v1/status', headers={'Authorization': f'Bearer {TOKEN}'}).json()['designer']
+    finally:
+        manager.stop(5)
+
+    assert status['reachable'] is True
+    assert [(e['url'], e['parallel'], e['reachable']) for e in status['endpoints']][0] == (designer.url, 1, True)
+    assert [(e['parallel'], e['reachable']) for e in status['endpoints']] == [(1, True), (2, False)]
+
+
 def test_the_manual_designer_has_nothing_to_ask(tmp_path):
     path = tmp_path / 'profile.json'
     path.write_text(json.dumps({'sources': [{'name': 'disk', 'kind': 'filesystem', 'globs': ['x']}],

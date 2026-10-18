@@ -83,6 +83,32 @@ describe('status', () => {
     expect(router.state.location.search).toBe('?needs=attention')
   })
 
+  it('lists a designer\'s endpoints, up and down, when it has more than one', async () => {
+    const designer = {
+      name: 'beqforge', reachable: true, detail: 'http://a/design (1 of 2 endpoints down)', checked_at: null,
+      endpoints: [{ url: 'http://a/design', parallel: 1, reachable: true, detail: 'http://a/design' },
+                  { url: 'http://b/design', parallel: 3, reachable: false, detail: 'GET http://b/health failed: refused' }],
+    }
+    server.use(statusRoute(status({ index: index(), designer })), http.get('/v1/schedule', () => json(schedule())))
+    renderApp('/')
+
+    const list = await screen.findByRole('list', { name: 'Endpoints' })
+    const [a, b] = within(list).getAllByRole('listitem')
+    expect(a).toHaveTextContent(/^up http:\/\/a\/design · 1 at once$/)
+    expect(b).toHaveTextContent(/^down http:\/\/b\/design · 3 at once · GET http:\/\/b\/health failed: refused$/)
+    expect(screen.getByText('answering')).toBeInTheDocument()
+  })
+
+  it('shows no endpoint list for a designer with one', async () => {
+    const designer = { name: 'beqforge', reachable: true, detail: 'http://a/design', checked_at: null,
+                       endpoints: [{ url: 'http://a/design', parallel: 1, reachable: true, detail: 'http://a/design' }] }
+    server.use(statusRoute(status({ index: index(), designer })), http.get('/v1/schedule', () => json(schedule())))
+    renderApp('/')
+
+    expect(await screen.findByText('answering')).toBeInTheDocument()
+    expect(screen.queryByRole('list', { name: 'Endpoints' })).not.toBeInTheDocument()
+  })
+
   it('follows the job running now', async () => {
     const running = runJob({ state: 'running', finished_at: null, result: null,
                              progress: { done: 1, total: 4, title: 'Alien', stage: 'extract', id: 'a', remaining_seconds: 600 } })

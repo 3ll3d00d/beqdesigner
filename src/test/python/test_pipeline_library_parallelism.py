@@ -24,9 +24,16 @@ def test_stage_parallelism_rejects_invalid_profile_values(value):
         stage_parallelism(value)
 
 
-@pytest.mark.parametrize('field, value', [('extract_parallelism', 0), ('extract_parallelism', 17),
-                                          ('extract_parallelism', True), ('design_parallelism', 0),
-                                          ('design_parallelism', 5), ('design_parallelism', True)])
-def test_library_run_config_rejects_invalid_worker_counts(field, value):
-    with pytest.raises(ValueError, match=f'run.parallelism.{field.removesuffix("_parallelism")}'):
+@pytest.mark.parametrize('field, value, message', [
+    ('extract_parallelism', 0, 'run.parallelism.extract'), ('extract_parallelism', 17, 'run.parallelism.extract'),
+    ('extract_parallelism', True, 'run.parallelism.extract'), ('design_parallelism', 0, 'design_parallelism'),
+    ('design_parallelism', 33, 'design_parallelism'), ('design_parallelism', True, 'design_parallelism')])
+def test_library_run_config_rejects_invalid_worker_counts(field, value, message):
+    with pytest.raises(ValueError, match=message):
         LibraryRunConfig(work_dir='/work', queue_dir='/queue', designer='test', **{field: value})
+
+
+def test_a_run_takes_as_many_designs_as_its_designers_endpoints_do():
+    ''' A pool's capacity (the sum of its endpoints' `parallel`) can exceed run.parallelism.design's limit of 4. '''
+    assert LibraryRunConfig(work_dir='/work', queue_dir='/queue', designer='test', design_parallelism=6) \
+        .design_parallelism == 6

@@ -615,22 +615,47 @@ export interface components {
             /** Message */
             message: string;
         };
+        /** DesignerEndpointStatus */
+        DesignerEndpointStatus: {
+            /** Url */
+            url: string;
+            /**
+             * Parallel
+             * @description How many designs it is sent at once.
+             */
+            parallel: number;
+            /**
+             * Reachable
+             * @description Whether its /health answered (and it can take what it is declared to).
+             */
+            reachable: boolean;
+            /**
+             * Detail
+             * @description Its URL when it answered, else why not.
+             */
+            detail: string;
+        };
         /** DesignerStatus */
         DesignerStatus: {
             /** Name */
             name: string;
             /**
              * Reachable
-             * @description Whether its /health answered; null when there is nothing to ask (the manual designer) or the profile cannot be read.
+             * @description Whether any of its endpoints' /health answered; null when there is nothing to ask (the manual designer) or the profile cannot be read.
              */
             reachable: boolean | null;
             /**
              * Detail
-             * @description Its URL when it answered, else why not.
+             * @description The URLs that answered (and how many did not), else why none did.
              */
             detail: string;
             /** Checked At */
             checked_at: string | null;
+            /**
+             * Endpoints
+             * @description Each endpoint the designer is served from (§7.2).
+             */
+            endpoints?: components["schemas"]["DesignerEndpointStatus"][];
         };
         /**
          * ExtractProgressEvent

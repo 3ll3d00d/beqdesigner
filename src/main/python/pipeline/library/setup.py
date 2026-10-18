@@ -9,14 +9,14 @@ file: the command line's flags, or nothing for the service. No argparse, no Qt.
 from dataclasses import dataclass, replace
 from typing import Any, Mapping, Optional, Tuple
 
-from pipeline.designer.http_binding import register_declared_designers
+from pipeline.designer.http_binding import DeclaredEndpoint, declared_endpoints, register_declared_designers
 from pipeline.designer.manual import MANUAL_DESIGNER
 from pipeline.designer.registry import registered_designers
 from pipeline.library.bass import bass_management
 from pipeline.library.profile import Profile, profile_from_config
 from pipeline.library.disks import disk_limit
 from pipeline.library.retention import min_free_gb
-from pipeline.library.run import LibraryRunConfig, stage_parallelism, stop_after_unavailable
+from pipeline.library.run import LibraryRunConfig, design_slots, stage_parallelism, stop_after_unavailable
 from pipeline.library.season import DEFAULT_TV_MODE
 from pipeline.library.stages import PublishSettings
 from pipeline.library.status import ScanSettings, analysis_from_values
@@ -88,27 +88,23 @@ def _declared_designers(values: Mapping[str, Any], config: Mapping[str, Any]) ->
 
 
 @dataclass(frozen=True)
-class DesignerEndpoint:
-    ''' Where the run's designer answers, as the file declares it. '''
+class DesignerEndpoints:
+    ''' Where the run's designer answers, as the file declares it: one endpoint, or several (§7.2). '''
     name: str
-    url: str
-    by_reference: bool = False
-    headers: Optional[dict] = None
+    endpoints: Tuple[DeclaredEndpoint, ...]
 
 
-def designer_endpoint(values: Mapping[str, Any], config: Mapping[str, Any]) -> Optional[DesignerEndpoint]:
+def designer_endpoints(values: Mapping[str, Any], config: Mapping[str, Any]) -> Optional[DesignerEndpoints]:
     '''
-    The run's designer's HTTP endpoint, or None if it has none this process can ask (the manual designer, or one the
+    The run's designer's HTTP endpoints, or None if it has none this process can ask (the manual designer, or one the
     file does not declare: the run itself then says it is not registered).
-    :raises ValueError: for a malformed `--designer-url` entry.
+    :raises ValueError: for a malformed `--designer-url` entry, or a declared designer that is not usable.
     '''
     name = values.get('designer')
     spec = _declared_designers(values, config).get(name) if name else None
-    if isinstance(spec, str):
-        spec = {'url': spec}
-    if not isinstance(spec, Mapping) or not spec.get('url'):
+    if spec is None:
         return None
-    return DesignerEndpoint(name, spec['url'], spec.get('by_reference') is True, spec.get('headers') or None)
+    return DesignerEndpoints(name, tuple(declared_endpoints(name, spec, stage_parallelism(values.get('parallelism'))['design'])))
 
 
 def run_profile(config: Mapping[str, Any], values: dict[str, Any]) -> Profile:
@@ -147,7 +143,7 @@ def run_config_from_values(values: Mapping[str, Any], config: Mapping[str, Any])
         tmdb_api_key=values.get('tmdb_api_key'),
         audio_types=tuple(values.get('audio_types', ())),
         tv_mode=values.get('tv_mode', DEFAULT_TV_MODE),
-        extract_parallelism=parallelism['extract'], design_parallelism=parallelism['design'],
+        extract_parallelism=parallelism['extract'], design_parallelism=design_slots(designer, parallelism['design']),
         stop_after_unavailable=stop_after_unavailable(values.get('stop_after_unavailable')),
         bass_management=bass_management(values.get('bass_management')),
         min_free_gb=min_free_gb(values.get('min_free_gb')),

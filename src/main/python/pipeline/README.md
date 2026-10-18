@@ -405,6 +405,11 @@ WAVs under the run's `work_dir` by path, not the samples (contract 1.2, §7.1). 
 directory, mounted as its shared root, and answer `/health` with `shared_root: true`. A `422` from it fails the
 design; nothing is retried inline. An unknown name stops the run before anything is extracted.
 
+A designer can be served by several endpoints (`designers: {beqforge: {endpoints: [{url, parallel, by_reference,
+headers}, ...]}}`, contract §7.2): `pipeline.designer.pool` sends each design to the endpoint with the most room that
+is up, leaves out one that does not answer until it does, and sizes the run's design stage to the sum of their
+`parallel`. The endpoints must run the same designer build.
+
 ### Config file
 
 JSON or YAML. Every command-line option can be given in the file, under the same name with underscores, in the

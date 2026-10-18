@@ -170,3 +170,4 @@ details.pick summary { padding: 0.2rem 0.35rem; border: 1px solid var(--line); b
                        white-space: nowrap; }
 details.pick .pick-menu { position: absolute; z-index: 1; margin-top: 0.2rem; padding: 0.4rem 0.6rem; min-width: 9rem;
                           border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
+ul.endpoints { list-style: none; padding: 0; margin: 0.4rem 0 0; display: grid; gap: 0.2rem; overflow-wrap: anywhere; }

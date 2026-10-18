@@ -719,12 +719,21 @@ class ServiceStatus(BaseModel):
                                                              'and commit write to.')
 
 
+class DesignerEndpointStatus(BaseModel):
+    url: str
+    parallel: int = Field(description='How many designs it is sent at once.')
+    reachable: bool = Field(description='Whether its /health answered (and it can take what it is declared to).')
+    detail: str = Field(description='Its URL when it answered, else why not.')
+
+
 class DesignerStatus(BaseModel):
     name: str
-    reachable: Optional[bool] = Field(description="Whether its /health answered; null when there is nothing to ask "
-                                                  "(the manual designer) or the profile cannot be read.")
-    detail: str = Field(description='Its URL when it answered, else why not.')
+    reachable: Optional[bool] = Field(description="Whether any of its endpoints' /health answered; null when there is "
+                                                  "nothing to ask (the manual designer) or the profile cannot be read.")
+    detail: str = Field(description='The URLs that answered (and how many did not), else why none did.')
     checked_at: Optional[datetime]
+    endpoints: List[DesignerEndpointStatus] = Field(default_factory=list,
+                                                    description='Each endpoint the designer is served from (§7.2).')
 
 
 class ScheduleUpdate(Input):

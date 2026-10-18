@@ -49,6 +49,16 @@ function Designer({ designer }: { designer: Schemas['DesignerStatus'] | null | u
       <h2 id="designer">Designer</h2>
       <p><strong>{designer.name || '—'}</strong>: <span className={designer.reachable === false ? 'problem' : ''}>{state}</span></p>
       {designer.detail && <p className="muted">{designer.detail}</p>}
+      {(designer.endpoints?.length ?? 0) > 1 && (
+        <ul className="endpoints" aria-label="Endpoints">
+          {designer.endpoints!.map((e) => (
+            <li key={e.url}>
+              <span className={e.reachable ? '' : 'problem'}>{e.reachable ? 'up' : 'down'}</span> {e.url}
+              <span className="muted"> · {e.parallel} at once{e.reachable ? '' : ` · ${e.detail}`}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   )
 }

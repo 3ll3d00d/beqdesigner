@@ -35,6 +35,8 @@ logger = logging.getLogger('library_run')
 # extraction mostly reads (a whole remux for its audio): with run.disks it is the number of disks kept busy. A designer is
 # one service, so a handful of designs at once is plenty
 MAX_STAGE_PARALLELISM = {'extract': 16, 'design': 4}
+# a designer with several endpoints takes the sum of their `parallel` at once (pipeline.designer.pool)
+MAX_DESIGN_SLOTS = 32
 DEFAULT_STOP_AFTER_UNAVAILABLE = 3
 _RUN_STAGES = ('extract', 'design')
 
@@ -55,6 +57,15 @@ def stage_parallelism(value=None) -> dict[str, int]:
             raise ValueError(f'run.parallelism.{stage} must be an integer from 1 to {MAX_STAGE_PARALLELISM[stage]}')
         result[stage] = count
     return result
+
+
+def design_slots(designer: str, configured: int) -> int:
+    '''
+    How many designs a run has in hand at once: the designer's own capacity when it has one (a pool of endpoints, each
+    with its `parallel`), else `run.parallelism.design`.
+    '''
+    from pipeline.designer.registry import designer_capacity
+    return min(designer_capacity(designer) or configured, MAX_DESIGN_SLOTS)
 
 
 def stop_after_unavailable(value=None) -> int:
@@ -95,7 +106,10 @@ class LibraryRunConfig:
 
     def __post_init__(self):
         plan_units([], self.tv_mode)  # rejects an unknown mode up front, not on the first TV item
-        stage_parallelism({'extract': self.extract_parallelism, 'design': self.design_parallelism})
+        stage_parallelism({'extract': self.extract_parallelism})
+        if isinstance(self.design_parallelism, bool) or not isinstance(self.design_parallelism, int) \
+                or not 1 <= self.design_parallelism <= MAX_DESIGN_SLOTS:
+            raise ValueError(f'design_parallelism must be an integer from 1 to {MAX_DESIGN_SLOTS}')
         stop_after_unavailable(self.stop_after_unavailable)
         min_free_gb(self.min_free_gb)
 

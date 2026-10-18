@@ -818,6 +818,31 @@ as part of decoding one.
 shapes above, meant for implementers in any language (unlike the rest of
 this document, which only needs to match this repo's own Python).
 
+### 7.2 Several endpoints (caller side)
+
+Nothing changes for a designer: this is how a caller spreads its designs over several copies of one. A profile may
+declare a designer as a list of endpoints, each with its own `parallel` (how many designs it is sent at once, 1-8) and
+its own `by_reference` and `headers`; the designer's `timeout` and `headers` apply to all of them:
+
+```yaml
+designers:
+  beqforge:
+    timeout: 900
+    endpoints:
+      - {url: 'http://10.151.167.10:8420/design', by_reference: true, parallel: 1}
+      - {url: 'http://10.151.167.20:8420/design', parallel: 2}
+```
+
+The caller (`pipeline.designer.pool`) registers them as one designer under its name, so a design's fingerprint (which
+names the designer) does not depend on which endpoint answered. **Every endpoint must run the same designer build**, or
+two designs of one title could differ by where they ran. A run takes as many designs at once as its endpoints together
+(the sum of `parallel`, in place of `run.parallelism.design`), and each design goes to the endpoint with the most room
+that is up. The caller asks each endpoint's `/health` (§7.1) before using it and again every minute; one that does not
+answer, or that a request cannot reach (no connection, or a gateway's 502/503/504), is left out until it answers again,
+and that design is sent to another endpoint. Any other failure, including a design that outlives its timeout, is the
+design's own: it is not sent elsewhere. Only when no endpoint is up is the design unavailable. A single `url` is one
+endpoint taking `run.parallelism.design` designs at once, as before.
+
 ---
 
 ## 8. What the caller guarantees

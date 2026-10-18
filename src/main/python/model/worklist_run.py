@@ -30,7 +30,7 @@ from pipeline.service.lease import WORKLIST, LeaseHeld, run_lease
 from pipeline.library.bass import bass_management
 from pipeline.library.disks import disk_limit
 from pipeline.library.retention import min_free_gb
-from pipeline.library.run import LibraryRunConfig, stage_parallelism, stop_after_unavailable
+from pipeline.library.run import LibraryRunConfig, design_slots, stage_parallelism, stop_after_unavailable
 from pipeline.library.selection import Selection, StagePlan
 from pipeline.library.stages import PublishSettings, StagesReport, run_stages
 from pipeline.publish.catalogue import catalogue_paths, category_for_metadata, heatmap_path
@@ -143,7 +143,8 @@ def build_run_config(setup, preferences) -> LibraryRunConfig:
         work_dir=settings.work_dir, queue_dir=settings.queue_dir, designer=settings.designer, config=settings.config,
         coverage=settings.coverage, keep_multichannel=settings.keep_multichannel, tv_mode=settings.tv_mode,
         tmdb_api_key=preferences.get(TMDB_API_KEY) or None, audio_types=tuple(run.get('audio_types') or ()),
-        extract_parallelism=parallelism['extract'], design_parallelism=parallelism['design'],
+        extract_parallelism=parallelism['extract'],
+        design_parallelism=design_slots(settings.designer, parallelism['design']),
         stop_after_unavailable=stop_after_unavailable(run.get('stop_after_unavailable')),
         bass_management=bass_management(run.get('bass_management')),
         min_free_gb=min_free_gb(run.get('min_free_gb')), disks=disk_limit(run.get('disks')))

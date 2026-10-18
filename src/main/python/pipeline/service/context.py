@@ -18,13 +18,13 @@ import json
 import os
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, Mapping, Optional, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 from pipeline.designer.http_binding import DesignerUnavailable, check_designer
 from pipeline.library.index import index_path
 from pipeline.library.profile import Profile, read_config_file
 from pipeline.library.run import LibraryRunConfig
-from pipeline.library.setup import DesignerEndpoint, configured_values, designer_endpoint, index_settings, \
+from pipeline.library.setup import DesignerEndpoints, configured_values, designer_endpoints, index_settings, \
     run_config_from_values, run_profile, scan_values, stage_settings
 from pipeline.library.stages import PublishSettings
 from pipeline.library.status import ScanSettings
@@ -96,23 +96,38 @@ class JobContext:
     def stage_settings(self, through: str) -> Tuple[ScanSettings, Optional[PublishSettings]]:
         return stage_settings(self.profile, self.config, self.values, through)
 
-    def designer_endpoint(self) -> Optional[DesignerEndpoint]:
-        ''' The run's designer's HTTP endpoint, or None for one that has none (the manual designer). '''
-        return designer_endpoint(self.values, self.config)
+    def designer_endpoints(self) -> Optional[DesignerEndpoints]:
+        ''' The run's designer's HTTP endpoints, or None for one that has none (the manual designer). '''
+        return designer_endpoints(self.values, self.config)
+
+    def designer_endpoint_states(self, timeout: float = 10.0) -> List[Tuple[str, int, str]]:
+        '''
+        Each endpoint of the run's designer asked now: (url, parallel, why it cannot be used, or '' if it can).
+        :raises ValueError: for a designer the file declares in a form that cannot be used.
+        '''
+        declared = self.designer_endpoints()
+        states = []
+        for endpoint in declared.endpoints if declared is not None else ():
+            try:
+                check_designer(endpoint.url, by_reference=endpoint.by_reference, timeout=timeout, headers=endpoint.headers)
+                reason = ''
+            except DesignerUnavailable as error:
+                reason = str(error)
+            states.append((endpoint.url, endpoint.parallel, reason))
+        return states
 
     def designer_unavailable(self, timeout: float = 10.0) -> str:
-        ''' Why the run's designer cannot be used now (its `/health` did not answer, ...), or '' if it can. '''
+        '''
+        Why the run's designer cannot be used now -- none of its endpoints answered `/health` (or can do what it is
+        declared to) -- or '' if one can.
+        '''
         try:
-            endpoint = self.designer_endpoint()
+            states = self.designer_endpoint_states(timeout)
         except ValueError as error:
             return str(error)
-        if endpoint is None:
+        if not states or any(not reason for _, _, reason in states):
             return ''
-        try:
-            check_designer(endpoint.url, by_reference=endpoint.by_reference, timeout=timeout, headers=endpoint.headers)
-        except DesignerUnavailable as error:
-            return str(error)
-        return ''
+        return '; '.join(reason for _, _, reason in states)
 
 
 def load_context(profile_path: str, env: Optional[Mapping[str, str]] = None) -> JobContext:
