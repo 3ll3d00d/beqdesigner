@@ -158,6 +158,10 @@ DISPLAY_FREQ_STEP = 'display/freq_step'
 DISPLAY_Q_STEP = 'display/q_step'
 DISPLAY_S_STEP = 'display/s_step'
 DISPLAY_GAIN_STEP = 'display/gain_step'
+# the device profiles the main chart shows the filter on (model/device_profile.py), as a JSON list of names
+DISPLAY_DEVICE_PROFILES = 'display/device_profiles'
+# the user's own device profiles (rate and coefficient storage), as a JSON list of objects
+DEVICE_PROFILES_CUSTOM = 'device_profiles/custom'
 DISPLAY_LINE_STYLE = 'display/line_style'
 DISPLAY_SMOOTH_PRECALC = 'display/precalc_smooth'
 DISPLAY_SMOOTH_GRAPHS = 'display/smooth_graphs'
@@ -294,6 +298,8 @@ DEFAULT_PREFS = {
     DISPLAY_Q_STEP: '0.1',
     DISPLAY_S_STEP: '0.1',
     DISPLAY_GAIN_STEP: '0.1',
+    DISPLAY_DEVICE_PROFILES: '[]',
+    DEVICE_PROFILES_CUSTOM: '[]',
     DISPLAY_LINE_STYLE: True,
     DISPLAY_SMOOTH_GRAPHS: True,
     DISPLAY_SMOOTH_PRECALC: False,

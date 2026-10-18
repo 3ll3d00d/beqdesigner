@@ -23,6 +23,7 @@ dependencies = [
     "sanitize-filename",
     "matplotlib",
     "soxr",
+    "beqforge[optimiser]>=0.2.3",
 ]
 
 [project.urls]

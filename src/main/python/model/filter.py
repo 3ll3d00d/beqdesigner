@@ -152,11 +152,34 @@ class FilterModel(Sequence):
                     m.colour = FILTER_COLOURS[0]
                 else:
                     m.colour = FILTER_COLOURS[(idx + 1) % len(FILTER_COLOURS)]
+            # the combined filter as each chosen device profile stores it (model/device_profile.py), dashed beside it
+            for realised in self.realised(mags[0].x):
+                if realised.realised_db is not None:
+                    mags.append(MagnitudeData(f'{COMBINED} on {realised.profile.name}', None, realised.freqs,
+                                              realised.realised_db, colour=FILTER_COLOURS[0], linestyle='--'))
             if reference is not None:
                 ref_data = next((x for x in mags if x.name == reference), None)
                 if ref_data:
                     mags = [x.normalise(ref_data) for x in mags]
             return mags
+
+    def realised(self, freqs=None) -> list:
+        '''
+        The combined filter as each device profile the chart shows stores it (model.device_profile.Realised), or [] with
+        no filter, or none shown.
+        :param freqs: where to calculate it; default the combined filter's own frequencies.
+        '''
+        from model.device_profile import realise, shown_profiles
+        profiles = shown_profiles(self.__preferences)
+        if not profiles or len(self.filter) == 0:
+            return []
+        if freqs is None:
+            freqs = self.filter.get_transfer_function().get_magnitude().x
+        return [realise(self.filter, profile, freqs) for profile in profiles]
+
+    def device_summary(self) -> str:
+        ''' One line per profile shown: its largest error against the filter as designed (model.device_profile). '''
+        return '\n'.join(r.describe() for r in self.realised())
 
     def resample(self, fs):
         '''

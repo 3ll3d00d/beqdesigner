@@ -46,7 +46,7 @@ from qtpy import QtCore, QtWidgets
 from qtpy.QtCore import QSettings, QThreadPool, QUrl, Qt
 from qtpy.QtGui import QIcon, QFont, QCursor, QTextCursor, QDesktopServices
 from qtpy.QtWidgets import QMainWindow, QApplication, QErrorMessage, QAbstractItemView, QDialog, QFileDialog, \
-    QHeaderView, QMessageBox, QHBoxLayout, QToolButton, QInputDialog
+    QHeaderView, QMessageBox, QHBoxLayout, QToolButton, QInputDialog, QLabel
 
 from model.preferences_dialog import PreferencesDialog
 from model.preferences import BINARIES_GROUP, ANALYSIS_TARGET_FS, STYLE_MATPLOTLIB_THEME, \
@@ -161,6 +161,13 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.filterView.setStyle(NoCaretStyle())
         self.filterView.selectionModel().selectionChanged.connect(self.on_filter_selected)
         self.filterView.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        # the filter as a device stores it: a Devices menu beside Show Filters, its errors under the filter table
+        from model.device_profile_qt import DeviceProfileControls
+        self.__device_profiles = DeviceProfileControls(self, self.preferences, on_change=self.__on_device_profiles_changed,
+                                                       summary=self.__filter_model.device_summary)
+        self.selectorsLayout.addWidget(QLabel('Devices', parent=self), 0, 3, 1, 1)
+        self.selectorsLayout.addWidget(self.__device_profiles.button, 1, 3, 1, 1)
+        self.rightPane.insertWidget(self.rightPane.indexOf(self.filterView) + 1, self.__device_profiles.label)
         for i in range(1, 4):
             getattr(self, f"action_load_preset_{i}").triggered.connect(self.load_preset(i))
             getattr(self, f"action_clear_preset_{i}").triggered.connect(self.clear_preset(i))
@@ -664,9 +671,20 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.update_reference_series(self.__signal_model.get_visible_curve_names(), self.signalReference, True)
         self.update_reference_series(names, self.filterReference, False)
         self.__magnitude_model.redraw()
+        self.__refresh_device_summary()
         self.__enable_filter_actions()
         self.__check_active_preset(self.__filter_model.filter.preset_idx)
         self.show_y2_tool_buttons(self.showFilters.currentText() != SHOW_NO_FILTERS and len(self.__filter_model) > 0)
+
+    def __on_device_profiles_changed(self):
+        ''' The device profiles the chart shows changed: draw the filter on them, and say their errors. '''
+        self.__magnitude_model.redraw()
+        self.__refresh_device_summary()
+
+    def __refresh_device_summary(self):
+        controls = getattr(self, '_BeqDesigner__device_profiles', None)   # on_filter_change runs before it is made
+        if controls is not None:
+            controls.refresh_summary()
 
     def importFilter(self):
         '''

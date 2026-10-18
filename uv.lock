@@ -164,6 +164,7 @@ name = "beqdesigner"
 source = { virtual = "." }
 dependencies = [
     { name = "awesomeversion" },
+    { name = "beqforge", extra = ["optimiser"] },
     { name = "ffmpeg-python" },
     { name = "graphviz" },
     { name = "hamcws" },
@@ -211,6 +212,7 @@ service = [
 [package.metadata]
 requires-dist = [
     { name = "awesomeversion" },
+    { name = "beqforge", extras = ["optimiser"], specifier = ">=0.2.3" },
     { name = "ffmpeg-python" },
     { name = "graphviz" },
     { name = "hamcws", specifier = ">=0.2.7,<0.3.0" },
@@ -253,6 +255,23 @@ service = [
     { name = "fastapi", specifier = ">=0.115" },
     { name = "pydantic", specifier = ">=2.7" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
+]
+
+[[package]]
+name = "beqforge"
+version = "0.2.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/68/06/3ab67ff3277562e5e0c74f41681f42bc0cf2eed591e0a6385c0fe135f2e8/beqforge-0.2.3.tar.gz", hash = "sha256:f09d2633af16a65b31d2d318d3b27be57495a0cdb47a897dcf676400f6fd02b4", size = 10257454, upload-time = "2026-10-17T22:08:28.624Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ff/36/347165b1940e6d4bd5fd4242380e4f4000efccb069d00ebc2043df7bb7ba/beqforge-0.2.3-py3-none-any.whl", hash = "sha256:7749b0eb2ebc27516eb29ccfe117e0ffc1e16de8a6910da61fffebaefbb628b3", size = 8138923, upload-time = "2026-10-17T22:08:25.749Z" },
+]
+
+[package.optional-dependencies]
+optimiser = [
+    { name = "scipy" },
 ]
 
 [[package]]
