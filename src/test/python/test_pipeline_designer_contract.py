@@ -14,6 +14,7 @@ from pipeline.designer.contract import DesignCandidate, DesignRequest, DesignRes
 _CANDIDATE_FIELDS = {
     'filters', 'confidence', 'mv_adjust_db', 'gain_reduction_db', 'method', 'residual_db', 'residual_band_hz',
     'commentary', 'fc_hz', 'slope', 'fc_uncertainty_hz', 'slope_uncertainty', 'channel_scope', 'rejection_reasons',
+    'residual_at_hz', 'residual_direction', 'residual_rms_db', 'residual_within_tolerance', 'residual_tolerance_db',
 }
 
 
@@ -504,3 +505,46 @@ def test_pipeline_designer_modules_have_no_qtpy_import():
                 assert not any(n.name.startswith('qtpy') for n in node.names), source
             elif isinstance(node, ast.ImportFrom):
                 assert node.module is None or not node.module.startswith('qtpy'), source
+
+
+# --- 1.3: how well the filters match their target ---------------------------------------------------------------------
+
+_FIT = dict(residual_db=1.1, residual_band_hz=(5.0, 212.0), residual_at_hz=9.0, residual_direction='under',
+            residual_rms_db=0.3, residual_within_tolerance=0.96, residual_tolerance_db=0.5)
+
+
+def test_a_candidate_reporting_its_fit_is_valid():
+    from pipeline.designer.convert import validate_response
+    validate_response(_success(**_FIT))
+    validate_response(_success(**{**_FIT, 'residual_rms_db': None}))   # the target asks for no boost in the band
+    validate_response(_success(**{**_FIT, 'residual_rms_db': 1.1 + 5e-10}))   # rounding allowance
+    validate_response(_success(residual_db=0.4, residual_band_hz=(5.0, 200.0)))   # a 1.2 candidate: none of them
+
+
+@pytest.mark.parametrize('overrides, match', [
+    (dict(residual_db=None, residual_band_hz=None), 'but no residual_db'),
+    (dict(residual_direction=None), 'come together'),
+    (dict(residual_at_hz=None), 'come together'),
+    (dict(residual_direction='sideways'), "'over' or 'under'"),
+    (dict(residual_at_hz=300.0), 'within residual_band_hz'),
+    (dict(residual_band_hz=None), 'within residual_band_hz'),
+    (dict(residual_rms_db=-0.1), r'residual_rms_db must be in \[0, residual_db'),
+    (dict(residual_rms_db=1.2), r'residual_rms_db must be in \[0, residual_db'),
+    (dict(residual_within_tolerance=1.01), r'must be in \[0, 1\]'),
+    (dict(residual_tolerance_db=None), 'come together'),
+    (dict(residual_within_tolerance=None), 'come together'),
+    (dict(residual_tolerance_db=0.0), 'must be > 0'),
+    (dict(residual_rms_db=math.nan), 'finite'),
+    (dict(residual_at_hz=math.inf), 'finite'),
+    (dict(residual_within_tolerance=True), 'finite'),
+])
+def test_a_fit_field_out_of_its_rules_is_refused(overrides, match):
+    from pipeline.designer.convert import ContractViolation, validate_response
+    with pytest.raises(ContractViolation, match=match):
+        validate_response(_success(**{**_FIT, **overrides}))
+
+
+def test_the_fit_fields_are_checked_on_rejected_designs_too():
+    from pipeline.designer.convert import ContractViolation, validate_response
+    with pytest.raises(ContractViolation, match=r'rejected\[0\]\.residual_within_tolerance'):
+        validate_response(_success(rejected=[_rejected(**{**_FIT, 'residual_within_tolerance': 2.0})]))

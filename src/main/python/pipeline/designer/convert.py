@@ -94,6 +94,8 @@ def _validate_candidate(candidate: DesignCandidate, index: int, where: str = 'ca
     for i, spec in enumerate(candidate.filters):
         _validate_biquad_spec(spec, f"{name}.filters[{i}]")
 
+    _validate_fit(candidate, name)
+
     if candidate.commentary is not None:
         if not isinstance(candidate.commentary, dict):
             raise ContractViolation(f"{name}.commentary must be a dict[str, str]")
@@ -101,6 +103,44 @@ def _validate_candidate(candidate: DesignCandidate, index: int, where: str = 'ca
             if not isinstance(key, str) or not isinstance(value, str):
                 raise ContractViolation(
                     f"{name}.commentary must be a dict[str, str], got key={key!r} value={value!r}")
+
+
+# 1.3's fit fields (§3, "How well the filters match"): what may appear with what, and their ranges
+_FIT_FIELDS = ('residual_at_hz', 'residual_direction', 'residual_rms_db', 'residual_within_tolerance',
+               'residual_tolerance_db')
+_RMS_ALLOWANCE_DB = 1e-9
+
+
+def _validate_fit(candidate: DesignCandidate, name: str) -> None:
+    for field in ('residual_at_hz', 'residual_rms_db', 'residual_within_tolerance', 'residual_tolerance_db'):
+        value = getattr(candidate, field)
+        if value is not None and (isinstance(value, bool) or not isinstance(value, (int, float))
+                                  or not math.isfinite(value)):
+            raise ContractViolation(f"{name}.{field} must be a finite number, got {value!r}")
+    if candidate.residual_db is None:
+        present = [f for f in _FIT_FIELDS if getattr(candidate, f) is not None]
+        if present:
+            raise ContractViolation(f"{name} has {', '.join(present)} but no residual_db: the fit fields describe it")
+        return
+    if (candidate.residual_at_hz is None) != (candidate.residual_direction is None):
+        raise ContractViolation(f"{name}: residual_at_hz and residual_direction come together")
+    if candidate.residual_direction is not None and candidate.residual_direction not in ('over', 'under'):
+        raise ContractViolation(f"{name}.residual_direction must be 'over' or 'under', got {candidate.residual_direction!r}")
+    if candidate.residual_at_hz is not None:
+        band = candidate.residual_band_hz
+        if band is None or not band[0] <= candidate.residual_at_hz <= band[1]:
+            raise ContractViolation(
+                f"{name}.residual_at_hz ({candidate.residual_at_hz}) must lie within residual_band_hz ({band})")
+    if candidate.residual_rms_db is not None and \
+            not 0 <= candidate.residual_rms_db <= candidate.residual_db + _RMS_ALLOWANCE_DB:
+        raise ContractViolation(f"{name}.residual_rms_db must be in [0, residual_db ({candidate.residual_db})], "
+                                f"got {candidate.residual_rms_db}")
+    if (candidate.residual_within_tolerance is None) != (candidate.residual_tolerance_db is None):
+        raise ContractViolation(f"{name}: residual_within_tolerance and residual_tolerance_db come together")
+    if candidate.residual_within_tolerance is not None and not 0 <= candidate.residual_within_tolerance <= 1:
+        raise ContractViolation(f"{name}.residual_within_tolerance must be in [0, 1], got {candidate.residual_within_tolerance}")
+    if candidate.residual_tolerance_db is not None and candidate.residual_tolerance_db <= 0:
+        raise ContractViolation(f"{name}.residual_tolerance_db must be > 0, got {candidate.residual_tolerance_db}")
 
 
 def _validate_biquad_spec(spec: BiquadSpec, prefix: str) -> None:

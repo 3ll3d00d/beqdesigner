@@ -98,3 +98,30 @@ def test_the_health_answer_needs_the_version_and_whether_there_is_a_shared_root(
     health_schema.validate({'contract_version': '1.2', 'shared_root': True, 'status': 'ok'})
     assert not health_schema.is_valid({'status': 'ok'})
     assert not health_schema.is_valid({'contract_version': '1.2', 'shared_root': 'yes'})
+
+
+@pytest.fixture(scope='module')
+def response_schema():
+    return _validator('http_designer_response.schema.json')
+
+
+def _response(**fit):
+    candidate = {'filters': [{'type': 'low_shelf', 'freq_hz': 20.0, 'gain_db': 6.0, 'q': 0.7}], 'confidence': 0.9,
+                 'mv_adjust_db': 6.0, 'method': 'fitted', 'residual_db': 1.1, 'residual_band_hz': [5.0, 212.0], **fit}
+    return {'contract_version': '1.3', 'candidates': [candidate]}
+
+
+_FIT = {'residual_at_hz': 9.0, 'residual_direction': 'under', 'residual_rms_db': 0.3,
+        'residual_within_tolerance': 0.96, 'residual_tolerance_db': 0.5}
+
+
+def test_a_1_3_response_reporting_its_fit_is_valid(response_schema):
+    assert not list(response_schema.iter_errors(_response(**_FIT)))
+    assert not list(response_schema.iter_errors(_response()))   # without them: a 1.2 response
+    assert not list(response_schema.iter_errors(_response(**{k: None for k in _FIT})))
+
+
+@pytest.mark.parametrize('field, value', [('residual_direction', 'sideways'), ('residual_rms_db', -0.1),
+                                          ('residual_within_tolerance', 1.5), ('residual_tolerance_db', 0)])
+def test_a_fit_field_out_of_range_is_refused_by_the_schema(response_schema, field, value):
+    assert list(response_schema.iter_errors(_response(**{**_FIT, field: value})))

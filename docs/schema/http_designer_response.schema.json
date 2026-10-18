@@ -6,7 +6,7 @@
   "type": "object",
   "properties": {
     "contract_version": {
-      "enum": ["1.0", "1.1"]
+      "enum": ["1.0", "1.1", "1.2", "1.3"]
     },
     "candidates": {
       "description": "success: a non-empty array, best (most preferred) first -- candidates[0] is the only one the caller acts on automatically. Absent/null on decline. No entry may carry rejection_reasons.",
@@ -103,6 +103,7 @@
           ]
         },
         "residual_db": {
+          "description": "max absolute error, dB, of filters against the target they were fitted to, over residual_band_hz, measured on the cascade as published and as the device plays it (canonical rounding and coefficient quantisation at the device rate)",
           "oneOf": [{ "type": "number" }, { "type": "null" }]
         },
         "residual_band_hz": {
@@ -115,6 +116,26 @@
             },
             { "type": "null" }
           ]
+        },
+        "residual_at_hz": {
+          "description": "1.3: where |error| equals residual_db, within residual_band_hz; present exactly when residual_direction is",
+          "oneOf": [{ "type": "number" }, { "type": "null" }]
+        },
+        "residual_direction": {
+          "description": "1.3: 'over' -- the filters boost more than the target at residual_at_hz; 'under' -- less",
+          "oneOf": [{ "enum": ["over", "under"] }, { "type": "null" }]
+        },
+        "residual_rms_db": {
+          "description": "1.3: RMS error over residual_band_hz, weighted by the boost the target asks for (max(target_db, 0)); never more than residual_db; null when the target asks for no boost in the band",
+          "oneOf": [{ "type": "number", "minimum": 0 }, { "type": "null" }]
+        },
+        "residual_within_tolerance": {
+          "description": "1.3: the share of the requested boost (same weighting) within residual_tolerance_db of the target -- not a probability, not a verdict",
+          "oneOf": [{ "type": "number", "minimum": 0, "maximum": 1 }, { "type": "null" }]
+        },
+        "residual_tolerance_db": {
+          "description": "1.3: the tolerance residual_within_tolerance is measured with; present exactly when it is",
+          "oneOf": [{ "type": "number", "exclusiveMinimum": 0 }, { "type": "null" }]
         },
         "commentary": {
           "description": "structured, human-facing notes -- dict[str, str]; not machine-parsed",

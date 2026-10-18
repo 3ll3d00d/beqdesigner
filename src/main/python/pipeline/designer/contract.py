@@ -1,6 +1,6 @@
 '''
 DesignRequest / DesignResponse / BiquadSpec, transcribed field-for-field from
-design/designer-interface.md v1.1 §2/§3 -- the formal, standalone contract
+design/designer-interface.md v1.3 §2/§3 -- the formal, standalone contract
 for a pluggable filter designer. Any deviation from that document here is a
 bug in this file, not a design decision made here; design/pipeline-
 implementation-plan.md phase 2 (item 12).
@@ -18,6 +18,7 @@ CONTRACT_VERSION = '1.1'
 BiquadType = Literal['peaking_eq', 'low_shelf', 'high_shelf']
 DesignMethod = Literal['exact', 'fitted', 'non_parametric']
 ChannelScope = Literal['all_channels', 'lfe_only', 'mixed']
+ResidualDirection = Literal['over', 'under']
 Coverage = Literal['complete_programme', 'excerpt']
 
 
@@ -76,6 +77,17 @@ class DesignCandidate:
     # 1.1: why this design was judged unfit to publish -- non-empty on every entry of DesignResponse.rejected, None on
     # every entry of candidates. Human-facing, never machine-parsed
     rejection_reasons: Optional[list] = None  # list[str]
+
+    # 1.3: how well `filters` match the target they were fitted to (never whether the target is right), each None
+    # whenever residual_db is. residual_at_hz/residual_direction: where |error| = residual_db, and whether the filters
+    # boost more ('over') or less ('under') than the target there. residual_rms_db: RMS error over residual_band_hz
+    # weighted by the boost the target asks for (max(target_db, 0)); None when it asks for none. residual_within_
+    # tolerance: the share of that requested boost within residual_tolerance_db of the target, in [0, 1]
+    residual_at_hz: Optional[float] = None
+    residual_direction: Optional[ResidualDirection] = None
+    residual_rms_db: Optional[float] = None
+    residual_within_tolerance: Optional[float] = None
+    residual_tolerance_db: Optional[float] = None
 
 
 @dataclass(frozen=True)

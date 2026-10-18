@@ -1,4 +1,4 @@
-# BEQ filter designer interface — v1.2
+# BEQ filter designer interface — v1.3
 
 **Status:** CONTRACT, fully implemented on this repo's side, 1.1's `rejected`
 included (reviewed, and overridable by a person, on the title page) — both bindings
@@ -47,6 +47,15 @@ SHA-256 of its decoded samples, instead of carrying the samples inline; and
 `GET /health` reports whether a designer can take one. The data model (§2)
 does not change, and a caller sends an array by reference only to a designer
 it was configured to send them to, so a 1.0/1.1 designer never sees one.*
+
+*v1.3, additive (§3, "How well the filters match"): five optional fields on
+`DesignCandidate` that describe `residual_db` further — where the worst error
+is and which way (`residual_at_hz`, `residual_direction`), the typical error
+(`residual_rms_db`) and the share of the requested boost within a stated
+tolerance (`residual_within_tolerance`, `residual_tolerance_db`). `residual_db`
+and `residual_band_hz` are clarified, not changed: measured on the cascade as
+published and as the device plays it, over the band actually measured. A 1.2
+caller ignores the new fields; a designer may return them to any request.*
 
 *A test checklist for whoever implements this contract, extracted from two
 independent implementations' test suites (this repo's caller side and
@@ -239,6 +248,14 @@ class DesignCandidate:
     # 1.1: why this design was judged unfit to publish. Non-empty on every
     # entry of `rejected`; None on every entry of `candidates` — see below
     rejection_reasons: list[str] | None = None
+
+    # 1.3: how well `filters` match their target — see "How well the filters
+    # match" below. Each None whenever residual_db is
+    residual_at_hz: float | None = None          # where |error| == residual_db
+    residual_direction: Literal['over', 'under'] | None = None
+    residual_rms_db: float | None = None         # boost-weighted RMS error
+    residual_within_tolerance: float | None = None   # share of the boost, [0, 1]
+    residual_tolerance_db: float | None = None   # the tolerance that share uses
 
 @dataclass(frozen=True)
 class DesignResponse:
@@ -442,7 +459,42 @@ the worked examples below are reported. **`residual_band_hz`** is the
 `(low_hz, high_hz)` band that error was measured over — a residual number
 with no band is not comparable across titles with different knee
 frequencies. Both `None` only when there's genuinely no target to measure
-against.
+against. Measure `residual_db` on the cascade **as published and as the
+device plays it** — the canonical rounding of the parameters you return, and
+the coefficients quantised at the device rate — not on an optimiser's raw
+parameters or its fit objective; and report in `residual_band_hz` the band you
+actually measured, which may be wider than a nominal one.
+
+**How well the filters match (1.3).** Five optional fields describe that
+error further, so a reviewer can tell a worst case at one frequency from a
+poor fit throughout:
+
+- **`residual_at_hz`** — the frequency at which `|error|` equals
+  `residual_db`, inside `residual_band_hz`; and **`residual_direction`** —
+  `'over'` if the filters give more boost than the target there, `'under'` if
+  less. Both present or both absent.
+- **`residual_rms_db`** — the RMS error over `residual_band_hz`, weighted by
+  the boost the target asks for at each frequency (`max(target_db, 0)`): bins
+  where no boost is asked carry no weight. Never negative, never more than
+  `residual_db`; `None` when the target asks for no boost in the band.
+- **`residual_within_tolerance`** — the share, in `[0, 1]`, of that same
+  requested boost where `|error| <= residual_tolerance_db`: "94% of the boost
+  lands within ±0.5 dB of the target". Not a probability, and not a verdict.
+  **`residual_tolerance_db`** — the tolerance used (finite, `> 0`); the two are
+  present together or not at all.
+
+Rules the caller enforces: with `residual_db` `None`, all five are `None`;
+`residual_at_hz` lies within `residual_band_hz`; `0 <= residual_rms_db <=
+residual_db` (plus a 1e-9 rounding allowance); every value is finite.
+
+**What they do not say.** These fields measure only whether the filters match
+the target the designer built, never whether that target is right. A designer
+may build a target smaller than the whole deficit (beqforge's is
+evidence-priced: the measured low-end deficit, capped at what the title's
+loud-versus-quiet contrast supports); how much of the deficit a target
+restores is a separate question with no field in this contract — say it in
+`commentary` if you have it. A small residual means "the filters do what was
+asked", not "the correction is correct".
 
 **`fc_hz` / `slope` / uncertainties** — diagnostic. Optional even on
 success. Populate them if your method produces them; leave them `None` if
@@ -691,7 +743,9 @@ field. A designer may return the 1.1 fields to a `"1.0"` request: a 1.0
 caller ignores them (below), which is exactly why they are a separate list.
 1.2 changes only the HTTP wire (§7.1, "Arrays by reference"): a caller sends
 `"1.2"` exactly when the body holds an array by reference, and `"1.1"`
-otherwise, so a request with every array inline is unchanged. Changes within `1.x`
+otherwise, so a request with every array inline is unchanged. 1.3 adds
+optional response fields only (§3, "How well the filters match"); a designer
+may return them whatever version the request names, as it may the 1.1 fields. Changes within `1.x`
 will be additive-only (new optional fields, defaulting to `None`/absent);
 you can ignore fields you don't recognise on the request side, and the
 caller does the same for the response. A breaking change bumps to `2.0` and

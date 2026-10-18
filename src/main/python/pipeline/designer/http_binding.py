@@ -42,6 +42,7 @@ _ARRAY_DTYPE = 'float64'
 _CANDIDATE_FIELDS = (
     'filters', 'confidence', 'mv_adjust_db', 'method', 'gain_reduction_db', 'residual_db', 'residual_band_hz',
     'commentary', 'fc_hz', 'slope', 'fc_uncertainty_hz', 'slope_uncertainty', 'channel_scope', 'rejection_reasons',
+    'residual_at_hz', 'residual_direction', 'residual_rms_db', 'residual_within_tolerance', 'residual_tolerance_db',
 )
 
 

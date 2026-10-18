@@ -287,3 +287,17 @@ def test_a_declared_designer_without_a_url_is_refused():
     from pipeline.designer import http_binding
     with pytest.raises(ValueError, match="designer 'bad' needs a url"):
         http_binding.register_declared_designers({'bad': {'timeout': 3}})
+
+
+def test_a_1_3_candidates_fit_fields_are_decoded():
+    from pipeline.designer.http_binding import _response_from_json
+    body = {'contract_version': '1.3', 'candidates': [{
+        'filters': [{'type': 'low_shelf', 'freq_hz': 20.0, 'gain_db': 6.0, 'q': 0.7}], 'confidence': 0.9,
+        'mv_adjust_db': 6.0, 'method': 'fitted', 'residual_db': 1.1, 'residual_band_hz': [5.0, 212.0],
+        'residual_at_hz': 9.0, 'residual_direction': 'under', 'residual_rms_db': 0.3,
+        'residual_within_tolerance': 0.96, 'residual_tolerance_db': 0.5, 'a_later_field': 'ignored'}]}
+
+    [candidate] = _response_from_json(body).candidates
+
+    assert (candidate.residual_at_hz, candidate.residual_direction, candidate.residual_rms_db,
+            candidate.residual_within_tolerance, candidate.residual_tolerance_db) == (9.0, 'under', 0.3, 0.96, 0.5)
