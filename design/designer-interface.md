@@ -485,7 +485,10 @@ poor fit throughout:
 
 Rules the caller enforces: with `residual_db` `None`, all five are `None`;
 `residual_at_hz` lies within `residual_band_hz`; `0 <= residual_rms_db <=
-residual_db` (plus a 1e-9 rounding allowance); every value is finite.
+residual_db` (plus a 1e-9 rounding allowance); `residual_rms_db` and
+`residual_within_tolerance` are present together or not at all, since they
+share one weighting (a target asking for no boost gives neither); every value
+is finite.
 
 **What they do not say.** These fields measure only whether the filters match
 the target the designer built, never whether that target is right. A designer

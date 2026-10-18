@@ -309,6 +309,7 @@ for this checklist rather than a copy of one project's taste.
 - `residual_at_hz` outside `residual_band_hz`, or with no band, is refused.
 - `residual_rms_db` below 0, or above `residual_db` by more than 1e-9, is refused.
 - `residual_within_tolerance` outside `[0, 1]` is refused; it and `residual_tolerance_db` come together; the tolerance is `> 0`.
+- `residual_rms_db` without `residual_within_tolerance` (or the reverse) is refused: they share one weighting.
 - A non-finite value in any of the five is refused.
 - A response carrying the 1.3 fields decodes over HTTP, and a 1.2 caller's schema accepts it (`additionalProperties`).
 

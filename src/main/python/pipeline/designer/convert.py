@@ -135,6 +135,9 @@ def _validate_fit(candidate: DesignCandidate, name: str) -> None:
             not 0 <= candidate.residual_rms_db <= candidate.residual_db + _RMS_ALLOWANCE_DB:
         raise ContractViolation(f"{name}.residual_rms_db must be in [0, residual_db ({candidate.residual_db})], "
                                 f"got {candidate.residual_rms_db}")
+    if (candidate.residual_rms_db is None) != (candidate.residual_within_tolerance is None):
+        # one weighting (the boost the target asks for): a target asking for none gives neither
+        raise ContractViolation(f"{name}: residual_rms_db and residual_within_tolerance come together")
     if (candidate.residual_within_tolerance is None) != (candidate.residual_tolerance_db is None):
         raise ContractViolation(f"{name}: residual_within_tolerance and residual_tolerance_db come together")
     if candidate.residual_within_tolerance is not None and not 0 <= candidate.residual_within_tolerance <= 1:

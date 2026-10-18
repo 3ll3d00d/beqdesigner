@@ -516,7 +516,8 @@ _FIT = dict(residual_db=1.1, residual_band_hz=(5.0, 212.0), residual_at_hz=9.0, 
 def test_a_candidate_reporting_its_fit_is_valid():
     from pipeline.designer.convert import validate_response
     validate_response(_success(**_FIT))
-    validate_response(_success(**{**_FIT, 'residual_rms_db': None}))   # the target asks for no boost in the band
+    validate_response(_success(**{**_FIT, 'residual_rms_db': None, 'residual_within_tolerance': None,
+                                   'residual_tolerance_db': None}))   # the target asks for no boost in the band
     validate_response(_success(**{**_FIT, 'residual_rms_db': 1.1 + 5e-10}))   # rounding allowance
     validate_response(_success(residual_db=0.4, residual_band_hz=(5.0, 200.0)))   # a 1.2 candidate: none of them
 
@@ -532,6 +533,9 @@ def test_a_candidate_reporting_its_fit_is_valid():
     (dict(residual_rms_db=1.2), r'residual_rms_db must be in \[0, residual_db'),
     (dict(residual_within_tolerance=1.01), r'must be in \[0, 1\]'),
     (dict(residual_tolerance_db=None), 'come together'),
+    (dict(residual_rms_db=None), 'residual_rms_db and residual_within_tolerance come together'),
+    (dict(residual_within_tolerance=None, residual_tolerance_db=None),
+     'residual_rms_db and residual_within_tolerance come together'),
     (dict(residual_within_tolerance=None), 'come together'),
     (dict(residual_tolerance_db=0.0), 'must be > 0'),
     (dict(residual_rms_db=math.nan), 'finite'),
