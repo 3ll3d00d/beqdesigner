@@ -76,10 +76,13 @@ describe('status', () => {
     const router = renderApp('/')
 
     const strip = await screen.findByRole('list', { name: 'What titles need' })
-    expect(within(strip).getByText('Review').closest('a')).toHaveAttribute('href', '/titles?needs=review')
+    expect(within(strip).getByText('To review').closest('a')).toHaveAttribute('href', '/titles?needs=review')
     expect(within(strip).getByText('30')).toBeInTheDocument()
+    // each count is what is waiting for the stage, and says so: not a bare stage that reads as how many were done
+    expect(within(strip).getAllByRole('listitem').map((li) => li.querySelector('.label')!.textContent))
+      .toEqual(['Need attention', 'To extract', 'To design', 'To review', 'To publish', 'To commit', 'Done'])
     expect(screen.getByText('share not mounted')).toBeInTheDocument()
-    await userEvent.click(within(strip).getByText('Attention'))
+    await userEvent.click(within(strip).getByText('Need attention'))
     expect(router.state.location.search).toBe('?needs=attention')
   })
 

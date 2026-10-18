@@ -7,7 +7,7 @@ import { filterToQuery } from '../api/filter'
 import { useJobEvents, useSaveSchedule, useSchedule, useStatus, useTriggerSchedule, type Job } from '../api/hooks'
 import { describeJob, JobProgress, StateBadge } from '../components/JobBits'
 import { ScanSources } from '../components/ScanSources'
-import { count, NEEDS_ORDER, NEEDS_WORDS, when } from '../format'
+import { count, NEEDS_ORDER, STRIP_WORDS, when } from '../format'
 
 function Strip({ counts }: { counts: Record<string, number> }) {
   return (
@@ -16,7 +16,7 @@ function Strip({ counts }: { counts: Record<string, number> }) {
         <li key={need} className={`tier-${need}`}>
           <Link to={`/titles?${filterToQuery({ needs: [need] })}`}>
             <span className="n">{(counts[need] ?? 0).toLocaleString()}</span>
-            <span className="label">{NEEDS_WORDS[need]}</span>
+            <span className="label">{STRIP_WORDS[need]}</span>
           </Link>
         </li>
       ))}

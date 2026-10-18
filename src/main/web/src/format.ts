@@ -13,6 +13,20 @@ export const NEEDS_WORDS: Record<NeedsWord, string> = {
   done: 'Done',
 }
 
+/**
+ * The status strip's words: each count is how many titles are waiting for that stage, so it says so ("12 to extract"),
+ * rather than the bare stage, which beside a number read as how many had been done.
+ */
+export const STRIP_WORDS: Record<NeedsWord, string> = {
+  attention: 'Need attention',
+  extract: 'To extract',
+  design: 'To design',
+  review: 'To review',
+  publish: 'To publish',
+  commit: 'To commit',
+  done: 'Done',
+}
+
 export const STATE_WORDS: Record<string, string> = {
   queued: 'Queued',
   running: 'Running',
