@@ -494,10 +494,10 @@ def test_the_published_event_schema_is_one_shape_per_type():
 
 
 @pytest.mark.parametrize('body', [
-    {}, {'filter': {'ids': ['a', 'b']}}, {'filter': {'ids': ['a'], 'needs': ['review']}},
+    {}, {'filter': {'ids': [f't{i}' for i in range(501)]}}, {'filter': {'ids': ['a'], 'needs': ['review']}},
     {'filter': {'ids': ['a']}, 'through': 'publish'},
 ])
-def test_redesign_requires_a_single_id_and_design_only(service, body):
+def test_redesign_takes_1_to_500_ids_and_design_only(service, body):
     client, _, calls = service
     response = client.post('/v1/jobs/run', json={**body, 'redesign': True}, headers=AUTH)
     assert response.status_code == 422

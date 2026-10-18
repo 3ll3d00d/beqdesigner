@@ -50,6 +50,10 @@ class ScanRequest:
     allow_empty: bool = False    # a source that now lists nothing replaces what it listed (an unmounted share otherwise keeps it)
 
 
+# how many titles one redesign job may send back: enough for a whole retry phase, few enough to read in its log
+MAX_REDESIGN_IDS = 500
+
+
 @dataclass(frozen=True)
 class RunRequest:
     selection: Selection = Selection()
@@ -58,12 +62,12 @@ class RunRequest:
     retry_failed: bool = False
     unattended: bool = False     # the schedule's: a failed extraction is not tried again until its source or settings change
 
-    redesign: bool = False      # explicitly invalidate one title's existing design before running
+    redesign: bool = False      # explicitly invalidate the titles' existing designs before running (one run for them all)
 
     def __post_init__(self):
-        if self.redesign and (self.through != 'design' or len(self.selection.ids) != 1 or
+        if self.redesign and (self.through != 'design' or not 1 <= len(self.selection.ids) <= MAX_REDESIGN_IDS or
                               self.selection != Selection(ids=self.selection.ids)):
-            raise ValueError('redesign requires exactly one title id, no other filters, and through=design')
+            raise ValueError(f'redesign requires 1 to {MAX_REDESIGN_IDS} title ids, no other filters, and through=design')
         if self.through not in THROUGH:
             raise ValueError(f"through must be one of {', '.join(THROUGH)}; got {self.through!r}")
 

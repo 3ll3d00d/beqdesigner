@@ -231,7 +231,7 @@ Every request and response body is a named pydantic model in
 | `GET /v1/titles/{id}` | → `Title` | 404 if unknown |
 | `POST /v1/plan` | `RunRequest` → `PlanPreview` | dry run: what would run and what would be skipped and why |
 | `POST /v1/jobs/scan` | `ScanRequest` → 202 `Job` | |
-| `POST /v1/jobs/run` | `RunRequest` → 202 `Job` | |
+| `POST /v1/jobs/run` | `RunRequest` → 202 `Job` | `redesign: true` with 1-500 `ids` (no other filter, through design) sends every one back, all checked first, then designs them in one run |
 | `POST /v1/jobs/accept` | `AcceptRequest` → 202 `Job` | guarded (§6.4) |
 | `GET /v1/jobs` | query `state`, `kind`, `limit` → `JobList` | newest first |
 | `GET /v1/jobs/{id}` | → `Job` | |

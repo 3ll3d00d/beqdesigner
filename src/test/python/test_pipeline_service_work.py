@@ -226,6 +226,60 @@ def test_redesign_reopens_only_the_requested_title_before_running(manager, profi
     assert 'Sent back for redesign' in read_entry(queue, ids[0]).reviewer_note
 
 
+def _scanned_with_entries(manager, profile, status='pending'):
+    from pipeline.library.index import LibraryIndex, index_path
+    from pipeline.review import update_entry
+    from pipeline.service.context import load_context
+    from review_entry_fixture import write_entry
+
+    _done(manager, ScanRequest())
+    ctx = load_context(str(profile), {})
+    with LibraryIndex(index_path(ctx.work_dir)) as index:
+        ids = [row.id for row in index.titles()]
+    queue = ctx.scan_settings().queue_dir
+    for title_id in ids:
+        write_entry(queue, title_id, status=status)
+        update_entry(queue, title_id, design_fingerprint='old')
+    return ids, queue
+
+
+def test_redesign_sends_several_titles_back_and_designs_them_in_one_run(manager, profile, monkeypatch):
+    ''' A retry phase: one job, so one run takes them all and the whole designer pool is used. '''
+    from pipeline.review import read_entry
+    ids, queue = _scanned_with_entries(manager, profile)
+    assert len(ids) >= 2
+    runs = []
+
+    def stages(profile_, selection, through, **kwargs):
+        runs.append(selection.ids)
+        assert all(read_entry(queue, t).design_fingerprint is None for t in selection.ids)
+        return StagesReport(through, len(selection.ids))
+
+    monkeypatch.setattr(work, 'run_stages', stages)
+    job = _done(manager, RunRequest(Selection(ids=tuple(ids[:2])), scan_first=False, redesign=True))
+
+    assert job.state == 'succeeded', job.error
+    assert runs == [tuple(ids[:2])]
+    assert all('Sent back for redesign' in read_entry(queue, t).reviewer_note for t in ids[:2])
+    assert all(read_entry(queue, t).design_fingerprint == 'old' for t in ids[2:])
+
+
+@pytest.mark.parametrize('problem, message', [('unknown', 'no such title: nope'),
+                                              ('published', 'allow_repository_writes')])
+def test_one_bad_title_fails_a_redesign_before_any_is_sent_back(manager, profile, monkeypatch, problem, message):
+    from pipeline.review import read_entry, update_entry
+    ids, queue = _scanned_with_entries(manager, profile)
+    wanted = (ids[0], 'nope') if problem == 'unknown' else (ids[0], ids[1])
+    if problem == 'published':
+        update_entry(queue, ids[1], status='published')
+    monkeypatch.setattr(work, 'run_stages', lambda *args, **kwargs: pytest.fail('must not run'))
+
+    job = _done(manager, RunRequest(Selection(ids=wanted), scan_first=False, redesign=True))
+
+    assert job.state == 'failed' and message in job.error
+    assert read_entry(queue, ids[0]).design_fingerprint == 'old'   # nothing was sent back
+
+
 def test_redesign_refuses_published_titles_without_repository_permission(manager, profile, monkeypatch):
     from pipeline.library.index import LibraryIndex, index_path
     from pipeline.review import read_entry

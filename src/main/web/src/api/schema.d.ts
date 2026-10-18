@@ -1111,7 +1111,7 @@ export interface components {
             retry_failed: boolean;
             /**
              * Redesign
-             * @description Invalidate the existing design before running. Requires exactly one id, no other filters, and through=design; the title must be reviewed again.
+             * @description Invalidate the existing designs before running, then design them in one run (the whole designer pool at once). Requires 1 to 500 ids, no other filters, and through=design; the titles must be reviewed again.
              * @default false
              */
             redesign: boolean;

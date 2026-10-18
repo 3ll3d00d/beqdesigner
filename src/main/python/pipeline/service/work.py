@@ -78,19 +78,34 @@ def run(context: JobContext, request: RunRequest, control: JobControl, *, allow_
         if request.scan_first or not index.generation:   # never scanned: there is nothing to select from
             scanned = index.scan(context.profile, settings)
         if request.redesign:
-            title_id = request.selection.ids[0]
-            if index.title(title_id) is None:
-                raise ValueError(f'no such title: {title_id}')
-            entry = read_entry(settings.queue_dir, title_id)
-            if entry.status == 'published' and not allow_repository_writes:
-                raise ValueError('redesigning a published title requires allow_repository_writes in service config')
-            if control.cancelled():
-                return RunOutcome(scanned, StagesReport('design', 0, cancelled=True))
-            redesign_entry(settings.queue_dir, title_id,
-                           xml_repo=RepoTarget(settings.xml_repo) if settings.xml_repo else None,
-                           images_repo=RepoTarget(settings.images_repo) if settings.images_repo else None,
-                           xml_dir=settings.xml_dir, image_dir=settings.image_dir,
-                           category_folders=settings.category_folders, meta_defaults=settings.meta_defaults)
+            title_ids = request.selection.ids
+            # every title is checked before any is sent back: a bad id fails the job with nothing changed
+            unknown = [t for t in title_ids if index.title(t) is None]
+            if unknown:
+                raise ValueError(f'no such title: {", ".join(unknown)}')
+            undesigned, published = [], []
+            for title_id in title_ids:
+                try:
+                    entry = read_entry(settings.queue_dir, title_id)
+                except FileNotFoundError:
+                    undesigned.append(title_id)
+                    continue
+                if entry.status == 'published':
+                    published.append(title_id)
+            if undesigned:
+                raise ValueError(f'not designed yet, so nothing to redesign: {", ".join(undesigned)}')
+            if published and not allow_repository_writes:
+                raise ValueError('redesigning a published title requires allow_repository_writes in service config: '
+                                 + ', '.join(published))
+            for title_id in title_ids:
+                if control.cancelled():   # those sent back so far are designed by the next run that takes them
+                    index.refresh(context.profile, settings)
+                    return RunOutcome(scanned, StagesReport('design', 0, cancelled=True))
+                redesign_entry(settings.queue_dir, title_id,
+                               xml_repo=RepoTarget(settings.xml_repo) if settings.xml_repo else None,
+                               images_repo=RepoTarget(settings.images_repo) if settings.images_repo else None,
+                               xml_dir=settings.xml_dir, image_dir=settings.image_dir,
+                               category_folders=settings.category_folders, meta_defaults=settings.meta_defaults)
             index.refresh(context.profile, settings)
         report = run_stages(context.profile, request.selection, request.through, run_config=run_config, index=index,
                             publish=publish, settings=settings, retry_failed=request.retry_failed,

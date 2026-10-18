@@ -402,6 +402,11 @@ scan is more than 12 hours old.
 - The source registry has no production caller until a second kind needs it.
 - Redesigning pending work resets its selected candidate, while preserving
   reviewer metadata, art, and note.
+- A service redesign job takes 1-500 titles (a retry phase after a designer
+  fix): every id is checked first (known, designed, not published unless
+  repository writes are allowed), so one bad id changes nothing; then each is
+  sent back and they are designed in one run, so the whole designer pool works
+  on them.
 - A multichannel project hash observes the linked master filter. An edit made
   only to a freed slave channel is not currently detected as a publication
   edit; conflicting authoritative projects are refused.

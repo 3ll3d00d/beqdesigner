@@ -13,6 +13,7 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field, RootModel, mo
 
 from pipeline.library.bulk import DEFAULT_ACCEPT_THRESHOLD
 from pipeline.library.selection import Selection
+from pipeline.service.jobs import MAX_REDESIGN_IDS
 from pipeline.library.state import NEEDS, FLAG_DUPLICATE, FLAG_GONE, FLAG_IGNORED, FLAG_IN_CATALOGUE, FLAG_SHADOWED
 from pipeline.library.year import YEAR_PATTERN, YearRange, numeric_year
 
@@ -342,15 +343,18 @@ class RunJobRequest(Input):
     scan_first: bool = Field(True, description='List the sources before selecting, so new titles are seen.')
     retry_failed: bool = Field(False, description='Also run titles whose extraction or design failed before.')
 
-    redesign: bool = Field(False, description='Invalidate the existing design before running. Requires exactly one id, '
-                                            'no other filters, and through=design; the title must be reviewed again.')
+    redesign: bool = Field(False, description='Invalidate the existing designs before running, then design them in one run '
+                                            f'(the whole designer pool at once). Requires 1 to {MAX_REDESIGN_IDS} ids, no '
+                                            'other filters, and through=design; the titles must be reviewed again.')
 
     @model_validator(mode='after')
     def validate_redesign(self):
         if self.redesign:
             selection = self.filter.to_selection()
-            if self.through != Through.design or len(selection.ids) != 1 or selection != Selection(ids=selection.ids):
-                raise ValueError('redesign requires exactly one title id, no other filters, and through=design')
+            if self.through != Through.design or not 1 <= len(selection.ids) <= MAX_REDESIGN_IDS \
+                    or selection != Selection(ids=selection.ids):
+                raise ValueError(f'redesign requires 1 to {MAX_REDESIGN_IDS} title ids, no other filters, and '
+                                 'through=design')
         return self
 
 
