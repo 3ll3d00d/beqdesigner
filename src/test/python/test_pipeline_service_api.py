@@ -258,6 +258,8 @@ def test_titles_are_sorted_by_any_column_and_filtered_on_detail_and_flags(servic
     assert titles(detail=word.upper()) == [t['title'] for t in every if word.casefold() in t['detail'].casefold()]
     assert titles(detail='no such words') == []
     assert titles(flags=['Gone']) == []
+    assert titles(declined=True) == []   # the fixture's titles are not designed yet
+    assert sorted(titles(declined=False)) == ['Alien', 'Dune', 'Heat']
     assert client.get('/v1/titles', params={'sort': 'colour'}, headers=AUTH).status_code == 422
     assert client.get('/v1/titles', params={'flags': 'purple'}, headers=AUTH).status_code == 422
 
@@ -304,7 +306,8 @@ def test_a_run_job_takes_the_filter_and_reports_a_typed_result(service):
 
     assert job['kind'] == 'run' and job['state'] == 'succeeded' and job['origin'] == 'api'
     assert job['request'] == {'filter': {'needs': [], 'new_since_scan': False, 'source': None, 'match': None, 'ids': [],
-                                         'kind': 'movie', 'year': '2026', 'detail': None, 'flags': []},
+                                         'kind': 'movie', 'year': '2026', 'detail': None, 'flags': [],
+                                         'declined': None},
                               'through': 'design', 'scan_first': True, 'retry_failed': False, 'redesign': False}
     assert job['result']['scan']['titles'] == 3 and job['result']['attempted'] == ['x'] and job['result']['failed'] == []
     assert job['progress'] == {'done': 1, 'total': 1, 'title': 'Alien', 'stage': 'design', 'id': 'x',

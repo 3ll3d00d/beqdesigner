@@ -1581,6 +1581,11 @@ export interface components {
              * @description Only titles carrying every one of these flags.
              */
             flags?: components["schemas"]["Flag"][];
+            /**
+             * Declined
+             * @description true: only titles whose design the designer declined (waiting for review); false: only those it did not; unset: either.
+             */
+            declined?: boolean | null;
         };
         /** TitleMessage */
         TitleMessage: {
@@ -1893,6 +1898,8 @@ export interface operations {
                 detail?: string | null;
                 /** @description Only titles carrying every one of these flags. */
                 flags?: components["schemas"]["Flag"][];
+                /** @description true: only titles whose design the designer declined (waiting for review); false: only those it did not; unset: either. */
+                declined?: boolean | null;
                 /** @description Include titles that need nothing (as the work list does only on Done). */
                 include_done?: boolean;
                 /** @description Order by this column (work-list order within equal values); a title without a year or confidence comes last either way. */
@@ -2249,6 +2256,8 @@ export interface operations {
                 detail?: string | null;
                 /** @description Only titles carrying every one of these flags. */
                 flags?: components["schemas"]["Flag"][];
+                /** @description true: only titles whose design the designer declined (waiting for review); false: only those it did not; unset: either. */
+                declined?: boolean | null;
                 /** @description The title just decided (or open): the next one after it is found. Absent: the first waiting title in the list. */
                 after?: string | null;
             };

@@ -114,12 +114,14 @@ class TitleFilter(Input):
     year: Optional[YearExpression] = None
     detail: Optional[str] = Field(None, description="Case-insensitive text in the title's detail (what it waits for).")
     flags: List[Flag] = Field(default_factory=list, description='Only titles carrying every one of these flags.')
+    declined: Optional[bool] = Field(None, description='true: only titles whose design the designer declined (waiting for '
+                                                       'review); false: only those it did not; unset: either.')
 
     def to_selection(self) -> Selection:
         return Selection(needs=tuple(n.value for n in self.needs), source=self.source, match=self.match,
                          ids=tuple(self.ids), new_since_scan=self.new_since_scan,
                          kind=self.kind.value if self.kind else None, year=self.year, detail=self.detail,
-                         flags=tuple(f.value for f in self.flags))
+                         flags=tuple(f.value for f in self.flags), declined=self.declined)
 
     @classmethod
     def of(cls, selection: Any) -> 'TitleFilter':
@@ -128,7 +130,7 @@ class TitleFilter(Input):
         return cls(needs=list(data.get('needs') or ()), new_since_scan=bool(data.get('new_since_scan')),
                    source=data.get('source'), match=data.get('match'), ids=list(data.get('ids') or ()),
                    kind=data.get('kind'), year=data.get('year'), detail=data.get('detail'),
-                   flags=list(data.get('flags') or ()))
+                   flags=list(data.get('flags') or ()), declined=data.get('declined'))
 
 
 class TitleSort(str, Enum):

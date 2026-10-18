@@ -94,6 +94,19 @@ def test_detail_and_flags_narrow_the_rows(env):
     assert Selection(detail='waiting', flags=(FLAG_GONE,)).describe() == 'detail matching "waiting", flagged Gone'
 
 
+def test_declined_finds_the_titles_the_designer_declined_and_the_rest(env):
+    declined, designed, new = _item('a'), _item('b'), _item('c')
+    for item in (declined, designed):
+        _extracted(env, item)
+    _entry(env, declined, candidates=0, decline_reason='no_signal', decline_message='nothing below 20 Hz')
+    _entry(env, designed)
+    _scan(env, declined, designed, new)
+
+    assert [r.id for r in Selection(declined=True).rows(env.index)] == ['fs-a']
+    assert sorted(r.id for r in Selection(declined=False).rows(env.index)) == ['fs-b', 'fs-c']
+    assert Selection(declined=True, needs=('review',)).describe() == 'needs review, declined by the designer'
+
+
 def test_a_selection_checks_kind_and_year_when_it_is_made():
     assert Selection(kind='', year='').is_empty and Selection(year=' >=2020 ').year == '>=2020'
     with pytest.raises(ValueError, match='kind must be one of movie, tv'):

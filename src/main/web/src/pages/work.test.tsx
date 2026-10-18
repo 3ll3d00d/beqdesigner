@@ -18,7 +18,7 @@ function json(body: unknown, init?: number) {
 describe('the filter in the address bar', () => {
   it('goes there and back', () => {
     const filter = { needs: ['extract' as const, 'design' as const], kind: 'movie' as const, year: '>=2020', match: 'alien',
-                     source: 'films', new_since_scan: true, ids: ['a'], detail: 'rolloff', flags: ['Gone' as const] }
+                     source: 'films', new_since_scan: true, ids: ['a'], detail: 'rolloff', flags: ['Gone' as const], declined: true }
     expect(filterFromQuery(filterToQuery(filter))).toEqual(filter)
     expect(filterFromQuery(new URLSearchParams('needs=nonsense&kind=film&year=%20&flags=Purple'))).toEqual({})
   })

@@ -26,6 +26,8 @@ export function filterFromQuery(params: URLSearchParams): TitleFilter {
   const flags = params.getAll('flags').filter((f): f is Flag => (FLAGS as readonly string[]).includes(f))
   if (flags.length) filter.flags = flags
   if (params.get('new_since_scan') === 'true') filter.new_since_scan = true
+  const declined = params.get('declined')
+  if (declined === 'true' || declined === 'false') filter.declined = declined === 'true'
   const ids = params.getAll('ids').filter(Boolean)
   if (ids.length) filter.ids = ids
   return filter
@@ -41,6 +43,7 @@ export function filterToQuery(filter: TitleFilter): URLSearchParams {
   }
   for (const flag of filter.flags ?? []) params.append('flags', flag)
   if (filter.new_since_scan) params.set('new_since_scan', 'true')
+  if (typeof filter.declined === 'boolean') params.set('declined', String(filter.declined))
   for (const id of filter.ids ?? []) params.append('ids', id)
   return params
 }
@@ -60,6 +63,8 @@ export function describeFilter(filter: TitleFilter): string {
   if (filter.detail) parts.push(`detail matching “${filter.detail}”`)
   if (filter.flags?.length) parts.push(`flagged ${filter.flags.join(' and ')}`)
   if (filter.new_since_scan) parts.push('new since the last scan')
+  if (filter.declined === true) parts.push('declined by the designer')
+  if (filter.declined === false) parts.push('not declined by the designer')
   if (filter.ids?.length) parts.push(`${filter.ids.length} chosen`)
   return parts.length ? parts.join(', ') : 'every title'
 }

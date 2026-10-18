@@ -155,6 +155,27 @@ describe('titles', () => {
     await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
   })
 
+  it('filters on whether the designer declined', async () => {
+    const asked: URLSearchParams[] = []
+    server.use(statusRoute(status({ index: index() })),
+               http.get('/v1/titles', ({ request }) => {
+                 asked.push(new URL(request.url).searchParams)
+                 return json({ total: 1, offset: 0, limit: 100, titles: [title('a')] })
+               }))
+    const router = renderApp('/titles')
+
+    await userEvent.selectOptions(await screen.findByLabelText('Designer'), 'Declined')
+    await waitFor(() => expect(router.state.location.search).toBe('?declined=true'))
+    await waitFor(() => expect(asked.at(-1)?.get('declined')).toBe('true'))
+    expect(screen.getByText(/declined by the designer/)).toBeInTheDocument()
+
+    await userEvent.selectOptions(screen.getByLabelText('Designer'), 'Not declined')
+    await waitFor(() => expect(asked.at(-1)?.get('declined')).toBe('false'))
+    await userEvent.selectOptions(screen.getByLabelText('Designer'), 'Any')
+    await waitFor(() => expect(router.state.location.search).toBe(''))
+    await waitFor(() => expect(asked.at(-1)?.has('declined')).toBe(false))
+  })
+
   it('opens the next title waiting, or says there is none', async () => {
     let none = false
     server.use(statusRoute(status({ index: index() })),

@@ -229,6 +229,15 @@ export function TitlesPage() {
           <input type="checkbox" checked={includeDone} onChange={(e) => update(filter, e.target.checked)} />
           Include titles that need nothing
         </label>
+        <label className="inline">
+          Designer
+          <select aria-label="Designer" value={filter.declined === undefined || filter.declined === null ? '' : String(filter.declined)}
+                  onChange={(e) => update({ ...filter, declined: e.target.value === '' ? null : e.target.value === 'true' })}>
+            <option value="">Any</option>
+            <option value="true">Declined</option>
+            <option value="false">Not declined</option>
+          </select>
+        </label>
       </div>
       <Repositories filter={filter} />
       {titles.isError && <p role="alert" className="problem">{titles.error.message}</p>}

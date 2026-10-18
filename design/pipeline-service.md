@@ -274,8 +274,9 @@ discriminator in the schema; the SSE `event:` line is the same `type`). Each has
  "detail": "rolloff", "flags": ["Gone"]}
 ```
 
-`detail` (text in the title's detail) and `flags` (every one given) are the
-titles table's; the CLI has no flag for them.
+`detail` (text in the title's detail), `flags` (every one given) and `declined`
+(true: designs the designer declined, waiting for review; false: the rest) are
+the titles table's; the CLI has no flag for them.
 
 Every field is optional and they are ANDed; `{}` is every title. On
 `GET /v1/titles` they are query parameters (`needs` repeated,

@@ -29,6 +29,9 @@ PUBLISH_STATES = ('none', 'not_written', 'written', 'out_of_date')
 COMMIT_STATES = ('none', 'uncommitted', 'committed', 'pushed', 'unknown')
 
 # `needs` values, in the order the pipeline strip shows them; the CLI's --needs vocabulary
+# how a declined design's detail starts (selection.Selection.declined finds them by it)
+DECLINED_DETAIL = 'designer declined:'
+
 NEEDS = ('attention', 'review', 'extract', 'design', 'publish', 'commit', 'done')
 TIERS = ('attention', 'human', 'machine', 'done')
 TIER_OF_NEEDS = {'attention': 'attention', 'review': 'human', 'extract': 'machine', 'design': 'machine',
@@ -115,7 +118,7 @@ def derive_needs(s: StageStates) -> Needs:
     problems = '; '.join(s.metadata_problems)
     if s.review == 'pending' and s.design == 'current':
         if s.decline:
-            detail = f'designer declined: {s.decline}'
+            detail = f'{DECLINED_DETAIL} {s.decline}'
         else:
             detail = (f'conf {s.confidence:.2f} - ' if s.confidence is not None else '') + \
                      f'{s.candidates} candidate{"" if s.candidates == 1 else "s"}'

@@ -21,7 +21,8 @@ from dataclasses import dataclass, field
 from typing import Iterable, List, Optional, Sequence, Tuple
 
 from pipeline.library.index import LibraryIndex, TitleRow
-from pipeline.library.state import FLAG_DUPLICATE, FLAG_GONE, FLAG_IGNORED, FLAG_IN_CATALOGUE, FLAG_SHADOWED, NEEDS
+from pipeline.library.state import DECLINED_DETAIL, FLAG_DUPLICATE, FLAG_GONE, FLAG_IGNORED, FLAG_IN_CATALOGUE, \
+    FLAG_SHADOWED, NEEDS
 from pipeline.library.year import YearRange
 
 KINDS = ('movie', 'tv')
@@ -52,6 +53,8 @@ class Selection:
     :param year: a year expression (pipeline.library.year): only titles with a numeric year it contains.
     :param detail: case-insensitive text found in the title's detail (what it is waiting for, in words).
     :param flags: only titles carrying every one of these (state.FLAG_*).
+    :param declined: True for only titles whose design the designer declined (waiting for review: their detail is
+        state.DECLINED_DETAIL), False for only titles it did not; None for either.
     '''
     needs: Tuple[str, ...] = ()
     source: Optional[str] = None
@@ -62,6 +65,7 @@ class Selection:
     year: Optional[str] = None
     detail: Optional[str] = None
     flags: Tuple[str, ...] = ()
+    declined: Optional[bool] = None
 
     def __post_init__(self):
         object.__setattr__(self, 'needs', _unique(self.needs))
@@ -106,6 +110,8 @@ class Selection:
             rows = [r for r in rows if text in r.detail.casefold()]
         if self.flags:
             rows = [r for r in rows if set(self.flags) <= set(r.flags)]
+        if self.declined is not None:
+            rows = [r for r in rows if r.detail.startswith(DECLINED_DETAIL) is self.declined]
         return rows
 
     def describe(self) -> str:
@@ -127,6 +133,8 @@ class Selection:
             parts.append(f'detail matching "{self.detail}"')
         if self.flags:
             parts.append(f"flagged {' and '.join(self.flags)}")
+        if self.declined is not None:
+            parts.append('declined by the designer' if self.declined else 'not declined by the designer')
         return ', '.join(parts) or 'every title'
 
 

@@ -498,6 +498,24 @@
             "description": "Only titles carrying every one of these flags."
           },
           {
+            "name": "declined",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "true: only titles whose design the designer declined (waiting for review); false: only those it did not; unset: either.",
+              "title": "Declined"
+            },
+            "description": "true: only titles whose design the designer declined (waiting for review); false: only those it did not; unset: either."
+          },
+          {
             "name": "include_done",
             "in": "query",
             "required": false,
@@ -1154,6 +1172,24 @@
               "title": "Flags"
             },
             "description": "Only titles carrying every one of these flags."
+          },
+          {
+            "name": "declined",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "true: only titles whose design the designer declined (waiting for review); false: only those it did not; unset: either.",
+              "title": "Declined"
+            },
+            "description": "true: only titles whose design the designer declined (waiting for review); false: only those it did not; unset: either."
           },
           {
             "name": "after",
@@ -4998,6 +5034,18 @@
             "type": "array",
             "title": "Flags",
             "description": "Only titles carrying every one of these flags."
+          },
+          "declined": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Declined",
+            "description": "true: only titles whose design the designer declined (waiting for review); false: only those it did not; unset: either."
           }
         },
         "additionalProperties": false,
