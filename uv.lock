@@ -212,7 +212,7 @@ service = [
 [package.metadata]
 requires-dist = [
     { name = "awesomeversion" },
-    { name = "beqforge", extras = ["optimiser"], specifier = ">=0.2.3" },
+    { name = "beqforge", extras = ["optimiser"], specifier = ">=0.2.5" },
     { name = "ffmpeg-python" },
     { name = "graphviz" },
     { name = "hamcws", specifier = ">=0.2.7,<0.3.0" },
@@ -259,14 +259,14 @@ service = [
 
 [[package]]
 name = "beqforge"
-version = "0.2.3"
+version = "0.2.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/68/06/3ab67ff3277562e5e0c74f41681f42bc0cf2eed591e0a6385c0fe135f2e8/beqforge-0.2.3.tar.gz", hash = "sha256:f09d2633af16a65b31d2d318d3b27be57495a0cdb47a897dcf676400f6fd02b4", size = 10257454, upload-time = "2026-10-17T22:08:28.624Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/97/9c/e777dad45b01bede369b6ca9378a03655b2f57d4888362d1e450f2a30020/beqforge-0.2.5.tar.gz", hash = "sha256:d7fd14092ad288d591d27fb30410f8036a13f506f562bfb3fb561fc4cf34d7b3", size = 10288122, upload-time = "2026-10-18T17:08:01.315Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ff/36/347165b1940e6d4bd5fd4242380e4f4000efccb069d00ebc2043df7bb7ba/beqforge-0.2.3-py3-none-any.whl", hash = "sha256:7749b0eb2ebc27516eb29ccfe117e0ffc1e16de8a6910da61fffebaefbb628b3", size = 8138923, upload-time = "2026-10-17T22:08:25.749Z" },
+    { url = "https://files.pythonhosted.org/packages/bb/1e/41abf4949e0ec301a67960e5640861756c98c93ff4fc4860f13b4348695e/beqforge-0.2.5-py3-none-any.whl", hash = "sha256:47cb6f4318215b5e48b7bac7db847db4dcd0a537f6f31c3542d9483b5789341f", size = 8150153, upload-time = "2026-10-18T17:07:58.787Z" },
 ]
 
 [package.optional-dependencies]

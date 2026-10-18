@@ -47,7 +47,6 @@ outside it. A beqforge version bump invalidates its bundled optimiser seed
 
 | Priority | ID | R | Previous IDs | Status | Depends on |
 |---|---|---|---|---|---|
-| 10 | P1 | | -- | Part (a) built: the filter on a device profile; part (b), optimising for devices, waits on beqforge TODO 27 | beqforge `optimise_parameters` in a release |
 | 11 | D4 | | by-reference §5 | Release part done (each entry records its designer and build); the drift behavior is not started | Designer build identity policy (full drift behavior only) |
 | 15 | E2 | R | chunk 31, T2-T4 | Waiting for manual acceptance; everything it exercises is built and published | Real media, a JRiver server and disposable repositories |
 | 16 | E3 | | chunk 32, T7 | Not started; the captured library (E1) has no DVDs | A DVD rip in a JRiver library, captured as E1 was |
@@ -66,16 +65,6 @@ main-title fallback is truthful for the catalogue's discs; if it silently
 duplicates or picks the wrong title, it moves into it. (E4, Blu-ray, is done.)
 
 ## Work in priority order
-
-### P1 — Optimise a filter for device profiles
-
-[device-profiles.md](device-profiles.md). The main window shows the combined filter as each chosen device profile
-stores it, with its largest error (part a, built). Part (b): an *Optimise for devices…* action that asks beqforge's
-`optimise_parameters` (handed over as beqforge TODO 27) for new freq/Q/gain across the ticked profiles jointly, shows
-each profile's error before and after, and applies the result as one filter edit.
-
-**Done when:** a beqforge release has `optimise_parameters`; beqdesigner pins it, has the action, and tests cover the
-call, the before/after display, applying the result and refusing one that makes any chosen profile worse.
 
 ### E2 — End-to-end acceptance record
 

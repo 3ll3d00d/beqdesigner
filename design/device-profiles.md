@@ -1,6 +1,6 @@
 # Device profiles: what a filter becomes on a device, and optimising it
 
-Part (a) is **built** (2026-10-18). Part (b) is **design, not built**: it waits on beqforge (`TODO.md` P1).
+Both parts are **built** (2026-10-18): (a) the filter on a device, (b) optimising it for devices (beqforge 0.2.5).
 
 ## Why
 
@@ -37,25 +37,29 @@ Code: `model/device_profile.py` (profiles, `realise()`), `FilterModel.realised()
 `FilterModel.get_curve_data()` (`model/filter.py`), `model/device_profile_qt.py` (the menu, summary line and dialogs).
 Tests: `test_device_profile.py`, `gui/test_device_profiles.py`.
 
-## (b) Optimise for devices (design, not built)
+## (b) Optimise for devices (built)
 
-Decided with the owner (2026-10-18):
+*Devices > Optimise filter for these devices…* (offered with a profile ticked and a peaking or shelf filter to adjust)
+asks beqforge's `beqoptimiser.optimise_parameters` (0.2.5) for new frequency, Q and gain:
 
-* **In parameter terms.** The optimised filter is still freq, Q and gain per section, on the dialog's own grid (0.01 Hz,
-  0.0001, 0.01 dB). A BEQ is saved, exported, published and loaded as parameters, so nothing downstream changes: no
-  custom coefficients, no catalogue schema.
-* **Across the chosen profiles jointly.** The same parameters are realised on every device, so the search minimises the
-  worst error over all the profiles the designer ticks, and reports each one's error before and after.
-* **The search is beqforge's.** It is handed over as beqforge TODO 27
-  (`plans/parameter-space-optimisation.md`, `optimise_parameters`), beside the existing direct-coefficient `optimise()`.
+* **In parameter terms.** The result is still freq, Q and gain per filter, on the dialog's own grid (0.01 Hz, 0.0001,
+  0.01 dB), so it saves, exports, publishes and loads like any filter: no custom coefficients, no catalogue schema.
+* **Across the ticked profiles jointly.** beqforge minimises the worst error over all of them and refuses a step that
+  makes any profile worse than both its original error and the 0.5 dB margin. Parameters move only a little (±1%
+  frequency, ±2% Q, ±0.1 dB gain).
+* **What is searched.** Peaking and shelf filters; a shelf stacked n times is n identical sections, which stay
+  identical, so it comes back still stacked. Everything else (pass filters, a gain) is held at both rates but counts in
+  the response. A cascade that one profile realises unstably (a 3 Hz high-pass as float32 at 96 kHz) cannot be compared,
+  and the dialog says so.
+* **Applying.** The dialog (run on the thread pool) shows each profile's largest error before and after and every
+  parameter that changes. *Apply* is offered only when beqforge publishes the result (`replacement` or `improvement`),
+  it changes something, and no ticked profile's error is larger than before; each changed filter then replaces its
+  original by id (`FilterModel.save`), as an edit in the filter dialog would. There is no undo; the dialog shows the
+  old values.
 
-beqdesigner's part, once a beqforge release has it: an *Optimise for devices…* action on the filter that calls
-`optimise_parameters` with the filter's sections and the ticked profiles, shows the before/after errors per profile, and
-on acceptance replaces the sections' parameters as one undoable filter edit. Sections it cannot change (pass filters, a
-gain) stay as they are. A result that does not improve every chosen profile is shown, not applied.
+Code: `model/device_optimise.py` (the filter as beqforge's sections and back, `optimise_for`, `Optimisation`),
+`OptimiseDialog`/`OptimiseJob` in `model/device_profile_qt.py`, the action in `app.py`. Tests:
+`test_device_optimise.py`, `gui/test_device_profiles.py`.
 
-**Packaging (b):** beqoptimiser's result cache identifies its implementation by hashing its own `core.py` and
-`beq_common/biquad.py` source and ships a seed (`data/seed.json.gz`), read with `importlib.resources`. A PyInstaller app
-holds bytecode only, so when (b) calls the cached `optimise` path, `beqdesigner.spec` must bundle those files
-(`collect_data_files('beqoptimiser', include_py_files=True)`, likewise `beq_common`), or call it with `cache=False`.
-Part (a) uses only `Float32`, `FixedPoint`, `magnitude` and `stable`, which read nothing.
+**Packaging.** beqoptimiser's result cache identifies its implementation by hashing its own source, which a PyInstaller
+app does not ship, so beqdesigner calls it with `cache=False` (a search takes 0.2-4 s). Nothing extra is bundled.

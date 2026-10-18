@@ -164,7 +164,9 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         # the filter as a device stores it: a Devices menu beside Show Filters, its errors under the filter table
         from model.device_profile_qt import DeviceProfileControls
         self.__device_profiles = DeviceProfileControls(self, self.preferences, on_change=self.__on_device_profiles_changed,
-                                                       summary=self.__filter_model.device_summary)
+                                                       summary=self.__filter_model.device_summary,
+                                                       on_optimise=self.__optimise_for_devices,
+                                                       can_optimise=self.__can_optimise_for_devices)
         self.selectorsLayout.addWidget(QLabel('Devices', parent=self), 0, 3, 1, 1)
         self.selectorsLayout.addWidget(self.__device_profiles.button, 1, 3, 1, 1)
         self.rightPane.insertWidget(self.rightPane.indexOf(self.filterView) + 1, self.__device_profiles.label)
@@ -680,6 +682,21 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         ''' The device profiles the chart shows changed: draw the filter on them, and say their errors. '''
         self.__magnitude_model.redraw()
         self.__refresh_device_summary()
+
+    def __can_optimise_for_devices(self):
+        from model.device_optimise import SEARCHABLE
+        return any(type(f) in SEARCHABLE for f in self.__filter_model.filter)
+
+    def __optimise_for_devices(self):
+        ''' New freq/Q/gain for the filter, as close as can be on the devices the chart shows (model/device_optimise.py). '''
+        from model.device_profile import shown_profiles
+        from model.device_profile_qt import OptimiseDialog
+
+        def apply(filters):
+            for f in filters:
+                self.__filter_model.save(f)
+
+        OptimiseDialog(self, list(self.__filter_model.filter), shown_profiles(self.preferences), apply).exec()
 
     def __refresh_device_summary(self):
         controls = getattr(self, '_BeqDesigner__device_profiles', None)   # on_filter_change runs before it is made

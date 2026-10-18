@@ -11,7 +11,8 @@ from qtpy.QtCore import QSettings
 from qtpy.QtWidgets import QApplication, QDialog
 
 from model.device_profile import BUILTIN_PROFILES, DeviceProfile, custom_profiles, set_shown
-from model.device_profile_qt import MANAGE, DeviceProfileControls, DeviceProfilesDialog, ProfileForm
+from model.device_profile_qt import MANAGE, OPTIMISE, DeviceProfileControls, DeviceProfilesDialog, OptimiseDialog, \
+    ProfileForm
 from model.filter import FilterModel
 from model.iir import COMBINED, CompleteFilter, PeakingEQ
 from model.preferences import SYSTEM_CHECK_FOR_UPDATES, Preferences
@@ -141,6 +142,99 @@ def test_the_main_window_has_the_devices_menu_beside_show_filters(qtbot, tmp_pat
         next(a for a in controls.menu.actions() if a.data() == HD.name).setChecked(True)   # no filter yet: nothing to say
 
         assert controls.button.text() == 'Devices (1)' and controls.label.isHidden()
+    finally:
+        for handler in list(root.handlers):
+            if handler not in handlers:
+                root.removeHandler(handler)
+
+
+def _run_in_place(job):
+    job.run()
+
+
+def test_the_optimise_dialog_shows_each_device_and_change_and_applies_them(qtbot):
+    peak = PeakingEQ(1000, 5, 6, 12)
+    applied = []
+    dialog = OptimiseDialog(None, [peak], [HD], applied.extend, start=_run_in_place)
+    qtbot.addWidget(dialog)
+
+    assert dialog.errors.rowCount() == 1 and dialog.errors.item(0, 0).text().startswith(HD.name)
+    assert float(dialog.errors.item(0, 2).text()) < float(dialog.errors.item(0, 1).text())
+    assert dialog.changes.rowCount() == 1 and dialog.changes.item(0, 1).text().startswith('5 → ')
+    assert dialog.apply_button.isEnabled()
+
+    dialog.apply_button.click()
+
+    assert len(applied) == 1 and applied[0].id == peak.id and dialog.result() == QDialog.DialogCode.Accepted
+
+
+def test_a_result_that_cannot_be_applied_is_shown_without_apply(qtbot):
+    from model.iir import SecondOrder_HighPass
+    applied = []
+    dialog = OptimiseDialog(None, [PeakingEQ(1000, 5, 6, 12), SecondOrder_HighPass(1000, 3)], [HD], applied.extend,
+                            start=_run_in_place)
+    qtbot.addWidget(dialog)
+
+    assert not dialog.apply_button.isEnabled() and 'unstable' in dialog.status.text()
+    assert dialog.errors.item(0, 1).text() == 'cannot be realised' and applied == []
+
+
+def test_a_failure_is_said_in_the_dialog(qtbot, monkeypatch):
+    import model.device_optimise as optimise
+    monkeypatch.setattr(optimise, 'optimise_for', lambda *a: (_ for _ in ()).throw(ValueError('bad cascade')))
+    dialog = OptimiseDialog(None, [PeakingEQ(1000, 5, 6, 12)], [HD], lambda f: None, start=_run_in_place)
+    qtbot.addWidget(dialog)
+    assert dialog.status.text() == 'Could not optimise: ValueError: bad cascade' and not dialog.apply_button.isEnabled()
+
+
+def test_optimise_is_offered_only_with_a_profile_ticked_and_a_filter_to_adjust(qtbot, tmp_path):
+    prefs = _prefs(tmp_path)
+    adjustable = [True]
+    parent = QDialog()
+    qtbot.addWidget(parent)
+    controls = DeviceProfileControls(parent, prefs, on_change=lambda: None, summary=lambda: '',
+                                     on_optimise=lambda: None, can_optimise=lambda: adjustable[0])
+    assert controls.optimise_action.text() == OPTIMISE and not controls.optimise_action.isEnabled()
+
+    set_shown(prefs, HD.name, True)
+    controls.enable_optimise()
+    assert controls.optimise_action.isEnabled()
+    adjustable[0] = False
+    controls.enable_optimise()
+    assert not controls.optimise_action.isEnabled()
+
+
+def test_optimising_from_the_main_window_changes_its_filter(qtbot, tmp_path, monkeypatch):
+    import app as app_module
+    import model.device_profile_qt as qt_module
+    root = logging.getLogger()
+    handlers = list(root.handlers)
+    prefs = _prefs(tmp_path)
+    prefs.set(SYSTEM_CHECK_FOR_UPDATES, False)
+    main = app_module.BeqDesigner(QApplication.instance(), prefs)
+    qtbot.addWidget(main)
+    try:
+        model = main._BeqDesigner__filter_model
+        fs = model.filter.fs
+        model.filter = CompleteFilter(fs=fs, filters=[PeakingEQ(fs, 5, 6, 12)])
+        set_shown(prefs, HD.name, True)
+        peak_id = model.filter[0].id
+
+        def run_and_apply(self):   # exec() would block: run the job in place and press Apply
+            self.apply_button.click()
+            return QDialog.DialogCode.Accepted
+        original_init = qt_module.OptimiseDialog.__init__
+        monkeypatch.setattr(qt_module.OptimiseDialog, '__init__',
+                            lambda self, *a, **k: original_init(self, *a, **{**k, 'start': _run_in_place}))
+        monkeypatch.setattr(qt_module.OptimiseDialog, 'exec', run_and_apply)
+
+        controls = main._BeqDesigner__device_profiles
+        controls.menu.aboutToShow.emit()   # as opening the menu does: a profile is ticked and there is a peak to adjust
+        assert controls.optimise_action.isEnabled()
+        controls.optimise_action.trigger()
+
+        [peak] = list(model.filter)
+        assert peak.id == peak_id and (peak.freq, peak.q, peak.gain) != (5, 6, 12)
     finally:
         for handler in list(root.handlers):
             if handler not in handlers:
