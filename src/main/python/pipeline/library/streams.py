@@ -125,13 +125,18 @@ def _channel_count(detail: Mapping) -> int:
 def preferred_stream(details: Sequence[Mapping]) -> int:
     '''
     The audio stream extracted when nobody has chosen one: the most channels, lossless before lossy on a tie, then the
-    earlier. Only streams in the first stream's language compete (when it has one), so a dub never wins over the
-    original. Discs often put a stereo or mono track first (Free Solo: LPCM 2.0 before DTS-HD MA 5.1; Jaws: DTS 2.0
+    earlier. Discs often put a stereo or mono track first (Free Solo: LPCM 2.0 before DTS-HD MA 5.1; Jaws: DTS 2.0
     before TrueHD Atmos), and taking the first designed those from the wrong track. 0 for a source that listed none.
+
+    Only streams in the main track's language compete, so a dub never wins: the language of the first lossless stream,
+    since a disc's main track is lossless and its dubs usually are not (Universal's discs list a Japanese DTS track
+    first: Back to the Future, The Breakfast Club), or of the first stream when none is lossless (a DVD). A stream with
+    no language competes either way.
     '''
     if not details:
         return 0
-    language = str(details[0].get('language') or '').strip().casefold()
+    lossless = [d for d in details if is_lossless(d.get('codec', ''))]
+    language = str((lossless or details)[0].get('language') or '').strip().casefold()
     candidates = [i for i, d in enumerate(details)
                   if not language or str(d.get('language') or '').strip().casefold() in ('', language)]
     return max(candidates, key=lambda i: (_channel_count(details[i]), is_lossless(details[i].get('codec', '')), -i))

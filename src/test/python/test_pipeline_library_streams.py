@@ -163,6 +163,11 @@ def _d(codec, channels, language=None):
     ((_d('AC-3', '6'), _d('DTS-HD MA', '6')), 1),                               # same channels: lossless
     ((_d('DTS-HD MA', '6'), _d('PCM_BLURAY', '6')), 0),                          # both lossless: the earlier
     ((_d('AC-3', '2', 'eng'), _d('AC-3', '6', 'ger')), 0),                       # a dub never beats the original
+    ((_d('DTS', '6', 'Japanese'), _d('DTS-HD MA', '6', 'English'), _d('DTS', '6', 'French')), 1),   # Back to the Future
+    ((_d('DTS', '2', 'Japanese'), _d('DTS-HD MA', '6', 'English'), _d('AC-3', '2', 'English')), 1),  # The Breakfast Club
+    ((_d('AC-3', '6', 'German'), _d('TrueHD', '6', 'English')), 1),              # The Godfather Part III
+    ((_d('PCM_BLURAY', '1', 'Chinese'), _d('PCM_BLURAY', '2', 'Chinese'), _d('DTS-HD MA', '6', 'English')), 1),
+    # Once Upon a Time in China: the original's own tracks, not the English 5.1 dub
     ((_d('AC-3', '2', 'English'), _d('DTS-HD MA', '6', 'english'), _d('AC-3', '6')), 1),
     ((_d('DTS', '0'), _d('PCM_BLURAY', '2')), 1),                                # an unknown count is no count
     ((_d('DTS', ''), _d('AC-3', 'x')), 0),

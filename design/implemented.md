@@ -249,8 +249,10 @@ manual`) and a resolved one survive a rescan (`index.carried_choice`). A source
 that lists no streams has them read from the file when a person chooses one.
 With neither, the title extracts `streams.preferred_stream()`: the most
 channels, lossless before lossy on a tie, then the earlier, among streams in the
-first stream's language (discs often put LPCM or DTS 2.0 ahead of the 5.1 or
-Atmos main track). Batch Extract and Extract Audio default to the same stream.
+main track's language: that of the first lossless stream, or of the first stream
+when none is lossless. Discs often put LPCM or DTS 2.0 ahead of the 5.1 or Atmos
+main track, and Universal's list a Japanese DTS dub first. Batch Extract and
+Extract Audio default to the same stream.
 
 A fresh JRiver scan updates an existing single-title queue entry's audio type
 when it is missing or still matches the previous automatic value. A different
