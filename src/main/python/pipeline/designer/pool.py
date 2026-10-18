@@ -8,7 +8,7 @@ A profile declares the endpoints under the designer's name:
       beqforge:
         timeout: 900
         endpoints:
-          - {url: http://10.151.167.10:8420/design, by_reference: true, parallel: 1}
+          - {url: http://10.151.167.10:8420/design, by_reference: true}
           - {url: http://10.151.167.20:8420/design, parallel: 2}
 
 The pool is registered under that one name, so a design's fingerprint (which names the designer) does not depend on which
@@ -16,6 +16,10 @@ endpoint answered: the endpoints must run the same designer build for that to be
 the most room; an endpoint that does not answer (its `/health`, or a request that cannot connect) is left out until a
 later check finds it up again, and the design is sent to another. Only when no endpoint is up does the call fail with
 DesignerUnavailable, which a run counts towards `stop_after_unavailable` as before.
+
+How many designs an endpoint is sent at once is its `parallel` in the profile, or else what its /health reports
+(`parallel`, beqforge 0.2.4 on), or else 1. It is read again at every check, so a designer restarted with more workers is
+used to the full within a minute, and `capacity` (what a run keeps in hand) counts only the endpoints that are up.
 '''
 import logging
 import threading
@@ -26,7 +30,7 @@ from typing import Callable, List, Optional, Sequence
 import requests
 
 from pipeline.designer.contract import DesignRequest, DesignResponse
-from pipeline.designer.http_binding import DesignerUnavailable
+from pipeline.designer.http_binding import DesignerUnavailable, reported_parallel
 
 logger = logging.getLogger('pipeline.designer.pool')
 
@@ -38,14 +42,20 @@ RECHECK_SECONDS = 60.0
 class PoolEndpoint:
     url: str
     call: Callable[..., DesignResponse]   # the endpoint's http_designer(); also takes sources= if takes_sources
-    health: Callable[[], None]            # raises DesignerUnavailable when the endpoint cannot be used
-    parallel: int = 1
+    health: Callable[[], Optional[dict]]  # its /health answer; raises DesignerUnavailable when it cannot be used
+    parallel: Optional[int] = None        # from the profile; None: what /health reports
     takes_sources: bool = False
+    reported: Optional[int] = None        # `parallel` from its last /health
     in_use: int = 0
     up: bool = False
     checked_at: Optional[float] = None
     checking: bool = False
     reason: str = 'not checked yet'
+
+    @property
+    def limit(self) -> int:
+        ''' How many designs it is sent at once: the profile's `parallel`, else its /health's, else 1. '''
+        return self.parallel or self.reported or 1
 
 
 @dataclass(frozen=True)
@@ -87,8 +97,12 @@ class DesignerPool:
 
     @property
     def capacity(self) -> int:
-        ''' How many designs the pool takes at once when every endpoint is up: what a run's design stage is sized to. '''
-        return sum(e.parallel for e in self.endpoints)
+        '''
+        How many designs the pool takes at once now: the endpoints that are up (or not asked yet), each at its limit. A
+        run keeps this many in hand. At least 1, so that with none up a design is still tried and found unavailable.
+        '''
+        with self._condition:
+            return max(1, sum(e.limit for e in self.endpoints if e.up or e.checked_at is None))
 
     @property
     def takes_sources(self) -> bool:
@@ -96,7 +110,7 @@ class DesignerPool:
 
     def states(self) -> List[EndpointState]:
         with self._condition:
-            return [EndpointState(e.url, e.parallel, e.in_use, None if e.checked_at is None else e.up,
+            return [EndpointState(e.url, e.limit, e.in_use, None if e.checked_at is None else e.up,
                                   e.url if e.up else e.reason) for e in self.endpoints]
 
     def __call__(self, request: DesignRequest, sources=None) -> DesignResponse:
@@ -135,29 +149,31 @@ class DesignerPool:
                         results = [(e, self._ask(e)) for e in due]
                     finally:
                         self._condition.acquire()
-                    for e, reason in results:
+                    for e, (reason, body) in results:
                         e.checking, e.checked_at, e.up, e.reason = False, self.clock(), not reason, reason or ''
+                        if not reason:
+                            e.reported = reported_parallel(body)
                     self._condition.notify_all()
                     continue
                 up = [e for e in candidates if e.up]
                 if not up and not any(e.checking for e in candidates):
                     reasons = '; '.join(f'{e.url}: {e.reason}' for e in candidates) or 'every endpoint was tried'
                     raise DesignerUnavailable(f'no endpoint of designer {self.name!r} is up ({reasons})')
-                free = [e for e in up if e.in_use < e.parallel]
+                free = [e for e in up if e.in_use < e.limit]
                 if free:
-                    chosen = max(free, key=lambda e: (e.parallel - e.in_use) / e.parallel)
+                    chosen = max(free, key=lambda e: (e.limit - e.in_use) / e.limit)
                     chosen.in_use += 1
                     return chosen
                 # every live endpoint is busy (or one is being asked): a release, or the next recheck, frees one
                 self._condition.wait(timeout=self.recheck_seconds)
 
     @staticmethod
-    def _ask(endpoint: PoolEndpoint) -> str:
+    def _ask(endpoint: PoolEndpoint):
+        ''' :return: (why it cannot be used, or ''; what its /health answered). '''
         try:
-            endpoint.health()
+            return '', endpoint.health()
         except DesignerUnavailable as error:
-            return str(error)
-        return ''
+            return str(error), None
 
     def _down(self, endpoint: PoolEndpoint, reason: str) -> None:
         with self._condition:

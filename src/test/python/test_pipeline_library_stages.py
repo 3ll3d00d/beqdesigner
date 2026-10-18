@@ -421,6 +421,46 @@ def test_cancelled_before_anything_runs_does_nothing(env, work):
     assert report.cancelled and work.calls == [] and report.not_run == ['fs-a']
 
 
+def test_the_design_stage_follows_the_designers_capacity_as_it_changes(env, monkeypatch):
+    ''' A pool of endpoints says how many designs it takes now (§7.2): more than run.parallelism.design, and it can change. '''
+    from pipeline.designer import registry
+    from pipeline.library import stages
+
+    class Pool:
+        capacity = 3
+
+        def __call__(self, request):
+            raise AssertionError('design_unit_work is replaced')
+
+    registry.register_designer(DESIGNER, Pool())
+    _scan(env, *[_item(letter) for letter in 'abcdefg'])
+    lock, active, most = threading.Lock(), [0], [0]
+
+    def extract(session, unit, config, local_report, index, **kwargs):
+        item = unit.item if hasattr(unit, 'item') else unit
+        return UnitWork(unit, item, 'mono.wav', item.id)
+
+    def design(work, config, index, on_stage=None):
+        with lock:
+            active[0] += 1
+            most[0] = max(most[0], active[0])
+        time.sleep(0.2)
+        with lock:
+            active[0] -= 1
+        return LibraryRunReport(designed=[work.item.id])
+
+    monkeypatch.setattr(stages, 'run_unit', extract)
+    monkeypatch.setattr(stages, 'design_unit_work', design)
+    try:
+        run_stages(_profile(env), Selection(ids=tuple(f'fs-{c}' for c in 'abcdefg')), 'design',
+                   run_config=_run_config(env, extract_parallelism=4, design_parallelism=1), index=env.index,
+                   settings=env.settings)
+    finally:
+        registry.unregister_designer(DESIGNER)
+
+    assert most[0] == 3
+
+
 def test_cancel_while_a_dispatched_title_waits_for_design_finishes_dispatched_titles_only(env, monkeypatch):
     from pipeline.library import stages
 

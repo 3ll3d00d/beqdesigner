@@ -197,10 +197,11 @@ def _error_detail(response) -> str:
     return (getattr(response, 'text', '') or '')[:_ERROR_DETAIL_LIMIT]
 
 
-def check_takes_references(url: str, timeout: float = 10.0, headers: Optional[dict] = None) -> None:
+def check_takes_references(url: str, timeout: float = 10.0, headers: Optional[dict] = None) -> dict:
     '''
     Asks the designer's `/health` whether it can take arrays by reference (§7.1): contract 1.2 or later and a shared
     root configured.
+    :return: what it answered (the caller also reads `parallel` from it).
     :raises HttpDesignerError: naming what it answered, if it cannot or did not answer.
     '''
     target = health_url(url)
@@ -219,20 +220,21 @@ def check_takes_references(url: str, timeout: float = 10.0, headers: Optional[di
         raise DesignerUnavailable(f"{target} answered {body!r}: it cannot take arrays by reference (it needs contract "
                                 f"1.2 or later and a shared root), so it is sent none. Configure its shared root, or "
                                 f"take by_reference off this designer")
+    return body
 
 
 def check_designer(url: str, *, by_reference: bool = False, timeout: float = 10.0,
-                   headers: Optional[dict] = None) -> None:
+                   headers: Optional[dict] = None) -> dict:
     '''
     Asks the designer's `/health` whether it is up (and, for a `by_reference` designer, whether it can take references,
     as check_takes_references does) -- what a scheduled run asks before it starts. Only a 1.2 designer must serve
     `/health` (§7.1), so for any other an answer of any kind is up -- a 404 or a 501 from a 1.0 designer included --
     and only no answer, or a gateway's 502/503/504, is down.
+    :return: the JSON object it answered, or {} for an answer that is not one (a 1.0 designer's 404).
     :raises DesignerUnavailable: naming what went wrong, if it did not answer or cannot do what it is declared to.
     '''
     if by_reference:
-        check_takes_references(url, timeout=timeout, headers=headers)
-        return
+        return check_takes_references(url, timeout=timeout, headers=headers)
     target = health_url(url)
     try:
         response = requests.get(target, headers=headers, timeout=timeout)
@@ -240,6 +242,22 @@ def check_designer(url: str, *, by_reference: bool = False, timeout: float = 10.
         raise DesignerUnavailable(f"GET {target} failed: {e}") from e
     if response.status_code in (502, 503, 504):
         raise DesignerUnavailable(f"GET {target} answered HTTP {response.status_code}")
+    try:
+        body = response.json() if response.ok else {}
+    except ValueError:
+        body = {}
+    return body if isinstance(body, dict) else {}
+
+
+def reported_parallel(body: Any) -> Optional[int]:
+    '''
+    How many designs a designer says it runs at once: `parallel` on its /health (§7.1, optional; beqforge 0.2.4 on), or
+    None when it does not say (an older designer) or says something out of range.
+    '''
+    value = body.get('parallel') if isinstance(body, Mapping) else None
+    if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= MAX_ENDPOINT_PARALLEL:
+        return None
+    return value
 
 
 # How long one design may take: beqforge's fit of a full-length film has been seen to take over six minutes
@@ -302,7 +320,7 @@ class DeclaredEndpoint:
     url: str
     by_reference: bool = False
     headers: Optional[dict] = None
-    parallel: int = 1
+    parallel: Optional[int] = None   # None: what the designer's /health says (`parallel`), else 1
     timeout: float = DESIGN_TIMEOUT
 
 
@@ -311,7 +329,7 @@ def declared_endpoints(name: str, spec: Any, default_parallel: int = 1) -> List[
     A declared designer's endpoints: name -> URL, name -> {url, timeout, headers, by_reference} (one endpoint, taking
     `default_parallel` designs at once: `run.parallelism.design`), or name -> {endpoints: [{url, by_reference, headers,
     parallel}, ...], timeout, headers}. The designer's own `timeout` and `headers` apply to every endpoint; an endpoint's
-    headers are added to its designer's.
+    headers are added to its designer's. An endpoint without `parallel` takes what its /health reports (§7.2).
     :raises ValueError: for an entry with no URL, both `url` and `endpoints`, or a bad option.
     '''
     if isinstance(spec, str):
@@ -340,8 +358,9 @@ def declared_endpoints(name: str, spec: Any, default_parallel: int = 1) -> List[
         by_reference = entry.get('by_reference', False)
         if not isinstance(by_reference, bool):
             raise ValueError(f"{where}: by_reference must be true or false, not {by_reference!r}")
-        parallel = default_parallel if single else entry.get('parallel', 1)
-        if isinstance(parallel, bool) or not isinstance(parallel, int) or not 1 <= parallel <= MAX_ENDPOINT_PARALLEL:
+        parallel = default_parallel if single else entry.get('parallel')
+        if parallel is not None and (isinstance(parallel, bool) or not isinstance(parallel, int)
+                                     or not 1 <= parallel <= MAX_ENDPOINT_PARALLEL):
             raise ValueError(f"{where}: parallel must be an integer from 1 to {MAX_ENDPOINT_PARALLEL}")
         headers = {**shared_headers, **(entry.get('headers') or {})} if not single else shared_headers
         endpoints.append(DeclaredEndpoint(str(entry['url']), by_reference, headers or None, parallel, timeout))
@@ -372,7 +391,9 @@ def register_declared_designers(declared: Optional[Mapping[str, Any]], shared_ro
         for endpoint in declared_endpoints(name, spec, max(1, queue_depth)):
             if endpoint.by_reference and not shared_root:
                 raise ValueError(f"designer {name!r} is by_reference, but there is no work directory to share with it")
-            options = {'timeout': endpoint.timeout * endpoint.parallel, 'headers': endpoint.headers}
+            # a designer sent more than it runs at once queues the rest: a configured `parallel` allows for that wait. One
+            # that reports its own is never sent more than it runs (the pool holds the rest), so needs no allowance.
+            options = {'timeout': endpoint.timeout * (endpoint.parallel or 1), 'headers': endpoint.headers}
             if endpoint.by_reference:
                 options['shared_root'] = shared_root
             call = http_designer(endpoint.url, **options)
@@ -384,5 +405,5 @@ def register_declared_designers(declared: Optional[Mapping[str, Any]], shared_ro
     return names
 
 
-def _health(endpoint: DeclaredEndpoint) -> Callable[[], None]:
+def _health(endpoint: DeclaredEndpoint) -> Callable[[], dict]:
     return lambda: check_designer(endpoint.url, by_reference=endpoint.by_reference, headers=endpoint.headers)

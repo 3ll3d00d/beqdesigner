@@ -50,8 +50,9 @@ run:
   queue_dir: /queue
 ```
 
-A designer can also run on several machines at once. List its endpoints, each with how many designs it takes at a time
-(`parallel`, 1-8). Designs go to whichever endpoints are up; one that stops answering is left out until it answers
+A designer can also run on several machines at once. List its endpoints. Each is sent as many designs at a time as its
+designer runs (beqforge 0.2.4 and later report it: `serve-designer --workers N`), or one at a time for an older one; add
+`parallel: N` (1-8) to an endpoint to set it yourself. Designs go to whichever endpoints are up; one that stops answering is left out until it answers
 again, and Status lists each endpoint. Use the same beqforge version on every endpoint. `by_reference: true` only
 suits an endpoint that sees the work directory; give the others none, and they are sent the audio itself.
 
@@ -59,8 +60,8 @@ suits an endpoint that sees the work directory; give the others none, and they a
 designers:
   beqforge:
     endpoints:
-      - {url: 'http://designer:8420/design', by_reference: true, parallel: 1}
-      - {url: 'http://other-host:8420/design', parallel: 2}
+      - {url: 'http://designer:8420/design', by_reference: true}
+      - {url: 'http://other-host:8420/design'}
 ```
 
 Use the same name on the desktop. The designer's name is one of the settings a design is

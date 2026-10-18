@@ -160,7 +160,8 @@ still a changed design, and is not accepted blind.
 Every declared HTTP designer is registered as a `pipeline.designer.pool.DesignerPool`
 under its name (contract §7.2): one endpoint for a single `url`, taking
 `run.parallelism.design` designs at once, or the `endpoints:` it lists, each taking its
-`parallel`. A run's design stage is sized to the pool's capacity (`run.design_slots`),
+`parallel`, else what its `/health` reports, else 1. A run's design stage follows the pool's
+capacity as it changes (the live endpoints' limits; `stages.design_slots_now`),
 and the pool holds a design until an endpoint that is up has room, so a designer is
 never sent more than its `parallel` (the timeout is still multiplied by it, for a
 designer that queues). An endpoint is asked `/health` before use and every minute; one

@@ -20,7 +20,7 @@ import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Mapping, Optional, Tuple
 
-from pipeline.designer.http_binding import DesignerUnavailable, check_designer
+from pipeline.designer.http_binding import DesignerUnavailable, check_designer, reported_parallel
 from pipeline.library.index import index_path
 from pipeline.library.profile import Profile, read_config_file
 from pipeline.library.run import LibraryRunConfig
@@ -102,18 +102,21 @@ class JobContext:
 
     def designer_endpoint_states(self, timeout: float = 10.0) -> List[Tuple[str, int, str]]:
         '''
-        Each endpoint of the run's designer asked now: (url, parallel, why it cannot be used, or '' if it can).
+        Each endpoint of the run's designer asked now: (url, how many designs it takes at once, why it cannot be used, or
+        '' if it can).
         :raises ValueError: for a designer the file declares in a form that cannot be used.
         '''
         declared = self.designer_endpoints()
         states = []
         for endpoint in declared.endpoints if declared is not None else ():
             try:
-                check_designer(endpoint.url, by_reference=endpoint.by_reference, timeout=timeout, headers=endpoint.headers)
+                body = check_designer(endpoint.url, by_reference=endpoint.by_reference, timeout=timeout,
+                                      headers=endpoint.headers)
                 reason = ''
             except DesignerUnavailable as error:
-                reason = str(error)
-            states.append((endpoint.url, endpoint.parallel, reason))
+                body, reason = None, str(error)
+            # the profile's parallel, else what the designer reports (§7.2), else 1: what the pool sends it at once
+            states.append((endpoint.url, endpoint.parallel or reported_parallel(body) or 1, reason))
         return states
 
     def designer_unavailable(self, timeout: float = 10.0) -> str:

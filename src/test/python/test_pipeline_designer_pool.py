@@ -27,8 +27,8 @@ class Clock:
 class FakeEndpoint:
     ''' A designer at `url`: up or down, recording each design it is sent and how many it had at once. '''
 
-    def __init__(self, url, up=True, fails_with=None, hold=None):
-        self.url, self.up, self.fails_with, self.hold = url, up, fails_with, hold
+    def __init__(self, url, up=True, fails_with=None, hold=None, reports=None):
+        self.url, self.up, self.fails_with, self.hold, self.reports = url, up, fails_with, hold, reports
         self.designed, self.health_asked, self.sources = [], 0, []
         self.active = self.most_at_once = 0
         self.lock = threading.Lock()
@@ -37,6 +37,7 @@ class FakeEndpoint:
         self.health_asked += 1
         if not self.up:
             raise DesignerUnavailable(f'GET {self.url}/health failed: refused')
+        return {'status': 'ok'} if self.reports is None else {'status': 'ok', 'parallel': self.reports}
 
     def call(self, request, sources=None):
         with self.lock:
@@ -54,7 +55,7 @@ class FakeEndpoint:
             with self.lock:
                 self.active -= 1
 
-    def endpoint(self, parallel=1, takes_sources=False):
+    def endpoint(self, parallel=None, takes_sources=False):
         return PoolEndpoint(self.url, self.call, self.health, parallel=parallel, takes_sources=takes_sources)
 
 
@@ -76,6 +77,49 @@ def _unreachable(url):
 def test_capacity_is_the_sum_of_the_endpoints_parallel():
     a, b = FakeEndpoint('http://a'), FakeEndpoint('http://b')
     assert DesignerPool('d', [a.endpoint(parallel=1), b.endpoint(parallel=3)]).capacity == 4
+
+
+def test_an_endpoint_without_parallel_takes_what_its_health_reports_and_follows_a_restart():
+    clock = Clock()
+    reporting, old = FakeEndpoint('http://new', reports=2), FakeEndpoint('http://old')   # 0.2.4 and an older build
+    pool = DesignerPool('d', [reporting.endpoint(), old.endpoint()], clock=clock, recheck_seconds=60)
+    assert pool.capacity == 2   # not asked yet: 1 each
+
+    pool(_request())
+    assert pool.capacity == 3 and {s.url: s.parallel for s in pool.states()} == {'http://new': 2, 'http://old': 1}
+
+    reporting.reports = 4       # restarted with --workers 4
+    clock.now += 61
+    pool(_request())
+    assert pool.capacity == 5
+
+
+def test_a_profile_parallel_overrides_what_the_designer_reports():
+    reporting = FakeEndpoint('http://a', reports=4)
+    pool = DesignerPool('d', [reporting.endpoint(parallel=1)], clock=Clock())
+    pool(_request())
+    assert pool.capacity == 1
+
+
+@pytest.mark.parametrize('body, expected', [
+    ({'parallel': 2}, 2), ({'parallel': 8}, 8), ({}, None), ({'parallel': 0}, None), ({'parallel': 9}, None),
+    ({'parallel': True}, None), ({'parallel': '2'}, None), (None, None), ([], None)])
+def test_only_a_sensible_reported_parallel_is_used(body, expected):
+    from pipeline.designer.http_binding import reported_parallel
+    assert reported_parallel(body) == expected
+
+
+def test_capacity_counts_only_the_endpoints_that_are_up_but_never_drops_below_one():
+    up, down = FakeEndpoint('http://up', reports=2), FakeEndpoint('http://down', up=False, reports=3)
+    pool = DesignerPool('d', [up.endpoint(), down.endpoint(parallel=3)], clock=Clock())
+    assert pool.capacity == 4   # neither asked yet
+    pool(_request())
+    assert pool.capacity == 2
+
+    gone = DesignerPool('d', [FakeEndpoint('http://x', up=False).endpoint()], clock=Clock())
+    with pytest.raises(DesignerUnavailable):
+        gone(_request())
+    assert gone.capacity == 1
 
 
 def test_a_down_endpoint_is_left_out_and_the_designs_go_to_the_live_one():
@@ -228,7 +272,7 @@ def test_endpoints_each_say_their_own_parallel_and_share_the_designers_timeout_a
         {'url': 'http://a/design', 'by_reference': True},
         {'url': 'http://b/design', 'parallel': 3, 'headers': {'X-Box': 'two'}}]}, default_parallel=4)
 
-    assert (a.parallel, a.by_reference, a.headers) == (1, True, {'Authorization': 'Bearer t'})
+    assert (a.parallel, a.by_reference, a.headers) == (None, True, {'Authorization': 'Bearer t'})   # what /health says
     assert (b.parallel, b.by_reference, b.headers) == (3, False, {'Authorization': 'Bearer t', 'X-Box': 'two'})
     assert a.timeout == b.timeout == 900.0
 
@@ -254,10 +298,10 @@ def test_a_declared_pool_is_registered_under_its_name_with_its_capacity(monkeypa
                         lambda url, **options: made.setdefault(url, options) and None or (lambda request, sources=None: None))
     try:
         register_declared_designers({'beqforge': {'timeout': 100, 'endpoints': [
-            {'url': 'http://a/design', 'by_reference': True, 'parallel': 1},
+            {'url': 'http://a/design', 'by_reference': True},
             {'url': 'http://b/design', 'parallel': 2}]}}, shared_root='/work')
 
-        assert designer_capacity('beqforge') == 3 and takes_sources('beqforge')
+        assert designer_capacity('beqforge') == 3 and takes_sources('beqforge')   # a: 1 until its /health is read
         assert made['http://a/design'] == {'timeout': 100.0, 'headers': None, 'shared_root': '/work'}
         # a designer that answers one at a time queues what it is sent at once: its timeout allows for that queue
         assert made['http://b/design'] == {'timeout': 200.0, 'headers': None}

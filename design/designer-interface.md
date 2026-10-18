@@ -800,7 +800,9 @@ carried, and nothing after decoding may tell the two apart. The rules:
   `200` with at least `{"contract_version": "1.2", "shared_root": true}`
   from a designer that can take arrays by reference. Other fields are
   allowed and ignored (beqforge also sends `"status": "ok"`, for monitors
-  that already poll it). The caller reads it
+  that already poll it). Optionally, `"parallel": N` (an integer 1-8) says how
+  many designs the designer runs at once (beqforge 0.2.4 on, `--workers N`); a
+  caller then sends it no more than N at a time (§7.2). Absent means 1. The caller reads it
   once, before its first request by reference to that designer, and sends
   none — failing the design with the answer in its message — when the
   version is below 1.2 or `shared_root` is not `true`.
@@ -821,22 +823,24 @@ this document, which only needs to match this repo's own Python).
 ### 7.2 Several endpoints (caller side)
 
 Nothing changes for a designer: this is how a caller spreads its designs over several copies of one. A profile may
-declare a designer as a list of endpoints, each with its own `parallel` (how many designs it is sent at once, 1-8) and
-its own `by_reference` and `headers`; the designer's `timeout` and `headers` apply to all of them:
+declare a designer as a list of endpoints, each with its own `by_reference` and `headers`, and optionally `parallel` (how
+many designs it is sent at once, 1-8). Without `parallel`, an endpoint is sent as many as its `/health` reports
+(`parallel`, §7.1), or one at a time if it does not say; the figure is read at every check, so a designer restarted
+with more workers is used to the full within a minute. The designer's `timeout` and `headers` apply to all of them:
 
 ```yaml
 designers:
   beqforge:
     timeout: 900
     endpoints:
-      - {url: 'http://10.151.167.10:8420/design', by_reference: true, parallel: 1}
-      - {url: 'http://10.151.167.20:8420/design', parallel: 2}
+      - {url: 'http://10.151.167.10:8420/design', by_reference: true}   # as many as its /health reports
+      - {url: 'http://10.151.167.20:8420/design', parallel: 2}          # 2, whatever it reports
 ```
 
 The caller (`pipeline.designer.pool`) registers them as one designer under its name, so a design's fingerprint (which
 names the designer) does not depend on which endpoint answered. **Every endpoint must run the same designer build**, or
-two designs of one title could differ by where they ran. A run takes as many designs at once as its endpoints together
-(the sum of `parallel`, in place of `run.parallelism.design`), and each design goes to the endpoint with the most room
+two designs of one title could differ by where they ran. A run keeps as many designs in hand as the endpoints that are up take together
+(in place of `run.parallelism.design`, and following them as they change), and each design goes to the endpoint with the most room
 that is up. The caller asks each endpoint's `/health` (§7.1) before using it and again every minute; one that does not
 answer, or that a request cannot reach (no connection, or a gateway's 502/503/504), is left out until it answers again,
 and that design is sent to another endpoint. Any other failure, including a design that outlives its timeout, is the

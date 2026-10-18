@@ -135,6 +135,7 @@ def test_a_designer_with_several_endpoints_is_up_while_any_of_them_is(tmp_path, 
     ctx = load_context(path, {})
 
     assert ctx.designer_unavailable(timeout=2) == ''
+    designer.health = {'status': 'ok', 'parallel': 3}   # beqforge 0.2.4 says how many it runs; the profile's 2 wins
     state = DesignerProbe(path, {}, timeout=2).check()
     assert state.reachable is True and state.detail == f'{designer.url} (1 of 2 endpoints down)'
     assert [(e.url, e.parallel, e.reachable) for e in state.endpoints] == [(gone, 1, False), (designer.url, 2, True)]
@@ -143,6 +144,19 @@ def test_a_designer_with_several_endpoints_is_up_while_any_of_them_is(tmp_path, 
     reason = ctx.designer_unavailable(timeout=2)
     assert 'HTTP 503' in reason and '/health failed' in reason
     assert DesignerProbe(path, {}, timeout=2).check().reachable is False
+
+
+def test_an_endpoint_without_parallel_reports_what_its_designer_says(tmp_path, designer):
+    config = {'sources': [{'name': 'disk', 'kind': 'filesystem', 'globs': [str(tmp_path / 'media')]}],
+              'designers': {'rolloff': {'endpoints': [{'url': designer.url}]}},
+              'run': {'work_dir': str(tmp_path / 'work'), 'queue_dir': str(tmp_path / 'queue'), 'designer': 'rolloff'}}
+    path = tmp_path / 'profile.json'
+    path.write_text(json.dumps(config))
+
+    designer.health = {'status': 'ok', 'parallel': 2}
+    assert [e.parallel for e in DesignerProbe(str(path), {}, timeout=2).check().endpoints] == [2]
+    designer.health = {'status': 'ok'}   # an older designer: one at a time
+    assert [e.parallel for e in DesignerProbe(str(path), {}, timeout=2).check().endpoints] == [1]
 
 
 def test_the_status_lists_each_endpoint(tmp_path, designer):

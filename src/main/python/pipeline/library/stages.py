@@ -30,8 +30,9 @@ from pipeline.library.disks import DiskSlots, disks_of
 from pipeline.library.index import LibraryIndex
 from pipeline.library.join import JoinQueue
 from pipeline.library.profile import Profile
-from pipeline.library.run import LibraryRunConfig, LibraryRunReport, UnavailableStreak, cached_unit_work, \
-    design_unit_work, run_unit
+from pipeline.designer.registry import designer_capacity
+from pipeline.library.run import MAX_DESIGN_SLOTS, LibraryRunConfig, LibraryRunReport, UnavailableStreak, \
+    cached_unit_work, design_unit_work, run_unit
 from pipeline.library.selection import Selection, Skipped, plan_stages
 from pipeline.library.status import ScanSettings
 from pipeline.library.season import SeasonGroup, conflicting_units
@@ -356,6 +357,13 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
                                 on_extract_progress=extract_progress)
             return work, local
 
+        def design_slots_now() -> int:
+            '''
+            How many designs to have in hand: the designer's capacity now, when it says (a pool of endpoints, whose
+            designers may report more workers, or go down, as the run goes), else run.parallelism.design.
+            '''
+            return min(MAX_DESIGN_SLOTS, designer_capacity(run_config.designer) or run_config.design_parallelism)
+
         def design_task(planned, work):
             title_id = planned.row.id
             with event_scope(title_id=title_id, stage='design'):
@@ -424,7 +432,7 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
 
         with ThreadPoolExecutor(max_workers=run_config.extract_parallelism,
                                 thread_name_prefix='library-extract') as extract_pool, \
-                ThreadPoolExecutor(max_workers=run_config.design_parallelism,
+                ThreadPoolExecutor(max_workers=MAX_DESIGN_SLOTS,   # threads are made only as designs are submitted
                                    thread_name_prefix='library-design') as design_pool:
             while True:
                 cancel_requested = halted()
@@ -447,7 +455,7 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
                             slots.take(reading[future])
                 elif not report.stopped:
                     report.cancelled = True
-                while (design_pending or design_ready) and len(designing) < run_config.design_parallelism \
+                while (design_pending or design_ready) and len(designing) < design_slots_now() \
                         and not report.stopped:
                     planned, work = (design_pending or design_ready).pop(0)
                     design_future = design_pool.submit(copy_context().run, design_task, planned, work)
