@@ -4,7 +4,7 @@ BEQDesigner provides the ability to browse this data in a purely offline mode vi
 
 ![Catalogue](../img/browse_catalogue.png)
 
-Narrow the list by name, year, content type and author. The *Authors* list holds every author in the catalogue; select
+Narrow the list by name, year, content type and author. The *Author* list, beside *Year* and *Content Type*, holds every author in the catalogue; select
 one or more to show only theirs, or none to show everyone's.
 
 Ensure the [minidsp-rs](https://github.com/mrene/minidsp-rs) is loaded into the relevant [preferences](./preferences#binaries) in order to allow BEQDesigner to send filters to a minidsp 2x4HD.

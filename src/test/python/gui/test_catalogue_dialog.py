@@ -49,7 +49,11 @@ def test_every_author_in_the_catalogue_is_offered_in_order(qtbot, tmp_path, monk
 
     assert [dialog.authorFilter.item(i).text() for i in range(dialog.authorFilter.count())] == \
         ['aron7awol', 'kaelaria', 'mikejl', 'mobe1969']
-    assert not hasattr(dialog, 'allReposRadioButton')
+    assert not hasattr(dialog, 'allReposRadioButton') and not hasattr(dialog, 'repoGroupBox')
+    # a column beside year and content type, in the same rows: not a box of its own above them
+    year, content, author = (dialog.searchLayout.getItemPosition(dialog.searchLayout.indexOf(w))
+                             for w in (dialog.yearFilter, dialog.contentTypeFilter, dialog.authorFilter))
+    assert year[0] == content[0] == author[0] and (year[1], content[1], author[1]) == (0, 1, 2)
 
 
 def test_with_no_author_selected_every_entry_shows(qtbot, tmp_path, monkeypatch):

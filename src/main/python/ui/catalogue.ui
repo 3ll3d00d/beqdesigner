@@ -28,42 +28,28 @@
         <item row="4" column="1">
          <widget class="QLineEdit" name="contentFilter"/>
         </item>
-        <item row="5" column="1">
-         <widget class="QListWidget" name="contentTypeFilter">
+        <item row="3" column="2">
+         <widget class="QLabel" name="authorFilterLabel">
+          <property name="text">
+           <string>Author</string>
+          </property>
+         </widget>
+        </item>
+        <item row="5" column="2">
+         <widget class="QListWidget" name="authorFilter">
+          <property name="toolTip">
+           <string>Select the authors to show; with none selected, every author is shown</string>
+          </property>
           <property name="selectionMode">
            <enum>QAbstractItemView::MultiSelection</enum>
           </property>
          </widget>
         </item>
-        <item row="2" column="0" colspan="2">
-         <widget class="QGroupBox" name="repoGroupBox">
-          <property name="font">
-           <font>
-            <pointsize>8</pointsize>
-            <italic>false</italic>
-           </font>
+        <item row="5" column="1">
+         <widget class="QListWidget" name="contentTypeFilter">
+          <property name="selectionMode">
+           <enum>QAbstractItemView::MultiSelection</enum>
           </property>
-          <property name="title">
-           <string>Authors (none selected: all)</string>
-          </property>
-          <layout class="QVBoxLayout" name="authorFilterLayout">
-           <item>
-            <widget class="QListWidget" name="authorFilter">
-             <property name="font">
-              <font>
-               <pointsize>10</pointsize>
-               <italic>false</italic>
-              </font>
-             </property>
-             <property name="toolTip">
-              <string>Select the authors to show; with none selected, every author is shown</string>
-             </property>
-             <property name="selectionMode">
-              <enum>QAbstractItemView::MultiSelection</enum>
-             </property>
-            </widget>
-           </item>
-          </layout>
          </widget>
         </item>
         <item row="3" column="0">
@@ -73,7 +59,7 @@
           </property>
          </widget>
         </item>
-        <item row="1" column="0" colspan="2">
+        <item row="1" column="0" colspan="3">
          <layout class="QHBoxLayout" name="nameLayout">
           <item>
            <widget class="QLabel" name="nameFilterLabel">
@@ -87,7 +73,7 @@
           </item>
          </layout>
         </item>
-        <item row="0" column="0" colspan="2">
+        <item row="0" column="0" colspan="3">
          <widget class="QLabel" name="filterHeaderLabel">
           <property name="font">
            <font>

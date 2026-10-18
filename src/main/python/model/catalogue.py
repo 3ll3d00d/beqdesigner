@@ -104,8 +104,6 @@ class CatalogueDialog(QDialog, Ui_catalogueDialog):
             with block_signals(self.authorFilter):
                 for author in sorted({c.author for c in self.__catalogue if c.author}, key=str.casefold):
                     self.authorFilter.addItem(author)
-            self.authorFilter.setMaximumHeight(self.authorFilter.sizeHintForRow(0) * 4 + 2 * self.authorFilter.frameWidth()
-                                               if self.authorFilter.count() else 0)
             self.totalCount.setValue(len(self.__catalogue))
 
     @staticmethod
