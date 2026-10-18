@@ -61,5 +61,11 @@ Code: `model/device_optimise.py` (the filter as beqforge's sections and back, `o
 `OptimiseDialog`/`OptimiseJob` in `model/device_profile_qt.py`, the action in `app.py`. Tests:
 `test_device_optimise.py`, `gui/test_device_profiles.py`.
 
+**In the filter edit dialog** (not its small mode): the same *Devices* menu sits beside *Show Individual Filters*, the
+preview chart draws the working filter on each ticked device (`Combined on <profile>`, a long dash in its colour) and the
+errors are listed under the chart. *Optimise filter for these devices…* there changes the dialog's working filter only,
+reloads the edit fields from it (or the next edit would write the old values back), and reaches the main window when
+the dialog is saved. It is separate from the dialog's own *Optimise* row, which reduces a pass filter's biquad count.
+
 **Packaging.** beqoptimiser's result cache identifies its implementation by hashing its own source, which a PyInstaller
 app does not ship, so beqdesigner calls it with `cache=False` (a search takes 0.2-4 s). Nothing extra is bundled.

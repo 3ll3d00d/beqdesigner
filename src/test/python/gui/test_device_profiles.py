@@ -7,6 +7,8 @@ import ui.beq  # noqa: F401 -- must come before app/model.filter (see test_filte
 
 import logging
 
+import pytest
+
 from qtpy.QtCore import QSettings
 from qtpy.QtWidgets import QApplication, QDialog
 
@@ -239,3 +241,61 @@ def test_optimising_from_the_main_window_changes_its_filter(qtbot, tmp_path, mon
         for handler in list(root.handlers):
             if handler not in handlers:
                 root.removeHandler(handler)
+
+
+# --- the filter edit dialog ---------------------------------------------------------------------------------------------
+
+def _filter_dialog(qtbot, tmp_path, small=False):
+    import numpy as np
+    from model.filter import FilterDialog
+    from model.signal import Signal
+    prefs = _prefs(tmp_path)
+    model = FilterModel(None, prefs)
+    peak = PeakingEQ(1000, 5, 6, 12)
+    model.filter = CompleteFilter(fs=1000, filters=[peak])
+    dialog = FilterDialog(prefs, Signal('test', np.zeros(1000), fs=1000), model, lambda: None, selected_filter=peak,
+                          small=small)
+    qtbot.addWidget(dialog)
+    return dialog, prefs, model
+
+
+def test_the_filter_dialog_draws_the_working_filter_on_each_ticked_device(qtbot, tmp_path):
+    dialog, prefs, _ = _filter_dialog(qtbot, tmp_path)
+    controls = dialog._FilterDialog__device_profiles
+    assert dialog.checkboxLayout.indexOf(controls.button) != -1
+    assert not any(c.name.startswith(f'{COMBINED} on') for c in dialog.get_curve_data('mag'))
+
+    next(a for a in controls.menu.actions() if a.data() == HD.name).setChecked(True)
+
+    names = [c.name for c in dialog.get_curve_data('mag')]
+    assert f'{COMBINED} on {HD.name}' in names
+    assert not any(n.startswith(f'{COMBINED} on') for n in [c.name for c in dialog.get_curve_data('phase')])
+    assert not controls.label.isHidden() and controls.label.text().startswith(HD.name)
+
+
+def test_optimising_in_the_filter_dialog_changes_only_its_working_filter(qtbot, tmp_path, monkeypatch):
+    import model.device_profile_qt as qt_module
+    dialog, prefs, model = _filter_dialog(qtbot, tmp_path)
+    set_shown(prefs, HD.name, True)
+    original_init = qt_module.OptimiseDialog.__init__
+    monkeypatch.setattr(qt_module.OptimiseDialog, '__init__',
+                        lambda self, *a, **k: original_init(self, *a, **{**k, 'start': _run_in_place}))
+    monkeypatch.setattr(qt_module.OptimiseDialog, 'exec', lambda self: (self.apply_button.click(), 1)[1])
+    controls = dialog._FilterDialog__device_profiles
+    controls.menu.aboutToShow.emit()
+    assert controls.optimise_action.isEnabled()
+
+    controls.optimise_action.trigger()
+
+    [working] = list(dialog._FilterDialog__working)
+    assert (working.freq, working.q, working.gain) != (5, 6, 12)
+    # the edit fields show the new values, so the next edit does not write the old ones back
+    assert (dialog.freq.value(), dialog.filterQ.value(), dialog.filterGain.value()) == \
+        pytest.approx((working.freq, working.q, working.gain))
+    [unsaved] = list(model.filter)
+    assert (unsaved.freq, unsaved.q, unsaved.gain) == (5, 6, 12)   # nothing reaches the main window until Save
+
+
+def test_the_small_filter_dialog_has_no_device_controls(qtbot, tmp_path):
+    dialog, _, _ = _filter_dialog(qtbot, tmp_path, small=True)
+    assert dialog._FilterDialog__device_profiles is None

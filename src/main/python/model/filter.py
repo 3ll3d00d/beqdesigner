@@ -313,6 +313,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         if self.__filter_model.filter.listener is not None:
             logger.debug(f"Selected filter has listener {self.__filter_model.filter.listener.name}")
         self.__magnitude_model = None
+        self.__device_profiles = None
         # remove unsupported filter types
         if valid_filter_types:
             to_remove = []
@@ -343,6 +344,16 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
                                                     y2_range_calc=PhaseRangeCalculator(), show_y2_in_legend=False,
                                                     **kwargs)
             self.__mag_update_timer.timeout.connect(self.__magnitude_model.redraw)
+            # the working filter as each ticked device stores it, and optimising it for them (model/device_profile.py)
+            from model.device_profile_qt import DeviceProfileControls
+            from model.device_optimise import SEARCHABLE
+            self.__device_profiles = DeviceProfileControls(
+                self, preferences, on_change=self.__on_device_profiles_change, summary=self.__working.device_summary,
+                on_optimise=self.__optimise_working_for_devices,
+                can_optimise=lambda: any(type(f) in SEARCHABLE for f in self.__working.filter))
+            self.checkboxLayout.addWidget(self.__device_profiles.button)
+            self.panes.addWidget(self.__device_profiles.label, 1, 1, 1, 1)
+            self.__device_profiles.refresh_summary()
         else:
             self.previewChart.setVisible(False)
             self.fullRangeButton.setVisible(False)
@@ -409,7 +420,32 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         ''' ensure the graph redraws when a filter changes. '''
         if self.__magnitude_model is not None:
             self.__trigger_redraw()
+        if getattr(self, '_FilterDialog__device_profiles', None) is not None:   # made after the working model
+            self.__device_profiles.refresh_summary()
         return True
+
+    def __on_device_profiles_change(self):
+        self.__trigger_redraw()
+        self.__device_profiles.refresh_summary()
+
+    def __optimise_working_for_devices(self):
+        '''
+        The working filter optimised for the ticked devices (model/device_optimise.py): applied to the working filter
+        only, so nothing reaches the main window until the dialog is saved.
+        '''
+        from model.device_profile import shown_profiles
+        from model.device_profile_qt import OptimiseDialog
+
+        def apply(filters):
+            for f in filters:
+                self.__working.save(f)
+            # the edit fields hold the selected filter's old values: reload them, or the next edit writes those back
+            selected = next((f for f in self.__working if f.id == self.__selected_id), None)
+            if selected is not None:
+                self.__select_filter(selected)
+                self.__ensure_filter_is_selected(self.__working, self.workingFilterView)
+
+        OptimiseDialog(self, list(self.__working.filter), shown_profiles(self.__preferences), apply).exec()
 
     def __decorate_ui(self):
         ''' polishes the UI by setting tooltips, adding icons and connecting widgets to functions. '''
@@ -815,8 +851,15 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             else:
                 extra += 1
             if len(self.__working) > 0:
-                result.append(self.__working.get_transfer_function()
-                                            .get_data(mode=mode, colour=get_filter_colour(len(result)), linestyle='-'))
+                working = self.__working.get_transfer_function().get_data(mode=mode, colour=get_filter_colour(len(result)),
+                                                                          linestyle='-')
+                result.append(working)
+                if mode == 'mag':   # the working filter as each ticked device stores it, in its colour, dashed
+                    for realised in self.__working.realised(working.x):
+                        if realised.realised_db is not None:
+                            result.append(MagnitudeData(f'{COMBINED} on {realised.profile.name}', None, realised.freqs,
+                                                        realised.realised_db, colour=working.colour,
+                                                        linestyle=(0, (6, 2))))
             else:
                 extra += 1
             if len(self.__snapshot) > 0:
