@@ -100,6 +100,12 @@ class CatalogueDialog(QDialog, Ui_catalogueDialog):
             for c in content_types:
                 self.contentTypeFilter.addItem(c)
             self.filter_content_type('')
+            # every author in the catalogue, not a fixed few: none selected shows them all
+            with block_signals(self.authorFilter):
+                for author in sorted({c.author for c in self.__catalogue if c.author}, key=str.casefold):
+                    self.authorFilter.addItem(author)
+            self.authorFilter.setMaximumHeight(self.authorFilter.sizeHintForRow(0) * 4 + 2 * self.authorFilter.frameWidth()
+                                               if self.authorFilter.count() else 0)
             self.totalCount.setValue(len(self.__catalogue))
 
     @staticmethod
@@ -143,16 +149,8 @@ class CatalogueDialog(QDialog, Ui_catalogueDialog):
         self.matchCount.setValue(count)
 
     def __included_in_filter(self, beq: 'CatalogueEntry'):
-        if self.allReposRadioButton.isChecked():
-            return True
-        elif self.aron7awolRepoButton.isChecked():
-            return beq.author == 'aron7awol'
-        elif self.mobe1969RepoButton.isChecked():
-            return beq.author == 'mobe1969'
-        elif self.halcyon888RepoButton.isChecked():
-            return beq.author == 'halcyon888'
-        elif self.t1g8rsfanRepoButton.isChecked():
-            return beq.author == 't1g8rsfan'
+        authors = {i.text() for i in self.authorFilter.selectedItems()}
+        return not authors or beq.author in authors
 
     def load_filter(self):
         '''
