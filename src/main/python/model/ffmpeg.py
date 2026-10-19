@@ -19,6 +19,7 @@ from ffmpeg.nodes import filter_operator, FilterNode
 
 import ffmpeg
 from model.iir import Passthrough, FilterType, ComplexHighPass, ComplexLowPass
+from model.bdmv import first_clip, is_aacs_encrypted
 from model.execution_events import emit_execution_event
 from model.preferences import COMPRESS_FORMAT_NATIVE, COMPRESS_FORMAT_FLAC, COMPRESS_FORMAT_EAC3, COMPRESS_FORMAT_AC3
 
@@ -65,6 +66,10 @@ CHANNEL_LAYOUTS = {
     'downmix': ['DL', 'DR']
 }
 
+# ffprobe reads 5 s / 5 MB of an input by default. On some UHD discs the audio's first frames come later than that, and
+# every audio stream is reported with no channel count; a probe that finds that is run again over this much
+LONG_PROBE_OPTIONS = {'analyzeduration': '100M', 'probesize': '200M'}
+
 UNKNOWN_CHANNEL_LAYOUTS = {
     2: CHANNEL_LAYOUTS['stereo'],
     3: CHANNEL_LAYOUTS['2.1'],
@@ -77,6 +82,22 @@ UNKNOWN_CHANNEL_LAYOUTS = {
 
 def format_biquad(f):
     return f.format_biquads(False, separator=':')
+
+
+def layout_channels(channel_layout_name):
+    '''
+    The channels a layout names, in order: a known layout's, or those spelt out by ffmpeg's description of a custom
+    one, "4 channels (FL+FR+LFE+BC)" (or "FL+FR+LFE+BC"). None if the name lists none.
+    '''
+    if channel_layout_name in CHANNEL_LAYOUTS:
+        return CHANNEL_LAYOUTS[channel_layout_name]
+    if not channel_layout_name:
+        return None
+    listed = channel_layout_name
+    if '(' in listed and listed.endswith(')'):
+        listed = listed[listed.index('(') + 1:-1]
+    names = listed.split('+')
+    return names if len(names) > 1 and all(name and name.isalnum() and name.isupper() for name in names) else None
 
 
 def get_channel_name(text, channel, channel_count, channel_layout_name='unknown'):
@@ -96,6 +117,8 @@ def get_channel_name(text, channel, channel_count, channel_layout_name='unknown'
             return f"{prefix}{UNKNOWN_CHANNEL_LAYOUTS[channel_count][channel]}"
         elif channel_layout_name in CHANNEL_LAYOUTS:
             return f"{prefix}{CHANNEL_LAYOUTS[channel_layout_name][channel]}"
+        elif (listed := layout_channels(channel_layout_name)) is not None and len(listed) == channel_count:
+            return f"{prefix}{listed[channel]}"
         else:
             return f"{prefix}c{channel + 1}"
 
@@ -420,6 +443,23 @@ class Executor:
         '''
         logger.info(f"Probing {self.file}")
         start = time.time()
+        self.__probe = self.__run_probe()
+        if self.__duration_override_s is not None:
+            self.__probe.setdefault('format', {})['duration'] = str(self.__duration_override_s)
+        streams = self.__probe.get('streams', [])
+        if any(s.get('codec_type') == 'audio' and not s.get('channels') for s in streams) and \
+                not all(key in self.__input_options for key in LONG_PROBE_OPTIONS):
+            # kept for the extraction too: ffmpeg opens the input with the same window, and needs the same answer
+            logger.info(f"ffprobe found an audio stream with no channel count in {self.file}; probing it for longer")
+            self.__input_options = {**LONG_PROBE_OPTIONS, **self.__input_options}
+            return self.probe_file()
+        # a stream ffprobe cannot identify (a disc's data stream) can come with no codec_type at all
+        self.__audio_stream_data = [s for s in streams if s.get('codec_type') == 'audio']
+        self.__video_stream_data = [s for s in streams if s.get('codec_type') == 'video']
+        end = time.time()
+        logger.info(f"Probed {self.file} in {round(end - start, 3)}s")
+
+    def __run_probe(self):
         probe_args = ['ffprobe', '-show_format', '-show_streams', '-of', 'json']
         for key in sorted(self.__input_options):
             value = self.__input_options[key]
@@ -429,7 +469,7 @@ class Executor:
         probe_args.append(str(self.file))
         emit_execution_event('command_started', message='ffprobe', command=probe_args)
         try:
-            self.__probe = ffmpeg.probe(self.file, **self.__input_options)
+            probe = ffmpeg.probe(self.file, **self.__input_options)
         except FileNotFoundError as e:
             emit_execution_event('command_finished', message='ffprobe could not start', command=probe_args,
                                  stderr=str(e))
@@ -442,15 +482,14 @@ class Executor:
             if self.__input_options.get('f') == 'dvdvideo' and b'Unknown input format' in (e.stderr or b''):
                 raise ValueError('This ffmpeg cannot read DVDs: it was built without the dvdvideo demuxer '
                                  '(libdvdread/libdvdnav). Install an ffmpeg build that includes it.') from e
+            clip = first_clip(str(self.file))
+            if is_aacs_encrypted(clip):
+                raise ValueError(f"{clip} is AACS-encrypted (a disc backup that was copied, not decrypted), so ffmpeg "
+                                 f"cannot read it: decrypt the rip first") from e
             raise
         emit_execution_event('command_finished', message='ffprobe completed', command=probe_args,
-                             stdout=json.dumps(self.__probe, ensure_ascii=False), exit_code=0)
-        if self.__duration_override_s is not None:
-            self.__probe.setdefault('format', {})['duration'] = str(self.__duration_override_s)
-        self.__audio_stream_data = [s for s in self.__probe.get('streams', []) if s['codec_type'] == 'audio']
-        self.__video_stream_data = [s for s in self.__probe.get('streams', []) if s['codec_type'] == 'video']
-        end = time.time()
-        logger.info(f"Probed {self.file} in {round(end - start, 3)}s")
+                             stdout=json.dumps(probe, ensure_ascii=False), exit_code=0)
+        return probe
 
     def has_audio(self):
         '''
@@ -501,7 +540,7 @@ class Executor:
         if 'channel_layout' in selected_audio_stream:
             channel_layout = selected_audio_stream['channel_layout']
         else:
-            channel_count = selected_audio_stream['channels']
+            channel_count = self.__probed_channel_count(selected_audio_stream, audio_stream_idx)
             if channel_count == 1:
                 channel_layout = 'mono'
             elif channel_count == 2:
@@ -586,6 +625,18 @@ class Executor:
             elif channel_layout == 'hexadecagonal':
                 mono_mix = self.__get_no_lfe_mono_mix(16)
                 channel_count = 16
+            elif (listed := layout_channels(channel_layout)) is not None:
+                # a layout this list does not name, which ffprobe describes by its channels: "4 channels (FL+FR+LFE+BC)"
+                channel_count = len(listed)
+                if 'LFE' in listed:
+                    mono_mix = self.__get_lfe_mono_mix(channel_count, listed.index('LFE'))
+                    lfe_idx = listed.index('LFE') + 1
+                else:
+                    mono_mix = self.__get_no_lfe_mono_mix(channel_count)
+            if mono_mix is None:
+                # a layout that names no channels: mix what the stream says it has, equally, as with no layout at all
+                channel_count = self.__probed_channel_count(selected_audio_stream, audio_stream_idx)
+                mono_mix = self.__get_no_lfe_mono_mix(channel_count)
             channel_layout_name = channel_layout
         else:
             if channel_layout_name is None:
@@ -887,6 +938,15 @@ class Executor:
         chan_gain = {lfe_idx: LFE}
         gains = '+'.join([f"{chan_gain.get(a, MAIN)}*c{a}" for a in range(0, channels)])
         return gains
+
+    @staticmethod
+    def __probed_channel_count(stream, audio_stream_idx):
+        ''' The stream's channel count; a stream ffprobe could not count cannot be mixed or split, so is refused. '''
+        channel_count = stream.get('channels') or 0
+        if channel_count <= 0:
+            raise ValueError(f"ffprobe found no channel count for audio stream {audio_stream_idx}, even reading the "
+                             f"first {LONG_PROBE_OPTIONS['probesize']}B of the input, so it cannot be extracted")
+        return channel_count
 
     def __get_no_lfe_mono_mix(self, channels):
         '''

@@ -511,6 +511,18 @@ def test_a_failed_title_is_not_tried_again_on_the_next_run(works):
     assert 'one is missing' in second.failed_earlier[0][1]
 
 
+def test_an_ffmpeg_failure_is_remembered_with_what_ffmpeg_said(works):
+    import ffmpeg
+    works.fail[('extract', 'one')] = ffmpeg.Error('ffmpeg', b'', b'ffmpeg version 8.0\n[Parsed_pan_0] Expected in '
+                                                                 b'channel name, got "None"\n')
+
+    first = works.run([_item('one')])
+
+    said = 'Error: ffmpeg error (see stderr output for detail): [Parsed_pan_0] Expected in channel name, got "None"'
+    assert first.failed == [('one', said)]
+    assert works.index.failures()['one'].message == said
+
+
 def test_retry_failed_tries_it_again_and_success_forgets_the_failure(works):
     works.fail[('extract', 'one')] = True
     works.run([_item('one')])

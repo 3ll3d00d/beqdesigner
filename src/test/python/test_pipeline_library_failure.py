@@ -9,7 +9,7 @@ import pytest
 import requests
 
 from pipeline.designer.http_binding import DesignerUnavailable, HttpDesignerError
-from pipeline.library.failure import Unavailable, missing_mount, unavailable_reason
+from pipeline.library.failure import FAILURE_DETAIL_CHARS, Unavailable, failure_message, missing_mount, unavailable_reason
 
 
 def _raised_from(cause: BaseException, outer=HttpDesignerError) -> BaseException:
@@ -104,3 +104,47 @@ def test_a_drive_that_is_not_connected_is_a_mount_that_is_not_there():
     used = {d for d in 'DEFGHIJKLMNOPQRSTUVWXYZ' if os.path.exists(f'{d}:\\')}
     free = next(d for d in reversed('DEFGHIJKLMNOPQRSTUVWXYZ') if d not in used)
     assert 'not connected' in missing_mount(f'{free}:\\films\\Heat.mkv')
+
+
+# --- the words a failure is recorded in (design/library-run-gaps.md, L2) -------------------------------------------
+
+FFMPEG_STDERR = b"""ffmpeg version 8.0 Copyright (c) 2000-2025 the FFmpeg developers
+  built with gcc 14
+  configuration: --enable-gpl --enable-libbluray
+  libavutil      60.  8.100 / 60.  8.100
+  libavcodec     62. 11.100 / 62. 11.100
+[Parsed_pan_0 @ 0x55f55ff32800] Expected in channel name, got "None"
+[AVFilterGraph @ 0x55f55ff323c0] Error initializing filters
+Error : Invalid argument
+"""
+
+
+def test_an_ffmpeg_failure_says_what_ffmpeg_said_without_its_banner():
+    import ffmpeg
+    message = failure_message(ffmpeg.Error('ffmpeg', b'', FFMPEG_STDERR))
+
+    assert message == ('Error: ffmpeg error (see stderr output for detail): [Parsed_pan_0 @ 0x55f55ff32800] Expected '
+                       'in channel name, got "None" / [AVFilterGraph @ 0x55f55ff323c0] Error initializing filters / '
+                       'Error : Invalid argument')
+
+
+def test_a_long_stderr_keeps_its_end():
+    import ffmpeg
+    message = failure_message(ffmpeg.Error('ffprobe', b'', ('x' * 2000 + '\nthe last line').encode()))
+
+    detail = message.split('detail): ', 1)[1]
+    assert len(detail) == FAILURE_DETAIL_CHARS and detail.startswith('...') and detail.endswith('the last line')
+
+
+@pytest.mark.parametrize('error, said', [
+    (ValueError('no audio'), 'ValueError: no audio'),
+    (KeyError('codec_type'), "KeyError: 'codec_type'"),
+])
+def test_any_other_failure_is_its_type_and_text(error, said):
+    assert failure_message(error) == said
+
+
+def test_an_ffmpeg_failure_with_nothing_on_stderr_is_its_type_and_text():
+    import ffmpeg
+    assert failure_message(ffmpeg.Error('ffprobe', b'', b'ffprobe version 8.0\n\n')) == \
+        'Error: ffprobe error (see stderr output for detail)'

@@ -11,7 +11,7 @@ from pipeline.config import AnalysisConfig
 from pipeline.designer.contract import Coverage
 from pipeline.library.design_cache import design_if_needed
 from model.execution_events import emit_execution_event, event_scope
-from pipeline.library.failure import Unavailable, unavailable_reason
+from pipeline.library.failure import Unavailable, failure_message, unavailable_reason
 from pipeline.library.disks import DiskLimit
 from pipeline.library.retention import DEFAULT_MIN_FREE_GB, OutOfSpace, check_free_space, min_free_gb, \
     restore_multichannel
@@ -195,7 +195,7 @@ def _report_failure(report: LibraryRunReport, index: Optional[LibraryIndex], uni
     (pipeline.library.failure), when it is reported in `report.unavailable` and the next run tries it again.
     '''
     item = unit.item if isinstance(unit, SeasonGroup) else unit
-    message = f'{type(error).__name__}: {error}'
+    message = failure_message(error)
     in_extract = getattr(error, 'library_stage', 'extract') == 'extract'
     # a path the source already says is wrong (an unmapped JRiver drive) is that, not storage that is not there
     readable = in_extract and not isinstance(unit, SeasonGroup) and not item.source_path_problem
@@ -216,7 +216,7 @@ def _record(index: LibraryIndex, item: LibraryItem, fingerprint: str, stage: str
             run_config: 'LibraryRunConfig') -> None:
     try:
         index.record_failure(
-            item.id, stage, f'{type(error).__name__}: {error}', fingerprint,
+            item.id, stage, failure_message(error), fingerprint,
             failure_key(stage, item, config=run_config.config, designer=run_config.designer,
                         coverage=run_config.coverage, keep_multichannel=run_config.keep_multichannel))
     except Exception as index_error:
@@ -371,7 +371,7 @@ def _extract_season(session: Session, group: SeasonGroup, run_config: LibraryRun
             reason = unavailable_reason(error, member.source_path)
             if reason is not None:   # the rest of the season would meet it too: nothing about the episode is remembered
                 raise Unavailable(f'{member.display_name}: {reason}') from error
-            report.failed.append((member.id, f'{type(error).__name__}: {error}'))
+            report.failed.append((member.id, failure_message(error)))
             if index is not None:
                 _record(index, member, fingerprint, 'extract', error, run_config)
             continue

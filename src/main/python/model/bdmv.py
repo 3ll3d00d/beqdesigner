@@ -193,6 +193,40 @@ def audio_layout(clip_path: str) -> Tuple[str, ...]:
     return tuple(line.strip() for line in out.stdout.splitlines() if line.strip())
 
 
+AACS_UNIT_BYTES = 6144  # an aligned unit: 32 source packets of 192 bytes, encrypted after its first 16 bytes
+_SOURCE_PACKET_BYTES = 192
+_SYNC_BYTE = 0x47
+
+
+def first_clip(ffmpeg_input: str) -> str:
+    ''' The first clip of a resolved title's input: the input itself, or the first of a `concat:a|b` spec. '''
+    return ffmpeg_input[len('concat:'):].split('|')[0] if ffmpeg_input.startswith('concat:') else ffmpeg_input
+
+
+def is_aacs_encrypted(clip_path: str) -> bool:
+    '''
+    True if a Blu-ray clip (.m2ts) is still AACS-encrypted, as a disc backup that was copied rather than decrypted is.
+    Each aligned unit keeps only its first packet's header in the clear, so a unit with one transport-stream sync byte
+    in 32 is encrypted; a decrypted clip has all 32. Reads one unit a little way in (the first can be padding). False
+    for anything that is not a readable .m2ts.
+    '''
+    if not clip_path.lower().endswith('.m2ts'):
+        return False
+    try:
+        size = os.path.getsize(clip_path)
+        units = size // AACS_UNIT_BYTES
+        if units == 0:
+            return False
+        with open(clip_path, 'rb') as clip:
+            clip.seek(min(16, units - 1) * AACS_UNIT_BYTES)
+            unit = clip.read(AACS_UNIT_BYTES)
+    except OSError:
+        return False
+    packets = len(unit) // _SOURCE_PACKET_BYTES
+    synced = sum(1 for i in range(packets) if unit[i * _SOURCE_PACKET_BYTES + 4] == _SYNC_BYTE)
+    return packets == AACS_UNIT_BYTES // _SOURCE_PACKET_BYTES and synced <= 1
+
+
 def _clips_to_drop(items: List[PlayItem], clip_path: Callable[[str], str],
                    layout: Callable[[str], Tuple[str, ...]]) -> List[str]:
     '''

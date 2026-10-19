@@ -94,3 +94,30 @@ def unavailable_reason(error: BaseException, source_path: Optional[str] = None) 
         if reason is not None:
             return reason
     return missing_mount(source_path)
+
+
+# ffmpeg's banner lines: its version, build and library versions, which say nothing about the failure
+_BANNER_PREFIXES = ('ffmpeg version', 'ffprobe version', 'built with', 'configuration:', 'lib')
+FAILURE_DETAIL_LINES = 3
+FAILURE_DETAIL_CHARS = 400
+
+
+def failure_message(error: BaseException) -> str:
+    '''
+    A title's failure in words a person can act on: the error's type and text, and, for an ffmpeg or ffprobe failure
+    (whose text is only "see stderr output for detail"), the last lines of what it wrote to stderr.
+    '''
+    message = f'{type(error).__name__}: {error}'
+    stderr = getattr(error, 'stderr', None)
+    if isinstance(stderr, bytes):
+        stderr = stderr.decode('utf-8', errors='replace')
+    if not isinstance(stderr, str):
+        return message
+    lines = [line.strip() for line in stderr.splitlines()]
+    said = [line for line in lines if line and not line.startswith(_BANNER_PREFIXES)][-FAILURE_DETAIL_LINES:]
+    if not said:
+        return message
+    detail = ' / '.join(said)
+    if len(detail) > FAILURE_DETAIL_CHARS:
+        detail = '...' + detail[-(FAILURE_DETAIL_CHARS - 3):]
+    return f'{message}: {detail}'

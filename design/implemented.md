@@ -266,6 +266,15 @@ when none is lossless. Discs often put LPCM or DTS 2.0 ahead of the 5.1 or Atmos
 main track, and Universal's list a Japanese DTS dub first. Batch Extract and
 Extract Audio default to the same stream.
 
+A probe that finds an audio stream with no channel count (UHD discs whose audio
+starts after ffprobe's default 5 s window) is run again over 100 s / 200 MB,
+and the extraction opens the input the same way; a stream still uncounted is
+refused in words. A layout ffmpeg can describe only by its channels (`4
+channels (FL+FR+LFE+BC)`) is mixed and named from them. A probe failure on an
+AACS-encrypted Blu-ray clip says the rip is encrypted, and a run records an
+ffmpeg failure with the last lines of its stderr
+([L2 record](archive/library-run-l2.md)).
+
 A fresh JRiver scan updates an existing single-title queue entry's audio type
 when it is missing or still matches the previous automatic value. A different
 value entered during review is retained. This also covers entries made before

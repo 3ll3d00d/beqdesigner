@@ -61,21 +61,10 @@ source digest computed at each beqforge tag by hand (L3).
 
 **Done when** every decline in the queue is in the ledger, against the build that made it.
 
-### L2. Extraction failures (beqdesigner bugs)
+### L2. Extraction failures (done)
 
-Nine titles failed extraction and are retried, and fail, on every scheduled run:
-
-- `KeyError: 'codec_type'` (Elf): `model/ffmpeg.py:450` indexes every ffprobe stream's `codec_type`;
-  a stream without one (an attachment or data stream) breaks the probe. Read it with `.get`.
-- `ZeroDivisionError` (House Party, Le Samourai, Parasite): find the division (a zero duration or rate
-  from the probe is the likely input) and fail with a reason that says so.
-- `ffprobe error` / `ffmpeg error (see stderr output for detail)` (House Party, John Wick 3, The Dark
-  Knight, Prizzi's Honor, Silkwood): the stderr the message points at is not kept anywhere a person
-  can read it. Put its last lines in the failure detail, then decide per file (damaged rip, unsupported
-  container, the duplicate copy of a title).
-
-Each fix needs a regression test from a fixture probe (`test_ffmpeg.py`). **Done when** the nine either
-extract or fail with a reason a person can act on.
+Fixed and archived: [L2 record](archive/library-run-l2.md). Seven of the nine now extract (or will, run with
+`retry_failed` on the next image); two are encrypted rips and one a file JRiver lists that is gone.
 
 ### L3. Know which designs a designer upgrade changes (extends D4)
 
@@ -142,6 +131,6 @@ beqforge's content principle would then lift a vintage mono recording's own roll
 
 ## 3. Order
 
-L2 first (small), L1 alongside as declines
+L1 alongside as declines
 arrive, L4's handoffs once L1's re-review settles which verdicts still hold, then L3 (contract work with
 beqforge), then L6.
