@@ -18,6 +18,25 @@
       "minimum": 1,
       "maximum": 8,
       "description": "optional: how many designs the designer runs at once; a caller sends it no more than this (\u00a77.2). Absent means 1."
+    },
+    "design_version": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "1.4, optional: the designer's design version, bumped by any change that can alter an answer to the same request (beyond a small tolerance); 0 means before versioning. design/design-version.md."
+    },
+    "design_settings": {
+      "type": "string",
+      "minLength": 1,
+      "description": "1.4, optional: an opaque digest, equal between two designers exactly when their non-default settings that can alter an answer are equal."
+    },
+    "designer_build": {
+      "type": "string",
+      "minLength": 1,
+      "description": "1.4, optional: the designer's build, for people; a caller keys nothing on it."
+    },
+    "design_settings_detail": {
+      "type": "object",
+      "description": "1.4, optional: the settings design_settings digests, by name, for a person to see why two designers disagree; never a key."
     }
   },
   "required": [

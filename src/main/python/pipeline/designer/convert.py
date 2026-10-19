@@ -35,6 +35,7 @@ def validate_response(response: DesignResponse) -> None:
         raise ContractViolation("DesignResponse populates both candidates and decline_reason -- exactly one is allowed")
     if not is_success and not is_decline:
         raise ContractViolation("DesignResponse populates neither candidates nor decline_reason")
+    _validate_identity(response)
 
     # 1.1: either shape may carry the designs that were judged unfit to publish; every one a full, loadable candidate
     # with reasons, in no particular order (confidence measures evidence, not whether a design passed)
@@ -68,6 +69,17 @@ def validate_response(response: DesignResponse) -> None:
                 f"candidates[{i}].confidence ({candidate.confidence}) exceeds candidates[{i - 1}]'s "
                 f"({previous_confidence}) -- candidates must be ordered best (most preferred) first")
         previous_confidence = candidate.confidence
+
+
+def _validate_identity(response: DesignResponse) -> None:
+    ''' 1.4: a design version is an int of at least 0; the settings and build, non-empty text. Each optional. '''
+    version = response.design_version
+    if version is not None and (isinstance(version, bool) or not isinstance(version, int) or version < 0):
+        raise ContractViolation(f"design_version must be an integer of at least 0, got {version!r}")
+    for name in ('design_settings', 'designer_build'):
+        value = getattr(response, name)
+        if value is not None and (not isinstance(value, str) or not value.strip()):
+            raise ContractViolation(f"{name} must be a non-empty string when given, got {value!r}")
 
 
 def _validate_candidate(candidate: DesignCandidate, index: int, where: str = 'candidates') -> None:

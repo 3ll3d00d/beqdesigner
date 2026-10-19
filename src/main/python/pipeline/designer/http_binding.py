@@ -27,7 +27,8 @@ import numpy as np
 import requests
 
 from pipeline.designer.registry import register_designer
-from pipeline.designer.contract import BiquadSpec, CONTRACT_VERSION, DesignCandidate, DesignRequest, DesignResponse
+from pipeline.designer.contract import BiquadSpec, CONTRACT_VERSION, DesignCandidate, DesignRequest, DesignResponse, \
+    IDENTITY_FIELDS
 from pipeline.designer.sources import ArraySource, AudioSources
 
 logger = logging.getLogger('pipeline.designer.http_binding')
@@ -162,13 +163,15 @@ def _response_from_json(body: dict) -> DesignResponse:
     try:
         # 1.1: either shape may add `rejected`; an empty list is passed on as one, for validate_response() to refuse
         rejected = [_candidate_from_json(c) for c in body['rejected']] if body.get('rejected') is not None else None
+        # 1.4: either shape may say the designer's identity; validate_response() checks the values
+        identity = {name: body.get(name) for name in IDENTITY_FIELDS}
         if body.get('candidates') is not None:
             candidates = [_candidate_from_json(c) for c in body['candidates']]
             return DesignResponse(contract_version=body.get('contract_version', CONTRACT_VERSION),
-                                  candidates=candidates, rejected=rejected)
+                                  candidates=candidates, rejected=rejected, **identity)
         return DesignResponse(contract_version=body.get('contract_version', CONTRACT_VERSION),
                               decline_reason=body.get('decline_reason'), decline_message=body.get('decline_message'),
-                              rejected=rejected)
+                              rejected=rejected, **identity)
     except (KeyError, TypeError, ValueError) as e:
         raise HttpDesignerError(f"response body does not match DesignResponse's shape: {e}") from e
 

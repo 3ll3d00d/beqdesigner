@@ -77,6 +77,15 @@
       "type": "integer",
       "minimum": 0,
       "description": "how many times an entry already committed to the catalogue was reopened for revision. Absent means 0. The same catalogue path is rewritten each time, so this counts history rather than naming a file."
+    },
+    "design_version": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "the designer's design version when it designed this entry (contract 1.4). Absent when it did not say: its version is then taken from designer_build where that build is known."
+    },
+    "design_settings": {
+      "type": "string",
+      "description": "the designer's design_settings when it designed this entry (contract 1.4); absent when it did not say."
     }
   },
   "required": ["id", "fs", "meta", "curve", "candidates", "status"],

@@ -111,6 +111,14 @@ class DesignResponse:
     # published by the caller on its own. None when there is nothing to show; never an empty list
     rejected: Optional[list] = None  # list[DesignCandidate]
 
+    # 1.4, with either shape: the designer's identity as far as the answer is concerned (design/design-version.md)
+    design_version: Optional[int] = None   # bumped by any change that can alter an answer to the same request
+    design_settings: Optional[str] = None  # digest of the designer's own settings that can alter an answer
+    designer_build: Optional[str] = None   # the build, for people
+
+
+IDENTITY_FIELDS = ('design_version', 'design_settings', 'designer_build')
+
 
 def build_request(mono_mix: ndarray, fs: int, coverage: Coverage = 'complete_programme',
                   channels: Optional[dict] = None, bass_management: Optional[dict] = None) -> DesignRequest:

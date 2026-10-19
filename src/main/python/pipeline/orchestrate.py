@@ -59,7 +59,7 @@ from model.signal import AutoWavLoader, SingleChannelSignalData
 from model.xy import MagnitudeData
 
 from pipeline.config import AnalysisConfig
-from pipeline.designer.contract import FIT_FIELDS, ChannelScope, Coverage, build_request
+from pipeline.designer.contract import FIT_FIELDS, IDENTITY_FIELDS, ChannelScope, Coverage, build_request
 from pipeline.designer.convert import alternative_filters, rejected_filters, to_complete_filter
 from pipeline.designer.registry import get_designer, takes_sources
 from pipeline.designer.manual import MANUAL_DESIGNER, manual_response
@@ -144,6 +144,10 @@ class Applied:
     residual_rms_db: Optional[float] = None
     residual_within_tolerance: Optional[float] = None
     residual_tolerance_db: Optional[float] = None
+    # 1.4: the designer's identity (contract.IDENTITY_FIELDS), as it said it; None for a designer that did not
+    design_version: Optional[int] = None
+    design_settings: Optional[str] = None
+    designer_build: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -152,6 +156,15 @@ class Declined:
     reason: str
     message: Optional[str] = None
     rejected: tuple = ()      # tuple[AlternativeDesign, ...]: the designs whose failure is the decline (1.1), as evidence
+    # 1.4, as on Applied
+    design_version: Optional[int] = None
+    design_settings: Optional[str] = None
+    designer_build: Optional[str] = None
+
+
+def identity_of(response) -> dict:
+    ''' A response's 1.4 identity fields (contract.IDENTITY_FIELDS), to pass on with its outcome. '''
+    return {name: getattr(response, name, None) for name in IDENTITY_FIELDS}
 
 
 DesignOutcome = Union[Applied, Declined]
@@ -449,7 +462,8 @@ class Session:
         rejected = tuple(_design_of(candidate, rejected_filter)
                          for candidate, rejected_filter in zip(response.rejected or [], rejected_filters(response, fs)))
         if response.decline_reason is not None:
-            return Declined(reason=response.decline_reason, message=response.decline_message, rejected=rejected)
+            return Declined(reason=response.decline_reason, message=response.decline_message, rejected=rejected,
+                            **identity_of(response))
         primary = response.candidates[0]
         complete_filter = to_complete_filter(response, fs=fs)
         alternatives = tuple(_design_of(candidate, alt_filter)
@@ -460,7 +474,7 @@ class Session:
                        fc_uncertainty_hz=primary.fc_uncertainty_hz, slope_uncertainty=primary.slope_uncertainty,
                        residual_db=primary.residual_db, residual_band_hz=primary.residual_band_hz,
                        commentary=primary.commentary, channel_scope=primary.channel_scope,
-                       alternatives=alternatives, rejected=rejected, **fit_of(primary))
+                       alternatives=alternatives, rejected=rejected, **fit_of(primary), **identity_of(response))
 
     def set_filters(self, sig: SingleChannelSignalData,
                     filters: Union[CompleteFilter, Sequence[FilterSpec]]) -> CompleteFilter:

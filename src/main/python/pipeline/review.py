@@ -110,9 +110,17 @@ class QueueEntry:
                                                # None: none was sent, or designed before this was recorded
     designer: Optional[str] = None            # the registered designer that designed it; None before this was recorded
     designer_build: Optional[str] = None      # the build it said it is (designer_build()); None if it said none
+    design_version: Optional[int] = None      # 1.4: the designer's design version when it designed this; None if it said
+    design_settings: Optional[str] = None     # none (pipeline.designer.identity backfills the version from the build)
     rejected: List[CandidateSummary] = field(default_factory=list)  # designs the designer judged unfit to publish
                                                # (contract 1.1), each with rejection_reasons: for a person to review.
                                                # Nothing picks one but a person, and picking one overrides the designer
+
+    @property
+    def design_identity(self):
+        ''' What it was designed with (pipeline.designer.identity.DesignIdentity), backfilled from its build before 1.4. '''
+        from pipeline.designer.identity import DesignIdentity
+        return DesignIdentity.of(self.design_version, self.design_settings, self.designer_build)
 
     def __post_init__(self):
         if self.decline_reason and not self.candidates:   # a decline, including one written before it had a candidate
@@ -240,9 +248,19 @@ def _summary_from_dict(c: dict) -> CandidateSummary:
     return CandidateSummary(**{k: v for k, v in c.items() if k in _SUMMARY_FIELDS})
 
 
+# written only when known, so a reader from before them (which refuses a field it does not know) meets them only then
+_WRITTEN_WHEN_KNOWN = ('design_version', 'design_settings')
+
+
 def _entry_to_dict(entry: QueueEntry) -> dict:
-    ''' The entry as written: a candidate's 1.3 fit fields only when measured, so older readers meet them only then. '''
+    '''
+    The entry as written: a candidate's 1.3 fit fields only when measured, and the 1.4 design identity only when the
+    designer said it, so older readers meet them only then.
+    '''
     d = asdict(entry)
+    for name in _WRITTEN_WHEN_KNOWN:
+        if d.get(name) is None:
+            d.pop(name, None)
     for candidate in [*d.get('candidates', []), *d.get('rejected', [])]:
         for name in FIT_FIELDS:
             if candidate.get(name) is None:
@@ -250,8 +268,14 @@ def _entry_to_dict(entry: QueueEntry) -> dict:
     return d
 
 
+_ENTRY_FIELDS = None
+
+
 def _entry_from_dict(d: dict) -> QueueEntry:
-    d = dict(d)
+    global _ENTRY_FIELDS
+    if _ENTRY_FIELDS is None:
+        _ENTRY_FIELDS = {f.name for f in fields(QueueEntry)}
+    d = {k: v for k, v in d.items() if k in _ENTRY_FIELDS}   # a field a later version writes is left for it
     d['candidates'] = [_summary_from_dict(c) for c in d.get('candidates', [])]
     d['rejected'] = [_summary_from_dict(c) for c in d.get('rejected', [])]
     return QueueEntry(**d)
@@ -327,7 +351,8 @@ def _outcome_to_entry(entry_id: str, fs: int, meta: dict, curve: dict, outcome: 
     rejected = [_summary_of(design) for design in outcome.rejected]
     if isinstance(outcome, Declined):   # QueueEntry gives it its flat candidate
         return QueueEntry(id=entry_id, fs=fs, meta=meta, curve=curve, peak_curve=peak_curve, candidates=[],
-                          decline_reason=outcome.reason, decline_message=outcome.message, rejected=rejected)
+                          decline_reason=outcome.reason, decline_message=outcome.message, rejected=rejected,
+                          **_identity_of(outcome))
     assert isinstance(outcome, Applied)
     candidates = [CandidateSummary(filters=outcome.filters.to_json(), confidence=outcome.confidence,
                                    method=outcome.method, mv_adjust_db=outcome.mv_adjust_db,
@@ -336,7 +361,13 @@ def _outcome_to_entry(entry_id: str, fs: int, meta: dict, curve: dict, outcome: 
                                    commentary=outcome.commentary, **fit_of(outcome))]
     candidates += [_summary_of(alt) for alt in outcome.alternatives]
     return QueueEntry(id=entry_id, fs=fs, meta=meta, curve=curve, peak_curve=peak_curve, candidates=candidates,
-                      rejected=rejected)
+                      rejected=rejected, **_identity_of(outcome))
+
+
+def _identity_of(outcome: DesignOutcome) -> dict:
+    ''' The 1.4 identity the designer said (a version that breaks the contract never gets this far: convert refuses it). '''
+    return {'design_version': outcome.design_version, 'design_settings': outcome.design_settings,
+            'designer_build': outcome.designer_build}
 
 
 def design_and_queue(session: Session, entry_id: str, wav_path: str, designer: str, queue_dir: str,
@@ -390,7 +421,7 @@ def design_and_queue(session: Session, entry_id: str, wav_path: str, designer: s
     entry.audio_stream = audio_stream
     entry.bass_management = dict(bass_management) if bass_management else None
     entry.designer = designer
-    entry.designer_build = designer_build(entry)
+    entry.designer_build = entry.designer_build or designer_build(entry)   # 1.4 says it; before, its commentary did
     write_queue_entry(queue_dir, entry)
     if project_dir is not None:
         from pipeline.publish.project import write_title_projects_if_safe

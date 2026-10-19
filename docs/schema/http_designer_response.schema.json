@@ -57,6 +57,19 @@
     },
     "decline_message": {
       "oneOf": [{ "type": "string" }, { "type": "null" }]
+    },
+    "design_version": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "1.4, optional: the designer's design version, bumped by any change that can alter an answer to the same request (beyond a small tolerance); 0 means before versioning. design/design-version.md."
+    },
+    "design_settings": {
+      "oneOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }],
+      "description": "1.4, optional: an opaque digest, equal between two designers exactly when their non-default settings that can alter an answer are equal."
+    },
+    "designer_build": {
+      "oneOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }],
+      "description": "1.4, optional: the designer's build, for people; a caller keys nothing on it."
     }
   },
   "required": ["contract_version"],

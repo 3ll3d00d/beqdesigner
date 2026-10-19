@@ -1,6 +1,9 @@
 # Design version: knowing which designs a designer upgrade changes
 
-**Design, not built.** Agreed 2026-10-19 (TODO L3, extending D4), with beqforge's four refinements the same day. The designer side is beqforge's TODO 28
+**Design, not built.** Agreed 2026-10-19 (TODO L3, extending D4), with beqforge's four refinements the same day.
+
+**Caller side in progress:** step 1 below (the response and health fields, kept per entry, the backfill and the
+out-of-date rule, `pipeline/designer/identity.py`) is built; steps 2 and 3 are not yet. The designer side is beqforge's TODO 28
 (`plans/design-version.md` there). Once both sides are built this becomes contract 1.4 in
 [designer-interface.md](designer-interface.md) and the caller behaviour moves to [implemented.md](implemented.md).
 

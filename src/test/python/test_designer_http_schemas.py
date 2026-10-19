@@ -125,3 +125,20 @@ def test_a_1_3_response_reporting_its_fit_is_valid(response_schema):
                                           ('residual_within_tolerance', 1.5), ('residual_tolerance_db', 0)])
 def test_a_fit_field_out_of_range_is_refused_by_the_schema(response_schema, field, value):
     assert list(response_schema.iter_errors(_response(**{**_FIT, field: value})))
+
+
+_IDENTITY = {'design_version': 4, 'design_settings': 'd0', 'designer_build': '0.2.6 (frozen build)'}
+
+
+def test_a_1_4_response_and_health_saying_the_designers_identity_are_valid(response_schema, health_schema):
+    assert not list(response_schema.iter_errors({**_response(), **_IDENTITY}))
+    assert not list(response_schema.iter_errors({**_response(), **{k: None for k in _IDENTITY}}))
+    health_schema.validate({'contract_version': '1.2', 'shared_root': True, **_IDENTITY,
+                            'design_settings_detail': {'strategy': ['flatten']}})
+
+
+@pytest.mark.parametrize('field, value', [('design_version', -1), ('design_version', 1.5), ('design_settings', ''),
+                                          ('designer_build', 3)])
+def test_an_identity_out_of_range_is_refused_by_the_schemas(response_schema, health_schema, field, value):
+    assert list(response_schema.iter_errors({**_response(), **_IDENTITY, field: value}))
+    assert list(health_schema.iter_errors({'contract_version': '1.2', 'shared_root': True, **_IDENTITY, field: value}))
