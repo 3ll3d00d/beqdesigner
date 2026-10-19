@@ -2,7 +2,7 @@
 
 **Built 2026-10-19** on both sides (beqforge's in its working tree, to be released): the contract is now 1.4 in
 [designer-interface.md](designer-interface.md) ("Design identity"). Agreed 2026-10-19 (TODO L3, extending D4), with
-beqforge's four refinements the same day. beqforge's all-defaults digest is `9cf04c30b0f0`; its detail keys are
+beqforge's four refinements the same day. The first beqforge release with it is 0.2.7, at version 4 (0.2.6 was tagged, never published). beqforge's all-defaults digest is `9cf04c30b0f0`; its detail keys are
 strategies, exclude_bands_hz, goal_tolerance_db, goal_tilt_db_per_octave, content_edge, device_rate_hz,
 coefficient_bits and integer_bits (strategy order kept: it can change the ranking).
 
@@ -38,9 +38,12 @@ On `DesignResponse`, optional, returned to a request of any version (as the 1.1 
 
 - **`design_version`** is a non-negative integer that never decreases. A designer bumps it with any change
   that can alter `candidates`, `rejected`, a decline or a 1.3 fit figure for an unchanged request; a change to
-  wording only (`commentary`, `decline_message`) or to speed, packaging or transport does not. "Alter" means
-  beyond a small golden tolerance, not bit for bit: one version can differ in the last digits between
-  platforms (the Windows exe and the Linux image), so a caller compares versions, never figures. Adding a
+  wording only (`commentary`, `decline_message`) or to speed, packaging or transport does not. A version names
+  one algorithm, not one answer: floating point differs between processors and BLAS kernels, and for an
+  optimising strategy that can grow into a different optimum, so the same version and settings on different
+  hardware can design a title differently (beqforge 0.2.6's golden: 2 sections against 3, a 15.2 against a
+  16.5 dB boost). A caller compares versions, never figures, and a redesign on another machine may move a
+  title even when nothing is out of date. Adding a
   field that leaves the answer as it was (1.3's fit figures) is not a bump. 0 means "before versioning".
 - **`design_settings`** is an opaque string, equal between two designers exactly when the server-wide
   settings that can change an answer are equal (beqforge: strategies, exclusions, goal tolerance and tilt,

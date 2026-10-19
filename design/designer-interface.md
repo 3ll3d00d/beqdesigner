@@ -534,9 +534,11 @@ alike, returned whatever `contract_version` the request names:
 
 - **`design_version`**, an integer of at least 0 that never decreases. Bump it
   with any change that can alter `candidates`, `rejected`, a decline or a 1.3
-  fit figure for an unchanged request, judged against a small golden tolerance,
-  not bit for bit: one version may differ in the last digits between platforms,
-  so a caller compares versions, never figures. A change to wording only
+  fit figure for an unchanged request on the same machine. A version names one
+  algorithm, not one answer: floating point differs between processors, and
+  for an optimising strategy that can lead to a different optimum, so two
+  designers on different hardware at the same version and settings may answer
+  a title differently. A caller compares versions, never figures. A change to wording only
   (`commentary`, `decline_message`), speed, packaging or transport is not a
   bump; nor is adding a field that leaves the answer as it was (1.3's fit
   figures). 0 means "before versioning".
