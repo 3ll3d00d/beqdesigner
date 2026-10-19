@@ -313,3 +313,15 @@ for this checklist rather than a copy of one project's taste.
 - A non-finite value in any of the five is refused.
 - A response carrying the 1.3 fields decodes over HTTP, and a 1.2 caller's schema accepts it (`additionalProperties`).
 
+
+## 1.4: design identity
+
+- `design_version` that is not an integer of at least 0 (a bool, a float, a string, a negative) is refused.
+- `design_settings` or `designer_build` that is given but empty, or not a string, is refused.
+- All three are optional, on a design and a decline alike; a response without them is a 1.3 response, unchanged.
+- A response carrying them decodes over HTTP, and the response and health schemas accept them (`additionalProperties`).
+- Designer side: the same request answered twice gives the same identity; a setting at its default changes no digest;
+  a setting that can change an answer does; workers, cores and cache or record locations do not; `/health` reports the
+  same identity as the responses.
+- Designer side: a golden of answers on fixture requests, keyed to the `design_version` it was made with, fails when an
+  answer moves beyond its tolerance without a bump.

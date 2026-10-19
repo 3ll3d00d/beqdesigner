@@ -1,4 +1,4 @@
-# BEQ filter designer interface — v1.3
+# BEQ filter designer interface — v1.4
 
 **Status:** CONTRACT, fully implemented on this repo's side, 1.1's `rejected`
 included (reviewed, and overridable by a person, on the title page) — both bindings
@@ -56,6 +56,13 @@ tolerance (`residual_within_tolerance`, `residual_tolerance_db`). `residual_db`
 and `residual_band_hz` are clarified, not changed: measured on the cascade as
 published and as the device plays it, over the band actually measured. A 1.2
 caller ignores the new fields; a designer may return them to any request.*
+
+*v1.4, additive (§3, "Design identity"; §7.1): three optional fields on
+`DesignResponse` and on `GET /health` -- `design_version`, an integer bumped
+only by a change that can alter an answer; `design_settings`, a digest of the
+designer's non-default settings that can; and `designer_build`, for people --
+so a caller can tell which of its designs a designer upgrade could change.
+`/health` may add `design_settings_detail`. A 1.3 caller ignores them.*
 
 *A test checklist for whoever implements this contract, extracted from two
 independent implementations' test suites (this repo's caller side and
@@ -272,6 +279,12 @@ class DesignResponse:
     # 1.1, with either shape: designs built and judged unfit to publish, for
     # a human to review only — never applied or published. See below.
     rejected: list[DesignCandidate] | None = None
+
+    # 1.4, with either shape: which answer this designer gives. See "Design
+    # identity" below.
+    design_version: int | None = None    # >= 0; bumped by a change that can alter an answer
+    design_settings: str | None = None   # digest of the non-default settings that can
+    designer_build: str | None = None    # the build, for people; never a key
 ```
 
 **`candidates`** replaces what earlier drafts of this document expressed as
@@ -516,6 +529,31 @@ used. This is currently the only field carrying anything back out about
 what `channels` showed — worth populating whenever you have an answer,
 since it's otherwise invisible to the caller.
 
+**Design identity (1.4).** Three optional fields, on a design and a decline
+alike, returned whatever `contract_version` the request names:
+
+- **`design_version`**, an integer of at least 0 that never decreases. Bump it
+  with any change that can alter `candidates`, `rejected`, a decline or a 1.3
+  fit figure for an unchanged request, judged against a small golden tolerance,
+  not bit for bit: one version may differ in the last digits between platforms,
+  so a caller compares versions, never figures. A change to wording only
+  (`commentary`, `decline_message`), speed, packaging or transport is not a
+  bump; nor is adding a field that leaves the answer as it was (1.3's fit
+  figures). 0 means "before versioning".
+- **`design_settings`**, an opaque string, equal between two designers exactly
+  when their server-wide settings that can change an answer are equal. Leave
+  out every setting at its default (so all defaults is the empty set's digest,
+  and a new flag whose default keeps today's answers changes nobody's digest)
+  and every setting that cannot change an answer (workers, cores, caches, log
+  and record locations). Absent means the designer has no such settings.
+- **`designer_build`**, free text naming the build, for display. A caller keys
+  nothing on it.
+
+The pair (`design_version`, `design_settings`) is the design identity. A
+caller keeps it with each design and selects as *out of date* those whose
+identity differs from what the designers it can use now report on `/health`
+(§7.1); it never redesigns on that alone.
+
 ---
 
 ## 4. Declining
@@ -748,7 +786,8 @@ caller ignores them (below), which is exactly why they are a separate list.
 `"1.2"` exactly when the body holds an array by reference, and `"1.1"`
 otherwise, so a request with every array inline is unchanged. 1.3 adds
 optional response fields only (§3, "How well the filters match"); a designer
-may return them whatever version the request names, as it may the 1.1 fields. Changes within `1.x`
+may return them whatever version the request names, as it may the 1.1 fields. 1.4 adds the design identity
+(§3, "Design identity") to responses and `/health`, on the same terms. Changes within `1.x`
 will be additive-only (new optional fields, defaulting to `None`/absent);
 you can ignore fields you don't recognise on the request side, and the
 caller does the same for the response. A breaking change bumps to `2.0` and
@@ -859,7 +898,12 @@ carried, and nothing after decoding may tell the two apart. The rules:
   allowed and ignored (beqforge also sends `"status": "ok"`, for monitors
   that already poll it). Optionally, `"parallel": N` (an integer 1-8) says how
   many designs the designer runs at once (beqforge 0.2.4 on, `--workers N`); a
-  caller then sends it no more than N at a time (§7.2). Absent means 1. The caller reads it
+  caller then sends it no more than N at a time (§7.2). Absent means 1. From
+  1.4 it may also report `design_version`, `design_settings` and
+  `designer_build` as on a response (§3, "Design identity"), and
+  `design_settings_detail`, the non-default settings as an object, so a person
+  can see why two designers disagree; a caller shows it and keys nothing on it.
+  The caller reads it
   once, before its first request by reference to that designer, and sends
   none — failing the design with the answer in its message — when the
   version is below 1.2 or `shared_root` is not `true`.

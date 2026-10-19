@@ -1,6 +1,10 @@
 # Design version: knowing which designs a designer upgrade changes
 
-**Design, not built.** Agreed 2026-10-19 (TODO L3, extending D4), with beqforge's four refinements the same day.
+**Built 2026-10-19** on both sides (beqforge's in its working tree, to be released): the contract is now 1.4 in
+[designer-interface.md](designer-interface.md) ("Design identity"). Agreed 2026-10-19 (TODO L3, extending D4), with
+beqforge's four refinements the same day. beqforge's all-defaults digest is `9cf04c30b0f0`; its detail keys are
+strategies, exclude_bands_hz, goal_tolerance_db, goal_tilt_db_per_octave, content_edge, device_rate_hz,
+coefficient_bits and integer_bits (strategy order kept: it can change the ranking).
 
 **Caller side built** (2026-10-19): the response and health fields kept per entry, the backfill and the out-of-date
 rule (`pipeline/designer/identity.py`); each endpoint's identity, the current one and the disagreement warning on
