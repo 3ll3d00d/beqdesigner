@@ -15,7 +15,7 @@ from pipeline.library.failure import Unavailable, failure_message, unavailable_r
 from pipeline.library.disks import DiskLimit
 from pipeline.library.retention import DEFAULT_MIN_FREE_GB, OutOfSpace, check_free_space, min_free_gb, \
     restore_multichannel
-from pipeline.library.streams import audio_ordinal, channels_found, stream_choice
+from pipeline.library.streams import audio_ordinal, channels_found, poorer_than_preferred, preferred_stream, stream_choice
 from pipeline.library.extract_cache import extract_if_needed, title_hint, extract_status, mono_from_multichannel_if_needed, \
     read_channel_layout_name, read_source_channel_count
 from pipeline.library.index import LibraryIndex, with_audio_stream
@@ -431,8 +431,11 @@ def resolve_selected_stream(session: Session, item: LibraryItem) -> tuple[Librar
     :return: (the item, '') -- or (the item unchanged, why the selection was not used, for the run to say): the default
         audio stream is then extracted (streams.preferred_stream()).
     '''
-    if item.audio_stream_source in ('manual', 'source') or not item.selected_streams:
+    if item.audio_stream_source == 'manual' or not item.selected_streams:
         return item, ''
+    if item.audio_stream_source == 'source':   # resolved by an earlier run: kept, unless it is the poorer stream
+        poorer = poorer_than_preferred(item.audio_stream_details, item.audio_stream)
+        return (with_audio_stream(item, preferred_stream(item.audio_stream_details), ''), poorer) if poorer else (item, '')
     if item.source_path_problem or not os.path.exists(item.source_path):
         return item, ''   # extraction says what is wrong with the path
     said = ','.join(str(n) for n in item.selected_streams)
@@ -445,6 +448,9 @@ def resolve_selected_stream(session: Session, item: LibraryItem) -> tuple[Librar
     if ordinal is None:
         return item, f"the source's stream selection ({said}) does not match the file: {why}; the default audio stream " \
                      f"is used"
+    poorer = poorer_than_preferred(item.audio_stream_details, ordinal)
+    if poorer:
+        return item, poorer
     return with_audio_stream(item, ordinal, 'source'), ''
 
 

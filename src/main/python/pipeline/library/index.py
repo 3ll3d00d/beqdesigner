@@ -29,7 +29,7 @@ from pipeline.library.catalogue_scan import XmlRecord, scan_xml_repo, tmdb_index
 from pipeline.library.profile import Profile, SourceSpec, build_source
 from pipeline.library.season import SeasonGroup, Unit, plan_units
 from pipeline.library.source import LibraryItem, LibrarySource
-from pipeline.library.streams import preferred_stream
+from pipeline.library.streams import poorer_than_preferred, preferred_stream
 from pipeline.library.state import FLAG_DUPLICATE, FLAG_GONE, FLAG_IGNORED, FLAG_IN_CATALOGUE, FLAG_SHADOWED, NEEDS, \
     TIER_ORDER, TIER_OF_NEEDS, StageStates, derive_needs
 from pipeline.library.status import Evaluation, Evaluator, FailureMemory, ScanSettings, failure_applies, \
@@ -324,8 +324,10 @@ def carried_choice(item: LibraryItem, previous: Optional[LibraryItem]) -> Librar
     '''
     if previous is None or previous.audio_stream_source not in ('manual', 'source'):
         return item
-    if previous.audio_stream_source == 'source' and previous.selected_streams != item.selected_streams:
-        return item
+    if previous.audio_stream_source == 'source' and (previous.selected_streams != item.selected_streams or
+                                                     poorer_than_preferred(item.audio_stream_details,
+                                                                           previous.audio_stream)):
+        return item   # a selection that moved, or one poorer than the default (a stereo track JRiver last played)
     if item.audio_stream_details and not 0 <= previous.audio_stream < len(item.audio_stream_details):
         return item
     return with_audio_stream(item, previous.audio_stream, previous.audio_stream_source)

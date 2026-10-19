@@ -142,6 +142,21 @@ def preferred_stream(details: Sequence[Mapping]) -> int:
     return max(candidates, key=lambda i: (_channel_count(details[i]), is_lossless(details[i].get('codec', '')), -i))
 
 
+def poorer_than_preferred(details: Sequence[Mapping], audio_stream: int) -> str:
+    '''
+    Why the source's selection is not used, or '': a selected stream with fewer channels than preferred_stream()'s
+    (JRiver remembers the stream last played, which can be a stereo or commentary track: Thor: The Dark World played
+    its AC-3 2.0 ahead of the DTS-HD MA 7.1). Unknown when the source lists no streams: the selection then stands.
+    '''
+    if not 0 <= audio_stream < len(details):
+        return ''
+    best = preferred_stream(details)
+    if _channel_count(details[audio_stream]) >= _channel_count(details[best]):
+        return ''
+    return (f"the source plays audio stream {describe_stream(details[audio_stream], audio_stream)}, which has fewer "
+            f"channels than audio stream {describe_stream(details[best], best)}, so that is used")
+
+
 def stream_choice(details: Sequence[Mapping], audio_stream: int, keep_multichannel: bool, chosen_by: str = '') -> str:
     '''
     What a run extracts of a title, said before it starts: "audio stream 2: DTS-HD MA 5.1, English, 48 kHz; multichannel

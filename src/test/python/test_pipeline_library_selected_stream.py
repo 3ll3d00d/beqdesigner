@@ -191,3 +191,63 @@ def test_a_selection_that_does_not_match_the_file_falls_back_to_the_first_stream
     notes = [e.message for e in events if e.kind == 'note']
     assert notes == ["The source's stream selection (1,2) does not match the file: stream 1 of the file is not a video "
                      "stream; the default audio stream is used"]
+
+
+# --- a selection poorer than the default (F8: JRiver last played a stereo track) --------------------------------------
+
+def test_a_selection_with_fewer_channels_than_the_richest_stream_is_said_to_be_poorer():
+    from pipeline.library.streams import poorer_than_preferred
+    thor = ({'codec': 'DTS-HD MA', 'channels': '8', 'language': 'English'},
+            {'codec': 'AC-3', 'channels': '2', 'language': 'English'},
+            {'codec': 'DTS', 'channels': '6', 'language': 'Spanish'})
+
+    assert poorer_than_preferred(thor, 1) == ('the source plays audio stream 2: AC-3 stereo, English, which has fewer '
+                                              'channels than audio stream 1: DTS-HD MA 7.1, English, so that is used')
+    assert poorer_than_preferred(thor, 0) == ''
+    assert poorer_than_preferred(DETAILS, 1) == '' and poorer_than_preferred(DETAILS, 0) != ''
+    assert poorer_than_preferred((), 1) == ''   # the source listed no streams: its selection stands
+
+
+def test_a_scan_drops_a_resolved_selection_poorer_than_the_default():
+    before = LibraryItem(id='x', source_path='/x', display_name='x', audio_stream=0, audio_stream_source='source',
+                         selected_streams=(0, 1), audio_stream_details=DETAILS)
+    now = LibraryItem(id='x', source_path='/x', display_name='x', selected_streams=(0, 1), audio_stream_details=DETAILS,
+                      audio_stream=preferred_stream(DETAILS))
+    assert carried_choice(now, before).audio_stream == 1 and carried_choice(now, before).audio_stream_source == ''
+
+
+def test_a_poorer_selection_resolved_by_an_earlier_run_is_not_extracted_again():
+    from pipeline.library.run import resolve_selected_stream
+    resolved = LibraryItem(id='x', source_path='/x', display_name='x', audio_stream=0, audio_stream_source='source',
+                           selected_streams=(0, 1), audio_stream_details=DETAILS)
+
+    item, note = resolve_selected_stream(None, resolved)   # nothing probed: the stream list says enough
+
+    assert (item.audio_stream, item.audio_stream_source) == (1, '') and 'fewer channels' in note
+
+
+@needs_ffmpeg
+def test_a_stereo_track_jriver_plays_is_passed_over_for_the_multichannel_one_and_said(env):
+    ''' Thor: The Dark World played its AC-3 2.0, and was designed on it ahead of its DTS-HD MA 7.1. '''
+    from model.execution_events import execution_event_context
+    from pipeline.library.run import LibraryRunConfig, LibraryRunReport, run_unit
+    from pipeline.orchestrate import Session
+    item = LibraryItem(id='fs-film', source_path=_video_and_two_audio(env.tmp), display_name='Film', fingerprint='fp',
+                       selected_streams=(0, 1, 7), audio_stream_details=DETAILS, audio_stream=preferred_stream(DETAILS))
+    _scan(env, item)
+    config = LibraryRunConfig(work_dir=env.work, queue_dir=env.queue, designer='none', keep_multichannel=True)
+    events = []
+    context = execution_event_context('run', events.append)
+    context.__enter__()
+    try:
+        work = run_unit(Session(config.config), env.index.units(['fs-film'])['fs-film'], config, LibraryRunReport(),
+                        env.index, through='extract')
+    finally:
+        context.__exit__(None, None, None)
+
+    import soundfile as sf
+    assert sf.info(work.multichannel_wav_path).channels == 6
+    assert [e.message for e in events if e.kind == 'note'] == [
+        'The source plays audio stream 1: AC-3 stereo, which has fewer channels than audio stream 2: TrueHD Atmos 7.1, so '
+        'that is used']
+    assert env.index.units(['fs-film'])['fs-film'].audio_stream_source == ''   # not remembered as the source's choice

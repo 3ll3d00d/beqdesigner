@@ -256,7 +256,9 @@ sample rate, bitrate, language and title are requested and kept per stream;
 JRiver's Playback Info `Streams` (video, audio, subtitle, by ffprobe's global
 index) is kept as `selected_streams` and resolved against a probe of the file
 before extraction (`run.resolve_selected_stream`, trusted only when it names a
-video then an audio stream); a reviewer's choice (`audio_stream_source:
+video then an audio stream with as many channels as the default below: JRiver
+remembers the stream last played, and Thor: The Dark World's was its AC-3 2.0
+ahead of the DTS-HD MA 7.1, `streams.poorer_than_preferred`); a reviewer's choice (`audio_stream_source:
 manual`) and a resolved one survive a rescan (`index.carried_choice`). A source
 that lists no streams has them read from the file when a person chooses one.
 With neither, the title extracts `streams.preferred_stream()`: the most
