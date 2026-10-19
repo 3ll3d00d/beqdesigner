@@ -2,8 +2,9 @@
 
 **Design, not built.** Agreed 2026-10-19 (TODO L3, extending D4), with beqforge's four refinements the same day.
 
-**Caller side in progress:** step 1 below (the response and health fields, kept per entry, the backfill and the
-out-of-date rule, `pipeline/designer/identity.py`) is built; steps 2 and 3 are not yet. The designer side is beqforge's TODO 28
+**Caller side in progress:** steps 1 and 2 below are built (the response and health fields kept per entry, the
+backfill and the out-of-date rule in `pipeline/designer/identity.py`; each endpoint's identity, the current one and the
+disagreement warning on `/v1/status` and the Status page). Step 3 is not yet. The designer side is beqforge's TODO 28
 (`plans/design-version.md` there). Once both sides are built this becomes contract 1.4 in
 [designer-interface.md](designer-interface.md) and the caller behaviour moves to [implemented.md](implemented.md).
 

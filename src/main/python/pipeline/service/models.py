@@ -738,6 +738,11 @@ class DesignerEndpointStatus(BaseModel):
     parallel: int = Field(description='How many designs it is sent at once.')
     reachable: bool = Field(description='Whether its /health answered (and it can take what it is declared to).')
     detail: str = Field(description='Its URL when it answered, else why not.')
+    design_version: Optional[int] = Field(None, description="The design version its /health reports (contract 1.4); "
+                                                            "null when it reports none or did not answer.")
+    design_settings_detail: Optional[Dict[str, Any]] = Field(
+        None, description='Its settings that differ from the defaults, as its /health lists them; null when it does not.')
+    designer_build: Optional[str] = Field(None, description='The build its /health names, for people.')
 
 
 class DesignerStatus(BaseModel):
@@ -748,6 +753,13 @@ class DesignerStatus(BaseModel):
     checked_at: Optional[datetime]
     endpoints: List[DesignerEndpointStatus] = Field(default_factory=list,
                                                     description='Each endpoint the designer is served from (§7.2).')
+    design_version: Optional[int] = Field(
+        None, description='What a redesign now would be made with: the highest design version among the endpoints that '
+                          'are up. A title designed with another (or with other settings) is out of date. Null when none '
+                          'reports one, and then no title can be judged out of date.')
+    design_disagreement: List[str] = Field(
+        default_factory=list, description='The endpoints that are up but would design differently, each in words; empty '
+                                          'when they agree. A redesign then answers differently by endpoint.')
 
 
 class ScheduleUpdate(Input):

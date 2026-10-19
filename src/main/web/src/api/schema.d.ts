@@ -662,6 +662,23 @@ export interface components {
              * @description Its URL when it answered, else why not.
              */
             detail: string;
+            /**
+             * Design Version
+             * @description The design version its /health reports (contract 1.4); null when it reports none or did not answer.
+             */
+            design_version?: number | null;
+            /**
+             * Design Settings Detail
+             * @description Its settings that differ from the defaults, as its /health lists them; null when it does not.
+             */
+            design_settings_detail?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Designer Build
+             * @description The build its /health names, for people.
+             */
+            designer_build?: string | null;
         };
         /** DesignerStatus */
         DesignerStatus: {
@@ -684,6 +701,16 @@ export interface components {
              * @description Each endpoint the designer is served from (§7.2).
              */
             endpoints?: components["schemas"]["DesignerEndpointStatus"][];
+            /**
+             * Design Version
+             * @description What a redesign now would be made with: the highest design version among the endpoints that are up. A title designed with another (or with other settings) is out of date. Null when none reports one, and then no title can be judged out of date.
+             */
+            design_version?: number | null;
+            /**
+             * Design Disagreement
+             * @description The endpoints that are up but would design differently, each in words; empty when they agree. A redesign then answers differently by endpoint.
+             */
+            design_disagreement?: string[];
         };
         /**
          * ExtractProgressEvent

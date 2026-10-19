@@ -79,6 +79,7 @@ class EndpointIdentity:
     version: int
     settings: Optional[str] = None
     settings_detail: Optional[Mapping[str, Any]] = None
+    build: Optional[str] = None
 
 
 def identity_from_health(url: str, body: Any) -> Optional[EndpointIdentity]:
@@ -90,7 +91,7 @@ def identity_from_health(url: str, body: Any) -> Optional[EndpointIdentity]:
         return None
     detail = body.get('design_settings_detail')
     return EndpointIdentity(url, version, valid_text(body.get('design_settings')),
-                            dict(detail) if isinstance(detail, Mapping) else None)
+                            dict(detail) if isinstance(detail, Mapping) else None, valid_text(body.get('designer_build')))
 
 
 @dataclass(frozen=True)

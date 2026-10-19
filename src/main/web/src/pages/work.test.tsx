@@ -102,6 +102,37 @@ describe('status', () => {
     expect(screen.getByText('answering')).toBeInTheDocument()
   })
 
+  it('says the design version a redesign would use, each endpoint\'s, and warns when the endpoints differ', async () => {
+    const designer = {
+      name: 'beqforge', reachable: true, detail: 'http://a/design, http://b/design', checked_at: null,
+      endpoints: [{ url: 'http://a/design', parallel: 1, reachable: true, detail: 'http://a/design', design_version: 4 },
+                  { url: 'http://b/design', parallel: 2, reachable: true, detail: 'http://b/design', design_version: 5 }],
+      design_version: 5,
+      design_disagreement: ['http://a/design designs with version 4, default settings',
+                            'http://b/design designs with version 5, default settings'],
+    }
+    server.use(statusRoute(status({ index: index(), designer })), http.get('/v1/schedule', () => json(schedule())))
+    renderApp('/')
+
+    expect(await screen.findByText(/Designs with design version 5/)).toBeInTheDocument()
+    const [a] = within(screen.getByRole('list', { name: 'Endpoints' })).getAllByRole('listitem')
+    expect(a).toHaveTextContent(/^up http:\/\/a\/design · 1 at once · design version 4$/)
+    const warning = screen.getByRole('alert', { name: 'Designers disagree' })
+    expect(within(warning).getAllByRole('listitem').map((li) => li.textContent)).toEqual(designer.design_disagreement)
+  })
+
+  it('says no design version, and warns of nothing, for designers from before it', async () => {
+    const designer = { name: 'beqforge', reachable: true, detail: 'http://a/design', checked_at: null,
+                       endpoints: [{ url: 'http://a/design', parallel: 1, reachable: true, detail: 'http://a/design' }],
+                       design_version: null, design_disagreement: [] }
+    server.use(statusRoute(status({ index: index(), designer })), http.get('/v1/schedule', () => json(schedule())))
+    renderApp('/')
+
+    expect(await screen.findByText('answering')).toBeInTheDocument()
+    expect(screen.queryByText(/design version/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('alert', { name: 'Designers disagree' })).not.toBeInTheDocument()
+  })
+
   it('shows no endpoint list for a designer with one', async () => {
     const designer = { name: 'beqforge', reachable: true, detail: 'http://a/design', checked_at: null,
                        endpoints: [{ url: 'http://a/design', parallel: 1, reachable: true, detail: 'http://a/design' }] }

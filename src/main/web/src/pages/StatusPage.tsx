@@ -49,12 +49,21 @@ function Designer({ designer }: { designer: Schemas['DesignerStatus'] | null | u
       <h2 id="designer">Designer</h2>
       <p><strong>{designer.name || '—'}</strong>: <span className={designer.reachable === false ? 'problem' : ''}>{state}</span></p>
       {designer.detail && <p className="muted">{designer.detail}</p>}
+      {designer.design_version != null && (
+        <p className="muted">Designs with design version {designer.design_version}: a title designed with another is out of date.</p>
+      )}
+      {(designer.design_disagreement?.length ?? 0) > 0 && (
+        <div className="problem" role="alert" aria-label="Designers disagree">
+          <p>The designers that are up would not design alike, so a redesign answers differently by endpoint:</p>
+          <ul>{designer.design_disagreement!.map((d) => <li key={d}>{d}</li>)}</ul>
+        </div>
+      )}
       {(designer.endpoints?.length ?? 0) > 1 && (
         <ul className="endpoints" aria-label="Endpoints">
           {designer.endpoints!.map((e) => (
             <li key={e.url}>
               <span className={e.reachable ? '' : 'problem'}>{e.reachable ? 'up' : 'down'}</span> {e.url}
-              <span className="muted"> · {e.parallel} at once{e.reachable ? '' : ` · ${e.detail}`}</span>
+              <span className="muted"> · {e.parallel} at once{e.design_version != null ? ` · design version ${e.design_version}` : ''}{e.reachable ? '' : ` · ${e.detail}`}</span>
             </li>
           ))}
         </ul>

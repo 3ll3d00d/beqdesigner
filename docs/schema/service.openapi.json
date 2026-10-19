@@ -2713,6 +2713,43 @@
             "type": "string",
             "title": "Detail",
             "description": "Its URL when it answered, else why not."
+          },
+          "design_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Design Version",
+            "description": "The design version its /health reports (contract 1.4); null when it reports none or did not answer."
+          },
+          "design_settings_detail": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Design Settings Detail",
+            "description": "Its settings that differ from the defaults, as its /health lists them; null when it does not."
+          },
+          "designer_build": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Designer Build",
+            "description": "The build its /health names, for people."
           }
         },
         "type": "object",
@@ -2766,6 +2803,26 @@
             "type": "array",
             "title": "Endpoints",
             "description": "Each endpoint the designer is served from (\u00a77.2)."
+          },
+          "design_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Design Version",
+            "description": "What a redesign now would be made with: the highest design version among the endpoints that are up. A title designed with another (or with other settings) is out of date. Null when none reports one, and then no title can be judged out of date."
+          },
+          "design_disagreement": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Design Disagreement",
+            "description": "The endpoints that are up but would design differently, each in words; empty when they agree. A redesign then answers differently by endpoint."
           }
         },
         "type": "object",

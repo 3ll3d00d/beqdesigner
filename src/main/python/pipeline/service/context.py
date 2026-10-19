@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 from pipeline.designer.http_binding import DesignerUnavailable, check_designer, reported_parallel
+from pipeline.designer.identity import EndpointIdentity, identity_from_health
 from pipeline.library.index import index_path
 from pipeline.library.profile import Profile, read_config_file
 from pipeline.library.run import LibraryRunConfig
@@ -100,10 +101,10 @@ class JobContext:
         ''' The run's designer's HTTP endpoints, or None for one that has none (the manual designer). '''
         return designer_endpoints(self.values, self.config)
 
-    def designer_endpoint_states(self, timeout: float = 10.0) -> List[Tuple[str, int, str]]:
+    def designer_endpoint_states(self, timeout: float = 10.0) -> List[Tuple[str, int, str, Optional[EndpointIdentity]]]:
         '''
         Each endpoint of the run's designer asked now: (url, how many designs it takes at once, why it cannot be used, or
-        '' if it can).
+        '' if it can, the design identity its /health reports or None: design/design-version.md).
         :raises ValueError: for a designer the file declares in a form that cannot be used.
         '''
         declared = self.designer_endpoints()
@@ -116,7 +117,8 @@ class JobContext:
             except DesignerUnavailable as error:
                 body, reason = None, str(error)
             # the profile's parallel, else what the designer reports (§7.2), else 1: what the pool sends it at once
-            states.append((endpoint.url, endpoint.parallel or reported_parallel(body) or 1, reason))
+            states.append((endpoint.url, endpoint.parallel or reported_parallel(body) or 1, reason,
+                           identity_from_health(endpoint.url, body)))
         return states
 
     def designer_unavailable(self, timeout: float = 10.0) -> str:
@@ -128,9 +130,9 @@ class JobContext:
             states = self.designer_endpoint_states(timeout)
         except ValueError as error:
             return str(error)
-        if not states or any(not reason for _, _, reason in states):
+        if not states or any(not reason for _, _, reason, _ in states):
             return ''
-        return '; '.join(reason for _, _, reason in states)
+        return '; '.join(reason for _, _, reason, _ in states)
 
 
 def load_context(profile_path: str, env: Optional[Mapping[str, str]] = None) -> JobContext:

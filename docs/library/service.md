@@ -53,7 +53,9 @@ run:
 A designer can also run on several machines at once. List its endpoints. Each is sent as many designs at a time as its
 designer runs (beqforge 0.2.4 and later report it: `serve-designer --workers N`), or one at a time for an older one; add
 `parallel: N` (1-8) to an endpoint to set it yourself. Designs go to whichever endpoints are up; one that stops answering is left out until it answers
-again, and Status lists each endpoint. Use the same beqforge version on every endpoint. `by_reference: true` only
+again, and Status lists each endpoint. Use the same beqforge version on every endpoint: a designer that reports its
+design version (contract 1.4) has it shown beside each endpoint, and Status warns when the endpoints that are up would not
+design alike. `by_reference: true` only
 suits an endpoint that sees the work directory; give the others none, and they are sent the audio itself.
 
 ```yaml

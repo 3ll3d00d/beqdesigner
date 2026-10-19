@@ -176,6 +176,35 @@ def test_the_status_lists_each_endpoint(tmp_path, designer):
     assert [(e['parallel'], e['reachable']) for e in status['endpoints']] == [(1, True), (2, False)]
 
 
+def test_the_status_says_what_a_redesign_would_be_made_with_and_where_the_endpoints_differ(tmp_path):
+    """ design/design-version.md: each endpoint's identity from its /health, and the highest of those up is current. """
+    old, new = StubDesigner(), StubDesigner()
+    (tmp_path / 'work').mkdir()
+    profile = _pool_profile(tmp_path, [old.url, new.url, _nothing_listening()])
+    old.health = {'status': 'ok', 'design_version': 4, 'design_settings': 'd0', 'design_settings_detail': {},
+                  'designer_build': '0.2.5 (frozen build)'}
+    new.health = {'status': 'ok', 'design_version': 5, 'design_settings': 'd1',
+                  'design_settings_detail': {'strategy': ['flatten']}}
+    manager = JobManager(lambda job, control: None)
+    app = create_app(manager, ServiceConfig(profile_path=profile, token=TOKEN), env={},
+                     designer=DesignerProbe(profile, {}, timeout=2))
+    try:
+        status = TestClient(app).get('/v1/status', headers={'Authorization': f'Bearer {TOKEN}'}).json()['designer']
+        old.health = new.health = {'status': 'ok'}   # designers from before 1.4
+        before = DesignerProbe(profile, {}, timeout=2).check()
+    finally:
+        manager.stop(5)
+        old.stop()
+        new.stop()
+
+    assert [(e['design_version'], e['design_settings_detail'], e['designer_build']) for e in status['endpoints']] == \
+        [(4, {}, '0.2.5 (frozen build)'), (5, {'strategy': ['flatten']}, None), (None, None, None)]
+    assert status['design_version'] == 5
+    assert status['design_disagreement'] == [f'{old.url} designs with version 4, default settings',
+                                             f"{new.url} designs with version 5, settings {{'strategy': ['flatten']}}"]
+    assert before.identity is None   # nothing says a version: no title can be judged out of date
+
+
 def test_the_manual_designer_has_nothing_to_ask(tmp_path):
     path = tmp_path / 'profile.json'
     path.write_text(json.dumps({'sources': [{'name': 'disk', 'kind': 'filesystem', 'globs': ['x']}],

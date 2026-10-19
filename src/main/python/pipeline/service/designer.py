@@ -7,6 +7,7 @@ import time
 from dataclasses import dataclass
 from typing import Callable, Mapping, Optional, Tuple
 
+from pipeline.designer.identity import CurrentIdentity, EndpointIdentity, current_identity
 from pipeline.service.context import JobContext, load_context
 
 MAX_AGE_SECONDS = 30.0   # how long /ready and /v1/status reuse an answer, so polling them does not poll the designer
@@ -18,6 +19,7 @@ class EndpointState:
     parallel: int
     reachable: bool
     detail: str   # the URL when it answered, else why not
+    identity: Optional[EndpointIdentity] = None   # what its /health says it designs with (1.4); None: it does not say
 
 
 @dataclass(frozen=True)
@@ -27,6 +29,9 @@ class DesignerState:
     detail: str
     checked_at: Optional[float]
     endpoints: Tuple[EndpointState, ...] = ()   # each endpoint; the designer is reachable if any of them is
+    # what a redesign now would be made with: the endpoints up, highest design version (design/design-version.md); None
+    # when none of them says one, and then no title can be judged out of date
+    identity: Optional[CurrentIdentity] = None
 
 
 class DesignerProbe:
@@ -51,12 +56,14 @@ class DesignerProbe:
                 name = str(ctx.values.get('designer') or '')
                 state = DesignerState(name, None, 'not an HTTP designer: nothing to ask', self.clock())
             else:
-                endpoints = tuple(EndpointState(url, parallel, not reason, reason or url) for url, parallel, reason in asked)
+                endpoints = tuple(EndpointState(url, parallel, not reason, reason or url, identity)
+                                  for url, parallel, reason, identity in asked)
                 up = [e for e in endpoints if e.reachable]
                 detail = ', '.join(e.url for e in up) if up else '; '.join(e.detail for e in endpoints)
                 if up and len(up) < len(endpoints):
                     detail += f' ({len(endpoints) - len(up)} of {len(endpoints)} endpoints down)'
-                state = DesignerState(declared.name, bool(up), detail, self.clock(), endpoints)
+                state = DesignerState(declared.name, bool(up), detail, self.clock(), endpoints,
+                                      current_identity(e.identity for e in up))
         with self.lock:
             self.last = state
         return state
