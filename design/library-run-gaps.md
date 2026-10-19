@@ -68,19 +68,9 @@ Fixed and archived: [L2 record](archive/library-run-l2.md). Seven of the nine no
 
 ### L3. Know which designs a designer upgrade changes (extends D4)
 
-Today the only identity a design keeps is the designer build string, which differs between a frozen
-build and a container of the same release (0.2.5 is `e1a2c24b1172+src:008f1c30d377` frozen and
-`unknown+src:76b2edd7e060` in the container) and says nothing about whether design behaviour changed.
-
-- Agree with beqforge a **design version** on `/health` and in each response: a number that changes only
-  when the same request could get a different answer (beqforge already keys its optimiser seed this way,
-  `1e8d6ee`). A contract addition (1.4), optional field.
-- Keep it in each queue entry; let the titles filter and the work list select "designed before
-  version N"; show the count in the drift banner D4 already describes.
-- Never redesign on its own: accepted and published entries are protected as now, and a redesign stays a
-  person's (or a scheduled job's explicit) choice.
-
-**Done when** today's requeue is one filter and one job, with no hand-made version map.
+**Agreed 2026-10-19.** Design, not built: [design-version.md](design-version.md) (contract 1.4: a
+`design_version` that changes only with the answers, a `design_settings` digest, `designer_build`; the caller
+keeps them per entry and selects *out of date*). beqforge's side is its TODO 28.
 
 ### L4. Designer findings to hand to beqforge
 
