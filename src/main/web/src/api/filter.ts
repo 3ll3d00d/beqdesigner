@@ -28,6 +28,8 @@ export function filterFromQuery(params: URLSearchParams): TitleFilter {
   if (params.get('new_since_scan') === 'true') filter.new_since_scan = true
   const declined = params.get('declined')
   if (declined === 'true' || declined === 'false') filter.declined = declined === 'true'
+  const outOfDate = params.get('out_of_date')
+  if (outOfDate === 'true' || outOfDate === 'false') filter.out_of_date = outOfDate === 'true'
   const ids = params.getAll('ids').filter(Boolean)
   if (ids.length) filter.ids = ids
   return filter
@@ -44,6 +46,7 @@ export function filterToQuery(filter: TitleFilter): URLSearchParams {
   for (const flag of filter.flags ?? []) params.append('flags', flag)
   if (filter.new_since_scan) params.set('new_since_scan', 'true')
   if (typeof filter.declined === 'boolean') params.set('declined', String(filter.declined))
+  if (typeof filter.out_of_date === 'boolean') params.set('out_of_date', String(filter.out_of_date))
   for (const id of filter.ids ?? []) params.append('ids', id)
   return params
 }
@@ -65,6 +68,8 @@ export function describeFilter(filter: TitleFilter): string {
   if (filter.new_since_scan) parts.push('new since the last scan')
   if (filter.declined === true) parts.push('declined by the designer')
   if (filter.declined === false) parts.push('not declined by the designer')
+  if (filter.out_of_date === true) parts.push('designed out of date')
+  if (filter.out_of_date === false) parts.push('not designed out of date')
   if (filter.ids?.length) parts.push(`${filter.ids.length} chosen`)
   return parts.length ? parts.join(', ') : 'every title'
 }

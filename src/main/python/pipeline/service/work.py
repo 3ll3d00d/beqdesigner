@@ -5,7 +5,7 @@ logic of its own.
 '''
 import os
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Callable, Mapping, Optional
 
 from pipeline.designer.http_binding import DesignerUnavailable
@@ -62,6 +62,20 @@ def scan(context: JobContext, request: ScanRequest) -> ScanResult:
         return index.scan(context.profile, settings, only=list(request.sources) or None, allow_empty=request.allow_empty)
 
 
+def with_current_identity(context: JobContext, selection: Selection) -> Selection:
+    '''
+    The selection, with what a redesign now would be made with when it selects on being out of date: asked of the
+    designers as the job starts, not when it was submitted.
+    :raises ValueError: if it does and no designer that is up says its design version.
+    '''
+    if selection.out_of_date is None:
+        return selection
+    current = context.designer_identity()
+    if current is None:
+        raise ValueError('no designer that is up says its design version, so no title can be judged out of date')
+    return replace(selection, current=current)
+
+
 def run(context: JobContext, request: RunRequest, control: JobControl, *, allow_repository_writes: bool = False) -> RunOutcome:
     run_config = context.run_config()
     if request.through == 'design':
@@ -73,12 +87,20 @@ def run(context: JobContext, request: RunRequest, control: JobControl, *, allow_
     join = JoinQueue(sources=[WorkDirInbox(run_config.work_dir).claim])   # other runs' work, and run jobs submitted now
     control.accept_joins(join)
     settings, publish = context.stage_settings(request.through)
+    selection = with_current_identity(context, request.selection)
     with LibraryIndex(context.index_file) as index:
         scanned = None
         if request.scan_first or not index.generation:   # never scanned: there is nothing to select from
             scanned = index.scan(context.profile, settings)
         if request.redesign:
-            title_ids = request.selection.ids
+            if selection.out_of_date:
+                # every designed title out of date that a person has not accepted or published (those stay as they are)
+                title_ids = tuple(r.id for r in selection.rows(index)
+                                  if r.review_state != 'accepted' and r.design_state != 'protected')
+                selection = Selection(ids=title_ids)
+                if not title_ids:
+                    return RunOutcome(scanned, StagesReport('design', 0))
+            title_ids = selection.ids
             # every title is checked before any is sent back: a bad id fails the job with nothing changed
             unknown = [t for t in title_ids if index.title(t) is None]
             if unknown:
@@ -107,7 +129,7 @@ def run(context: JobContext, request: RunRequest, control: JobControl, *, allow_
                                xml_dir=settings.xml_dir, image_dir=settings.image_dir,
                                category_folders=settings.category_folders, meta_defaults=settings.meta_defaults)
             index.refresh(context.profile, settings)
-        report = run_stages(context.profile, request.selection, request.through, run_config=run_config, index=index,
+        report = run_stages(context.profile, selection, request.through, run_config=run_config, index=index,
                             publish=publish, settings=settings, retry_failed=request.retry_failed,
                             unattended=request.unattended, join=join, should_cancel=control.cancelled, on_progress=control.progress, on_event=control.event)
     return RunOutcome(scanned, report)
@@ -121,10 +143,11 @@ def accept(context: JobContext, request: AcceptRequest):
     if not os.path.isfile(path):
         raise ValueError(f'no index at {path}: scan first')
     options = dict(queue_dir=settings.queue_dir, meta_defaults=settings.meta_defaults, work_dir=settings.work_dir)
+    selection = with_current_identity(context, request.selection)
     with LibraryIndex(path) as index:
         if request.dry_run:
-            return plan_accept(index, request.selection, request.threshold, **options)
-        report = accept_top_pick(index, request.selection, request.threshold, **options)
+            return plan_accept(index, selection, request.threshold, **options)
+        report = accept_top_pick(index, selection, request.threshold, **options)
         index.refresh(context.profile, settings)
         return report
 

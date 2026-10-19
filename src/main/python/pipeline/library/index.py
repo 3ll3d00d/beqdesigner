@@ -24,6 +24,7 @@ from pathlib import Path
 from dataclasses import asdict, dataclass, field, replace
 from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
+from pipeline.designer.identity import DesignIdentity
 from pipeline.library.catalogue_scan import XmlRecord, scan_xml_repo, tmdb_index
 from pipeline.library.profile import Profile, SourceSpec, build_source
 from pipeline.library.season import SeasonGroup, Unit, plan_units
@@ -382,6 +383,8 @@ class TitleRow:
     candidate_count: int
     failure: str
     is_new: bool = False  # first seen by the latest scan
+    # what its queue entry was designed with (design/design-version.md); None: it has no entry
+    design_identity: Optional[DesignIdentity] = None
 
     @property
     def flags(self) -> List[str]:
@@ -404,7 +407,20 @@ class TitleRow:
             design_state=row['design_state'], review_state=row['review_state'], publish_state=row['publish_state'],
             commit_state=row['commit_state'], needs=row['needs'], tier=row['tier'], detail=row['detail'],
             state_since=row['state_since'], confidence=row['confidence'], candidate_count=row['candidate_count'],
-            failure=row['failure'], is_new=row['first_seen_generation'] == generation and generation > 0)
+            failure=row['failure'], is_new=row['first_seen_generation'] == generation and generation > 0,
+            design_identity=_design_identity(row['entry_summary']))
+
+
+def _design_identity(summary: str) -> Optional[DesignIdentity]:
+    ''' What the entry its summary describes was designed with; None for a title with no (readable) entry. '''
+    if not summary:
+        return None
+    try:
+        facts = json.loads(summary)
+    except ValueError:
+        return None
+    return DesignIdentity.of(facts.get('design_version'), facts.get('design_settings'), facts.get('designer_build')) \
+        if isinstance(facts, dict) else None
 
 
 @dataclass(frozen=True)

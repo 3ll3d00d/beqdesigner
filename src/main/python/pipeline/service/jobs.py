@@ -54,6 +54,22 @@ class ScanRequest:
 MAX_REDESIGN_IDS = 500
 
 
+def redesign_problem(selection: Selection, through: str, *, raise_it: bool = False) -> str:
+    '''
+    Why a redesign cannot take this selection, or '': through design, and either 1 to MAX_REDESIGN_IDS ids and nothing
+    else, or the titles out of date (design/design-version.md) with any other filter but ids.
+    :raises ValueError: with the reason, if `raise_it`.
+    '''
+    by_ids = 1 <= len(selection.ids) <= MAX_REDESIGN_IDS and selection == Selection(ids=selection.ids)
+    by_version = selection.out_of_date is True and not selection.ids
+    problem = '' if through == 'design' and (by_ids or by_version) else \
+        f'redesign requires through=design and either 1 to {MAX_REDESIGN_IDS} title ids and no other filter, or ' \
+        'out_of_date=true and no ids'
+    if problem and raise_it:
+        raise ValueError(problem)
+    return problem
+
+
 @dataclass(frozen=True)
 class RunRequest:
     selection: Selection = Selection()
@@ -65,9 +81,8 @@ class RunRequest:
     redesign: bool = False      # explicitly invalidate the titles' existing designs before running (one run for them all)
 
     def __post_init__(self):
-        if self.redesign and (self.through != 'design' or not 1 <= len(self.selection.ids) <= MAX_REDESIGN_IDS or
-                              self.selection != Selection(ids=self.selection.ids)):
-            raise ValueError(f'redesign requires 1 to {MAX_REDESIGN_IDS} title ids, no other filters, and through=design')
+        if self.redesign:
+            redesign_problem(self.selection, self.through, raise_it=True)
         if self.through not in THROUGH:
             raise ValueError(f"through must be one of {', '.join(THROUGH)}; got {self.through!r}")
 

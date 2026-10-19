@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 from pipeline.designer.http_binding import DesignerUnavailable, check_designer, reported_parallel
-from pipeline.designer.identity import EndpointIdentity, identity_from_health
+from pipeline.designer.identity import CurrentIdentity, EndpointIdentity, current_identity, identity_from_health
 from pipeline.library.index import index_path
 from pipeline.library.profile import Profile, read_config_file
 from pipeline.library.run import LibraryRunConfig
@@ -120,6 +120,17 @@ class JobContext:
             states.append((endpoint.url, endpoint.parallel or reported_parallel(body) or 1, reason,
                            identity_from_health(endpoint.url, body)))
         return states
+
+    def designer_identity(self, timeout: float = 10.0) -> Optional[CurrentIdentity]:
+        '''
+        What a redesign now would be made with: the highest design version among the endpoints that are up
+        (design/design-version.md); None when none of them says one (or there is nothing to ask).
+        '''
+        try:
+            states = self.designer_endpoint_states(timeout)
+        except ValueError:
+            return None
+        return current_identity(identity for _, _, reason, identity in states if not reason)
 
     def designer_unavailable(self, timeout: float = 10.0) -> str:
         '''

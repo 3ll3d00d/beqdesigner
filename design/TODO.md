@@ -51,7 +51,7 @@ outside it. A beqforge version bump invalidates its bundled optimiser seed
 | 11b | L5 | | [library run](library-run-gaps.md#l5-mono-titles-needs-a-decision), F3/F4 | Waiting for the mono decision; fix `ebca201` kept on local branch `f3-mono-decomposition` | Product decision |
 | 11c | L1 | | [library run](library-run-gaps.md#l1-finish-the-review-of-the-run-operational) | In progress; 53 declines unreviewed, requeue job 28643fea running | -- |
 | 11d | L4 | | [library run](library-run-gaps.md#l4-designer-findings-to-hand-to-beqforge) | Not started; 7 handoffs to write | L1's re-review |
-| 11e | L3 | | [design version](design-version.md), D4 | Agreed 2026-10-19; design, not built (contract 1.4) | beqforge TODO 28 |
+| 11e | L3 | | [design version](design-version.md), D4 | Caller side built 2026-10-19 (work-list filter and drift-banner count not built) | beqforge TODO 28, then contract 1.4 in designer-interface.md |
 | 11f | L6 | | [library run](library-run-gaps.md#l6-finish-what-the-run-started) | Not started | E2 |
 | 15 | E2 | R | chunk 31, T2-T4 | Waiting for manual acceptance; everything it exercises is built and published | Real media, a JRiver server and disposable repositories |
 | 16 | E3 | | chunk 32, T7 | Not started; the captured library (E1) has no DVDs | A DVD rip in a JRiver library, captured as E1 was |

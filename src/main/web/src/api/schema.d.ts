@@ -1166,7 +1166,7 @@ export interface components {
             retry_failed: boolean;
             /**
              * Redesign
-             * @description Invalidate the existing designs before running, then design them in one run (the whole designer pool at once). Requires 1 to 500 ids, no other filters, and through=design; the titles must be reviewed again.
+             * @description Invalidate the existing designs before running, then design them in one run (the whole designer pool at once). Requires through=design and either 1 to 500 ids and no other filter, or out_of_date=true (with any other filter but ids): every designed title it selects that is not accepted or published. The titles must be reviewed again.
              * @default false
              */
             redesign: boolean;
@@ -1556,6 +1556,11 @@ export interface components {
             state_since: string | null;
             /** Last Seen */
             last_seen: string | null;
+            /**
+             * Design Version
+             * @description The design version it was designed with (contract 1.4, or from its build before it); null if unknown or not designed.
+             */
+            design_version?: number | null;
         };
         /**
          * TitleEvent
@@ -1641,6 +1646,11 @@ export interface components {
              * @description true: only titles whose design the designer declined (waiting for review); false: only those it did not; unset: either.
              */
             declined?: boolean | null;
+            /**
+             * Out Of Date
+             * @description true: only designed titles a redesign now could answer differently -- designed with another design version, or other designer settings, than the designers that are up now design with (contract 1.4; a title designed before it takes its version from its build). false: every other title; unset: either. Refused (409) while no designer that is up says its design version.
+             */
+            out_of_date?: boolean | null;
         };
         /** TitleMessage */
         TitleMessage: {
@@ -1955,6 +1965,8 @@ export interface operations {
                 flags?: components["schemas"]["Flag"][];
                 /** @description true: only titles whose design the designer declined (waiting for review); false: only those it did not; unset: either. */
                 declined?: boolean | null;
+                /** @description true: only designed titles a redesign now could answer differently -- designed with another design version, or other designer settings, than the designers that are up now design with (contract 1.4; a title designed before it takes its version from its build). false: every other title; unset: either. Refused (409) while no designer that is up says its design version. */
+                out_of_date?: boolean | null;
                 /** @description Include titles that need nothing (as the work list does only on Done). */
                 include_done?: boolean;
                 /** @description Order by this column (work-list order within equal values); a title without a year or confidence comes last either way. */
@@ -2313,6 +2325,8 @@ export interface operations {
                 flags?: components["schemas"]["Flag"][];
                 /** @description true: only titles whose design the designer declined (waiting for review); false: only those it did not; unset: either. */
                 declined?: boolean | null;
+                /** @description true: only designed titles a redesign now could answer differently -- designed with another design version, or other designer settings, than the designers that are up now design with (contract 1.4; a title designed before it takes its version from its build). false: every other title; unset: either. Refused (409) while no designer that is up says its design version. */
+                out_of_date?: boolean | null;
                 /** @description The title just decided (or open): the next one after it is found. Absent: the first waiting title in the list. */
                 after?: string | null;
             };

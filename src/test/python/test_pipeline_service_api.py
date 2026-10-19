@@ -260,6 +260,8 @@ def test_titles_are_sorted_by_any_column_and_filtered_on_detail_and_flags(servic
     assert titles(flags=['Gone']) == []
     assert titles(declined=True) == []   # the fixture's titles are not designed yet
     assert sorted(titles(declined=False)) == ['Alien', 'Dune', 'Heat']
+    out_of_date = client.get('/v1/titles', params={'out_of_date': True}, headers=AUTH)
+    assert out_of_date.status_code == 409 and 'design version' in out_of_date.json()['detail']   # nobody says one
     assert client.get('/v1/titles', params={'sort': 'colour'}, headers=AUTH).status_code == 422
     assert client.get('/v1/titles', params={'flags': 'purple'}, headers=AUTH).status_code == 422
 
@@ -307,7 +309,7 @@ def test_a_run_job_takes_the_filter_and_reports_a_typed_result(service):
     assert job['kind'] == 'run' and job['state'] == 'succeeded' and job['origin'] == 'api'
     assert job['request'] == {'filter': {'needs': [], 'new_since_scan': False, 'source': None, 'match': None, 'ids': [],
                                          'kind': 'movie', 'year': '2026', 'detail': None, 'flags': [],
-                                         'declined': None},
+                                         'declined': None, 'out_of_date': None},
                               'through': 'design', 'scan_first': True, 'retry_failed': False, 'redesign': False}
     assert job['result']['scan']['titles'] == 3 and job['result']['attempted'] == ['x'] and job['result']['failed'] == []
     assert job['progress'] == {'done': 1, 'total': 1, 'title': 'Alien', 'stage': 'design', 'id': 'x',
@@ -504,4 +506,31 @@ def test_redesign_takes_1_to_500_ids_and_design_only(service, body):
     client, _, calls = service
     response = client.post('/v1/jobs/run', json={**body, 'redesign': True}, headers=AUTH)
     assert response.status_code == 422
+    assert calls == []
+
+
+def test_titles_out_of_date_against_what_the_designer_up_now_says(service, monkeypatch):
+    client, _, calls = service
+    monkeypatch.setattr('pipeline.service.context.check_designer', lambda *args, **kwargs: {'design_version': 4})
+    _scanned(client)
+
+    def titles(**params):
+        response = client.get('/v1/titles', params=params, headers=AUTH)
+        assert response.status_code == 200, response.text
+        return sorted(t['title'] for t in response.json()['titles'])
+
+    assert titles(out_of_date=True) == []   # nothing designed yet: nothing out of date
+    assert titles(out_of_date=False) == ['Alien', 'Dune', 'Heat']
+    assert {t['design_version'] for t in client.get('/v1/titles', headers=AUTH).json()['titles']} == {None}
+    job = _finish(client, client.post('/v1/jobs/run', json={'filter': {'out_of_date': True}, 'redesign': True},
+                                      headers=AUTH))
+    assert job['request']['filter']['out_of_date'] is True and job['request']['redesign'] is True
+
+
+@pytest.mark.parametrize('body', [{'filter': {'out_of_date': True, 'ids': ['a']}},
+                                  {'filter': {'out_of_date': True}, 'through': 'publish'},
+                                  {'filter': {'out_of_date': False}}])
+def test_redesign_by_version_takes_out_of_date_true_without_ids(service, body):
+    client, _, calls = service
+    assert client.post('/v1/jobs/run', json={**body, 'redesign': True}, headers=AUTH).status_code == 422
     assert calls == []

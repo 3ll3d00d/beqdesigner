@@ -2,11 +2,12 @@
 
 **Design, not built.** Agreed 2026-10-19 (TODO L3, extending D4), with beqforge's four refinements the same day.
 
-**Caller side in progress:** steps 1 and 2 below are built (the response and health fields kept per entry, the
-backfill and the out-of-date rule in `pipeline/designer/identity.py`; each endpoint's identity, the current one and the
-disagreement warning on `/v1/status` and the Status page). Step 3 is not yet. The designer side is beqforge's TODO 28
-(`plans/design-version.md` there). Once both sides are built this becomes contract 1.4 in
-[designer-interface.md](designer-interface.md) and the caller behaviour moves to [implemented.md](implemented.md).
+**Caller side built** (2026-10-19): the response and health fields kept per entry, the backfill and the out-of-date
+rule (`pipeline/designer/identity.py`); each endpoint's identity, the current one and the disagreement warning on
+`/v1/status` and the Status page; `out_of_date` on the titles filter, the Titles page's *Design version* select and
+*Redesign out of date…*, and a redesign job by version. Not built: the desktop work list's filter (it has no
+`declined` either) and a count in D4's drift banner. Waiting for beqforge TODO 28; until then every title is
+*unknown* and the filter is refused, as designed.
 
 ## Why
 

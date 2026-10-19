@@ -8,6 +8,7 @@ import {
   cleanFilter, describeFilter, filterFromQuery, filterToQuery, FLAGS, sortFromQuery, sortToQuery, type Flag, type Kind,
   type Sort, type TitleFilter, type TitleSort,
 } from '../api/filter'
+import type { Schemas } from '../api/client'
 import { PAGE_SIZE, useNextTitle, usePlan, useStatus, useSubmitRun, useTitles } from '../api/hooks'
 import { ScanSources } from '../components/ScanSources'
 import { count, NEEDS_ORDER, NEEDS_WORDS, type NeedsWord } from '../format'
@@ -187,6 +188,35 @@ function Repositories({ filter }: { filter: TitleFilter }) {
   )
 }
 
+/** Sends every title the list shows back for redesign, by design version: one job, the whole designer pool at once. */
+function RedesignOutOfDate({ filter, total }: { filter: TitleFilter, total: number }) {
+  const run = useSubmitRun()
+  const navigate = useNavigate()
+  const [asking, setAsking] = useState(false)
+  const request = (): Schemas['RunJobRequest'] => ({
+    filter: cleanFilter({ ...filter, ids: [] }), through: 'design', redesign: true, scan_first: false, retry_failed: false,
+  })
+  return (
+    <div className="redesign">
+      <div className="actions">
+        <button type="button" className="secondary" onClick={() => setAsking(true)}>Redesign out of date…</button>
+      </div>
+      {asking && (
+        <div className="confirm" role="group" aria-label="Confirm redesign">
+          <p>Send {count(total, 'title')} back to the designer? Each must be reviewed again. Titles a person accepted or
+            published are left as they are.</p>
+          <div className="actions">
+            <button type="button" disabled={run.isPending}
+                    onClick={() => run.mutate(request(), { onSuccess: (job) => navigate(`/jobs/${job.id}`) })}>Redesign</button>
+            <button type="button" className="secondary" onClick={() => setAsking(false)}>Back</button>
+          </div>
+        </div>
+      )}
+      {run.error && <p role="alert" className="problem">{run.error.message}</p>}
+    </div>
+  )
+}
+
 export function TitlesPage() {
   const { filter, order, includeDone, offset, update, query } = useListParams()
   const status = useStatus()
@@ -238,7 +268,17 @@ export function TitlesPage() {
             <option value="false">Not declined</option>
           </select>
         </label>
+        <label className="inline">
+          Design version
+          <select aria-label="Design version" value={filter.out_of_date === undefined || filter.out_of_date === null ? '' : String(filter.out_of_date)}
+                  onChange={(e) => update({ ...filter, out_of_date: e.target.value === '' ? null : e.target.value === 'true' })}>
+            <option value="">Any</option>
+            <option value="true">Out of date</option>
+            <option value="false">Not out of date</option>
+          </select>
+        </label>
       </div>
+      {filter.out_of_date === true && page && page.total > 0 && <RedesignOutOfDate filter={filter} total={page.total} />}
       <Repositories filter={filter} />
       {titles.isError && <p role="alert" className="problem">{titles.error.message}</p>}
       <p className="muted">{page ? `${count(page.total, 'title')} (${describeFilter(filter)}).` : ' '}</p>

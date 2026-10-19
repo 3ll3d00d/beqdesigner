@@ -296,3 +296,60 @@ def test_redesign_refuses_published_titles_without_repository_permission(manager
     job = _done(manager, RunRequest(Selection(ids=(title_id,)), scan_first=False, redesign=True))
     assert job.state == 'failed' and 'allow_repository_writes' in job.error
     assert read_entry(queue, title_id).status == 'published'
+
+
+# --- a redesign by design version (design/design-version.md) --------------------------------------------------------
+
+def test_redesign_by_version_sends_back_the_designs_out_of_date_that_nobody_accepted(manager, profile, monkeypatch):
+    from pipeline.review import read_entry, update_entry
+    from review_entry_fixture import write_entry
+    monkeypatch.setattr('pipeline.service.context.check_designer', lambda *args, **kwargs: {
+        'design_version': 4, 'design_settings': 'd0', 'design_settings_detail': {}})
+    ids, queue = _scanned_with_entries(manager, profile)
+    write_entry(queue, ids[1], status='accepted')
+    for title_id in ids:
+        update_entry(queue, title_id, design_version=3, design_settings='d0')
+    runs = []
+
+    def stages(profile_, selection, through, **kwargs):
+        runs.append(selection)
+        return StagesReport(through, len(selection.ids))
+
+    monkeypatch.setattr(work, 'run_stages', stages)
+    job = _done(manager, RunRequest(Selection(out_of_date=True), redesign=True))
+
+    assert job.state == 'succeeded', job.error
+    assert [s.ids for s in runs] == [(ids[0],)] and runs[0].out_of_date is None   # the run designs them by id
+    assert 'Sent back for redesign' in read_entry(queue, ids[0]).reviewer_note
+    assert read_entry(queue, ids[1]).status == 'accepted'   # a person's decision stands
+
+
+def test_redesign_by_version_with_nothing_out_of_date_runs_nothing(manager, profile, monkeypatch):
+    from pipeline.review import update_entry
+    monkeypatch.setattr('pipeline.service.context.check_designer', lambda *args, **kwargs: {'design_version': 4})
+    ids, queue = _scanned_with_entries(manager, profile)
+    for title_id in ids:
+        update_entry(queue, title_id, design_version=4)
+    monkeypatch.setattr(work, 'run_stages', lambda *args, **kwargs: pytest.fail('nothing to run'))
+
+    job = _done(manager, RunRequest(Selection(out_of_date=True), redesign=True))
+
+    assert job.state == 'succeeded', job.error
+
+
+def test_out_of_date_fails_a_job_while_no_designer_says_its_version(manager, profile, monkeypatch):
+    _scanned_with_entries(manager, profile)   # the designer answers /health, but says no design version
+    monkeypatch.setattr(work, 'run_stages', lambda *args, **kwargs: pytest.fail('nothing to run'))
+
+    job = _done(manager, RunRequest(Selection(out_of_date=True), redesign=True))
+
+    assert job.state == 'failed' and 'no designer that is up says its design version' in job.error
+
+
+def test_a_redesign_takes_ids_or_out_of_date_but_not_both():
+    RunRequest(Selection(out_of_date=True, needs=('review',)), redesign=True)
+    for selection in (Selection(out_of_date=True, ids=('a',)), Selection(out_of_date=False), Selection()):
+        with pytest.raises(ValueError, match='redesign requires'):
+            RunRequest(selection, redesign=True)
+    with pytest.raises(ValueError, match='redesign requires'):
+        RunRequest(Selection(out_of_date=True), through='publish', redesign=True)

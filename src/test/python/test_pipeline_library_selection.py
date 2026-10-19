@@ -107,6 +107,37 @@ def test_declined_finds_the_titles_the_designer_declined_and_the_rest(env):
     assert Selection(declined=True, needs=('review',)).describe() == 'needs review, declined by the designer'
 
 
+def test_out_of_date_finds_the_designs_a_redesign_now_could_answer_differently(env):
+    """ design/design-version.md: by the version (backfilled from the build before 1.4) and the settings. """
+    from pipeline.designer.identity import CurrentIdentity, DesignIdentity
+    old, current, tuned, before, unknown, undesigned = (_item(n) for n in 'abcdef')
+    for item in (old, current, tuned, before, unknown):
+        _extracted(env, item)
+    _entry(env, old, design_version=3, design_settings='d0')
+    _entry(env, current, design_version=4, design_settings='d0')
+    _entry(env, tuned, design_version=4, design_settings='d1')
+    _entry(env, before, designer_build='unknown+src:76b2edd7e060')       # 0.2.5: version 4, settings never said
+    _entry(env, unknown, candidates=0, decline_reason='no_signal', designer_build='a build nobody knows')
+    _scan(env, old, current, tuned, before, unknown, undesigned)
+    now = CurrentIdentity(4, 'd0', {})   # the designer up now runs at its defaults
+
+    assert sorted(r.id for r in Selection(out_of_date=True, current=now).rows(env.index)) == ['fs-a', 'fs-c', 'fs-e']
+    assert sorted(r.id for r in Selection(out_of_date=False, current=now).rows(env.index)) == ['fs-b', 'fs-d', 'fs-f']
+    assert env.index.title('fs-d').design_identity == DesignIdentity(4, None, 'unknown+src:76b2edd7e060', backfilled=True)
+    assert env.index.title('fs-f').design_identity is None
+    tuned_now = CurrentIdentity(4, 'd1', {'strategy': ['flatten']})
+    assert sorted(r.id for r in Selection(out_of_date=True, current=tuned_now).rows(env.index)) == \
+        ['fs-a', 'fs-b', 'fs-d', 'fs-e']
+    assert Selection(out_of_date=True, current=now) == Selection(out_of_date=True)   # `current` is not what is selected
+    assert Selection(out_of_date=True, needs=('review',)).describe() == 'needs review, designed out of date'
+
+
+def test_out_of_date_is_refused_while_no_designer_says_its_version(env):
+    _scan(env, _item('a'))
+    with pytest.raises(ValueError, match='no designer that is up says its design version'):
+        Selection(out_of_date=True).rows(env.index)
+
+
 def test_a_selection_checks_kind_and_year_when_it_is_made():
     assert Selection(kind='', year='').is_empty and Selection(year=' >=2020 ').year == '>=2020'
     with pytest.raises(ValueError, match='kind must be one of movie, tv'):

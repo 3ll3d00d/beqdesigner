@@ -516,6 +516,24 @@
             "description": "true: only titles whose design the designer declined (waiting for review); false: only those it did not; unset: either."
           },
           {
+            "name": "out_of_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "true: only designed titles a redesign now could answer differently -- designed with another design version, or other designer settings, than the designers that are up now design with (contract 1.4; a title designed before it takes its version from its build). false: every other title; unset: either. Refused (409) while no designer that is up says its design version.",
+              "title": "Out Of Date"
+            },
+            "description": "true: only designed titles a redesign now could answer differently -- designed with another design version, or other designer settings, than the designers that are up now design with (contract 1.4; a title designed before it takes its version from its build). false: every other title; unset: either. Refused (409) while no designer that is up says its design version."
+          },
+          {
             "name": "include_done",
             "in": "query",
             "required": false,
@@ -1190,6 +1208,24 @@
               "title": "Declined"
             },
             "description": "true: only titles whose design the designer declined (waiting for review); false: only those it did not; unset: either."
+          },
+          {
+            "name": "out_of_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "true: only designed titles a redesign now could answer differently -- designed with another design version, or other designer settings, than the designers that are up now design with (contract 1.4; a title designed before it takes its version from its build). false: every other title; unset: either. Refused (409) while no designer that is up says its design version.",
+              "title": "Out Of Date"
+            },
+            "description": "true: only designed titles a redesign now could answer differently -- designed with another design version, or other designer settings, than the designers that are up now design with (contract 1.4; a title designed before it takes its version from its build). false: every other title; unset: either. Refused (409) while no designer that is up says its design version."
           },
           {
             "name": "after",
@@ -3998,7 +4034,7 @@
           "redesign": {
             "type": "boolean",
             "title": "Redesign",
-            "description": "Invalidate the existing designs before running, then design them in one run (the whole designer pool at once). Requires 1 to 500 ids, no other filters, and through=design; the titles must be reviewed again.",
+            "description": "Invalidate the existing designs before running, then design them in one run (the whole designer pool at once). Requires through=design and either 1 to 500 ids and no other filter, or out_of_date=true (with any other filter but ids): every designed title it selects that is not accepted or published. The titles must be reviewed again.",
             "default": false
           }
         },
@@ -4979,6 +5015,18 @@
               }
             ],
             "title": "Last Seen"
+          },
+          "design_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Design Version",
+            "description": "The design version it was designed with (contract 1.4, or from its build before it); null if unknown or not designed."
           }
         },
         "type": "object",
@@ -5168,6 +5216,18 @@
             ],
             "title": "Declined",
             "description": "true: only titles whose design the designer declined (waiting for review); false: only those it did not; unset: either."
+          },
+          "out_of_date": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Out Of Date",
+            "description": "true: only designed titles a redesign now could answer differently -- designed with another design version, or other designer settings, than the designers that are up now design with (contract 1.4; a title designed before it takes its version from its build). false: every other title; unset: either. Refused (409) while no designer that is up says its design version."
           }
         },
         "additionalProperties": false,

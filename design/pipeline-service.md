@@ -231,7 +231,7 @@ Every request and response body is a named pydantic model in
 | `GET /v1/titles/{id}` | → `Title` | 404 if unknown |
 | `POST /v1/plan` | `RunRequest` → `PlanPreview` | dry run: what would run and what would be skipped and why |
 | `POST /v1/jobs/scan` | `ScanRequest` → 202 `Job` | |
-| `POST /v1/jobs/run` | `RunRequest` → 202 `Job` | `redesign: true` with 1-500 `ids` (no other filter, through design) sends every one back, all checked first, then designs them in one run |
+| `POST /v1/jobs/run` | `RunRequest` → 202 `Job` | `redesign: true` with 1-500 `ids` (no other filter, through design) sends every one back, all checked first, then designs them in one run; or with `out_of_date: true` (any other filter but ids) sends back every designed title out of date that is not accepted or published |
 | `POST /v1/jobs/accept` | `AcceptRequest` → 202 `Job` | guarded (§6.4) |
 | `GET /v1/jobs` | query `state`, `kind`, `limit` → `JobList` | newest first |
 | `GET /v1/jobs/{id}` | → `Job` | |
@@ -274,9 +274,14 @@ discriminator in the schema; the SSE `event:` line is the same `type`). Each has
  "detail": "rolloff", "flags": ["Gone"]}
 ```
 
-`detail` (text in the title's detail), `flags` (every one given) and `declined`
-(true: designs the designer declined, waiting for review; false: the rest) are
-the titles table's; the CLI has no flag for them.
+`detail` (text in the title's detail), `flags` (every one given), `declined`
+(true: designs the designer declined, waiting for review; false: the rest) and
+`out_of_date` (true: designs a redesign now could answer differently, by design
+version and settings, [design-version.md](design-version.md); false: the rest)
+are the titles table's; the CLI has no flag for them. `out_of_date` is judged
+against the designer probe's recent answer on the read routes and asked again
+when a job starts; while no designer that is up says its design version it is
+a 409 (a job fails). Each title carries its `design_version`.
 
 Every field is optional and they are ANDed; `{}` is every title. On
 `GET /v1/titles` they are query parameters (`needs` repeated,

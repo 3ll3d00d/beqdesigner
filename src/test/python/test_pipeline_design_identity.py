@@ -180,3 +180,16 @@ def test_a_designers_identity_reaches_the_queue_entry(tmp_path, declines):
     entry = read_entry(str(tmp_path / 'queue'), 't')
     assert (entry.design_version, entry.design_settings) == (4, 'd0')
     assert entry.designer_build == '0.2.6+src:abc'   # the 1.4 field, not the commentary key
+
+
+def test_an_index_summary_cached_before_the_identity_was_kept_is_read_again():
+    ''' A miss, so the entry is read again and its identity found, rather than every title looking unknown. '''
+    from dataclasses import asdict
+    from pipeline.library.status import EntryFacts
+    facts = EntryFacts.of(_entry(design_version=4, designer_build='b'), mtime_ns=1, size=2)
+    cached = asdict(facts)
+
+    assert EntryFacts.from_json(json.dumps(cached)) == facts
+    for name in ('design_version', 'design_settings', 'designer_build'):
+        cached.pop(name)
+    assert EntryFacts.from_json(json.dumps(cached)) is None

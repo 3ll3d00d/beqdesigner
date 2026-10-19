@@ -20,6 +20,7 @@ Nothing here reads a source, a queue entry or git: it works from index rows, and
 from dataclasses import dataclass, field
 from typing import Iterable, List, Optional, Sequence, Tuple
 
+from pipeline.designer.identity import CurrentIdentity, is_out_of_date
 from pipeline.library.index import LibraryIndex, TitleRow
 from pipeline.library.state import DECLINED_DETAIL, FLAG_DUPLICATE, FLAG_GONE, FLAG_IGNORED, FLAG_IN_CATALOGUE, \
     FLAG_SHADOWED, NEEDS
@@ -55,6 +56,11 @@ class Selection:
     :param flags: only titles carrying every one of these (state.FLAG_*).
     :param declined: True for only titles whose design the designer declined (waiting for review: their detail is
         state.DECLINED_DETAIL), False for only titles it did not; None for either.
+    :param out_of_date: True for only designed titles that a redesign now could answer differently (designed with
+        another design version or other settings than `current`: design/design-version.md), False for every other
+        title; None for either.
+    :param current: what a redesign now would be made with (the designers that are up say it); needed by `out_of_date`,
+        and not part of what is selected, so two selections that differ only in it are equal.
     '''
     needs: Tuple[str, ...] = ()
     source: Optional[str] = None
@@ -66,6 +72,8 @@ class Selection:
     detail: Optional[str] = None
     flags: Tuple[str, ...] = ()
     declined: Optional[bool] = None
+    out_of_date: Optional[bool] = None
+    current: Optional[CurrentIdentity] = field(default=None, compare=False, repr=False)
 
     def __post_init__(self):
         object.__setattr__(self, 'needs', _unique(self.needs))
@@ -112,7 +120,16 @@ class Selection:
             rows = [r for r in rows if set(self.flags) <= set(r.flags)]
         if self.declined is not None:
             rows = [r for r in rows if r.detail.startswith(DECLINED_DETAIL) is self.declined]
+        if self.out_of_date is not None:
+            if self.current is None:
+                raise ValueError('no designer that is up says its design version, so no title can be judged out of date')
+            rows = [r for r in rows if self.is_out_of_date(r) is self.out_of_date]
         return rows
+
+    def is_out_of_date(self, row: TitleRow) -> bool:
+        ''' A designed title a redesign now could answer differently; False for one with no design, or with no `current`. '''
+        return row.design_identity is not None and self.current is not None and \
+            is_out_of_date(row.design_identity, self.current)
 
     def describe(self) -> str:
         ''' The selection in words, for a log line or a confirmation. '''
@@ -135,6 +152,8 @@ class Selection:
             parts.append(f"flagged {' and '.join(self.flags)}")
         if self.declined is not None:
             parts.append('declined by the designer' if self.declined else 'not declined by the designer')
+        if self.out_of_date is not None:
+            parts.append('designed out of date' if self.out_of_date else 'not designed out of date')
         return ', '.join(parts) or 'every title'
 
 

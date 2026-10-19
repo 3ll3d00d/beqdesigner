@@ -219,6 +219,11 @@ class EntryFacts:
     meta: Dict[str, Any]
     mtime_ns: int
     size: int
+    # what it was designed with (design/design-version.md). No default: a summary cached before these were kept is a miss,
+    # so the entry is read again rather than looking unknown
+    design_version: Optional[int]
+    design_settings: Optional[str]
+    designer_build: Optional[str]
     inode: int = 0      # with the change time, so an entry rewritten in place with a same-length value, within a
     ctime_ns: int = 0   # coarse filesystem's one mtime tick, is still noticed (write_queue_entry replaces the file)
     published_stem: Optional[str] = None   # the file name it was published under (None: its id)
@@ -229,7 +234,8 @@ class EntryFacts:
                    entry.candidates[0].confidence if entry.candidates else None, len(entry.candidates),
                    (entry.decline_message or entry.decline_reason or '') if entry.declined else '',
                    entry.design_fingerprint, entry.source_fingerprint, entry.published_digest, entry.art_path,
-                   dict(entry.meta), mtime_ns, size, inode, ctime_ns, entry.published_stem)
+                   dict(entry.meta), mtime_ns, size, entry.design_version, entry.design_settings, entry.designer_build,
+                   inode, ctime_ns, entry.published_stem)
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), sort_keys=True)

@@ -176,6 +176,37 @@ describe('titles', () => {
     await waitFor(() => expect(asked.at(-1)?.has('declined')).toBe(false))
   })
 
+  it('filters on the design version, and redesigns what is out of date in one job', async () => {
+    const asked: URLSearchParams[] = []
+    const sent: unknown[] = []
+    server.use(statusRoute(status({ index: index() })),
+               http.get('/v1/titles', ({ request }) => {
+                 asked.push(new URL(request.url).searchParams)
+                 return json({ total: 2, offset: 0, limit: 100, titles: [title('a'), title('b')] })
+               }),
+               http.post('/v1/jobs/run', async ({ request }) => {
+                 sent.push(await request.json())
+                 return json(runJob({ id: 'j1' }), 202)
+               }),
+               http.get('/v1/jobs/j1', () => json(runJob({ id: 'j1' }))))
+    const router = renderApp('/titles')
+
+    await screen.findByLabelText('Design version')
+    expect(screen.queryByRole('button', { name: 'Redesign out of date…' })).not.toBeInTheDocument()
+    await userEvent.selectOptions(screen.getByLabelText('Design version'), 'Out of date')
+    await waitFor(() => expect(router.state.location.search).toBe('?out_of_date=true'))
+    await waitFor(() => expect(asked.at(-1)?.get('out_of_date')).toBe('true'))
+    expect(screen.getByText(/designed out of date/)).toBeInTheDocument()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Redesign out of date…' }))
+    const confirm = screen.getByRole('group', { name: 'Confirm redesign' })
+    expect(confirm).toHaveTextContent('Send 2 titles back to the designer?')
+    await userEvent.click(within(confirm).getByRole('button', { name: 'Redesign' }))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/jobs/j1'))
+    expect(sent).toEqual([{ filter: { out_of_date: true, new_since_scan: false }, through: 'design', redesign: true,
+                            scan_first: false, retry_failed: false }])
+  })
+
   it('opens the next title waiting, or says there is none', async () => {
     let none = false
     server.use(statusRoute(status({ index: index() })),

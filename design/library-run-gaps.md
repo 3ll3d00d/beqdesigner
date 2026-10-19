@@ -68,7 +68,7 @@ Fixed and archived: [L2 record](archive/library-run-l2.md). Seven of the nine no
 
 ### L3. Know which designs a designer upgrade changes (extends D4)
 
-**Agreed 2026-10-19.** Design, not built: [design-version.md](design-version.md) (contract 1.4: a
+**Agreed 2026-10-19; caller side built the same day** (beqforge's side is its TODO 28): [design-version.md](design-version.md) (contract 1.4: a
 `design_version` that changes only with the answers, a `design_settings` digest, `designer_build`; the caller
 keeps them per entry and selects *out of date*). beqforge's side is its TODO 28.
 

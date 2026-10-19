@@ -13,7 +13,7 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field, RootModel, mo
 
 from pipeline.library.bulk import DEFAULT_ACCEPT_THRESHOLD
 from pipeline.library.selection import Selection
-from pipeline.service.jobs import MAX_REDESIGN_IDS
+from pipeline.service.jobs import MAX_REDESIGN_IDS, redesign_problem
 from pipeline.library.state import NEEDS, FLAG_DUPLICATE, FLAG_GONE, FLAG_IGNORED, FLAG_IN_CATALOGUE, FLAG_SHADOWED
 from pipeline.library.year import YEAR_PATTERN, YearRange, numeric_year
 
@@ -116,12 +116,17 @@ class TitleFilter(Input):
     flags: List[Flag] = Field(default_factory=list, description='Only titles carrying every one of these flags.')
     declined: Optional[bool] = Field(None, description='true: only titles whose design the designer declined (waiting for '
                                                        'review); false: only those it did not; unset: either.')
+    out_of_date: Optional[bool] = Field(
+        None, description='true: only designed titles a redesign now could answer differently -- designed with another '
+                          'design version, or other designer settings, than the designers that are up now design with '
+                          '(contract 1.4; a title designed before it takes its version from its build). false: every '
+                          'other title; unset: either. Refused (409) while no designer that is up says its design version.')
 
     def to_selection(self) -> Selection:
         return Selection(needs=tuple(n.value for n in self.needs), source=self.source, match=self.match,
                          ids=tuple(self.ids), new_since_scan=self.new_since_scan,
                          kind=self.kind.value if self.kind else None, year=self.year, detail=self.detail,
-                         flags=tuple(f.value for f in self.flags), declined=self.declined)
+                         flags=tuple(f.value for f in self.flags), declined=self.declined, out_of_date=self.out_of_date)
 
     @classmethod
     def of(cls, selection: Any) -> 'TitleFilter':
@@ -130,7 +135,7 @@ class TitleFilter(Input):
         return cls(needs=list(data.get('needs') or ()), new_since_scan=bool(data.get('new_since_scan')),
                    source=data.get('source'), match=data.get('match'), ids=list(data.get('ids') or ()),
                    kind=data.get('kind'), year=data.get('year'), detail=data.get('detail'),
-                   flags=list(data.get('flags') or ()), declined=data.get('declined'))
+                   flags=list(data.get('flags') or ()), declined=data.get('declined'), out_of_date=data.get('out_of_date'))
 
 
 class TitleSort(str, Enum):
@@ -212,6 +217,8 @@ class Title(BaseModel):
     is_new: bool
     state_since: Optional[datetime]
     last_seen: Optional[datetime]
+    design_version: Optional[int] = Field(None, description='The design version it was designed with (contract 1.4, or '
+                                                            'from its build before it); null if unknown or not designed.')
 
     @classmethod
     def of(cls, row) -> 'Title':
@@ -221,7 +228,8 @@ class Title(BaseModel):
                    flags=row.flags, extract_state=row.extract_state, design_state=row.design_state,
                    review_state=row.review_state, publish_state=row.publish_state, commit_state=row.commit_state,
                    confidence=row.confidence, candidate_count=row.candidate_count, failure=row.failure,
-                   is_new=row.is_new, state_since=timestamp(row.state_since), last_seen=timestamp(row.last_seen))
+                   is_new=row.is_new, state_since=timestamp(row.state_since), last_seen=timestamp(row.last_seen),
+                   design_version=row.design_identity.version if row.design_identity else None)
 
 
 class TitlePage(BaseModel):
@@ -354,17 +362,15 @@ class RunJobRequest(Input):
     retry_failed: bool = Field(False, description='Also run titles whose extraction or design failed before.')
 
     redesign: bool = Field(False, description='Invalidate the existing designs before running, then design them in one run '
-                                            f'(the whole designer pool at once). Requires 1 to {MAX_REDESIGN_IDS} ids, no '
-                                            'other filters, and through=design; the titles must be reviewed again.')
+                                            f'(the whole designer pool at once). Requires through=design and either 1 to '
+                                            f'{MAX_REDESIGN_IDS} ids and no other filter, or out_of_date=true (with any '
+                                            'other filter but ids): every designed title it selects that is not accepted '
+                                            'or published. The titles must be reviewed again.')
 
     @model_validator(mode='after')
     def validate_redesign(self):
         if self.redesign:
-            selection = self.filter.to_selection()
-            if self.through != Through.design or not 1 <= len(selection.ids) <= MAX_REDESIGN_IDS \
-                    or selection != Selection(ids=selection.ids):
-                raise ValueError(f'redesign requires 1 to {MAX_REDESIGN_IDS} title ids, no other filters, and '
-                                 'through=design')
+            redesign_problem(self.filter.to_selection(), self.through.value, raise_it=True)
         return self
 
 

@@ -3,6 +3,7 @@ The pipeline service's HTTP interface (design/pipeline-service.md §6): FastAPI 
 pipeline work -- they read the index (read-only, a connection per request) or queue a job -- and the OpenAPI document,
 Swagger UI (/docs, with Try it out and Authorize) and ReDoc (/redoc) come from the same types the routes use.
 '''
+from dataclasses import replace
 import asyncio
 import hmac
 import os
@@ -157,6 +158,22 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
         if unknown:
             raise ServiceProblem(422, 'Unknown source', f"no such source: {', '.join(unknown)} "
                                                         f"(the profile has: {', '.join(known)})")
+
+    def selection_of(title_filter: models.TitleFilter):
+        '''
+        The filter as a Selection, with what a redesign now would be made with when it asks for titles out of date (the
+        designer probe's recent answer: design/design-version.md).
+        :raises ServiceProblem: 409 if it does and no designer that is up says its design version.
+        '''
+        selection = title_filter.to_selection()
+        if selection.out_of_date is None:
+            return selection
+        current = designer.current().identity
+        if current is None:
+            raise ServiceProblem(409, 'Design version unknown',
+                                 'no designer that is up says its design version (contract 1.4), so no title can be '
+                                 'judged out of date')
+        return replace(selection, current=current)
 
     # --- errors -------------------------------------------------------------------------------------------------------
 
@@ -338,7 +355,7 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
         ctx = context()
         check_sources(ctx, query)
         with read_index(ctx) as index:
-            rows = query.order(query.to_selection().rows(index, include_done=query.include_done))
+            rows = query.order(selection_of(query).rows(index, include_done=query.include_done))
         page = rows[query.offset:query.offset + query.limit]
         return models.TitlePage(total=len(rows), offset=query.offset, limit=query.limit,
                                 titles=[models.Title.of(row) for row in page])
@@ -466,7 +483,7 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
         check_sources(ctx, query)
         settings = ctx.scan_settings()
         with read_index(ctx) as index:
-            rows = query.to_selection().rows(index)
+            rows = selection_of(query).rows(index)
         by_id = {row.id: row for row in rows}
 
         def waiting(title_id: str) -> bool:
@@ -488,7 +505,7 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
         ctx = context()
         check_sources(ctx, body.filter)
         with read_index(ctx) as index:
-            planned = plan_stages(body.filter.to_selection().rows(index), body.through.value,
+            planned = plan_stages(selection_of(body.filter).rows(index), body.through.value,
                                   retry_failed=body.retry_failed)
         return models.PlanPreview(
             through=body.through, label=planned.label,
@@ -512,6 +529,7 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
              summary='Extract, design (and, if allowed, publish or commit) the titles a filter selects', responses=submitted)
     def submit_run(body: models.RunJobRequest):
         check_sources(context(), body.filter)
+        selection_of(body.filter)   # refused now, not when it runs, while no designer says its design version
         return accepted(manager.submit(RunRequest(body.filter.to_selection(), body.through.value, body.scan_first,
                                                   body.retry_failed, redesign=body.redesign)))
 
