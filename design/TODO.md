@@ -48,7 +48,6 @@ outside it. A beqforge version bump invalidates its bundled optimiser seed
 | Priority | ID | R | Previous IDs | Status | Depends on |
 |---|---|---|---|---|---|
 | 11 | D4 | | by-reference §5 | Release part done (each entry records its designer and build); the drift behavior is not started | Designer build identity policy (full drift behavior only) |
-| 11b | L5 | | [library run](library-run-gaps.md#l5-mono-titles-needs-a-decision), F3/F4 | Waiting for the mono decision; fix `ebca201` kept on local branch `f3-mono-decomposition` | Product decision |
 | 11c | L1 | | [library run](library-run-gaps.md#l1-finish-the-review-of-the-run-operational) | In progress; 53 declines unreviewed, requeue job 28643fea running | -- |
 | 11d | L4 | | [library run](library-run-gaps.md#l4-designer-findings-to-hand-to-beqforge) | Not started; 7 handoffs to write | L1's re-review |
 | 11e | L3 | | [design version](design-version.md), D4 | Built both sides 2026-10-19; contract 1.4. Left: the work-list filter, a drift-banner count, and deploying a beqforge release with it | beqforge release |
@@ -71,7 +70,7 @@ duplicates or picks the wrong title, it moves into it. (E4, Blu-ray, is done.)
 
 ## Work in priority order
 
-### L1, L3-L6 — Gaps left by the first full library run
+### L1, L3, L4, L6 — Gaps left by the first full library run
 
 The run's results and each item's scope and completion criterion are in
 [library-run-gaps.md](library-run-gaps.md) (plan, not built). Archive each item there and here when done.

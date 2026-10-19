@@ -96,18 +96,10 @@ messages and repro, not an edit there. In order of titles affected:
 **Done when** each is a handoff in beqforge's `plans/` with a row in its TODO; their releases then go
 through L3.
 
-### L5. Mono titles (needs a decision)
+### L5. Mono titles (done)
 
-All 30 mono titles decline *channel evidence unavailable* because the library route sends no
-decomposition for a one-channel source (F3). The fix, `ebca201`, was left on no branch with its worktree; it is now kept on the local branch
-`f3-mono-decomposition` (not pushed). It must not ship alone:
-beqforge's content principle would then lift a vintage mono recording's own rolloff to flat, up to the
-26 dB cap (F4, A Hard Day's Night). Decide one of:
-
-- (a) keep the principle: send the channel, and mono titles get large corrections; or
-- (b) decline one-channel sources on purpose, with their own reason code, in beqforge or the pipeline.
-
-**Done when** the decision is recorded and the 30 titles either design or decline with that reason.
+Decided and fixed: [L5 record](archive/library-run-l5.md). If the content is there it is recovered, whatever the
+channel count; the library route now sends a mono title's one channel as its decomposition, as Batch Extract does.
 
 ### L6. Finish what the run started
 
