@@ -63,6 +63,7 @@ outside it. A beqforge version bump invalidates its bundled optimiser seed
 | 23 | D3 | | by-reference §5 | Planned; optional, not started | Contract addition; beqforge coordination |
 | 24 | O2 | | former §9 reviewer questions | Behavior exists; acceptance decision missing | Real reviewer feedback |
 | 25 | O1 | | D6 | Optional idea; no implementation decision | Product decision |
+| 26 | WP | | [web parity](web-parity.md) | Not started; chunks WP0-WP8 | WP6: beqforge agreement on contract 1.5 guidance |
 
 E3 is outside the milestone only if E2's sample shows the documented DVD
 main-title fallback is truthful for the catalogue's discs; if it silently
@@ -188,6 +189,16 @@ On 2026-10-10 one `pytest -n auto` run of the gui suite failed
 failure message was not kept. It passed in the next three full runs and 15 of 15 repeats under `-n 8`. It does not
 touch the code changed that day (W1, the decision write). If it recurs, record the assertion and fix what it shows;
 close it after a few weeks without recurrence.
+
+### WP — Web app parity
+
+Bring the browser app to and beyond the desktop title page: metadata/artwork/stream/revise editing, a chart workbench
+(zoom, limits, smoothing, normalisation), spectrograms, comparison with published BEQs, filter editing, and selective
+redesign with a person's guidance (contract 1.5). Chunks, order and open questions are in
+[web-parity.md](web-parity.md) (plan, not built).
+
+**Done when:** every chunk there is built, tested and described in web-app.md, and web-app.md §1 no longer lists
+title-page work that stays in the desktop app.
 
 ### D2 — Export a reusable request file
 
