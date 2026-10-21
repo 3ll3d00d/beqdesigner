@@ -18,7 +18,7 @@ some things it cannot:
    toggles; the spectrogram (the publication heatmap and an interactive one); every design on one chart.
 3. **Compare** against other BEQs: published catalogue entries for the same title, overlaid on our chart and applied
    to our measured curves, and a redesign against the design it replaces.
-4. **Redesign with guidance**, selectively: one title or a chosen set, with instructions such as *ignore 28–34 Hz*,
+4. **Redesign on request**, selectively: one title or a chosen set, with instructions such as *ignore 28–34 Hz*,
    *don't go below 8 Hz*, *cap the boost at 15 dB*, *tilt the goal +1 dB/oct* (a bass-boosted target), *only the
    parametric strategy* — whatever the designer says it supports.
 
@@ -35,7 +35,7 @@ own row later.
 - **Optimistic concurrency everywhere.** Every write sends back the digest it was read at (as `Decision` does with
   `offered_digest()`) and is refused with 409 *Changed since it was read* otherwise. Every write is refused while the
   title is in flight (review-over-http.md's rule).
-- **Authority unchanged.** Writes that touch only the queue entry (metadata, artwork, revise to review, guidance) need
+- **Authority unchanged.** Writes that touch only the queue entry (metadata, artwork, revise to review, design requests) need
   only the token. Anything that touches the catalogue repositories (revising a published title, publish, commit) stays
   behind `allow_repository_writes`, as now.
 - **Contract first.** New routes go into `docs/schema/service.openapi.json` and `src/api/schema.d.ts` in the chunk that
@@ -54,7 +54,7 @@ own row later.
 | *Metadata* tab, TMDB reload, artwork, autosave, badge | Read-only line; Accept held back | WP4 |
 | Reopen / Revise (review, design, extract), retry, choose audio stream | *Redesign…* only (one id, design) | WP5 |
 | Open project (hand-edit filters in the main window) | No | WP8 |
-| Guided redesign | Neither | WP6, WP7 |
+| Redesign on request | Neither | WP6, WP7 |
 
 ## 4. Chunks
 
@@ -172,74 +172,94 @@ Removes the biggest reason to go back to the desktop: a title whose metadata is 
   (`revise_text`, moved to the shared module if it is not already Qt-free), and a stream picker on the Playback line.
 - Tests: route rules per depth and status, the bulk outcome, the Titles selection and confirmation.
 
-### WP6 — Contract 1.5: design guidance (both sides)
+### WP6 — Contract 1.5: design requests (both sides)
 
-The contract today forbids exactly this (designer-interface.md §2 "What is deliberately absent", §4): *no headroom,
-max-boost or device preference crosses in*. That rule exists so **unattended** designs are the evidence's, not a
-caller's policy. Guidance keeps that rule for every unattended request and adds one deliberate exception: a
-**person's instruction for one title**, recorded with the design, never sent by a scheduled or bulk run unless a person
-asked for that title.
+A general protocol by which a caller **asks** for changes to a design and the designer **answers each ask**: honoured,
+adapted, declined or not understood, saying why. The designer stays free to react as it sees fit; the caller always
+learns what was done with what it asked. This is the normal way a caller influences a design, not a carve-out.
+
+It replaces the reading of designer-interface.md §2 "What is deliberately absent" as "nothing may cross in". The
+concern that text protects is a designer *inferring* the caller's intent and shaping its answer silently; that stays
+ruled out. Restated for 1.5: **a designer acts on no unstated preference; a stated request is an input it weighs
+against the evidence and reports on.** §4's line is unchanged: a request can make a design weaker or narrower, and a
+designer may decline one that would have it publish what its evidence does not support (an excluded band that held the
+only rolloff, a boost where there is no content), saying so in the request's outcome.
 
 - **Request (additive, optional):**
 
   ```python
-  guidance: dict | None = None   # 1.5: a person's instruction for this title; None for every unattended request
-  # keys a designer may support, all optional:
-  #   exclude_bands_hz: list[[low, high]]      ignore these frequency ranges as evidence and as targets
-  #   lowest_frequency_hz: float               restore nothing below this (the content edge)
-  #   highest_frequency_hz: float              look for the rolloff no higher than this
-  #   max_boost_db: float                      cap the correction
-  #   goal_tilt_db_per_octave: float           tilt the target (positive = a bass-boosted goal)
-  #   goal_tolerance_db: float                 how close the design must come to its goal
-  #   strategies: list[str]                    only these strategies, in this order
-  #   max_sections: int                        biquad budget
-  #   exclude_times_s: list[[start, end]]      leave these stretches of the programme out of the analysis
-  #   note: str                                free text, for the designer's record only
+  requests: list[DesignAsk] | None = None   # 1.5
+
+  @dataclass(frozen=True)
+  class DesignAsk:
+      id: str               # the caller's, echoed in the outcome
+      kind: str             # from the vocabulary below, or one a designer advertises; unknown kinds are allowed
+      params: dict          # the kind's parameters
+      text: str | None = None   # what the person said, for the designer's record and for kind 'note'
   ```
+
+  A starting vocabulary (§2.x, extended by contract minor versions; a designer may advertise kinds of its own):
+
+  | kind | params | meaning |
+  |---|---|---|
+  | `exclude_band` | `low_hz`, `high_hz` | do not treat this range as evidence or as a target |
+  | `floor` | `hz` | restore nothing below this (the content edge) |
+  | `ceiling` | `hz` | look for the rolloff no higher than this |
+  | `max_boost` | `db` | cap the correction |
+  | `goal_tilt` | `db_per_octave` | tilt the target (positive: a bass-boosted goal) |
+  | `goal_tolerance` | `db` | how close the design must come to its goal |
+  | `strategies` | `names` | only these strategies, in this order |
+  | `max_sections` | `count` | biquad budget |
+  | `exclude_times` | `ranges_s` | leave these stretches of the programme out of the analysis |
+  | `note` | -- | free text; the designer may act on it, and must still answer it |
 
   beqforge already has internal dials for most of these (`DiagnoseParams.exclude_bands_hz`,
   `DesignParams.max_boost_db` / `lowest_frequency_hz` / `max_sections`, `--goal-tilt`, `--goal-tolerance`,
-  `strategies`, `content_edge`): today they are server-wide flags, folded into `design_settings`.
-- **Capability discovery:** `GET /health` adds `guidance: {key: {type, min, max, default, unit, description}}` — the
-  keys this designer honours. The caller offers only those (this is how the UI supports "any other option that might
-  be supported" without a caller release per option), and refuses to send an unknown key (422 before any work).
-- **Response:** `guidance_applied: dict` (what was honoured, after clamping) and `guidance_notes: list[str]` (what was
-  clamped or ignored and why). A designer that does not support 1.5 ignores `guidance` (1.x rule: unknown request
-  fields are ignored), returns no `guidance_applied`, and the caller says *guidance was not applied* on the review page.
-- **Identity:** the request's guidance is part of the answer's input, not of `design_settings` (which stays
-  server-wide). The caller adds a canonical digest of the sent guidance to the entry's `design_fingerprint`, so the
-  design cache never serves an unguided design to a guided request or the reverse, and a redesign-by-version replays
-  the stored guidance.
-- **Rejections and declines:** guidance can make the designer reject or decline (e.g. a band excluded that held the
-  only rolloff); it reports that as today. Guidance never overrides the designer's internal-evidence checks (§4's line
-  holds: a cap may make a design weaker, not make an unsupported boost acceptable).
-- **Caller storage:** `QueueEntry.guidance` (what the person asked, who, when, reason) and `guidance_applied` (what the
-  designer said it did). `revise_entry(to='design', guidance=…)` sets it; *Clear guidance* removes it (and marks the
-  design stale). Kept across re-extraction.
-- **Work:** designer-interface.md §2/§3/§4/§7 and the conformance spec; `pipeline/designer` (request, health
-  capabilities, response parsing), the fingerprint, `QueueEntry`, the service models; beqforge implements and
-  advertises the keys (a beqforge handoff in its own `TODO.md`/`plans/`). Bump the beqforge `design_version` only if a
-  default changes; a request with no guidance must design exactly as now (golden test both sides).
-- Tests: contract conformance (a guided request, an unknown key, a 1.4 designer ignoring it), fingerprint changes with
-  guidance and not without, cache separation, replay on redesign-by-version.
+  `strategies`, `content_edge`); today they are server-wide settings, folded into `design_settings`.
+- **Response:** `request_outcomes: list[{id, outcome: 'honoured' | 'adapted' | 'declined' | 'not_understood',
+  applied: dict | None, reason: str | None}]` -- one per ask, `applied` the parameters actually used (after clamping,
+  for `adapted`), `reason` required for anything but `honoured`. A 1.5 designer answers every ask; an ask it does not
+  know is `not_understood`, never an error. A designer before 1.5 ignores `requests` (the 1.x rule: unknown request
+  fields are ignored) and returns no outcomes, which the caller shows as *not acknowledged by this designer*.
+  A declined ask does not decline the design: the design is the designer's best answer to the asks it did act on.
+- **Discovery (advisory):** `GET /health` adds `request_kinds: {kind: {params: {name: {type, unit, min, max,
+  default}}, description}}`. The caller builds its form from it, so a new kind needs no caller release, but discovery
+  only informs: the caller may still send a kind the designer did not list (a `note`, or a kind newer than the health
+  it read), and the outcome says what happened.
+- **Who asks:** the protocol does not care. The caller records provenance on its side: a person on the review page, a
+  bulk revise, or (later, if wanted) a profile default sent with every request.
+- **Identity:** the asks are part of the request, like the audio; not part of `design_settings` (server-wide). The
+  caller adds a canonical digest of the asks sent to the entry's `design_fingerprint`, so the design cache never serves
+  an answer to different asks, and a redesign-by-version sends the stored asks again. A request with no asks must
+  design exactly as 1.4 did (golden test both sides; no `design_version` bump unless a default changes).
+- **Caller storage:** `QueueEntry.requests` (each ask with who, when and why) and `request_outcomes` (the designer's
+  answers). `revise_entry(to='design', requests=…)` sets them; *Clear requests* removes them and marks the design stale.
+  Kept across re-extraction.
+- **Work:** designer-interface.md §2 (the restated rule, `requests`), §3 (`request_outcomes`), §4 (declining an ask vs
+  declining the design), §7 (health) and the conformance spec; `pipeline/designer` (request, health, outcome parsing),
+  the fingerprint, `QueueEntry`, the service models; beqforge implements the vocabulary it can and advertises it (a
+  handoff in its own `TODO.md`/`plans/`).
+- Tests: conformance (each outcome kind, an unknown kind answered `not_understood`, a pre-1.5 designer ignoring the
+  field), fingerprint changes with asks and not without, cache separation, replay on redesign-by-version.
 
 ### WP7 — Guided redesign in the browser
 
-- **Revise… with guidance:** WP5's dialog gains a *Guidance* section built from the designer's advertised keys
-  (WP6): numbers with their units and bounds, band lists, strategy checkboxes, a note. Presets for the common asks
-  (*ignore a band*, *bass boost +N dB/oct*, *cap the boost*, *higher content edge*) fill those keys; the person sees the
-  exact guidance that will be sent.
+- **Revise… with requests:** WP5's dialog gains a *Requests* section built from the designer's advertised kinds
+  (WP6): numbers with their units and bounds, band lists, strategy checkboxes, and always a free-text note. Presets for
+  the common asks (*ignore a band*, *bass boost +N dB/oct*, *cap the boost*, *higher content edge*) add those asks; the
+  person sees the exact asks that will be sent.
 - **Pick on the chart:** with the dialog open, drag on the magnitude chart (or the spectrogram) to add an excluded
   frequency band, or a time range on the spectrogram for `exclude_times_s`; the bands are shaded on both views.
-- **Selective, in bulk:** from the Titles selection (WP5), one guidance applied to every selected title, or *per-title*
-  guidance queued one at a time from each review page and then **Run the guided titles** as one job
-  (`needs` design, filter `guided=true`).
-- **See what it did:** the review page shows the guidance asked and applied (and the designer's notes), and a
+- **Selective, in bulk:** from the Titles selection (WP5), the same asks sent for every selected title, or *per-title*
+  asks queued one at a time from each review page and then **Run the titles with requests** as one job
+  (`needs` design, filter `with_requests=true`).
+- **See what it did:** the review page lists each ask with its outcome (honoured / adapted with what was used /
+  declined or not understood with the designer's reason), and a
   **Previous design** comparison: before a guided (or any) redesign replaces the entry's designs, the service keeps the
-  last set as `QueueEntry.previous` (designs, chosen index, guidance, designer identity, when) — one level of history —
+  last set as `QueueEntry.previous` (designs, chosen index, asks and outcomes, designer identity, when) — one level of history —
   and WP1's workbench overlays it, dashed, against the new ones. *Restore previous* puts it back without a design run
   (a revise of its own, digest-checked).
-- **Filter on the Titles page:** *Guided* (any, yes, no) and *Guidance not applied* (designer ignored it).
+- **Filter on the Titles page:** *With requests* (any, yes, no) and *Requests not honoured* (any ask declined, not understood or not acknowledged).
 - Tests: the form from a capability fixture, chart band picking, bulk submit, previous-design comparison and restore.
 
 ### WP8 — Editing the chosen design's filters
@@ -275,12 +295,10 @@ in parallel, since it needs beqforge's side.
 
 ## 6. Open questions
 
-1. **Guidance vs the contract's no-preference rule.** This plan treats a person's per-title instruction as a
-   deliberate, recorded exception. Agree that with beqforge before WP6, or decide guidance is caller-side only (a
-   post-design edit — WP8 — and caller-side exclusions on the request audio) and drop the contract change.
-2. **Which guidance keys first.** Proposed minimum: `exclude_bands_hz`, `lowest_frequency_hz`, `max_boost_db`,
-   `goal_tilt_db_per_octave`. `exclude_times_s` changes `coverage` semantics and may be better done caller-side by
-   muting those stretches before the request.
+1. **The restated §2 rule** (WP6): agree the wording with beqforge before building either side.
+2. **Which kinds first.** Proposed minimum: `exclude_band`, `floor`, `max_boost`, `goal_tilt`, `note`.
+   `exclude_times` interacts with `coverage` (a complete programme with stretches excluded is no longer quite one);
+   decide whether the designer reports it as an excerpt.
 3. **Spectrogram transport** (binary vs JSON) and resolution: decide on a measured 3-hour title in WP2.
 4. **Catalogue cache on the service** — its own download, or a mounted copy of the desktop's `BEQ_DOWNLOAD_DIR`.
 5. **History depth** — one previous design set (proposed) or several.
