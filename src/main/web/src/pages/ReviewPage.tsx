@@ -11,6 +11,7 @@ import { ChartControls } from '../components/ChartControls'
 import { HeatmapView } from '../components/HeatmapView'
 import { MagnitudeChart } from '../components/MagnitudeChart'
 import { MetadataPanel } from '../components/MetadataPanel'
+import { PublishedBeqs } from '../components/PublishedBeqs'
 import { ReviseDialog, reviseSummary } from '../components/ReviseDialog'
 import { Spectrogram } from '../components/Spectrogram'
 import { StreamPicker } from '../components/StreamPicker'
@@ -95,9 +96,10 @@ function Metadata({ review }: { review: Review }) {
   )
 }
 
-type Visual = 'magnitude' | 'spectrogram' | 'heatmap'
+type Visual = 'magnitude' | 'spectrogram' | 'heatmap' | 'published'
 const VISUALS: { id: Visual; label: string }[] = [
   { id: 'magnitude', label: 'Magnitude' }, { id: 'spectrogram', label: 'Spectrogram' }, { id: 'heatmap', label: 'Heatmap' },
+  { id: 'published', label: 'Published BEQs' },
 ]
 
 export function ReviewPage() {
@@ -297,6 +299,9 @@ export function ReviewPage() {
             ? <Spectrogram titleId={titleId} candidate={picked} view={view} onZoom={(x) => changeView({ ...view, x })}
                            onReset={() => changeView({ ...view, x: DEFAULT_VIEW.x })} />
             : <p className="muted">No design yet: nothing to draw.</p>)}
+          {visual === 'published' && (
+            <PublishedBeqs titleId={titleId} ours={chart.data?.series ?? []} picked={picked} view={view} onView={changeView} />
+          )}
           {visual === 'heatmap' && (offered.length
             ? <HeatmapView titleId={titleId} candidate={picked} title={data!.title} />
             : <p className="muted">No design yet: nothing to draw.</p>)}

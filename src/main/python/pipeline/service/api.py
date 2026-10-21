@@ -36,7 +36,8 @@ from pipeline.service.jobs import FINISHED, AcceptRequest, JobFinished, JobManag
 from pipeline.service.scheduler import AutoScheduler
 from pipeline.service.lease import read_lease
 from pipeline.service.notify import Notifier
-from pipeline.service import edits, visuals
+from pipeline.service import catalogue, edits, visuals
+from pipeline.library.catalogue_remote import CATALOGUE_URL
 from pipeline.service.refresh import IndexRefresher
 from pipeline.review import entry_art_path, fit_text, has_measured_fit, read_entry
 
@@ -123,7 +124,8 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
                checks: Optional[Callable[[], List[models.Check]]] = None,
                scheduler: Optional[AutoScheduler] = None, notifier: Optional[Notifier] = None,
                designer: Optional[DesignerProbe] = None, refresher: Optional[IndexRefresher] = None,
-               render_queue: Optional[visuals.RenderQueue] = None) -> FastAPI:
+               render_queue: Optional[visuals.RenderQueue] = None, catalogue_url: str = CATALOGUE_URL,
+               catalogue_get: Optional[Callable] = None) -> FastAPI:
     '''
     :param require_token: False only for a service bound to loopback and started with --no-auth.
     :param static_dir: a local copy of swagger-ui-dist and redoc, served at /static (the Docker image has one); None loads
@@ -135,6 +137,8 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
     :param designer: asks the designer's /health (default: one over the profile).
     :param refresher: brings the index up to date after a decision (default: one over the profile and this manager).
     :param render_queue: draws heatmaps and spectrograms off the request (default: a pool of two).
+    :param catalogue_url: where beqcatalogue's comparison files are (BEQ_CATALOGUE_URL over it); `catalogue_get` asks for
+        them (default `requests.get`).
     '''
     version = version or read_version()
     if require_token and not config.token:
@@ -539,6 +543,11 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
     visuals.register(v1, visuals.VisualRoutes(context=context, read_index=read_index, review_row=review_row,
                                               review_entry=review_entry, entry_title=entry_title, problem=ServiceProblem,
                                               responses=_responses, queue=render_queue))
+
+    catalogue.register(v1, catalogue.CatalogueRoutes(
+        context=context, read_index=read_index, review_row=review_row, review_entry=review_entry,
+        parse_smoothing=parse_smoothing, problem=ServiceProblem, responses=_responses,
+        base_url=(env or {}).get('BEQ_CATALOGUE_URL') or catalogue_url, get=catalogue_get))
 
     @v1.get('/review/next', response_model=models.NextTitle, tags=['review'],
             summary='The next title waiting for a decision after one, in the filtered list (wrapping round)',

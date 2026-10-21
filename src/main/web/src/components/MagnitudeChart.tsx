@@ -16,7 +16,12 @@ const MEASURED = { average: '#2b8cbe', peak: '#e6550d' }
 /** One colour per design when several are drawn (the measured curves keep theirs). */
 export const DESIGN_COLOURS = ['#31a354', '#756bb1', '#d6616b', '#8c6d31', '#17becf', '#e377c2', '#7f7f7f', '#bcbd22']
 
+/** A published BEQ's curves carry `candidate` CATALOGUE_BASE + its index, and take colours of their own. */
+export const CATALOGUE_BASE = 1000
+export const CATALOGUE_COLOURS = ['#f0c419', '#e377c2', '#17becf', '#bcbd22', '#ff9896', '#9edae5']
+
 export function seriesColour(s: Series, several: boolean): string {
+  if ((s.candidate ?? 0) >= CATALOGUE_BASE) return CATALOGUE_COLOURS[(s.candidate! - CATALOGUE_BASE) % CATALOGUE_COLOURS.length]!
   if (s.kind === 'filter') return DESIGN_COLOURS[(s.candidate ?? 0) % DESIGN_COLOURS.length]!
   if (!s.filtered || !several) return MEASURED[s.kind]
   return DESIGN_COLOURS[(s.candidate ?? 0) % DESIGN_COLOURS.length]!
@@ -30,7 +35,7 @@ export function seriesStyle(s: Series, all: Series[], highlighted: number | null
   const focused = !several || s.candidate === null || s.candidate === highlighted
   return {
     stroke: seriesColour(s, several),
-    width: s.kind === 'filter' ? 1.25 : s.filtered ? (focused ? 2.5 : 1.25) : 1.5,
+    width: s.kind === 'filter' ? 1.25 : (s.candidate ?? 0) >= CATALOGUE_BASE ? 2 : s.filtered ? (focused ? 2.5 : 1.25) : 1.5,
     dash: s.kind === 'filter' ? [2, 3]
       : !s.filtered ? (anyFiltered ? [6, 4] : undefined)
         : several && s.kind === 'peak' ? [1, 3] : undefined,

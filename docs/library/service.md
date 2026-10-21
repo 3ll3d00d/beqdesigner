@@ -123,6 +123,8 @@ Stopping it (Ctrl-C, or `SIGTERM`) lets the title in hand finish, then stops.
 | `GET`, `PUT`, `DELETE /v1/titles/{id}/artwork` | the title's poster; set it from a URL or an image sent (png or jpeg, base64); clear it |
 | `GET /v1/titles/{id}/heatmap.png` | the publication heatmap of a design (`?candidate=`): 202 while the service draws it, then the image |
 | `GET /v1/titles/{id}/spectrogram` | the title's spectrogram as a grid of bytes for drawing (`?candidate=`, `filtered`, `max_hz`): 202 while drawn |
+| `GET /v1/titles/{id}/catalogue` | the BEQs the catalogue has published for the title, each marked whether it is for the same track |
+| `GET /v1/titles/{id}/catalogue/{id}/chart` | one published BEQ (its `index` in the list, as the second id)'s response, and the title's curves under it (`smoothing` as the chart) |
 | `POST /v1/revise` | send titles back to review, design or extract (`ids`, `to`, `reason`): now, or with `run` in one run job |
 | `GET /v1/titles/{id}/streams` | the title's audio streams and the one extracted |
 | `PUT /v1/titles/{id}/stream` | extract and design the title from another audio stream: a run job |
@@ -266,6 +268,10 @@ otherwise it lasts until the tab is closed. The token is checked with the servic
   the difference (blue quieter, red louder), with the loudest level of each frequency in a strip below. Drag across to
   zoom the frequencies, down to zoom into part of the title; double-click (or *Whole title*) to go back. *Heatmap* is the
   image publish would write. The service draws each once (it says so meanwhile) and keeps it with the title's work.
+  *Published BEQs* lists what the catalogue has for the title (by TMDB id, else title and year; other tracks and
+  editions on request): tick any to draw its response and your track under it beside your design, with its peak boost
+  and how far it is from yours. The service reads only that title's entry from the catalogue (`BEQ_CATALOGUE_URL` to
+  point elsewhere) and keeps it a day.
 * **Revise:** *Revise…* on a review, or tick titles on the Titles page and *Revise selected…*: reopen for review,
   redesign, or re-extract and redesign, with a reason kept in the title's note. *Extract & design now* starts one job
   for them all; otherwise they wait for the next run. *Audio stream…* extracts and designs a title from another of its

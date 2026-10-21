@@ -347,6 +347,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/titles/{title_id}/catalogue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The BEQs the catalogue has published for a title */
+        get: operations["published_v1_titles__title_id__catalogue_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/titles/{title_id}/catalogue/{index}/chart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A published BEQ's response, and the title's measured curves under it */
+        get: operations["published_chart_v1_titles__title_id__catalogue__index__chart_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/review/next": {
         parameters: {
             query?: never;
@@ -1290,6 +1324,58 @@ export interface components {
             message?: string | null;
         } & {
             [key: string]: unknown;
+        };
+        /** PublishedBeq */
+        PublishedBeq: {
+            /**
+             * Index
+             * @description Its place in the catalogue's list for the title: what its chart is asked by.
+             */
+            index: number;
+            /** Author */
+            author: string;
+            /** Audio Types */
+            audio_types: string[];
+            /** Edition */
+            edition: string;
+            /** Season */
+            season: string;
+            /** Episodes */
+            episodes: string;
+            /**
+             * Same Track
+             * @description For the same audio, edition and episodes as this title, as far as is known.
+             */
+            same_track: boolean;
+            /**
+             * Catalogue Url
+             * @description Its page in the catalogue, when the catalogue says.
+             */
+            catalogue_url?: string | null;
+            /** Filter Count */
+            filter_count: number;
+        };
+        /** PublishedBeqs */
+        PublishedBeqs: {
+            /**
+             * Key
+             * @description The catalogue's key for the title; none when it has none.
+             */
+            key?: string | null;
+            /** Matched By */
+            matched_by?: ("tmdb" | "title") | null;
+            /**
+             * Compare Url
+             * @description The catalogue's page comparing every author's BEQ of it.
+             */
+            compare_url?: string | null;
+            /** Entries */
+            entries: components["schemas"]["PublishedBeq"][];
+            /**
+             * Message
+             * @default
+             */
+            message: string;
         };
         /** PublishedTitle */
         PublishedTitle: {
@@ -3456,6 +3542,162 @@ export interface operations {
             };
             /** @description Unprocessable Content */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    published_v1_titles__title_id__catalogue_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                title_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishedBeqs"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    published_chart_v1_titles__title_id__catalogue__index__chart_get: {
+        parameters: {
+            query?: {
+                /** @description As the chart route. */
+                smoothing?: string | null;
+            };
+            header?: never;
+            path: {
+                title_id: string;
+                index: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Chart"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
                 headers: {
                     [name: string]: unknown;
                 };

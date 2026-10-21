@@ -199,3 +199,7 @@ ul.endpoints { list-style: none; padding: 0; margin: 0.4rem 0 0; display: grid; 
 .spectrogram .row { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; align-items: center; margin-bottom: 0.4rem; }
 .spectrogram .legend .swatch { display: inline-block; width: 0.8rem; height: 0.8rem; vertical-align: middle; border-radius: 2px; }
 img.heatmap { width: 100%; height: auto; border-radius: 4px; }
+
+.published-list { list-style: none; padding: 0; margin: 0.5rem 0; display: grid; gap: 0.25rem; }
+.published-list li { display: flex; flex-wrap: wrap; gap: 0.25rem 0.6rem; align-items: center; }
+.published-list label.check { margin: 0; }

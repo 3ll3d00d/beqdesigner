@@ -108,7 +108,7 @@ message. Tests: `test_pipeline_library_decide.py`.
   - *Review*: the title, its status, what it needs; the designs (rejected ones listed apart, with how many reasons),
     commentary of the one highlighted (or the decline; full width under the designs and chart), the playback chain and
     designer, the metadata as one line under the heading (content type, audio types, genres by name) and what it lacks,
-    the chart with its controls (§4.1) beside *Spectrogram* and *Heatmap* tabs (§4.4), *Edit metadata and artwork* (§4.2), and *Revise…* and *Audio stream…* (§4.3). *Accept design N*, *Reject* and *Skip*, with keys A, R, S, and 1–9 to highlight a design; the keys
+    the chart with its controls (§4.1) beside *Spectrogram*, *Heatmap* and *Published BEQs* tabs (§4.4, §4.5), *Edit metadata and artwork* (§4.2), and *Revise…* and *Audio stream…* (§4.3). *Accept design N*, *Reject* and *Skip*, with keys A, R, S, and 1–9 to highlight a design; the keys
     stand aside while a text field has focus. A blocked decision is disabled and says why. Accepting a rejected design
     asks first, with the designer's reasons, and sends `override_rejection`. A refused decision shows the service's
     reason and the title as it is now. After a decision, or Skip, `GET /v1/review/next` in the same filtered list opens
@@ -165,6 +165,16 @@ loudest cell; *Difference* blue-white-red over ±20 dB from the grids before and
 `loudestByFrequency()` in a strip under it. A horizontal drag zooms the frequencies (the shared `ChartView`, so the
 magnitude chart follows), a vertical one the times (kept on the page), a double click resets both. *Heatmap* shows the
 PNG as an object URL.
+
+### 4.5 Published BEQs
+
+`PublishedBeqs` lists `GET /v1/titles/{id}/catalogue` (the same track only, unless *Include other tracks and editions*,
+or every one when none is the same track) with each entry's catalogue page and the catalogue's compare page. Ticking
+entries asks for each one's chart (`usePublishedCharts`) and draws them on the workbench (`ChartControls` and
+`MagnitudeChart`, the same `ChartView`) beside the chart route's curves for the highlighted design; a published BEQ's
+curves carry `candidate` `CATALOGUE_BASE` + its index and take colours of their own. Each ticked entry says its peak
+boost and the RMS difference between our design's filtered average and the track under it over 5-40 Hz
+(`comparison()`).
 
 ## 5. Build and delivery
 

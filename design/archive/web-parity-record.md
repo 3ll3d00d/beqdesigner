@@ -80,3 +80,15 @@ choosing the stream, revising from the list). Web: typecheck, lint, 103 tests (8
 
 Evidence: `test_pipeline_service_visuals.py` (6), `test_pipeline_library_spectrum.py` (grid tests); web
 `src/chart/grid.test.ts`, `src/pages/visuals.test.tsx`.
+
+## WP3
+
+**2026-10-21.** Published BEQs are compared in the browser, read per title on demand.
+
+- Shared: `pipeline/library/catalogue_remote.py` (`CatalogueCache`, `same_track`), `review_chart.published_curves()`.
+- Service (API 1.10.0, `pipeline/service/catalogue.py`): `GET /v1/titles/{id}/catalogue`,
+  `GET /v1/titles/{id}/catalogue/{n}/chart`; `BEQ_CATALOGUE_URL`.
+- Browser: `PublishedBeqs`, the fourth tab.
+
+Evidence: `test_pipeline_library_catalogue_remote.py` (7, over `catalogue_fixture.FakeCatalogue`),
+`test_pipeline_service_catalogue.py` (4); web `src/pages/published.test.tsx` (4).

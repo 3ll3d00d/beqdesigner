@@ -77,30 +77,13 @@ Built 2026-10-21; described in [web-app.md §4.4](web-app.md#44-spectrogram-and-
 title: 2.4 s to compute, 314 KB. The service draws with the default `HeatmapSpec`, not a person's Analyse Signal
 preferences (it has none).
 
-### WP3 — Comparison with published BEQs
+### WP3 — Comparison with published BEQs — done
 
-- **On demand, not the whole catalogue.** `database.json` is 38 MB (15,512 entries); the service never downloads it.
-  beqcatalogue already publishes what a per-title lookup needs: `compare/titles.json` (1.1 MB: key, title, year,
-  content type, authors; keys end in the TMDB id, e.g. `film-10-cloverfield-lane_333371`) and `compare/<key>.json`
-  (about 1 KB: each author's entry with audio types, season/episode, edition and filters). The service fetches the
-  index with `If-None-Match` at most once a day, finds the title by TMDB id (then title and year, WP0's matching), and
-  fetches that title's file when a review asks, caching both under the work dir with their `ETag`s.
-- **beqcatalogue change (small, own repo):** add each entry's `catalogue_url`, `images` and `underlying` to
-  `compare/<key>.json` (written by `beqcatalogue/devices.py`), so the per-title file carries everything the panel shows.
-  Until it does, the panel shows filters and links to the compare page, without images.
-- **Routes:** `GET /v1/titles/{id}/catalogue` — the matching entries (with `include_other=true` for other tracks and
-  editions), each with author, edition, audio and links; `GET /v1/titles/{id}/catalogue/{key}/{n}/chart` — that
-  entry's filter response and our measured average/peak **filtered by their filter**, on the same grid as WP1's chart.
-  Images are proxied through the service (`/v1/catalogue/image?url=`, allow-listed to the catalogue's image hosts,
-  cached) so the page loads nothing from third parties.
-- **Client:** the *Published BEQs* tab lists matches; ticking one or more overlays, in WP1's workbench, their filter
-  response (secondary axis) and *our track under their BEQ* beside *our track under our design*; their published
-  image beside ours (WP2's heatmap). A difference trace (ours − theirs, filtered average) answers "how far apart are
-  we" at a glance; a one-line summary per entry gives the max boost, the frequency it peaks at and the RMS difference
-  across 5–40 Hz.
-- Tests: matching and the catalogue filter build (unit), the index/file fetch with ETags against a fake server, the
-  image proxy's allow-list and caching (service), the
-  overlay controls (web).
+Built 2026-10-21; described in [web-app.md §4.5](web-app.md#45-published-beqs), record in
+[archive/web-parity-record.md](archive/web-parity-record.md#wp3). Deviations: no images (the comparison files have
+none; the plan's image proxy waits for them), and beqcatalogue writes a comparison entry only for a BEQ that matched
+one of its device profiles, so a title may have published BEQs the tab does not list. Both are beqcatalogue changes
+(`beqcatalogue/devices.py`: write every entry, with `images`).
 
 ### WP4 — Metadata and artwork editing — done
 

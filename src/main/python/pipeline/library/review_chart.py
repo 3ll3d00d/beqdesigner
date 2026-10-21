@@ -77,3 +77,30 @@ def workbench_curves(entry: Optional[QueueEntry], designs: Sequence[int], smooth
             response.override_name(f'Design {picked + 1}')
             result.append(ChartCurve('filter', True, response, picked))
     return result
+
+
+def published_curves(entry: Optional[QueueEntry], filters: list, author: str, smoothing=None) -> List[ChartCurve]:
+    '''
+    A published BEQ (catalogue filters, `catalogue_match.catalogue_filter`) against this title: its response (kind
+    'filter'), then the title's measured curves under it -- what that BEQ would do to this track.
+    :raises ValueError: for a smoothing not in SMOOTHING, or filters the catalogue does not use.
+    '''
+    from model.codec import xydata_from_json
+    from pipeline.library.catalogue_match import catalogue_filter
+    if smoothing not in SMOOTHING:
+        raise ValueError(f'{smoothing!r} is not a smoothing')
+    response = catalogue_filter(filters).get_transfer_function().get_magnitude()
+    response.override_name(f"{author}'s BEQ")
+    result = [ChartCurve('filter', True, response)]
+    if entry is None or not entry.curve:
+        return result
+    track = track_name(entry)
+    sources = [('average', xydata_from_json(entry.curve))]
+    if entry.peak_curve:
+        sources.append(('peak', xydata_from_json(entry.peak_curve)))
+    for kind, source in sources:
+        under = source.filter(response)
+        under = under.smooth(smoothing) if smoothing is not None else under
+        under.override_name(f"{kind.capitalize()} {track} under {author}'s BEQ")
+        result.append(ChartCurve(kind, True, under))
+    return result

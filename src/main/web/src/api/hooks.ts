@@ -1,6 +1,6 @@
 // The service's data as TanStack Query hooks: one query key per resource, so a change (a job submitted, a decision) can
 // refresh exactly what it affects.
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 
 import { useAuth } from '../auth/auth'
@@ -394,4 +394,30 @@ export function useHeatmapUrl(id: string, candidate: number, enabled: boolean) {
   const url = useMemo(() => (blob ? URL.createObjectURL(blob) : null), [blob])
   useEffect(() => () => { if (url) URL.revokeObjectURL(url) }, [url])
   return { ...query, url, pending: !!query.data?.pending }
+}
+
+// --- published BEQs (design/web-parity.md WP3) -----------------------------------------------------------------------------
+
+export function useCatalogue(id: string, enabled: boolean) {
+  const { client } = useAuth()
+  return useQuery({
+    queryKey: ['catalogue', id],
+    queryFn: async () => unwrap(await client.GET('/v1/titles/{title_id}/catalogue', { params: { path: { title_id: id } } })),
+    enabled,
+    retry: false,
+    staleTime: 10 * 60_000,
+  })
+}
+
+/** Each chosen published BEQ's response and the title's curves under it, in the order chosen. */
+export function usePublishedCharts(id: string, indexes: number[], smoothing: string) {
+  const { client } = useAuth()
+  return useQueries({
+    queries: indexes.map((index) => ({
+      queryKey: ['catalogue-chart', id, index, smoothing],
+      queryFn: async () => unwrap(await client.GET('/v1/titles/{title_id}/catalogue/{index}/chart', {
+        params: { path: { title_id: id, index }, query: smoothing === 'none' ? {} : { smoothing } } })),
+      staleTime: 10 * 60_000,
+    })),
+  })
 }

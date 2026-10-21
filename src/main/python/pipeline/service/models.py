@@ -17,7 +17,7 @@ from pipeline.service.jobs import MAX_REDESIGN_IDS, redesign_problem
 from pipeline.library.state import NEEDS, FLAG_DUPLICATE, FLAG_GONE, FLAG_IGNORED, FLAG_IN_CATALOGUE, FLAG_SHADOWED
 from pipeline.library.year import YEAR_PATTERN, YearRange, numeric_year
 
-API_VERSION = '1.9.0'
+API_VERSION = '1.10.0'
 
 
 class Needs(str, Enum):
@@ -466,6 +466,26 @@ class AudioStream(BaseModel):
     index: int = Field(description='Zero-based: what a stream choice sends.')
     text: str = Field(description='As a person picks it: "2: DTS-HD MA 5.1, English, 48 kHz".')
     preferred: bool = Field(description='The one extracted when nobody has chosen.')
+
+
+class PublishedBeq(BaseModel):
+    index: int = Field(description='Its place in the catalogue\'s list for the title: what its chart is asked by.')
+    author: str
+    audio_types: List[str]
+    edition: str
+    season: str
+    episodes: str
+    same_track: bool = Field(description='For the same audio, edition and episodes as this title, as far as is known.')
+    catalogue_url: Optional[str] = Field(None, description='Its page in the catalogue, when the catalogue says.')
+    filter_count: int
+
+
+class PublishedBeqs(BaseModel):
+    key: Optional[str] = Field(None, description="The catalogue's key for the title; none when it has none.")
+    matched_by: Optional[Literal['tmdb', 'title']] = None
+    compare_url: Optional[str] = Field(None, description="The catalogue's page comparing every author's BEQ of it.")
+    entries: List[PublishedBeq]
+    message: str = ''
 
 
 class StreamChoice(Input):
