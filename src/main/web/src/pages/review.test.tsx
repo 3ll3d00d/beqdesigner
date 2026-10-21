@@ -130,9 +130,11 @@ describe('titles', () => {
                    : json({ total: 1, offset: 0, limit: 100, titles: [title('a')] })
                }))
     const router = renderApp('/titles')
+    // a typed filter is sent once typing pauses (300 ms): under a loaded parallel run that and the render can pass 1 s
+    const typing = { timeout: 5000 }
 
     await userEvent.type(await screen.findByLabelText('Filter title'), 'star wars')
-    await waitFor(() => expect(router.state.location.search).toBe('?match=star+wars'))
+    await waitFor(() => expect(router.state.location.search).toBe('?match=star+wars'), typing)
     expect(asked.some((q) => q.get('match') === 'star')).toBe(false)   // nothing sent mid-word
     expect(screen.getByLabelText('Filter title')).toHaveValue('star wars')
 
@@ -141,19 +143,19 @@ describe('titles', () => {
     await userEvent.selectOptions(screen.getByLabelText('Filter kind'), 'tv')
     await userEvent.click(within(screen.getByRole('group', { name: 'Needs' })).getByRole('checkbox', { name: 'Review' }))
     await waitFor(() => expect(router.state.location.search)
-      .toBe('?needs=review&kind=tv&match=star+wars&detail=Rolloff&flags=Gone'))
-    await waitFor(() => expect(asked.at(-1)?.get('detail')).toBe('Rolloff'))
+      .toBe('?needs=review&kind=tv&match=star+wars&detail=Rolloff&flags=Gone'), typing)
+    await waitFor(() => expect(asked.at(-1)?.get('detail')).toBe('Rolloff'), typing)
     expect(asked.at(-1)?.getAll('flags')).toEqual(['Gone'])
     expect(screen.getByText(/detail matching “Rolloff”, flagged Gone/)).toBeInTheDocument()
 
     // a filter the service refuses leaves the row there to correct it
     await userEvent.type(screen.getByLabelText('Filter year'), '20')
-    await waitFor(() => expect(asked.at(-1)?.get('year')).toBe('20'))
-    expect(await screen.findByRole('alert')).toHaveTextContent('not a year')
+    await waitFor(() => expect(asked.at(-1)?.get('year')).toBe('20'), typing)
+    expect(await screen.findByRole('alert', {}, typing)).toHaveTextContent('not a year')
     await userEvent.type(screen.getByLabelText('Filter year'), '20')
-    await waitFor(() => expect(asked.at(-1)?.get('year')).toBe('2020'))
-    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
-  })
+    await waitFor(() => expect(asked.at(-1)?.get('year')).toBe('2020'), typing)
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument(), typing)
+  }, 30_000)   // types a great deal and waits for five pauses: past vitest's 5 s default under a loaded run
 
   it('filters on whether the designer declined', async () => {
     const asked: URLSearchParams[] = []

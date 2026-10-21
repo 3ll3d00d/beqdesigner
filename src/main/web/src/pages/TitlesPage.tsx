@@ -14,17 +14,28 @@ import { ScanSources } from '../components/ScanSources'
 import { count, NEEDS_ORDER, NEEDS_WORDS, type NeedsWord } from '../format'
 import { repositoryRefusal } from './NewJobPage'
 
-/** The filter, sort and paging the page is showing, read from and written to the address bar. */
+/** A new filter, or how to change the one in the address bar now. */
+type FilterChange = TitleFilter | ((current: TitleFilter) => TitleFilter)
+
+/**
+ * The filter, sort and paging the page is showing, read from and written to the address bar. A change given as a function
+ * is applied to the address as last written, not as last rendered: two changes before the page draws again (a typed
+ * filter's pause ending as a list is picked) would otherwise each start from the same filter, and the second undo the first.
+ */
 export function useListParams() {
   const [params, setParams] = useSearchParams()
+  const written = useRef(params)
+  useEffect(() => { written.current = params }, [params])
   const filter = filterFromQuery(params)
   const order = sortFromQuery(params)
   const includeDone = params.get('include_done') === 'true'
   const offset = Math.max(0, Number(params.get('offset')) || 0)
-  const update = (next: TitleFilter, done = includeDone, at = 0, by: Sort = order) => {
-    const query = sortToQuery(by, filterToQuery(next))
+  const update = (next: FilterChange, done = includeDone, at = 0, by: Sort = order) => {
+    const chosen = typeof next === 'function' ? next(filterFromQuery(written.current)) : next
+    const query = sortToQuery(by, filterToQuery(chosen))
     if (done) query.set('include_done', 'true')
     if (at) query.set('offset', String(at))
+    written.current = query
     setParams(query, { replace: true })
   }
   return { filter, order, includeDone, offset, update, query: sortToQuery(order, filterToQuery(filter)).toString() }
@@ -101,9 +112,9 @@ function SortHeading({ column, order, onSort }: {
 
 /** The row of filters under the headings, one per column that can be filtered. */
 function FilterRow({ filter, sources, onChange }: {
-  filter: TitleFilter; sources: string[]; onChange: (filter: TitleFilter) => void
+  filter: TitleFilter; sources: string[]; onChange: (change: (current: TitleFilter) => TitleFilter) => void
 }) {
-  const set = (patch: Partial<TitleFilter>) => onChange({ ...filter, ...patch })
+  const set = (patch: Partial<TitleFilter>) => onChange((current) => ({ ...current, ...patch }))
   return (
     <tr className="filters">
       <td><FilterText label="Filter title" value={filter.match ?? ''} placeholder="title, name, id or path"
@@ -252,7 +263,7 @@ export function TitlesPage() {
       <div className="actions">
         <label className="check">
           <input type="checkbox" checked={!!filter.new_since_scan}
-                 onChange={(e) => update({ ...filter, new_since_scan: e.target.checked })} />
+                 onChange={(e) => update((f) => ({ ...f, new_since_scan: e.target.checked }))} />
           New since the last scan
         </label>
         <label className="check">
@@ -262,7 +273,7 @@ export function TitlesPage() {
         <label className="inline">
           Designer
           <select aria-label="Designer" value={filter.declined === undefined || filter.declined === null ? '' : String(filter.declined)}
-                  onChange={(e) => update({ ...filter, declined: e.target.value === '' ? null : e.target.value === 'true' })}>
+                  onChange={(e) => update((f) => ({ ...f, declined: e.target.value === '' ? null : e.target.value === 'true' }))}>
             <option value="">Any</option>
             <option value="true">Declined</option>
             <option value="false">Not declined</option>
@@ -271,7 +282,7 @@ export function TitlesPage() {
         <label className="inline">
           Design version
           <select aria-label="Design version" value={filter.out_of_date === undefined || filter.out_of_date === null ? '' : String(filter.out_of_date)}
-                  onChange={(e) => update({ ...filter, out_of_date: e.target.value === '' ? null : e.target.value === 'true' })}>
+                  onChange={(e) => update((f) => ({ ...f, out_of_date: e.target.value === '' ? null : e.target.value === 'true' }))}>
             <option value="">Any</option>
             <option value="true">Out of date</option>
             <option value="false">Not out of date</option>
@@ -286,7 +297,7 @@ export function TitlesPage() {
         <table className="list">
           <thead>
             <tr>{COLUMNS.map((c) => <SortHeading key={c.sort} column={c} order={order} onSort={(by) => update(filter, includeDone, 0, by)} />)}</tr>
-            <FilterRow filter={filter} sources={sources} onChange={(f) => update(f)} />
+            <FilterRow filter={filter} sources={sources} onChange={(change) => update(change)} />
           </thead>
           <tbody>
             {page?.titles.map((t) => (
