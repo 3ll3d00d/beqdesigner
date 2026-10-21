@@ -156,3 +156,27 @@ export function zoomRange(range: Range, at: number, factor: number, log: boolean
   const [a, b, c] = [into(range[0]), into(range[1]), into(Math.min(Math.max(at, range[0]), range[1]))]
   return [out(c - (c - a) * factor), out(c + (b - c) * factor)]
 }
+
+/**
+ * Where a log frequency axis is labelled within `range`: 1, 2 and 5 of each decade, or every whole number of a decade
+ * when that gives fewer than four (a zoom inside one decade), else five evenly spaced: a narrow range always has labels.
+ */
+export function logTicks([low, high]: Range): number[] {
+  const within = (steps: number[]) => {
+    const ticks: number[] = []
+    for (let decade = Math.floor(Math.log10(Math.max(low, 1e-3))); 10 ** decade <= high; decade++) {
+      for (const step of steps) {
+        const value = Number((step * 10 ** decade).toPrecision(6))
+        if (value >= low && value <= high) ticks.push(value)
+      }
+    }
+    return ticks
+  }
+  const coarse = within([1, 2, 5])
+  if (coarse.length >= 4) return coarse
+  const fine = within([1, 2, 3, 4, 5, 6, 7, 8, 9])
+  if (fine.length >= 3) return fine
+  // narrower still: five evenly spaced, to the precision the range needs
+  const places = Math.max(0, 2 - Math.floor(Math.log10(high - low)))
+  return [0, 1, 2, 3, 4].map((i) => Number((low + ((high - low) * i) / 4).toFixed(places)))
+}

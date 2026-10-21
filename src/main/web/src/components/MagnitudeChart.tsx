@@ -7,7 +7,7 @@ import { useEffect, useRef } from 'react'
 import uPlot from 'uplot'
 import 'uplot/dist/uPlot.min.css'
 
-import { chartData, drawnRange, normalise, type ChartView, type Range, type Series, visibleSeries, zoomRange }
+import { chartData, drawnRange, logTicks, normalise, type ChartView, type Range, type Series, visibleSeries, zoomRange }
   from '../chart/view'
 
 export { chartData, FREQUENCY_RANGE, resample } from '../chart/view'
@@ -78,7 +78,11 @@ export function MagnitudeChart({ series, view, highlighted = null, onZoom, onRes
         ...(responses ? { response: { auto: true } } : {}),
       },
       axes: [
-        { ...axis, label: 'Frequency (Hz)' },
+        { ...axis, label: 'Frequency (Hz)',
+          // uPlot's own log filter keeps only powers of ten (null for the rest): every tick of logTicks() is labelled
+          ...(view.logX ? { splits: () => logTicks(range), filter: (_u: uPlot, ticks: number[]) => ticks,
+                            values: (_u: uPlot, ticks: (number | null)[]) => ticks.map((t) => (t === null ? '' : String(t))) }
+            : {}) },
         { ...axis, label: levels, size: 56 },
         ...(responses ? [{ ...axis, scale: 'response', side: 1, grid: { show: false }, label: 'Filter dB', size: 56 }] : []),
       ],

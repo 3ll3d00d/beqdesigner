@@ -69,7 +69,7 @@ export function ChartControls({ view, series, onChange }: Props) {
       <div className="row">
         <span role="group" aria-label="Range">
           {PRESETS.map((p) => (
-            <button key={p.id} type="button" className="small"
+            <button key={p.id} type="button" className="secondary small"
                     onClick={() => set({ x: p.x === 'full' ? [1, highestFrequency(series)] : p.x, y: null })}>
               {p.label}
             </button>
@@ -105,7 +105,7 @@ export function ChartControls({ view, series, onChange }: Props) {
             {references.map((name) => <option key={name} value={name}>{name}</option>)}
           </select>
         </label>
-        <button type="button" className="small" onClick={() => onChange(DEFAULT_VIEW)}>Reset view</button>
+        <button type="button" className="secondary small" onClick={() => onChange(DEFAULT_VIEW)}>Reset view</button>
       </div>
     </div>
   )

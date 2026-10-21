@@ -106,6 +106,12 @@ describe('the chart workbench', () => {
     await waitFor(() => expect(last().scales.x!.range).toEqual([5, 80]))
     await userEvent.click(screen.getByLabelText('Log frequency'))
     await waitFor(() => expect(last().scales.x!.distr).toBe(3))
+    // labelled at 1-2-5 (uPlot's own log filter would leave only powers of ten, and null for the rest)
+    const axis = last().axes[0] as unknown as { splits: () => number[]; filter: (u: unknown, t: number[]) => number[];
+                                               values: (u: unknown, t: (number | null)[]) => string[] }
+    expect(axis.splits()).toEqual([5, 10, 20, 50])
+    expect(axis.filter(null, [5, 10])).toEqual([5, 10])
+    expect(axis.values(null, [5, null])).toEqual(['5', ''])
   })
 
   it('says why limits cannot be used, and fits the level to what is drawn when they are blank', async () => {

@@ -1,6 +1,6 @@
 // The chart's view model (design/web-parity.md WP1): what is kept in the browser, what is drawn, and how it is placed.
 import { chart } from '../test/fixtures'
-import { chartData, DEFAULT_VIEW, drawnRange, loadView, normalise, saveView, type Series, visibleSeries, zoomRange }
+import { chartData, DEFAULT_VIEW, drawnRange, loadView, logTicks, normalise, saveView, type Series, visibleSeries, zoomRange }
   from './view'
 
 const line = (name: string, x: number[], y: number[], extra: Partial<Series> = {}): Series =>
@@ -60,5 +60,13 @@ describe('what is drawn', () => {
     const [low, high] = zoomRange([1, 100], 10, 0.5, true)
     expect(low).toBeCloseTo(10 ** 0.5)
     expect(high).toBeCloseTo(10 ** 1.5)
+  })
+})
+
+describe('a log frequency axis', () => {
+  it('is labelled at 1, 2 and 5 of each decade, or every step inside one decade', () => {
+    expect(logTicks([1, 160])).toEqual([1, 2, 5, 10, 20, 50, 100])
+    expect(logTicks([5.57, 46.9])).toEqual([6, 7, 8, 9, 10, 20, 30, 40])
+    expect(logTicks([12, 18])).toEqual([12, 13.5, 15, 16.5, 18])
   })
 })

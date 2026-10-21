@@ -43,7 +43,7 @@ button {
 }
 button:disabled { opacity: 0.6; cursor: default; }
 button.link { background: none; border: none; color: var(--accent); padding: 0; }
-input[type='password'], input[type='text'], select {
+input[type='password'], input[type='text'], input:not([type]), select {
   font: inherit; padding: 0.4rem 0.5rem; border: 1px solid var(--line); border-radius: 6px;
   background: var(--panel); color: var(--fg); width: 100%;
 }
@@ -72,7 +72,7 @@ input[type='password'], input[type='text'], select {
 
 h2 { font-size: 1.05rem; margin: 0 0 0.5rem; }
 .title-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
-a.button, button.secondary {
+a.button, label.button, button.secondary {
   display: inline-block; padding: 0.45rem 0.9rem; border-radius: 6px; border: 1px solid var(--accent);
   background: transparent; color: var(--accent); text-decoration: none;
 }
@@ -151,7 +151,8 @@ ol.log .event-state { font-weight: 600; }
 .chart-controls .row { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; align-items: center; }
 .chart-controls label.inline { margin: 0; }
 .chart-controls .limits { display: inline-flex; gap: 0.3rem; align-items: center; flex-wrap: wrap; }
-.chart-controls .limits input { width: 5.5rem; }
+.chart-controls .limits input { width: 5.5rem; padding: 0.2rem 0.35rem; }
+label.button { cursor: pointer; }
 button.small { padding: 0.15rem 0.6rem; font-size: 0.85rem; margin-right: 0.25rem; }
 ul.candidates { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.3rem; }
 ul.candidates label { display: grid; grid-template-columns: auto 1fr; column-gap: 0.5rem; align-items: baseline;
