@@ -501,3 +501,13 @@ export function useMatchingIds() {
     return { ids: ids.slice(0, MAX_REVISED), total }
   }
 }
+
+/** A title's .beq projects and whether a person edited them since the design (the desktop title page's badge). */
+export function useProjects(id: string, version: string | undefined) {
+  const { client } = useAuth()
+  return useQuery({
+    queryKey: ['projects', id, version],
+    queryFn: async () => unwrap(await client.GET('/v1/titles/{title_id}/projects', { params: { path: { title_id: id } } })),
+    retry: false,
+  })
+}

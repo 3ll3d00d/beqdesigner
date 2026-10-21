@@ -13,7 +13,7 @@ from qtpy.QtCore import QEvent
 from qtpy.QtWidgets import QApplication, QFileDialog, QMessageBox, QToolButton
 
 from model.preferences import SYSTEM_CHECK_FOR_UPDATES
-from model.worklist_projects import ProjectState, badge, project_states, read_state
+from pipeline.library.projects import ProjectState, badge, project_states, read_state
 from test_worklist_title import REVIEWABLE, _designer, _open, _prefs, _rows, _window, SOURCES, NOW  # noqa: F401
 from worklist_fixture import make_index
 from worklist_project_fixture import corrupt_project, edit_project, resave_unchanged, write_projects
@@ -99,7 +99,7 @@ def test_the_badge_words(tmp_path):
 def test_a_project_with_no_filter_is_not_called_designed():
     ''' design/archive/library-sync/worklist-feedback.md F2: extraction writes a flat project; so does a decline
         (F3). '''
-    from model.worklist_projects import ProjectState
+    from pipeline.library.projects import ProjectState
     flat = ProjectState('mono', '/w/a.mono.beq', True, flat=True)
     assert badge([flat]) == ('Projects with no filter (not designed yet, or the designer declined)', 'neutral')
     assert badge([flat, ProjectState('multichannel', '/w/a.multichannel.beq', True)]) == ('Projects as designed', 'ok')
@@ -108,7 +108,7 @@ def test_a_project_with_no_filter_is_not_called_designed():
 
 def test_a_real_flat_project_reads_as_flat_and_not_edited(tmp_path):
     import os
-    from model.worklist_projects import read_state
+    from pipeline.library.projects import read_state
     from pipeline.config import AnalysisConfig
     from pipeline.orchestrate import Session
     from pipeline.publish.project import write_mono_project
@@ -444,7 +444,7 @@ def test_the_real_main_window_refuses_a_file_that_is_not_a_project_and_the_page_
     # the page did not see it: force the case where the file broke after the page read it)
     page.refresh_projects()
     page._hooks.open_project = main.open_project_file
-    from model.worklist_projects import ProjectState
+    from pipeline.library.projects import ProjectState
     page.project_states = lambda: [ProjectState('mono', mono, True)]
     assert page.open_project('mono') is False
     assert 'Could not open the mono project' in page.actions_bar.messageLabel.text()

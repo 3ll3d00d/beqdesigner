@@ -364,6 +364,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/titles/{title_id}/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A title's .beq projects, and whether a person edited them since the design */
+        get: operations["projects_v1_titles__title_id__projects_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/titles/{title_id}/heatmap.png": {
         parameters: {
             query?: never;
@@ -1434,6 +1451,39 @@ export interface components {
              */
             estimated_finish?: string | null;
         };
+        /** ProjectView */
+        ProjectView: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "mono" | "multichannel";
+            /**
+             * Name
+             * @description The file name, in the title's folder of the work directory.
+             */
+            name: string;
+            /**
+             * Exists
+             * @description It is written when the title is extracted.
+             */
+            exists: boolean;
+            /**
+             * Edited
+             * @description Its filter is no longer what the pipeline wrote: what is saved in it is what gets published, and a redesign keeps it.
+             */
+            edited: boolean;
+            /**
+             * Flat
+             * @description It has no filter (not designed yet, or the designer declined).
+             */
+            flat: boolean;
+            /**
+             * Error
+             * @description Why it could not be read; empty when it was.
+             */
+            error: string;
+        };
         /** PublishError */
         PublishError: {
             /** Id */
@@ -2321,6 +2371,26 @@ export interface components {
             limit: number;
             /** Titles */
             titles: components["schemas"]["Title"][];
+        };
+        /** TitleProjects */
+        TitleProjects: {
+            /** Projects */
+            projects: components["schemas"]["ProjectView"][];
+            /**
+             * Summary
+             * @description In a line, as the desktop title page's badge says it.
+             */
+            summary: string;
+            /**
+             * Warn
+             * @description The summary is a warning (a project edited, or unreadable).
+             */
+            warn: boolean;
+            /**
+             * Note
+             * @description What an edited project means for the title.
+             */
+            note: string;
         };
         /**
          * TitleSort
@@ -3844,6 +3914,73 @@ export interface operations {
                 };
             };
             /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    projects_v1_titles__title_id__projects_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                title_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TitleProjects"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Error */
             422: {
                 headers: {
                     [name: string]: unknown;

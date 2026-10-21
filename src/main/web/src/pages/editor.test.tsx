@@ -93,3 +93,15 @@ it('is not offered on an accepted title', async () => {
   renderApp('/titles/a')
   expect(await screen.findByRole('button', { name: 'Edit filters…' })).toBeDisabled()
 })
+
+it('says on the page, and in the editor, when a project was edited by hand since the design', async () => {
+  routes()
+  server.use(http.get('/v1/titles/a/projects', () => json({
+    projects: [{ kind: 'mono', name: 'a.mono.beq', exists: true, edited: true, flat: false, error: '' }],
+    summary: 'Modified since design: mono project', warn: true, note: 'What you save in the project is what gets published' })))
+  renderApp('/titles/a')
+  expect(await screen.findByLabelText('Projects')).toHaveTextContent('Modified since design: mono project')
+  await userEvent.click(screen.getByRole('button', { name: 'Edit filters…' }))
+  expect(within(screen.getByRole('region', { name: 'Edit design 1' })).getByRole('note'))
+    .toHaveTextContent('what is saved in the project, not this edit')
+})

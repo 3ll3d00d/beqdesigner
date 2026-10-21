@@ -170,3 +170,6 @@ frequencies; the full suite, 3379 passed, 1 skipped.
   it); `GET .../streams` probes when the source lists none (`probed`), the stream job keeps what it read (API 1.15.0).
   Evidence: the probing tests in `test_pipeline_service_edit.py` and `test_pipeline_service_work.py`;
   `gui/test_worklist_stream_choice.py` unchanged.
+- **Projects:** `pipeline/library/projects.py` (moved from `model/worklist_projects.py`), `GET /v1/titles/{id}/projects`
+  (API 1.16.0), `ProjectsLine` and the editor's warning. Evidence: the projects test in `test_pipeline_service_edit.py`,
+  the editor test about a hand-edited project; `gui/test_worklist_projects.py` unchanged but for the import.

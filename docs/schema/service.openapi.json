@@ -4,7 +4,7 @@
     "title": "BEQDesigner pipeline service",
     "summary": "Scan a library, extract and design BEQ filters for titles chosen by filter, on demand or on a schedule, and follow the jobs that do it.",
     "description": "A person decides a title through the review routes or in the BEQDesigner app. Every /v1 route needs the bearer token (Authorize, above). `GET /health` says which release this is.",
-    "version": "1.15.0"
+    "version": "1.16.0"
   },
   "paths": {
     "/health": {
@@ -2235,6 +2235,93 @@
               }
             },
             "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/titles/{title_id}/projects": {
+      "get": {
+        "tags": [
+          "edit"
+        ],
+        "summary": "A title's .beq projects, and whether a person edited them since the design",
+        "operationId": "projects_v1_titles__title_id__projects_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "title_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Title Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TitleProjects"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
           }
         }
       }
@@ -5657,6 +5744,53 @@
         ],
         "title": "Progress"
       },
+      "ProjectView": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "mono",
+              "multichannel"
+            ],
+            "title": "Kind"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "The file name, in the title's folder of the work directory."
+          },
+          "exists": {
+            "type": "boolean",
+            "title": "Exists",
+            "description": "It is written when the title is extracted."
+          },
+          "edited": {
+            "type": "boolean",
+            "title": "Edited",
+            "description": "Its filter is no longer what the pipeline wrote: what is saved in it is what gets published, and a redesign keeps it."
+          },
+          "flat": {
+            "type": "boolean",
+            "title": "Flat",
+            "description": "It has no filter (not designed yet, or the designer declined)."
+          },
+          "error": {
+            "type": "string",
+            "title": "Error",
+            "description": "Why it could not be read; empty when it was."
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "name",
+          "exists",
+          "edited",
+          "flat",
+          "error"
+        ],
+        "title": "ProjectView"
+      },
       "PublishError": {
         "properties": {
           "id": {
@@ -7791,6 +7925,40 @@
           "titles"
         ],
         "title": "TitlePage"
+      },
+      "TitleProjects": {
+        "properties": {
+          "projects": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectView"
+            },
+            "type": "array",
+            "title": "Projects"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary",
+            "description": "In a line, as the desktop title page's badge says it."
+          },
+          "warn": {
+            "type": "boolean",
+            "title": "Warn",
+            "description": "The summary is a warning (a project edited, or unreadable)."
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "description": "What an edited project means for the title."
+          }
+        },
+        "type": "object",
+        "required": [
+          "projects",
+          "summary",
+          "warn",
+          "note"
+        ],
+        "title": "TitleProjects"
       },
       "TitleSort": {
         "type": "string",

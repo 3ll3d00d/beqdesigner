@@ -130,6 +130,7 @@ Stopping it (Ctrl-C, or `SIGTERM`) lets the title in hand finish, then stops.
 | `POST /v1/titles/{id}/variants/{id}/use` | make an earlier design run of the title its current one again (the current one is kept) |
 | `DELETE /v1/titles/{id}/variants/{id}` | discard one of the title's earlier design runs |
 | `PUT /v1/titles/{id}/edited` | save your edit of one of the title's designs as a new design run (the current one is kept) |
+| `GET /v1/titles/{id}/projects` | the title's `.beq` projects and whether you edited them since the design (what is saved in one is what gets published) |
 | `POST /v1/revise` | send titles back to review, design or extract (`ids`, `to`, `reason`): now, or with `run` in one run job |
 | `GET /v1/titles/{id}/streams` | the title's audio streams and the one extracted |
 | `PUT /v1/titles/{id}/stream` | extract and design the title from another audio stream: a run job |
@@ -287,7 +288,9 @@ otherwise it lasts until the tab is closed. The token is checked with the servic
 * **Editing a design:** *Edit filters…* opens the highlighted design's sections (type, frequency, Q, gain, how many
   stacked) with your edit drawn live beside it; *Add a low shelf* for more bass, *Add a peak*, reorder or remove.
   *Save as a new design* makes it the title's current design run, to review and accept like any other; the one it
-  started from is kept. Not on an accepted or published title (reopen it first).
+  started from is kept. Not on an accepted or published title (reopen it first). The line under the title says whether
+  its `.beq` projects were edited in the app since the design: if one was, what is saved there is what gets published,
+  and the editor says so.
 * **Revise:** *Revise…* on a review, or tick titles on the Titles page (tick the heading's box,
   then *Select all … matching* for the whole list, up to 500) and *Revise selected…*: reopen for review,
   redesign, or re-extract and redesign, with a reason kept in the title's note. *Extract & design now* starts one job

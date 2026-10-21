@@ -468,3 +468,32 @@ def test_a_file_that_cannot_be_read_says_why(unlisted, service, monkeypatch):
     answer = client.get('/v1/titles/a/streams', headers=AUTH)
     assert (answer.status_code, answer.json()['title']) == (409, 'Streams not read')
     assert 'media share mounted' in answer.json()['detail']
+
+
+# --- the title's projects ---------------------------------------------------------------------------------------------------
+
+def test_the_projects_say_whether_a_person_edited_them_since_the_design(setup, service):
+    import os
+    from model.iir import CompleteFilter, LowShelf
+    from pipeline.config import AnalysisConfig
+    from pipeline.library.workdir import entry_directory
+    from pipeline.orchestrate import Session
+    from pipeline.publish.project import write_mono_project
+    from test_pipeline_publish_project import _HUMAN_FILTER, _hand_edit_filter, _write_mono_wav
+    client, *_ = service
+    _, work, _ = setup
+    assert client.get('/v1/titles/a/projects', headers=AUTH).json()['summary'].startswith('No project yet')
+    folder = entry_directory(str(work), 'a')
+    os.makedirs(folder, exist_ok=True)
+    wav = os.path.join(folder, 'mono.wav')
+    _write_mono_wav(wav)
+    mono = os.path.join(folder, 'a.mono.beq')
+    write_mono_project(Session(AnalysisConfig()), wav, CompleteFilter(fs=1000, filters=[LowShelf(1000, 20, 0.7, 4)]), mono)
+    body = client.get('/v1/titles/a/projects', headers=AUTH).json()
+    assert (body['summary'], body['warn']) == ('Projects as designed', False)
+    assert body['projects'] == [{'kind': 'mono', 'name': 'a.mono.beq', 'exists': True, 'edited': False, 'flat': False,
+                                 'error': ''}]
+    _hand_edit_filter(mono, _HUMAN_FILTER)
+    body = client.get('/v1/titles/a/projects', headers=AUTH).json()
+    assert body['warn'] and body['summary'] == 'Modified since design: mono project' and body['projects'][0]['edited']
+    assert 'what gets published' in body['note']

@@ -5,12 +5,13 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 
 import type { Schemas } from '../api/client'
-import { useChart, useDecide, useNextTitle, useReview, useStatus, useVariantCharts } from '../api/hooks'
+import { useChart, useDecide, useNextTitle, useProjects, useReview, useStatus, useVariantCharts } from '../api/hooks'
 import { DEFAULT_VIEW, loadView, saveView, type ChartView, type Range } from '../chart/view'
 import { ChartControls } from '../components/ChartControls'
 import { HeatmapView } from '../components/HeatmapView'
 import { MagnitudeChart } from '../components/MagnitudeChart'
 import { MetadataPanel } from '../components/MetadataPanel'
+import { ProjectsLine } from '../components/ProjectsLine'
 import { PublishedBeqs } from '../components/PublishedBeqs'
 import { ReviseDialog, reviseSummary } from '../components/ReviseDialog'
 import { Spectrogram } from '../components/Spectrogram'
@@ -124,6 +125,7 @@ export function ReviewPage() {
   const candidate = offered[picked]
   const [view, setView] = useState<ChartView>(loadView)
   const [visual, setVisual] = useState<Visual>('magnitude')
+  const projects = useProjects(titleId, data?.digest)
   // while *Revise…* waits for a band to be dragged across the chart: what to do with it; and the bands it asks to ignore
   const [pickBand, setPickBand] = useState<{ take: (range: Range) => void } | null>(null)
   const [bands, setBands] = useState<Range[]>([])
@@ -225,6 +227,7 @@ export function ReviewPage() {
       <p className="muted">Needs {(NEEDS_WORDS[data!.needs as NeedsWord] ?? data!.needs).toLowerCase()}
         {data!.detail && data!.detail !== data!.needs ? `: ${data!.detail}` : ''}.
         {data!.in_flight && <strong> A run is working on this title.</strong>}</p>
+      <ProjectsLine projects={projects.data} />
       <div className="actions">
         <button type="button" className="secondary" disabled={!!reviseBlocked || decide.isPending}
                 title={reviseBlocked || undefined} onClick={() => setRevising(true)}>Revise…</button>
@@ -342,6 +345,7 @@ export function ReviewPage() {
       </div>
       {editing && editing.title === titleId && (
         <FilterEditor key={`${data!.digest}-${editing.source}`} review={data!} source={editing.source}
+                      projectEdited={!!projects.data?.projects.some((p) => p.edited)}
                       series={chart.data?.series ?? []} view={view} onView={changeView} onClose={() => setEditing(null)} />
       )}
       <VariantsPanel review={data!} shown={shownVariants}

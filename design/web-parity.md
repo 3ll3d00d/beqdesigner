@@ -197,8 +197,9 @@ variants followed the same day (`adjusted`, `unmet`, `several_runs`). So did pic
 Built 2026-10-21; described in [web-app.md §4.7](web-app.md#47-editing-a-design), record in
 [archive/web-parity-record.md](archive/web-parity-record.md#wp8). An edit is a new design run (WP7's variants) rather than
 an extra design beside the designer's: it is reviewed and accepted like any other, and publish writes it through the
-existing project rules. Not built: a projects route (the desktop's *modified since design* badge): an edit in the
-browser does not touch the `.beq` projects.
+existing project rules. The projects route followed the same day (`pipeline/library/projects.py`, moved from `model/worklist_projects.py`):
+the review page says the desktop badge's words, and the editor warns when a hand-edited project, not the edit, is what
+gets published. An edit in the browser does not touch the `.beq` projects.
 
 ## 5. Order and dependencies
 

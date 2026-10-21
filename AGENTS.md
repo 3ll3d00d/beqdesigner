@@ -195,7 +195,7 @@ in place of the table, via the `worklist_titles.py` mixin; the index is read aga
 (`MetadataPanel`: Essentials / More, TMDB Reload and an artwork download on the thread pool, autosave on focus-out and `flush()` before the page moves;
 the header badge and Accept being held back while `validate()` fails), `worklist_artwork.py` (image checks, the `_art_cache`, the download job), `worklist_title_text.py` (the title page's pure words and chart data),
 `ui/worklistmetadata.ui`; tests `gui/test_worklist_metadata.py` and `gui/test_worklist_metadata_fixes.py` (the independent review's fixes: a late TMDB
-answer dropped after Back, the API key redacted from error text, a refused Accept not moving the keyboard, a blank field unsetting its key). **Project, revise, bulk** (chunk 27c): `worklist_projects.py` (a title's mono/multichannel `.beq` projects and whether each was
+answer dropped after Back, the API key redacted from error text, a refused Accept not moving the keyboard, a blank field unsetting its key). **Project, revise, bulk** (chunk 27c): `pipeline/library/projects.py` (moved from `worklist_projects.py`, shared with the service: a title's mono/multichannel `.beq` projects and whether each was
 *modified since design*, read with `read_project_filter()`), `worklist_title_actions.py` (the page's *Open project* buttons and badge -- opened through the
 `open_project` callable `BeqDesigner` hands the window, since `model/` may not import `app` -- and *Reopen / Revise...*), `worklist_revise.py` (the question
 and the work, over `pipeline.library.revise`), `worklist_bulk.py` (the `WorkListBulk` mixin: *Accept top pick* over `pipeline.library.bulk` with the

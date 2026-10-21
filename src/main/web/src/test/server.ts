@@ -7,7 +7,12 @@ import type { Schemas } from '../api/client'
 
 export const TOKEN = 'test-token'
 
-export const server = setupServer()
+/** What every test gets unless it says otherwise: a title with no projects (the review page always asks). */
+const DEFAULTS = [
+  http.get('/v1/titles/:id/projects', () => HttpResponse.json({ projects: [], summary: '', warn: false, note: '' })),
+]
+
+export const server = setupServer(...DEFAULTS)
 
 beforeAll(() => server.listen({ onUnhandledFrame: 'error' }))
 afterEach(() => server.resetHandlers())

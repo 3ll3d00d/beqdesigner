@@ -17,7 +17,7 @@ from pipeline.service.jobs import MAX_REDESIGN_IDS, redesign_problem
 from pipeline.library.state import NEEDS, FLAG_DUPLICATE, FLAG_GONE, FLAG_IGNORED, FLAG_IN_CATALOGUE, FLAG_SHADOWED
 from pipeline.library.year import YEAR_PATTERN, YearRange, numeric_year
 
-API_VERSION = '1.15.0'
+API_VERSION = '1.16.0'
 
 
 class Needs(str, Enum):
@@ -554,6 +554,23 @@ class PublishedBeqs(BaseModel):
     compare_url: Optional[str] = Field(None, description="The catalogue's page comparing every author's BEQ of it.")
     entries: List[PublishedBeq]
     message: str = ''
+
+
+class ProjectView(BaseModel):
+    kind: Literal['mono', 'multichannel']
+    name: str = Field(description='The file name, in the title\'s folder of the work directory.')
+    exists: bool = Field(description='It is written when the title is extracted.')
+    edited: bool = Field(description='Its filter is no longer what the pipeline wrote: what is saved in it is what gets '
+                                     'published, and a redesign keeps it.')
+    flat: bool = Field(description='It has no filter (not designed yet, or the designer declined).')
+    error: str = Field(description='Why it could not be read; empty when it was.')
+
+
+class TitleProjects(BaseModel):
+    projects: List[ProjectView]
+    summary: str = Field(description='In a line, as the desktop title page\'s badge says it.')
+    warn: bool = Field(description='The summary is a warning (a project edited, or unreadable).')
+    note: str = Field(description='What an edited project means for the title.')
 
 
 class StreamChoice(Input):

@@ -4,7 +4,7 @@ What the title page can do to a title besides decide it -- design/archive/librar
 * **Open project** (mono, multichannel): the title's `.beq` projects, opened in the main window through a callable the work
   list is given by `BeqDesigner` (this page does not import `app`: the two import each other at the top level, AGENTS.md
   gotcha 3). A button is enabled only while its file exists, and a badge says whether a project was **modified since
-  design** (`model.worklist_projects`; its tooltip says what that means for the title). The badge is read when a title is
+  design** (`pipeline.library.projects`; its tooltip says what that means for the title). The badge is read when a title is
   shown, and again whenever the window becomes active -- a person edits in the main window, saves the project, and comes back.
 * **Reopen / Revise...** (`model.worklist_revise`): send the title back for review, redesign or re-extraction. It changes
   state only (nothing is redesigned or published now), tells the person what will happen before it does anything, records
@@ -24,7 +24,7 @@ from qtpy.QtWidgets import QHBoxLayout, QLabel, QMenu, QPushButton, QToolButton,
 
 from model.worklist_failure import FailurePanel, failed_stage, retry_label
 from model.worklist_model import warning_colour
-from model.worklist_projects import EDITED_TOOLTIP, LEVEL_WARN, MONO, MULTICHANNEL, ProjectState, badge, \
+from pipeline.library.projects import EDITED_TOOLTIP, LEVEL_WARN, MONO, MULTICHANNEL, ProjectState, badge, \
     project_states
 from model.worklist_title_text import REDO_IN_WORK_LIST
 from model.worklist_revise import ReviseContext, ReviseDialog, ReviseSummary, revise_problem, revise_titles, \

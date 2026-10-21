@@ -20,6 +20,7 @@ from pipeline.library.artwork_edit import ArtworkError, download_artwork, set_ar
 from pipeline.library.metadata_edit import FIELD_SPECS, TmdbError, changes_from_texts, metadata_digest, save_meta_changes, \
     tmdb_fill, tmdb_reload
 from pipeline.library.decide import offered_digest
+from pipeline.library.projects import EDITED_TOOLTIP, LEVEL_WARN, badge, project_states
 from pipeline.library.revise import revise_entry
 from pipeline.designer.contract import BiquadSpec
 from pipeline.designer.convert import ContractViolation
@@ -325,3 +326,21 @@ def register(v1: APIRouter, deps: EditRoutes) -> None:
         except ContractViolation as violation:
             raise Problem(422, 'Not a design', str(violation))
         return written(ctx, settings, row, title_id)
+
+
+    # --- the title's projects ---------------------------------------------------------------------------------------
+
+    @v1.get('/titles/{title_id}/projects', response_model=models.TitleProjects, tags=['edit'],
+            summary="A title's .beq projects, and whether a person edited them since the design",
+            responses=responses(404, 409, 503))
+    def projects(title_id: str) -> models.TitleProjects:
+        ctx = deps.context()
+        settings = ctx.scan_settings()
+        with deps.read_index(ctx) as index:
+            deps.review_row(index, title_id)
+        states = project_states(settings.work_dir, title_id)
+        summary, level = badge(states)
+        return models.TitleProjects(
+            projects=[models.ProjectView(kind=s.kind, name=os.path.basename(s.path), exists=s.exists, edited=s.edited,
+                                         flat=s.flat, error=s.error) for s in states],
+            summary=summary, warn=level == LEVEL_WARN, note=EDITED_TOOLTIP)

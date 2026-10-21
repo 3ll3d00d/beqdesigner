@@ -20,6 +20,8 @@ interface Props {
   view: ChartView
   onView: (view: ChartView) => void
   onClose: () => void
+  /** A .beq project of the title was edited by hand since its design: that, not this edit, is what gets published. */
+  projectEdited?: boolean
 }
 
 /** The edit drawn: its response, and the measured average and peak under it. */
@@ -34,7 +36,7 @@ export function editedSeries(measured: Series[], rows: FilterRow[], fs: number):
   return [...under, { name: 'The edit', kind: 'filter' as const, filtered: true, candidate: -1, x: grid, y: response }]
 }
 
-export function FilterEditor({ review, source, series, view, onView, onClose }: Props) {
+export function FilterEditor({ review, source, series, view, onView, onClose, projectEdited = false }: Props) {
   const design = [...review.candidates, ...review.rejected][source]
   const start = rowsOf(design?.filters)
   const [rows, setRows] = useState<FilterRow[]>(start?.rows ?? [])
@@ -68,6 +70,8 @@ export function FilterEditor({ review, source, series, view, onView, onClose }: 
       <h2 id="editor-heading">Edit design {source + 1}</h2>
       <p className="muted">Drawn live beside the design it started from (as model/iir.py computes it). Saving makes it the
         title's current design run, to review and accept; the design it started from is kept.</p>
+      {projectEdited && <p className="warn" role="note">A project of this title was edited by hand since its design: what
+        is saved in the project, not this edit, is what gets published. Use one or the other.</p>}
       <table className="list">
         <thead><tr><th>Type</th><th>Frequency (Hz)</th><th>Q</th><th>Gain (dB)</th><th>Stacked</th><th /></tr></thead>
         <tbody>

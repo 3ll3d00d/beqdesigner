@@ -1,5 +1,6 @@
 '''
-A title's `.beq` projects, as the title page shows them -- design/archive/library-sync/workflow-rework/design.md §12.10, chunk 27c.
+A title's `.beq` projects, as the title page and the service show them -- design/archive/library-sync/workflow-rework/design.md §12.10,
+chunk 27c (moved from `model.worklist_projects` for the browser: design/web-parity.md).
 
 Extracting a title writes a **mono** project (`<work_dir>/<folder>/<folder>.mono.beq`) and, where the extraction was multichannel, a
 **multichannel** one (`<folder>.multichannel.beq`), both flat; designing it puts the designed filter in them (linked across every

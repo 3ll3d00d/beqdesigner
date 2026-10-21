@@ -204,7 +204,10 @@ Q, gain and how many stacked, with add (a low shelf, a peak), reorder, remove an
 on the magnitude chart with the view's limits and zoom: the measured curves, the design it started from, the edit's
 response and the curves under it, computed in the browser by `src/chart/biquad.ts` (the RBJ cookbook biquads of
 `model/iir.py`, held to its values in `biquad.test.ts`). `rowProblem()` and the 10-section budget hold *Save as a new
-design* back with the reason; saving sends `PUT /v1/titles/{id}/edited` and the review becomes the new design run.
+design* back with the reason; saving sends `PUT /v1/titles/{id}/edited` and the review becomes the new design run. Under the review's heading,
+`ProjectsLine` says `GET /v1/titles/{id}/projects` in the desktop title page's words (as designed, modified since design,
+not written yet, unreadable), and the editor warns when a project was edited by hand since the design: publish takes
+the project's filter, not the browser's edit.
 
 ## 5. Build and delivery
 
