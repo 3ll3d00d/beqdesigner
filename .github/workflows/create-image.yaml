@@ -50,11 +50,7 @@ jobs:
         shell: bash
         run: |
           image="ghcr.io/${GITHUB_REPOSITORY,,}-pipeline"
-          tags="$image:$GITHUB_REF_NAME"
-          if [[ ! "$GITHUB_REF_NAME" =~ -(alpha|beta|rc)([.-]|$) ]]; then
-            tags="$tags,$image:latest"
-          fi
-          echo "tags=$tags" >> "$GITHUB_OUTPUT"
+          echo "tags=$(python3 docker/image_tags.py "$image" "$GITHUB_REF_NAME")" >> "$GITHUB_OUTPUT"
       - name: Build and publish amd64 and arm64
         uses: docker/build-push-action@v7
         with:

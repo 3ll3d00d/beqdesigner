@@ -521,8 +521,10 @@ the target's environment override.
 - **Publishing:** on a pushed tag (the trigger `create-app.yaml` uses for the
   desktop release), `create-image.yaml` builds `linux/amd64` and `linux/arm64`,
   runs the smoke test, and pushes `ghcr.io/3ll3d00d/beqdesigner-pipeline:<tag>`
-  with `GITHUB_TOKEN` (`packages: write`). `latest` is applied only to a tag
-  without a pre-release suffix (`-alpha`/`-beta`/`-rc`). The image carries OCI
+  with `GITHUB_TOKEN` (`packages: write`). `alpha` follows every release, so a
+  container on `:alpha` moves on with a plain pull and recreate (Unraid's update);
+  `latest` is applied only to a tag without a pre-release suffix
+  (`-alpha`/`-beta`/`-rc`). The tags are `docker/image_tags.py`'s. The image carries OCI
   labels (source, revision, version), and `src/main/python/VERSION` is written
   before the build so `/health` reports the release.
 

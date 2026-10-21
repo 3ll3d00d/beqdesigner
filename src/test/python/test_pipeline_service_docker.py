@@ -103,6 +103,19 @@ def test_ci_designs_by_reference_through_the_real_designer_on_every_push_and_bef
     assert release.index('--designer-image') < release.index('docker/build-push-action')
 
 
+@pytest.mark.parametrize('ref, extra', [('2.2.0-alpha.23', []), ('2.2.0-beta.1', []), ('2.2.0-rc.2', []),
+                                        ('2.2.0', ['latest']), ('2.2.0-alphabet', ['latest'])])
+def test_every_release_moves_alpha_and_only_a_full_release_moves_latest(ref, extra):
+    ''' A container on `:alpha` is moved on by a pull and recreate (Unraid's update), with no template edit per release. '''
+    spec = importlib.util.spec_from_file_location('beq_image_tags', ROOT / 'docker' / 'image_tags.py')
+    tags = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(tags)
+
+    assert tags.image_tags('img', ref) == [f'img:{ref}', 'img:alpha'] + [f'img:{t}' for t in extra]
+    assert 'python3 docker/image_tags.py "$image" "$GITHUB_REF_NAME"' in \
+        (ROOT / '.github' / 'workflows' / 'create-image.yaml').read_text()
+
+
 @pytest.mark.skipif(not shutil.which('ffmpeg') or not shutil.which('ffprobe'), reason='ffmpeg and ffprobe are optional')
 def test_image_smoke_fixture_extracts_and_designs_through_the_real_service(tmp_path):
     server = ThreadingHTTPServer(('127.0.0.1', 0), Designer)
@@ -144,7 +157,7 @@ def test_ci_smokes_before_tag_publish_and_builds_both_platforms():
     assert 'docker build -f docker/Dockerfile' in ci and 'python3 docker/smoke.py' in ci
     assert release.index('python3 docker/smoke.py') < release.index('docker/build-push-action')
     assert 'linux/amd64,linux/arm64' in release
-    assert 'alpha|beta|rc' in release and 'packages: write' in release
+    assert 'docker/image_tags.py' in release and 'packages: write' in release
 
 
 def test_the_docs_assets_stage_runs_natively_rather_than_under_qemu():

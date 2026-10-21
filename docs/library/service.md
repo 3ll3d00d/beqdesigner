@@ -20,7 +20,9 @@ Put `profile.yaml`, `service.yaml` and a private `service-token` in the
 compose example's `config/` folder, and mount your media at the exact paths
 the profile names. Run `docker compose up -d`. The image is published for
 tagged releases as `ghcr.io/3ll3d00d/beqdesigner-pipeline:<tag>` for amd64
-and arm64; use a fixed tag when you need repeatable deployments. The compose
+and arm64. `latest` is the newest full release and `alpha` the newest release
+of any kind, pre-releases included; use a fixed tag when you need repeatable
+deployments. The compose
 example maps the port to loopback for a local TLS reverse proxy. Its work and
 queue mounts should be writable by the configured UID/GID.
 
