@@ -211,6 +211,8 @@ the project's filter, not the browser's edit.
 
 ## 5. Build and delivery
 
+- **Chunks:** the review page (uPlot and every chart) is a route `lazy` import in `App.tsx`, built as its own chunk
+  and loaded when a title is first opened; the rest of the app stays under Vite's 500 kB warning.
 - `package.json` scripts: `dev` (Vite at `/ui/`, proxying `/v1` to `BEQ_SERVICE_URL`, default `http://127.0.0.1:8080`),
   `build` (typecheck, then Vite into `dist/`), `test`, `typecheck`, `lint`, `gen:api`. `package-lock.json` is committed;
   `node_modules/` is ignored (and `dist/`, by the root `.gitignore`). The root `.gitignore` also ignores any `lib/`: the

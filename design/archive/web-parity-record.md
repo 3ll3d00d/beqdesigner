@@ -173,3 +173,4 @@ frequencies; the full suite, 3379 passed, 1 skipped.
 - **Projects:** `pipeline/library/projects.py` (moved from `model/worklist_projects.py`), `GET /v1/titles/{id}/projects`
   (API 1.16.0), `ProjectsLine` and the editor's warning. Evidence: the projects test in `test_pipeline_service_edit.py`,
   the editor test about a hand-edited project; `gui/test_worklist_projects.py` unchanged but for the import.
+- **Bundle:** the review page is loaded on demand (`lazy` route): 422 kB main, 97 kB review (was 507 kB in one).

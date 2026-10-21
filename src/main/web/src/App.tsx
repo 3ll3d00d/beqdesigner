@@ -9,7 +9,6 @@ import { JobPage } from './pages/JobPage'
 import { JobsPage } from './pages/JobsPage'
 import { NewJobPage } from './pages/NewJobPage'
 import { NotFound } from './pages/NotFound'
-import { ReviewPage } from './pages/ReviewPage'
 import { StatusPage } from './pages/StatusPage'
 import { TitlesPage } from './pages/TitlesPage'
 
@@ -48,7 +47,8 @@ export const routes: RouteObject[] = [
       { path: 'jobs/new', element: <NewJobPage /> },
       { path: 'jobs/:jobId', element: <JobPage /> },
       { path: 'titles', element: <TitlesPage /> },
-      { path: 'titles/:titleId', element: <ReviewPage /> },
+      // the review page -- uPlot and every chart -- loads when it is first opened, not with the app
+      { path: 'titles/:titleId', lazy: async () => ({ Component: (await import('./pages/ReviewPage')).ReviewPage }) },
       { path: '*', element: <NotFound /> },
     ],
   },
