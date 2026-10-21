@@ -63,7 +63,7 @@ outside it. A beqforge version bump invalidates its bundled optimiser seed
 | 23 | D3 | | by-reference §5 | Planned; optional, not started | Contract addition; beqforge coordination |
 | 24 | O2 | | former §9 reviewer questions | Behavior exists; acceptance decision missing | Real reviewer feedback |
 | 25 | O1 | | D6 | Optional idea; no implementation decision | Product decision |
-| 26 | WP | | [web parity](web-parity.md) | Not started; chunks WP0-WP8 | WP6: beqforge agreement on contract 1.5 design adjustments |
+| 26 | WP | | [web parity](web-parity.md) | WP0-WP8 built on beqdesigner (2026-10-21); left: beqforge's side of contract 1.5 (WP6), and the deviations each chunk records | beqforge release with 1.5 |
 
 E3 is outside the milestone only if E2's sample shows the documented DVD
 main-title fallback is truthful for the catalogue's discs; if it silently
