@@ -76,7 +76,7 @@ def parse_smoothing(text: Optional[str]):
         return 'SG'
     if value.isdigit() and int(value) in SMOOTHING:
         return int(value)
-    raise ServiceProblem(422, 'No such smoothing', f'{text!r}: use none, 1, 2, 3, 6, 12, 24 or sg')
+    raise ServiceProblem(422, 'No such smoothing', f'{text!r}: use none, 1, 2, 3, 6, 12, 24, 48 or sg')
 
 def entry_title(entry, row) -> str:
     ''' What to call a title: the index's title, else the queue entry's, else its id (as the title page does). '''
@@ -500,8 +500,8 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
                                                                           '`candidates`): the measured curves only.')] = None,
               candidates: Annotated[Optional[str], Query(description='Several designs: `all`, or indexes separated by '
                                                                      'commas. Not with `candidate`.')] = None,
-              smoothing: Annotated[Optional[str], Query(description='`none` (the default), `1`, `2`, `3`, `6`, `12` '
-                                                                    'or `24` (1/N octave), or `sg` (Savitzky-Golay)'
+              smoothing: Annotated[Optional[str], Query(description='`none` (the default), `1`, `2`, `3`, `6`, `12`, '
+                                                                    '`24` or `48` (1/N octave), or `sg` (Savitzky-Golay)'
                                                                     '.')] = None,
               responses: Annotated[bool, Query(description="Also each design's own magnitude response "
                                                            "(`kind` filter).")] = False,

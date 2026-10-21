@@ -9,7 +9,7 @@ from typing import List, Optional, Sequence
 from pipeline.review import QueueEntry
 
 
-SMOOTHING = (None, 1, 2, 3, 6, 12, 24, 'SG')   # the main window's smoothing box: none, 1/N octave, Savitzky-Golay
+SMOOTHING = (None, 1, 2, 3, 6, 12, 24, 48, 'SG')   # as the main window offers: none, 1/N octave, Savitzky-Golay
 
 
 @dataclass

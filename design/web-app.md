@@ -135,7 +135,7 @@ read, defaults when storage refuses) and changed by `ChartControls`:
   cursor (on the log scale when the axis is); a double click goes back to the preset frequencies and fitted levels.
 - **Curves:** *Average*, *Peak*, *Before design*, *After design*; *Filter response* asks for each design's own response
   (`responses=true`) and draws it on a second level axis; *Smoothing* is sent to the service (`smoothing`), which applies
-  the main window's (`review_chart.SMOOTHING`: none, 1/1-1/24 octave, Savitzky-Golay) after the design, never to a
+  the main window's (`review_chart.SMOOTHING`: none, 1/1-1/48 octave, Savitzky-Golay; `model.xy.smooth_octave`, a mean of power over each point's 1/N octave on the curve's own frequencies) after the design, never to a
   response.
 - **Relative to:** every curve but a response is drawn minus the one chosen (`normalise()`), which becomes flat.
 

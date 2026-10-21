@@ -230,16 +230,41 @@ def smooth(x, y, smooth_type=None):
 
 def smooth_octave(x, y, smooth_type):
     '''
-    Performs fractional octave smoothing.
-    :param x: frequencies.
-    :param y: magnitude.
-    :param smooth_type: fractional octave.
-    :return: the smoothed data.
+    Fractional-octave smoothing of a magnitude curve: each point becomes the mean *power* over the 1/N octave centred on
+    it (from f/2^(1/2N) to f*2^(1/2N)), each point in that window weighted by the frequency span it stands for, so an
+    uneven grid averages correctly. The curve keeps its own frequencies -- nothing below the first band edge is lost --
+    and its level: a flat spectrum stays where it is, a single loud point spreads out and comes down. A point with nothing
+    else in its window (the lowest frequencies at a fine fraction) is unchanged; so is 0 Hz.
+
+    (It used to integrate the bands: summing the amplitude of every point in each 1/N-octave band onto band centres from
+    5 Hz up, which raised the level by about 20*log10(points per band) -- tens of dB, more in wider and higher bands --
+    and dropped everything below 5 Hz.)
+    :param x: frequencies, ascending.
+    :param y: magnitude, dB.
+    :param smooth_type: N, the octave fraction (1 for 1/1, 3 for 1/3, ...).
+    :return: (x, the smoothed magnitude in dB).
     '''
-    from acoustics.smooth import fractional_octaves
-    from model.signal import db_to_amplitude, amplitude_to_db
-    octave_x, smoothed_y = fractional_octaves(x, db_to_amplitude(y), fraction=smooth_type)
-    return octave_x.center, amplitude_to_db(smoothed_y)
+    x = np.asarray(x, dtype=np.float64)
+    y = np.asarray(y, dtype=np.float64)
+    fraction = int(smooth_type)
+    if fraction <= 0:
+        raise ValueError(f'smoothing must be a positive octave fraction, got {smooth_type}')
+    if x.size < 2:
+        return x, y
+    power = np.power(10.0, np.nan_to_num(y, nan=-200.0, neginf=-200.0, posinf=200.0) / 10.0)
+    edges = np.concatenate(([x[0]], (x[1:] + x[:-1]) / 2.0, [x[-1]]))
+    width = np.diff(edges)                      # the span of frequency each point stands for
+    width[width <= 0] = np.finfo(np.float64).tiny
+    weighted = np.concatenate(([0.0], np.cumsum(power * width)))
+    total = np.concatenate(([0.0], np.cumsum(width)))
+    half = 2.0 ** (1.0 / (2.0 * fraction))
+    low = np.searchsorted(x, x / half, side='left')
+    high = np.searchsorted(x, x * half, side='right')
+    mean = (weighted[high] - weighted[low]) / (total[high] - total[low])
+    smoothed = 10.0 * np.log10(np.maximum(mean, 1e-30))
+    alone = (high - low <= 1) | (x <= 0)
+    smoothed[alone] = y[alone]
+    return x, smoothed
 
 
 def smooth_savgol(x, y, smooth_type):

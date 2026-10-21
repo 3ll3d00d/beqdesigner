@@ -333,8 +333,9 @@ def test_smoothing_is_the_main_windows_and_leaves_the_responses_alone(service, s
                        headers=AUTH).json()
     assert chart['smoothing'] == said
     assert chart['series'][-1] == raw['series'][-1]                       # the design's response is never smoothed
-    if said == '6':
-        assert len(chart['series'][0]['x']) != len(raw['series'][0]['x'])   # onto 1/6-octave centres
+    if said == '6':   # on the same frequencies, at the same level (the fixture's curve is flat: model.xy.smooth_octave)
+        assert chart['series'][0]['x'] == raw['series'][0]['x']
+        assert chart['series'][0]['y'] == pytest.approx(raw['series'][0]['y'], abs=1e-6)
 
 
 def test_a_curve_too_sparse_for_savitzky_golay_says_so(service):

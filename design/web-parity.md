@@ -67,8 +67,8 @@ Built 2026-10-21; record in [archive/web-parity-record.md](archive/web-parity-re
 ### WP1 — The chart workbench — done
 
 Built 2026-10-21; described in [web-app.md §4.1](web-app.md#41-the-chart), record in
-[archive/web-parity-record.md](archive/web-parity-record.md#wp1). The main window offers smoothing to 1/24 octave (the
-`acoustics` package has no 1/48), so the route does too.
+[archive/web-parity-record.md](archive/web-parity-record.md#wp1). Smoothing goes to 1/48 octave since the smoother was
+replaced (below the WP8 record: it used to integrate bands and inflate the level).
 
 ### WP2 — Spectrogram — done
 

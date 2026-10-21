@@ -138,3 +138,19 @@ gzipped). Python: 3360 passed, 1 skipped.
 
 Evidence: the edit tests in `test_pipeline_service_edit.py`; web `src/chart/biquad.test.ts`, `src/pages/editor.test.tsx`.
 Web: 131 tests (3 runs). Python: 3366 passed, 1 skipped.
+
+## Smoothing fixed (desktop and web)
+
+**2026-10-21.** `model.xy.smooth_octave`, which the main window, the title page and the service's chart all use, called
+the vendored `acoustics.smooth.fractional_octaves`: it summed the *amplitude* of every point in each 1/N-octave band
+onto band centres from 5 Hz (10 Hz at 1/12 and finer), and `amplitude_to_db` then clipped 80 dB below the top. A flat
+-20 dB spectrum on a 1 kHz Welch grid came out at +25 to +59 dB at 1/1, rising with frequency, and everything below the
+first band was lost. It is now a fractional-octave *smoother*: each point the mean power over the 1/N octave centred on
+it, weighted by the span each point stands for, on the curve's own frequencies, unclipped; a point alone in its window
+(and 0 Hz) is unchanged. A flat spectrum keeps its level; on a real track the 5-120 Hz mean moves by under 2 dB at 1/1
+and the peaks soften. 1/48, which the main window's menu already offered and the old code refused, now works, so the
+service and the browser offer it too. The vendored `acoustics` module is left as it is (it is band integration, correct
+for what it is).
+
+Evidence: `test_xy_smoothing.py` (12); the review-chart and chart-route smoothing tests now hold the level and the
+frequencies; the full suite, 3379 passed, 1 skipped.

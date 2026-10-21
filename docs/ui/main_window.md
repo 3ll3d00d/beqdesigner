@@ -173,11 +173,13 @@ Selecting either option will cause the selected curve to be shown as a straight 
 
 All curves can be smoothed and various smoothing methods are available, these are
 
-* fractional octave smoothing from 1/1 to 1/24
+* fractional octave smoothing from 1/1 to 1/48
 * Savitzky-Golay : applies a [Savitsky-Golay filter](https://docs.scipy.org/doc/scipy-1.2.1/reference/generated/scipy.signal.savgol_filter.html) to the signal
 
-Fractional octave smoothing will change the energy levels significantly and are primarily useful for assessing perceptual balance of a full range signal.
-Savitsky-Golay smoothing is more useful for cutting through the noise (spikiness) in a full range signal without changing the reported energy level.
+Fractional octave smoothing replaces each point with the average power over the 1/N octave centred on it: the curve
+keeps its frequencies and its level, and narrow peaks and dips are evened out (more so at 1/1 than at 1/48). It is
+useful for assessing the perceptual balance of a full range signal.
+Savitsky-Golay smoothing is more useful for cutting through the noise (spikiness) in a full range signal.
 
 Smoothing will be applied to the currently selected signal if the *All Signals* checkbox is unchecked otherwise all loaded signals will be smoothed.
 

@@ -27,10 +27,10 @@ def test_every_smoothing_the_main_window_offers_draws_a_dense_curve(entry, smoot
     curves = workbench_curves(entry, [0], smoothing, responses=True)
     assert [(c.kind, c.filtered, c.candidate) for c in curves] == \
         [('average', False, None), ('average', True, 0), ('filter', True, 0)]
-    if smoothing == 'SG':      # in place, on the same frequencies
-        assert curves[0].data.x.size == 2000 and np.std(curves[0].data.y) < np.std(np.sin(np.linspace(1.0, 500.0, 2000)))
-    elif smoothing is not None:   # onto 1/N-octave band centres, as the main window draws them
-        assert curves[0].data.x.size < 2000 and np.array_equal(curves[0].data.x, curves[1].data.x)
+    if smoothing is not None:   # in place, on the same frequencies, and calmer (model.xy.smooth_octave, smooth_savgol)
+        assert curves[0].data.x.size == 2000
+        assert np.std(curves[0].data.y) < np.std(np.sin(np.linspace(1.0, 500.0, 2000)))
+        assert abs(np.mean(curves[0].data.y)) < 3     # and not lifted: the old band integration added tens of dB
 
 
 def test_designs_out_of_range_are_left_out_and_an_unknown_smoothing_is_refused(entry):

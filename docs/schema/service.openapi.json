@@ -899,10 +899,10 @@
                   "type": "null"
                 }
               ],
-              "description": "`none` (the default), `1`, `2`, `3`, `6`, `12` or `24` (1/N octave), or `sg` (Savitzky-Golay).",
+              "description": "`none` (the default), `1`, `2`, `3`, `6`, `12`, `24` or `48` (1/N octave), or `sg` (Savitzky-Golay).",
               "title": "Smoothing"
             },
-            "description": "`none` (the default), `1`, `2`, `3`, `6`, `12` or `24` (1/N octave), or `sg` (Savitzky-Golay)."
+            "description": "`none` (the default), `1`, `2`, `3`, `6`, `12`, `24` or `48` (1/N octave), or `sg` (Savitzky-Golay)."
           },
           {
             "name": "responses",

@@ -7,7 +7,7 @@ import type { Schemas } from '../api/client'
 
 export type Series = Schemas['ChartSeries']
 export type Range = [number, number]
-export const SMOOTHINGS = ['none', '1', '2', '3', '6', '12', '24', 'sg'] as const
+export const SMOOTHINGS = ['none', '1', '2', '3', '6', '12', '24', '48', 'sg'] as const
 export type Smoothing = (typeof SMOOTHINGS)[number]
 
 export interface ChartView {

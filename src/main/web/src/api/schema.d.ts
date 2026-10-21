@@ -2875,7 +2875,7 @@ export interface operations {
                 candidate?: number | null;
                 /** @description Several designs: `all`, or indexes separated by commas. Not with `candidate`. */
                 candidates?: string | null;
-                /** @description `none` (the default), `1`, `2`, `3`, `6`, `12` or `24` (1/N octave), or `sg` (Savitzky-Golay). */
+                /** @description `none` (the default), `1`, `2`, `3`, `6`, `12`, `24` or `48` (1/N octave), or `sg` (Savitzky-Golay). */
                 smoothing?: string | null;
                 /** @description Also each design's own magnitude response (`kind` filter). */
                 responses?: boolean;

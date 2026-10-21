@@ -114,7 +114,7 @@ Stopping it (Ctrl-C, or `SIGTERM`) lets the title in hand finish, then stops.
 | `POST /v1/notify/test` | send a sample of each configured event to one notification target |
 | `POST /v1/jobs/accept` | bulk accept (see below) |
 | `GET /v1/titles/{id}/review` | what a person decides a title on: its designs, metadata problems, and whether Accept and Reject are offered |
-| `GET /v1/titles/{id}/chart` | the title's measured curves, and the same after one design (`?candidate=`) or several (`?candidates=all` or `0,2`); `smoothing` (`1`-`24` for 1/N octave, `sg`) and `responses=true` (each design's own response) |
+| `GET /v1/titles/{id}/chart` | the title's measured curves, and the same after one design (`?candidate=`) or several (`?candidates=all` or `0,2`); `smoothing` (`1`-`48` for 1/N octave, `sg`) and `responses=true` (each design's own response) |
 | `POST /v1/titles/{id}/decision` | accept a design, or reject the title (see "Deciding a title" below) |
 | `GET /v1/review/next` | the next title waiting for a decision after one (`?after=`), in a filtered list |
 | `GET /v1/metadata/fields` | the metadata fields a title page edits, with their labels and choices |
