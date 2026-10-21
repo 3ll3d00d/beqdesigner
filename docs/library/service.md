@@ -121,6 +121,9 @@ Stopping it (Ctrl-C, or `SIGTERM`) lets the title in hand finish, then stops.
 | `PATCH /v1/titles/{id}/metadata` | change a title's metadata: the fields changed, as typed, and the review's `metadata_digest` |
 | `POST /v1/titles/{id}/metadata/tmdb` | what TMDB would fill in (needs `TMDB_API_KEY`; nothing is saved) |
 | `GET`, `PUT`, `DELETE /v1/titles/{id}/artwork` | the title's poster; set it from a URL or an image sent (png or jpeg, base64); clear it |
+| `POST /v1/revise` | send titles back to review, design or extract (`ids`, `to`, `reason`): now, or with `run` in one run job |
+| `GET /v1/titles/{id}/streams` | the title's audio streams and the one extracted |
+| `PUT /v1/titles/{id}/stream` | extract and design the title from another audio stream: a run job |
 | `GET /health`, `/ready` | is it up; is it able to work |
 
 A run selects titles with the same filters as the work list, plus two it has no box for:
@@ -256,7 +259,12 @@ otherwise it lasts until the tab is closed. The token is checked with the servic
   throws away what is not saved. Artwork: upload a png or jpeg, download one from an address, or clear it. A title a
   run is working on cannot be edited until the run has finished with it.
 
-Not in the browser: *Revise*, projects, settings and Review Folder. Use the app for those. Publish and commit are offered only when the settings
+* **Revise:** *Revise…* on a review, or tick titles on the Titles page and *Revise selected…*: reopen for review,
+  redesign, or re-extract and redesign, with a reason kept in the title's note. *Extract & design now* starts one job
+  for them all; otherwise they wait for the next run. *Audio stream…* extracts and designs a title from another of its
+  audio streams.
+
+Not in the browser: projects, settings and Review Folder. Use the app for those. Publish and commit are offered only when the settings
 file allows them (`allow_repository_writes: true`) and the profile names the filter repository; bulk accept is not offered.
 
 Behind a reverse proxy, the live progress is a long-lived response (Server-Sent Events). The service asks nginx not to

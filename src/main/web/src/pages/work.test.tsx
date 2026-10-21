@@ -283,7 +283,8 @@ describe('a new job', () => {
       .toBeInTheDocument()
     expect(within(preview).getByText(/waiting for review/)).toBeInTheDocument()
     expect(planned[0]).toEqual({ filter: { needs: ['extract'], kind: 'movie', year: '>=2020', new_since_scan: false },
-                                 through: 'design', scan_first: true, retry_failed: false, redesign: false })
+                                 through: 'design', scan_first: true, retry_failed: false, redesign: false,
+                                 revise_to: 'design' })
 
     await userEvent.click(screen.getByRole('checkbox', { name: 'Retry titles that failed before' }))
     expect(screen.getByText('The choices changed since this preview: preview again.')).toBeInTheDocument()

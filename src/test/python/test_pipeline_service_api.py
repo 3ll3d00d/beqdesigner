@@ -310,7 +310,8 @@ def test_a_run_job_takes_the_filter_and_reports_a_typed_result(service):
     assert job['request'] == {'filter': {'needs': [], 'new_since_scan': False, 'source': None, 'match': None, 'ids': [],
                                          'kind': 'movie', 'year': '2026', 'detail': None, 'flags': [],
                                          'declined': None, 'out_of_date': None},
-                              'through': 'design', 'scan_first': True, 'retry_failed': False, 'redesign': False}
+                              'through': 'design', 'scan_first': True, 'retry_failed': False, 'redesign': False,
+                              'revise_to': 'design', 'audio_stream': None}
     assert job['result']['scan']['titles'] == 3 and job['result']['attempted'] == ['x'] and job['result']['failed'] == []
     assert job['progress'] == {'done': 1, 'total': 1, 'title': 'Alien', 'stage': 'design', 'id': 'x',
                                'per_hour': None, 'remaining_seconds': None, 'estimated_finish': None}   # finished: no estimate

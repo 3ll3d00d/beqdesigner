@@ -13,14 +13,19 @@ from dataclasses import dataclass
 from typing import Annotated, Callable
 
 from fastapi import APIRouter, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from pipeline.library.artwork_edit import ArtworkError, download_artwork, set_artwork, store_image
 from pipeline.library.metadata_edit import FIELD_SPECS, TmdbError, changes_from_texts, metadata_digest, save_meta_changes, \
     tmdb_fill, tmdb_reload
+from pipeline.library.revise import revise_entry
+from pipeline.library.selection import Selection
+from pipeline.library.streams import describe_streams, preferred_stream
 from pipeline.metadata import BeqMetadata
+from pipeline.publish.git import RepoTarget
 from pipeline.review import entry_art_path, read_entry
 from pipeline.service import models
+from pipeline.service.jobs import RunRequest
 
 RUNNING = 'A run is working on this title now: it cannot be edited until the run has finished with it.'
 CHANGED = 'Changed since it was read'
@@ -39,6 +44,8 @@ class EditRoutes:
     refresh: Callable[[], None]
     problem: type     # ServiceProblem
     responses: Callable
+    submit: Callable          # the job manager's: a RunRequest in, the queued Job out
+    repository_writes: bool   # the service config's allow_repository_writes
 
 
 def register(v1: APIRouter, deps: EditRoutes) -> None:
@@ -154,3 +161,85 @@ def register(v1: APIRouter, deps: EditRoutes) -> None:
         ctx, settings, row, _ = editable(title_id, digest)
         set_artwork(settings.queue_dir, title_id, None)
         return written(ctx, settings, row, title_id)
+
+    # --- revise and the audio stream (WP5) ----------------------------------------------------------------------------
+
+    def repositories(ctx) -> dict:
+        settings, _ = ctx.stage_settings('design')
+        return dict(xml_repo=RepoTarget(settings.xml_repo) if settings.xml_repo else None,
+                    images_repo=RepoTarget(settings.images_repo) if settings.images_repo else None,
+                    xml_dir=settings.xml_dir, image_dir=settings.image_dir,
+                    category_folders=settings.category_folders, meta_defaults=settings.meta_defaults)
+
+    @v1.post('/revise', response_model=models.ReviseOutcome, tags=['edit'],
+             summary='Send titles back to review, design or extract: now, or in one run job',
+             responses=responses(409, 422, 503))
+    def revise(body: models.ReviseRequest) -> models.ReviseOutcome:
+        ctx = deps.context()
+        settings = ctx.scan_settings()
+        if body.run:
+            if body.to == 'review':
+                raise Problem(422, 'Nothing to run', 'a title sent back to review waits for a person, not a run')
+            job = deps.submit(RunRequest(Selection(ids=tuple(body.ids)), 'design', scan_first=False, retry_failed=True,
+                                         redesign=True, revise_to=body.to))
+            return models.ReviseOutcome(revised=[], failed=[], job=models.job_model(job))
+        with deps.read_index(ctx) as index:
+            rows = {row.id: row for row in index.titles(ids=list(body.ids))}
+        revised, failed = [], []
+        where = None
+        for title_id in body.ids:
+            row = rows.get(title_id)
+            try:
+                if row is None:
+                    raise ValueError('no such title')
+                if deps.in_flight(ctx, row):
+                    raise ValueError(RUNNING)
+                entry = read_entry(settings.queue_dir, title_id)
+                if entry.status == 'published' and not deps.repository_writes:
+                    raise ValueError('it is published: sending it back needs allow_repository_writes in service config')
+                where = where if where is not None else repositories(ctx)
+                result = revise_entry(settings.queue_dir, title_id, body.to, body.reason, work_dir=settings.work_dir,
+                                      **where)
+            except FileNotFoundError:
+                failed.append(models.ReviseFailure(id=title_id, reason='not designed yet: nothing to send back'))
+            except (ValueError, OSError) as error:
+                failed.append(models.ReviseFailure(id=title_id, reason=str(error)))
+            else:
+                revised.append(models.RevisedTitle(id=title_id, reverted=result.reverted,
+                                                   extract_invalidated=result.extract_invalidated))
+        if revised:
+            deps.refresh()
+        return models.ReviseOutcome(revised=revised, failed=failed)
+
+    @v1.get('/titles/{title_id}/streams', response_model=models.TitleStreams, tags=['edit'],
+            summary="A title's audio streams, and the one extracted", responses=responses(404, 409, 503))
+    def streams(title_id: str) -> models.TitleStreams:
+        ctx = deps.context()
+        with deps.read_index(ctx) as index:
+            deps.review_row(index, title_id)
+            item = index.units([title_id]).get(title_id)
+        if item is None or not hasattr(item, 'audio_stream_details'):
+            raise Problem(409, 'A season', 'a season is a file per episode: choose an audio stream for each episode')
+        details = item.audio_stream_details
+        preferred = preferred_stream(details) if details else 0
+        return models.TitleStreams(chosen=item.audio_stream, source=item.audio_stream_source or '', streams=[
+            models.AudioStream(index=i, text=text, preferred=i == preferred)
+            for i, text in enumerate(describe_streams(details))])
+
+    @v1.put('/titles/{title_id}/stream', status_code=202, response_model=models.RunJob, tags=['edit'],
+            summary='Extract and design a title from another audio stream: a run job', responses=responses(404, 409, 422, 503))
+    def choose(title_id: str, body: models.StreamChoice):
+        ctx = deps.context()
+        with deps.read_index(ctx) as index:
+            row = deps.review_row(index, title_id)
+            item = index.units([title_id]).get(title_id)
+        if deps.in_flight(ctx, row):
+            raise Problem(409, 'In flight', RUNNING)
+        if item is None or not hasattr(item, 'audio_stream_details'):
+            raise Problem(409, 'A season', 'a season is a file per episode: choose an audio stream for each episode')
+        if not 0 <= body.audio_stream < len(item.audio_stream_details):
+            raise Problem(422, 'No such stream', f'{title_id} lists {len(item.audio_stream_details)} audio stream(s)')
+        job = deps.submit(RunRequest(Selection(ids=(title_id,)), 'design', scan_first=False, retry_failed=True,
+                                     redesign=True, revise_to='extract', audio_stream=body.audio_stream))
+        return JSONResponse(models.job_model(job).model_dump(mode='json'), status_code=202,
+                            headers={'Location': f'/v1/jobs/{job.id}'})

@@ -5,11 +5,13 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 
 import type { Schemas } from '../api/client'
-import { useChart, useDecide, useNextTitle, useReview, useStatus, useSubmitRun } from '../api/hooks'
+import { useChart, useDecide, useNextTitle, useReview, useStatus } from '../api/hooks'
 import { DEFAULT_VIEW, loadView, saveView, type ChartView } from '../chart/view'
 import { ChartControls } from '../components/ChartControls'
 import { MagnitudeChart } from '../components/MagnitudeChart'
 import { MetadataPanel } from '../components/MetadataPanel'
+import { ReviseDialog, reviseSummary } from '../components/ReviseDialog'
+import { StreamPicker } from '../components/StreamPicker'
 import { metadataText, NEEDS_WORDS, type NeedsWord } from '../format'
 import { useListParams } from './TitlesPage'
 
@@ -99,8 +101,7 @@ export function ReviewPage() {
   const decide = useDecide(titleId)
   const next = useNextTitle()
   const status = useStatus()
-  const redesign = useSubmitRun()
-  const [redesigning, setRedesigning] = useState(false)
+  const [revising, setRevising] = useState(false)
   const [pick, setPick] = useState<{ digest: string; index: number } | null>(null)
   const [overriding, setOverriding] = useState(false)
   const [notice, setNotice] = useState('')
@@ -157,7 +158,7 @@ export function ReviewPage() {
       const target = event.target instanceof Element ? event.target : null   // the window itself has no closest()
       const typing = target?.closest('input:not([type="radio"]):not([type="checkbox"]), select, textarea, [contenteditable]')
       if (event.ctrlKey || event.metaKey || event.altKey || typing) return
-      if (!data || decide.isPending || redesign.isPending || redesigning) return
+      if (!data || decide.isPending || revising) return
       const key = event.key.toLowerCase()
       if (key === 'a' && !data.blocked.accept) accept()
       else if (key === 'r' && !data.blocked.reject) reject()
@@ -181,9 +182,9 @@ export function ReviewPage() {
       </section>
     )
   }
-  const redesignBlocked = data!.in_flight ? 'A run is working on this title.'
+  const reviseBlocked = data!.in_flight ? 'A run is working on this title.'
     : data!.status === 'published' && !status.data?.repository_writes
-      ? 'Redesigning a published title requires repository writes to be enabled.' : ''
+      ? 'Sending a published title back requires repository writes to be enabled.' : ''
   const decided = data!.status !== 'pending' && data!.status !== 'skipped'
   return (
     <section className="review">
@@ -197,36 +198,27 @@ export function ReviewPage() {
         {data!.detail && data!.detail !== data!.needs ? `: ${data!.detail}` : ''}.
         {data!.in_flight && <strong> A run is working on this title.</strong>}</p>
       <div className="actions">
-        <button type="button" className="secondary" disabled={!!redesignBlocked || decide.isPending || redesign.isPending}
-                title={redesignBlocked || undefined} onClick={() => setRedesigning(true)}>Redesign…</button>
+        <button type="button" className="secondary" disabled={!!reviseBlocked || decide.isPending}
+                title={reviseBlocked || undefined} onClick={() => setRevising(true)}>Revise…</button>
+        <StreamPicker titleId={titleId} blocked={data!.in_flight ? 'A run is working on this title.' : reviseBlocked} />
       </div>
-      {redesignBlocked && <p className="muted">{redesignBlocked}</p>}
-      {redesigning && (
-        <div className="confirm" role="group" aria-label="Redesign title">
-          <p>Redesign {data!.title} using the current settings and existing extraction? Any acceptance is undone;
-            review the new designs when the job finishes. Hand-edited projects are kept.</p>
-          {data!.status === 'published' && <p>Uncommitted catalogue files are reverted. Committed files stay until
-            you publish and commit the revision.</p>}
-          <div className="actions">
-            <button type="button" disabled={!!redesignBlocked || decide.isPending || redesign.isPending}
-                    onClick={() => redesign.mutate({ filter: { ids: [titleId], new_since_scan: false }, through: 'design',
-                      scan_first: false, retry_failed: true, redesign: true }, {
-                        onSuccess: (job) => navigate(`/jobs/${job.id}`),
-                      })}>Redesign</button>
-            <button type="button" className="secondary" disabled={redesign.isPending}
-                    onClick={() => setRedesigning(false)}>Back</button>
-          </div>
-        </div>
+      {reviseBlocked && <p className="muted">{reviseBlocked}</p>}
+      {revising && (
+        <ReviseDialog ids={[titleId]} name={data!.title} published={data!.status === 'published'}
+                      onClose={() => setRevising(false)}
+                      onDone={(outcome) => {
+                        setRevising(false)
+                        setNotice(reviseSummary(outcome))
+                      }} />
       )}
-      {redesign.error && <p role="alert" className="problem">{redesign.error.message}</p>}
       {notice && <p role="status">{notice}</p>}
       {decide.error && <p role="alert" className="problem">{decide.error.message}</p>}
 
       <div className="decide">
         <div className="actions">
-          <button type="button" disabled={!!data!.blocked.accept || !candidate || decide.isPending || redesign.isPending}
+          <button type="button" disabled={!!data!.blocked.accept || !candidate || decide.isPending}
                   title={data!.blocked.accept || 'A'} onClick={() => accept()}>Accept design {picked + 1}</button>
-          <button type="button" className="secondary" disabled={!!data!.blocked.reject || decide.isPending || redesign.isPending}
+          <button type="button" className="secondary" disabled={!!data!.blocked.reject || decide.isPending}
                   title={data!.blocked.reject || 'R'} onClick={reject}>Reject</button>
           <button type="button" className="secondary" title="S" onClick={() => void goNext('')}>Skip</button>
         </div>

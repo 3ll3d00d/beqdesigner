@@ -69,7 +69,9 @@ function routes(over: Parameters<typeof review>[0] = {}, tmdb = true) {
 
 async function open() {
   renderApp('/titles/a')
-  return screen.findByRole('region', { name: /Edit metadata and artwork/ })
+  const panel = await screen.findByRole('region', { name: /Edit metadata and artwork/ })
+  await within(panel).findByLabelText('Title')   // the fields come from their own request
+  return panel
 }
 
 describe('the words', () => {

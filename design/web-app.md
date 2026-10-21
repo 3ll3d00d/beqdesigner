@@ -10,8 +10,9 @@ chunk records and evidence, is [archive/web-review.md](archive/web-review.md). T
 
 A browser app, served by the pipeline service itself, giving a basic view of what the desktop work list and title page
 do: the workload and its status, starting and following jobs, deciding each title's design, and editing its metadata
-and artwork (with TMDB). Publishing and committing accepted titles are offered behind the service's
-`allow_repository_writes`. Revise/Reopen, projects, the profile and Review Folder stay in the desktop app.
+and artwork (with TMDB), sending titles back (revise) and choosing their audio stream. Publishing and committing
+accepted titles are offered behind the service's `allow_repository_writes`. Projects, the profile and Review Folder
+stay in the desktop app.
 
 ## 2. Decision rules are shared
 
@@ -107,7 +108,7 @@ message. Tests: `test_pipeline_library_decide.py`.
   - *Review*: the title, its status, what it needs; the designs (rejected ones listed apart, with how many reasons),
     commentary of the one highlighted (or the decline; full width under the designs and chart), the playback chain and
     designer, the metadata as one line under the heading (content type, audio types, genres by name) and what it lacks,
-    the chart with its controls (§4.1), and *Edit metadata and artwork* (§4.2). *Accept design N*, *Reject* and *Skip*, with keys A, R, S, and 1–9 to highlight a design; the keys
+    the chart with its controls (§4.1), *Edit metadata and artwork* (§4.2), and *Revise…* and *Audio stream…* (§4.3). *Accept design N*, *Reject* and *Skip*, with keys A, R, S, and 1–9 to highlight a design; the keys
     stand aside while a text field has focus. A blocked decision is disabled and says why. Accepting a rejected design
     asks first, with the designer's reasons, and sends `override_rejection`. A refused decision shows the service's
     reason and the title as it is now. After a decision, or Skip, `GET /v1/review/next` in the same filtered list opens
@@ -168,10 +169,20 @@ cannot send the token); upload (read as base64), download from an address, and c
   ECR Public.
 - **Desktop:** unaffected; the PyInstaller bundle carries neither the web source nor the service.
 
-Per-title redesign is available on the review page through *Redesign…*. The confirmation explains that acceptance
-is undone and the new designs need review. It submits `POST /v1/jobs/run` with `redesign: true`, exactly one id,
-`through: design`, no scan and retry enabled, then opens the job page. The job waits for the work-directory lease
-rather than joining another run, checks the designer before changing state, calls `redesign_entry()`, refreshes the
+### 4.3 Revise and the audio stream
+
+*Revise…* on the review page, and *Revise selected…* over the titles ticked on the Titles page (a checkbox per row, one
+in the heading for the page; the selection is forgotten when the list changes), open `ReviseDialog`: *Reopen for
+review*, *Redesign* or *Re-extract and redesign*, in the desktop's words (`worklist_revise.CHOICES`), a reason kept in
+the note, and for the last two *Extract & design now* (on by default). It sends `POST /v1/revise`: with `run`, one
+redesign job (`revise_to` design or extract) and the job page opens; without, the titles are sent back at once and the
+page says how many were and why any were not. *Audio stream…* (`StreamPicker`) lists `GET /v1/titles/{id}/streams` and
+`PUT /v1/titles/{id}/stream` starts the job that extracts and designs the one picked. Both are disabled while a run has
+the title, and for a published title unless the service allows repository writes.
+
+The redesign job waits for the work-directory lease
+rather than joining another run, checks the designer before changing state, calls `revise_entry()` (or, for a stream,
+`revise.choose_stream()`, shared with the desktop), refreshes the
 index and runs the normal stages. Existing extraction, metadata, artwork and hand-edited projects are retained.
 Published titles require `allow_repository_writes`; the existing revise rules revert uncommitted catalogue files
 and preserve committed files for a subsequent revision. Publish and commit remain separate actions.

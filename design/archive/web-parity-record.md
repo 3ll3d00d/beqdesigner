@@ -51,3 +51,18 @@ the build pass. Python: `pytest -n auto src/test/python`, 3257 passed, 1 skipped
 Evidence: `test_pipeline_service_edit.py` (21), `test_pipeline_library_artwork_edit.py` (9); `src/pages/metadata.test.tsx`
 (11). Web: typecheck, lint, 99 tests (3 consecutive full runs), build. Python: `pytest -n auto src/test/python`, 3289
 passed, 1 skipped.
+
+## WP5
+
+**2026-10-21.** Titles are sent back, and their audio stream chosen, from the browser.
+
+- Shared: `revise.choose_stream()` (the desktop's *Choose audio stream* write, now also the service job's).
+- Service (API 1.8.0): `POST /v1/revise`, `GET /v1/titles/{id}/streams`, `PUT /v1/titles/{id}/stream`; the redesign job
+  takes `revise_to` (design or extract) and, for one title, `audio_stream`; a stream may be chosen before a title's
+  first design.
+- Browser: `ReviseDialog` (review page and Titles selection), `StreamPicker`, the Titles selection column.
+
+Evidence: `test_pipeline_service_edit.py` (revise, streams), `test_pipeline_service_work.py` (re-extract, a person's
+stream, request checks), `gui/test_worklist_stream_choice.py` unchanged; web `review.test.tsx` (revising one title,
+choosing the stream, revising from the list). Web: typecheck, lint, 103 tests (8 consecutive full runs), build. Python:
+`pytest -n auto src/test/python`, 3303 passed, 1 skipped. The metadata panel test now waits for the fields' own request.

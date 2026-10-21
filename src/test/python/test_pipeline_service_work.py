@@ -3,6 +3,7 @@ pipeline/service/work.py: what a scan, run and accept job does -- the command li
 each job. The parity test holds a service run to exactly what `run --profile FILE` does with the same file.
 '''
 import json
+import os
 import time
 
 import pytest
@@ -353,3 +354,66 @@ def test_a_redesign_takes_ids_or_out_of_date_but_not_both():
             RunRequest(selection, redesign=True)
     with pytest.raises(ValueError, match='redesign requires'):
         RunRequest(Selection(out_of_date=True), through='publish', redesign=True)
+
+
+# --- revise to extract, and a person's audio stream (design/web-parity.md WP5) -----------------------------------------
+
+_STREAMS = ({'codec': 'LPCM', 'channels': '2', 'audio_types': ('LPCM 2.0',)},
+            {'codec': 'DTS-HD MA', 'channels': '6', 'audio_types': ('DTS-HD MA 5.1',)})
+
+
+def test_a_redesign_to_extract_forgets_the_extraction_before_running(manager, profile, monkeypatch):
+    from pipeline.library.extract_cache import _write_manifest, read_manifest
+    from pipeline.library.workdir import entry_directory
+    from pipeline.review import read_entry
+    from pipeline.service.context import load_context
+    ids, queue = _scanned_with_entries(manager, profile)
+    work_dir = load_context(str(profile), {}).work_dir
+    folder = entry_directory(work_dir, ids[0])
+    _write_manifest(folder, {'mono_wav': 'mono.wav', 'source_channels': 6})
+    monkeypatch.setattr(work, 'run_stages', lambda profile_, selection, through, **kw: StagesReport(through, 1))
+
+    job = _done(manager, RunRequest(Selection(ids=(ids[0],)), scan_first=False, redesign=True, revise_to='extract'))
+
+    assert job.state == 'succeeded', job.error
+    assert read_manifest(folder) == {'source_channels': 6}
+    assert 'Sent back for re-extraction' in read_entry(queue, ids[0]).reviewer_note
+
+
+@pytest.mark.parametrize('designed', [True, False])
+def test_a_persons_audio_stream_is_kept_in_the_index_and_the_entry_before_running(manager, profile, monkeypatch,
+                                                                                 designed):
+    from pipeline.library.index import LibraryIndex, index_path
+    from pipeline.review import read_entry
+    from pipeline.service.context import load_context
+    ids, queue = _scanned_with_entries(manager, profile)
+    ctx = load_context(str(profile), {})
+    with LibraryIndex(index_path(ctx.work_dir)) as index:
+        index.set_audio_stream_details(ids[0], _STREAMS)
+    if not designed:
+        os.remove(os.path.join(queue, f'{ids[0]}.json'))
+    seen = []
+    monkeypatch.setattr(work, 'run_stages',
+                        lambda profile_, selection, through, **kw: seen.append(selection.ids) or StagesReport(through, 1))
+
+    job = _done(manager, RunRequest(Selection(ids=(ids[0],)), scan_first=False, redesign=True, revise_to='extract',
+                                    audio_stream=0))
+
+    assert job.state == 'succeeded', job.error
+    assert seen == [(ids[0],)]
+    with LibraryIndex(index_path(ctx.work_dir), readonly=True) as index:
+        item = index.units([ids[0]])[ids[0]]
+    assert (item.audio_stream, item.audio_stream_source) == (0, 'manual')
+    if designed:
+        entry = read_entry(queue, ids[0])
+        assert entry.audio_stream == 0 and 'Audio stream 1 selected' in entry.reviewer_note
+
+
+@pytest.mark.parametrize('fields, says', [(dict(revise_to='review'), 'revise_to must be design or extract'),
+                                          (dict(audio_stream=0), 'an audio stream'),
+                                          (dict(revise_to='extract', audio_stream=0, ids=('a', 'b')), 'an audio stream'),
+                                          (dict(revise_to='extract', audio_stream=-1), 'an audio stream')])
+def test_a_revise_job_is_checked_when_it_is_asked_for(fields, says):
+    ids = fields.pop('ids', ('a',))
+    with pytest.raises(ValueError, match=says):
+        RunRequest(Selection(ids=ids), scan_first=False, redesign=True, **fields)

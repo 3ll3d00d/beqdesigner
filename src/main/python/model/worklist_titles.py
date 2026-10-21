@@ -37,8 +37,7 @@ from pipeline.library.status import ScanSettings
 from pipeline.library.extract_cache import title_hint
 from pipeline.library.streams import describe_streams, details_from_ffprobe
 from pipeline.orchestrate import Session
-from pipeline.library.revise import revise_entry
-from pipeline.review import read_entry, update_entry
+from pipeline.library.revise import choose_stream
 
 logger = logging.getLogger('worklist')
 
@@ -232,33 +231,12 @@ class WorkListTitles:
                                            'the next run will extract and design this stream.')
             if answer != QMessageBox.StandardButton.Yes:
                 return False
-            try:
-                entry = read_entry(self._title_queue_dir(), title_id)
-            except FileNotFoundError:
-                entry = None
-            if entry is not None:
-                context = revise_context(self._setup)
-                if context is None:
-                    raise ValueError('library settings need a queue and work directory before re-extracting')
-            if entry is not None:
-                # Do the potentially fallible published-repository checks before persisting either half of the new
-                # choice.  A refusal therefore leaves both the entry and indexed source selection untouched.
-                revise_entry(self._title_queue_dir(), title_id, 'extract',
-                             f'Audio stream {value} selected', work_dir=context.work_dir,
-                             xml_repo=context.xml_repo, images_repo=context.images_repo,
-                             xml_dir=context.xml_dir, image_dir=context.image_dir,
-                             category_folders=context.category_folders, meta_defaults=context.meta_defaults)
-            chosen = self._index.select_audio_stream(title_id, value - 1)
-            if entry is not None:
-                # If the saved value is still the source-generated one, it is safe to refresh it.  Any different
-                # value was explicitly edited by the reviewer and remains authoritative.
-                meta = dict(entry.meta)
-                if 'audio_types' not in meta or meta.get('audio_types') == old.meta.get('audio_types'):
-                    if chosen.meta.get('audio_types'):
-                        meta['audio_types'] = chosen.meta['audio_types']
-                    else:
-                        meta.pop('audio_types', None)
-                update_entry(self._title_queue_dir(), title_id, audio_stream=value - 1, meta=meta)
+            context = revise_context(self._setup)   # needed only by a title already extracted: choose_stream() says so
+            where = {} if context is None else dict(
+                xml_repo=context.xml_repo, images_repo=context.images_repo, xml_dir=context.xml_dir,
+                image_dir=context.image_dir, category_folders=context.category_folders, meta_defaults=context.meta_defaults)
+            choose_stream(self._index, self._title_queue_dir(), title_id, value - 1,
+                          work_dir=context.work_dir if context else '', **where)
             self._index_dirty = True
             self._on_title_revised(title_id, 'extract')
             return True

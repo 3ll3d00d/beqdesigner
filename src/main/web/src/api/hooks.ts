@@ -317,3 +317,40 @@ export function useArtworkUrl(id: string, version: string | null) {
   }, [client, id, version])
   return version === null ? null : url
 }
+
+// --- revise and the audio stream (design/web-parity.md WP5) -------------------------------------------------------------
+
+/** Send titles back; with `run`, the answer carries the job doing it. The list, the status and each review learn of it. */
+export function useRevise() {
+  const { client } = useAuth()
+  const queries = useQueryClient()
+  const refresh = useRefreshWork()
+  return useMutation({
+    mutationFn: async (body: Schemas['ReviseRequest']) => unwrap(await client.POST('/v1/revise', { body })),
+    onSuccess: (_outcome, body) => {
+      refresh()
+      void queries.invalidateQueries({ queryKey: ['titles'] })
+      for (const id of body.ids) void queries.invalidateQueries({ queryKey: keys.review(id) })
+    },
+  })
+}
+
+export function useStreams(id: string, enabled: boolean) {
+  const { client } = useAuth()
+  return useQuery({
+    queryKey: ['streams', id],
+    queryFn: async () => unwrap(await client.GET('/v1/titles/{title_id}/streams', { params: { path: { title_id: id } } })),
+    enabled,
+    retry: false,
+  })
+}
+
+export function useChooseStream(id: string) {
+  const { client } = useAuth()
+  const refresh = useRefreshWork()
+  return useMutation({
+    mutationFn: async (audioStream: number) => unwrap(await client.PUT('/v1/titles/{title_id}/stream', {
+      params: { path: { title_id: id } }, body: { audio_stream: audioStream } })) as Job,
+    onSuccess: refresh,
+  })
+}

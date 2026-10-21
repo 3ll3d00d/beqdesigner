@@ -17,7 +17,7 @@ from pipeline.service.jobs import MAX_REDESIGN_IDS, redesign_problem
 from pipeline.library.state import NEEDS, FLAG_DUPLICATE, FLAG_GONE, FLAG_IGNORED, FLAG_IN_CATALOGUE, FLAG_SHADOWED
 from pipeline.library.year import YEAR_PATTERN, YearRange, numeric_year
 
-API_VERSION = '1.7.0'
+API_VERSION = '1.8.0'
 
 
 class Needs(str, Enum):
@@ -421,11 +421,61 @@ class RunJobRequest(Input):
                                             'other filter but ids): every designed title it selects that is not accepted '
                                             'or published. The titles must be reviewed again.')
 
+    revise_to: Literal['design', 'extract'] = Field('design', description='With redesign: send each title back to '
+                                                                         'design (the default), or to extract it again.')
+    audio_stream: Optional[int] = Field(None, ge=0, description='With redesign, revise_to=extract and one id: the audio '
+                                                                'stream (zero-based) to extract from now on.')
+
     @model_validator(mode='after')
     def validate_redesign(self):
         if self.redesign:
             redesign_problem(self.filter.to_selection(), self.through.value, raise_it=True)
+        if self.audio_stream is not None and not (self.redesign and self.revise_to == 'extract'
+                                                  and len(self.filter.ids or []) == 1):
+            raise ValueError('audio_stream is for one title, with redesign and revise_to=extract')
         return self
+
+
+class ReviseRequest(Input):
+    ''' Send titles back: to review (decide again), design (designed again) or extract (extracted and designed again). '''
+    ids: List[str] = Field(min_length=1, max_length=MAX_REDESIGN_IDS)
+    to: Literal['review', 'design', 'extract']
+    reason: str = Field('', description='Kept in the reviewer note.')
+    run: bool = Field(False, description='With design or extract: do it now, in one run job (refused for review). '
+                                         'Without: the titles wait for the next run.')
+
+
+class RevisedTitle(BaseModel):
+    id: str
+    reverted: List[str] = Field(description='Catalogue files whose unpublished changes were put back as git has them.')
+    extract_invalidated: bool
+
+
+class ReviseFailure(BaseModel):
+    id: str
+    reason: str
+
+
+class ReviseOutcome(BaseModel):
+    revised: List[RevisedTitle] = Field(description='Sent back now (none when a job does it).')
+    failed: List[ReviseFailure]
+    job: Optional['RunJob'] = Field(None, description='The run job doing it, when run was asked for.')
+
+
+class AudioStream(BaseModel):
+    index: int = Field(description='Zero-based: what a stream choice sends.')
+    text: str = Field(description='As a person picks it: "2: DTS-HD MA 5.1, English, 48 kHz".')
+    preferred: bool = Field(description='The one extracted when nobody has chosen.')
+
+
+class StreamChoice(Input):
+    audio_stream: int = Field(ge=0, description='Zero-based, as TitleStreams lists them.')
+
+
+class TitleStreams(BaseModel):
+    chosen: int = Field(description='The stream extracted now (zero-based).')
+    source: str = Field(description='Who chose it: `manual` (a person), `source` (the library), or empty (preferred).')
+    streams: List[AudioStream]
 
 
 class AcceptJobRequest(Input):
@@ -651,6 +701,9 @@ def _request_data(request: Any) -> Dict[str, Any]:
     return _data(request) or {}
 
 
+ReviseOutcome.model_rebuild()
+
+
 def job_model(job, now: Optional[float] = None) -> Union[ScanJob, RunJob, AcceptJob]:
     '''
     A jobs.Job (live, or read back from the history) as its typed model.
@@ -675,7 +728,9 @@ def job_model(job, now: Optional[float] = None) -> Union[ScanJob, RunJob, Accept
         return RunJob(request=RunJobRequest(filter=selection, through=request.get('through', 'design'),
                                             scan_first=bool(request.get('scan_first', True)),
                                             retry_failed=bool(request.get('retry_failed')),
-                                            redesign=bool(request.get('redesign'))),
+                                            redesign=bool(request.get('redesign')),
+                                            revise_to=request.get('revise_to') or 'design',
+                                            audio_stream=request.get('audio_stream')),
                       result=run_result(job.result) if finished_ok else None, **common)
     return AcceptJob(request=AcceptJobRequest(filter=selection, threshold=request.get('threshold', DEFAULT_ACCEPT_THRESHOLD),
                                               dry_run=bool(request.get('dry_run'))),

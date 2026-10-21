@@ -262,6 +262,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/revise": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send titles back to review, design or extract: now, or in one run job */
+        post: operations["revise_v1_revise_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/titles/{title_id}/streams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A title's audio streams, and the one extracted */
+        get: operations["streams_v1_titles__title_id__streams_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/titles/{title_id}/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Extract and design a title from another audio stream: a run job */
+        put: operations["choose_v1_titles__title_id__stream_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/review/next": {
         parameters: {
             query?: never;
@@ -568,6 +619,24 @@ export interface components {
              * @description The poster's file name.
              */
             name?: string | null;
+        };
+        /** AudioStream */
+        AudioStream: {
+            /**
+             * Index
+             * @description Zero-based: what a stream choice sends.
+             */
+            index: number;
+            /**
+             * Text
+             * @description As a person picks it: "2: DTS-HD MA 5.1, English, 48 kHz".
+             */
+            text: string;
+            /**
+             * Preferred
+             * @description The one extracted when nobody has chosen.
+             */
+            preferred: boolean;
         };
         /**
          * AutoThrough
@@ -1297,6 +1366,62 @@ export interface components {
             };
             artwork?: components["schemas"]["ArtworkState"] | null;
         };
+        /** ReviseFailure */
+        ReviseFailure: {
+            /** Id */
+            id: string;
+            /** Reason */
+            reason: string;
+        };
+        /** ReviseOutcome */
+        ReviseOutcome: {
+            /**
+             * Revised
+             * @description Sent back now (none when a job does it).
+             */
+            revised: components["schemas"]["RevisedTitle"][];
+            /** Failed */
+            failed: components["schemas"]["ReviseFailure"][];
+            /** @description The run job doing it, when run was asked for. */
+            job?: components["schemas"]["RunJob"] | null;
+        };
+        /**
+         * ReviseRequest
+         * @description Send titles back: to review (decide again), design (designed again) or extract (extracted and designed again).
+         */
+        ReviseRequest: {
+            /** Ids */
+            ids: string[];
+            /**
+             * To
+             * @enum {string}
+             */
+            to: "review" | "design" | "extract";
+            /**
+             * Reason
+             * @description Kept in the reviewer note.
+             * @default
+             */
+            reason: string;
+            /**
+             * Run
+             * @description With design or extract: do it now, in one run job (refused for review). Without: the titles wait for the next run.
+             * @default false
+             */
+            run: boolean;
+        };
+        /** RevisedTitle */
+        RevisedTitle: {
+            /** Id */
+            id: string;
+            /**
+             * Reverted
+             * @description Catalogue files whose unpublished changes were put back as git has them.
+             */
+            reverted: string[];
+            /** Extract Invalidated */
+            extract_invalidated: boolean;
+        };
         /** RunJob */
         RunJob: {
             /** Id */
@@ -1357,6 +1482,18 @@ export interface components {
              * @default false
              */
             redesign: boolean;
+            /**
+             * Revise To
+             * @description With redesign: send each title back to design (the default), or to extract it again.
+             * @default design
+             * @enum {string}
+             */
+            revise_to: "design" | "extract";
+            /**
+             * Audio Stream
+             * @description With redesign, revise_to=extract and one id: the audio stream (zero-based) to extract from now on.
+             */
+            audio_stream?: number | null;
         };
         /**
          * RunProgressEvent
@@ -1682,6 +1819,14 @@ export interface components {
              */
             state: string;
         };
+        /** StreamChoice */
+        StreamChoice: {
+            /**
+             * Audio Stream
+             * @description Zero-based, as TitleStreams lists them.
+             */
+            audio_stream: number;
+        };
         /**
          * Through
          * @enum {string}
@@ -1866,6 +2011,21 @@ export interface components {
          * @enum {string}
          */
         TitleSort: "title" | "year" | "kind" | "source" | "needs" | "detail" | "confidence" | "candidate_count" | "flags";
+        /** TitleStreams */
+        TitleStreams: {
+            /**
+             * Chosen
+             * @description The stream extracted now (zero-based).
+             */
+            chosen: number;
+            /**
+             * Source
+             * @description Who chose it: `manual` (a person), `source` (the library), or empty (preferred).
+             */
+            source: string;
+            /** Streams */
+            streams: components["schemas"]["AudioStream"][];
+        };
         /** TmdbLookup */
         TmdbLookup: {
             /**
@@ -2905,6 +3065,204 @@ export interface operations {
                 };
             };
             /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    revise_v1_revise_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviseRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviseOutcome"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    streams_v1_titles__title_id__streams_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                title_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TitleStreams"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    choose_v1_titles__title_id__stream_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                title_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StreamChoice"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunJob"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     [name: string]: unknown;

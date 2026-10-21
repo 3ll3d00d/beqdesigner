@@ -14,7 +14,7 @@ from pipeline.library.inbox import WorkDirInbox
 from pipeline.library.index import LibraryIndex, ScanResult
 from pipeline.library.handoff import STOPPED, WITHDRAWN, hand_off, outcomes as title_outcomes
 from pipeline.library.join import JOINABLE, JoinQueue, JoinRequest
-from pipeline.library.revise import redesign_entry
+from pipeline.library.revise import choose_stream, revise_entry
 from pipeline.publish.git import RepoTarget
 from pipeline.review import read_entry
 from pipeline.library.selection import Selection, plan_stages
@@ -114,7 +114,7 @@ def run(context: JobContext, request: RunRequest, control: JobControl, *, allow_
                     continue
                 if entry.status == 'published':
                     published.append(title_id)
-            if undesigned:
+            if undesigned and request.audio_stream is None:   # a stream can be chosen before the first design
                 raise ValueError(f'not designed yet, so nothing to redesign: {", ".join(undesigned)}')
             if published and not allow_repository_writes:
                 raise ValueError('redesigning a published title requires allow_repository_writes in service config: '
@@ -123,11 +123,15 @@ def run(context: JobContext, request: RunRequest, control: JobControl, *, allow_
                 if control.cancelled():   # those sent back so far are designed by the next run that takes them
                     index.refresh(context.profile, settings)
                     return RunOutcome(scanned, StagesReport('design', 0, cancelled=True))
-                redesign_entry(settings.queue_dir, title_id,
-                               xml_repo=RepoTarget(settings.xml_repo) if settings.xml_repo else None,
-                               images_repo=RepoTarget(settings.images_repo) if settings.images_repo else None,
-                               xml_dir=settings.xml_dir, image_dir=settings.image_dir,
-                               category_folders=settings.category_folders, meta_defaults=settings.meta_defaults)
+                where = dict(xml_repo=RepoTarget(settings.xml_repo) if settings.xml_repo else None,
+                             images_repo=RepoTarget(settings.images_repo) if settings.images_repo else None,
+                             xml_dir=settings.xml_dir, image_dir=settings.image_dir,
+                             category_folders=settings.category_folders, meta_defaults=settings.meta_defaults)
+                if request.audio_stream is not None:
+                    choose_stream(index, settings.queue_dir, title_id, request.audio_stream, work_dir=settings.work_dir,
+                                  **where)
+                else:
+                    revise_entry(settings.queue_dir, title_id, request.revise_to, work_dir=settings.work_dir, **where)
             index.refresh(context.profile, settings)
         report = run_stages(context.profile, selection, request.through, run_config=run_config, index=index,
                             publish=publish, settings=settings, retry_failed=request.retry_failed,

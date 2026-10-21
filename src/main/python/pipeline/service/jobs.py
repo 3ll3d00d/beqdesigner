@@ -79,10 +79,17 @@ class RunRequest:
     unattended: bool = False     # the schedule's: a failed extraction is not tried again until its source or settings change
 
     redesign: bool = False      # explicitly invalidate the titles' existing designs before running (one run for them all)
+    revise_to: str = 'design'   # with redesign: how far back each is sent first ('design', or 'extract' to extract again)
+    audio_stream: Optional[int] = None   # with redesign to extract, one title: the audio stream (zero-based) a person chose
 
     def __post_init__(self):
         if self.redesign:
             redesign_problem(self.selection, self.through, raise_it=True)
+        if self.revise_to not in ('design', 'extract'):
+            raise ValueError(f"revise_to must be design or extract; got {self.revise_to!r}")
+        if self.audio_stream is not None and not (self.redesign and self.revise_to == 'extract'
+                                                  and len(self.selection.ids) == 1 and self.audio_stream >= 0):
+            raise ValueError('an audio stream (0 or more) is chosen for one title, with redesign and revise_to=extract')
         if self.through not in THROUGH:
             raise ValueError(f"through must be one of {', '.join(THROUGH)}; got {self.through!r}")
 

@@ -13,6 +13,7 @@ from PIL import Image
 
 from pipeline.metadata import BeqMetadata
 from pipeline.review import read_entry, update_entry
+from pipeline.service.edits import RUNNING
 from test_pipeline_service_review import AUTH, Gate, _event, _review, service, setup  # noqa: F401 (fixtures)
 
 
@@ -195,3 +196,93 @@ def test_clearing_forgets_the_poster(service):
     assert cleared.status_code == 200 and cleared.json()['artwork']['present'] is False
     assert read_entry(queue, 'a').art_path is None
     assert client.get('/v1/titles/a/artwork', headers=AUTH).status_code == 404
+
+
+# --- revise and the audio stream (WP5) ------------------------------------------------------------------------------------
+
+def _revise(client, **body):
+    return client.post('/v1/revise', json=body, headers=AUTH)
+
+
+def test_titles_are_sent_back_now_each_with_its_outcome(service):
+    client, _, queue, _ = service
+    update_entry(queue, 'b', status='accepted', chosen_candidate_index=0)
+    answer = _revise(client, ids=['b', 'a', 'zz'], to='review', reason='a second look')
+    assert answer.status_code == 200, answer.text
+    body = answer.json()
+    assert [r['id'] for r in body['revised']] == ['b'] and body['job'] is None
+    assert {f['id']: f['reason'] for f in body['failed']} == {'a': "'a' is already pending review", 'zz': 'no such title'}
+    entry = read_entry(queue, 'b')
+    assert entry.status == 'pending' and 'Reopened for review: a second look' in entry.reviewer_note
+
+
+def test_a_title_sent_back_to_design_waits_for_the_next_run(service):
+    client, _, queue, _ = service
+    update_entry(queue, 'a', design_fingerprint='old')
+    body = _revise(client, ids=['a'], to='design').json()
+    assert body['revised'] == [{'id': 'a', 'reverted': [], 'extract_invalidated': False}]
+    assert read_entry(queue, 'a').design_fingerprint is None
+
+
+def test_a_published_title_needs_repository_writes_and_an_undesigned_one_has_nothing_to_send_back(service):
+    client, _, queue, _ = service
+    update_entry(queue, 'a', status='published', chosen_candidate_index=0)
+    import os
+    os.remove(os.path.join(queue, 'b.json'))
+    body = _revise(client, ids=['a', 'b'], to='design').json()
+    reasons = {f['id']: f['reason'] for f in body['failed']}
+    assert 'allow_repository_writes' in reasons['a'] and reasons['b'] == 'not designed yet: nothing to send back'
+    assert read_entry(queue, 'a').status == 'published'
+
+
+def test_a_title_a_run_has_in_hand_is_not_sent_back(service):
+    client, gate, *_ = service
+    gate.report = [_event('a', 'queued', '')]
+    client.post('/v1/jobs/scan', json={}, headers=AUTH)
+    assert gate.entered.wait(10)
+    body = _revise(client, ids=['a'], to='design').json()
+    assert body['failed'] == [{'id': 'a', 'reason': RUNNING}]
+
+
+def test_sending_back_with_a_run_is_one_redesign_job(service):
+    client, *_ = service
+    body = _revise(client, ids=['a', 'b'], to='extract', run=True).json()
+    assert body['revised'] == [] and body['job']['request']['redesign'] is True
+    assert body['job']['request']['revise_to'] == 'extract' and body['job']['request']['filter']['ids'] == ['a', 'b']
+    refused = _revise(client, ids=['a'], to='review', run=True)
+    assert (refused.status_code, refused.json()['title']) == (422, 'Nothing to run')
+
+
+@pytest.fixture
+def streams(setup):
+    import sqlite3
+    from pipeline.library.index import LibraryIndex, index_path, item_to_json
+    from pipeline.library.source import LibraryItem
+    _, work, _ = setup
+    db = sqlite3.connect(index_path(str(work)))   # the fixture's rows carry no item: give 'a' its one file
+    with db:
+        db.execute("UPDATE titles SET unit = 'item', items = ? WHERE id = 'a'",
+                   (json.dumps([item_to_json(LibraryItem('a', '/m/a.mkv', 'Alien'))]),))
+    db.close()
+    with LibraryIndex(index_path(str(work))) as index:
+        index.set_audio_stream_details('a', ({'codec': 'LPCM', 'channels': '2', 'audio_types': ('LPCM 2.0',)},
+                                             {'codec': 'DTS-HD MA', 'channels': '6', 'language': 'eng',
+                                              'audio_types': ('DTS-HD MA 5.1',)}))
+
+
+def test_a_titles_streams_say_which_is_extracted_and_which_is_preferred(streams, service):
+    client, *_ = service
+    body = client.get('/v1/titles/a/streams', headers=AUTH).json()
+    assert body['chosen'] == 1 and body['source'] == ''
+    assert [(s['index'], s['preferred']) for s in body['streams']] == [(0, False), (1, True)]
+    assert body['streams'][1]['text'].startswith('2: DTS-HD MA 5.1')
+
+
+def test_choosing_a_stream_is_a_run_job_and_one_not_listed_is_refused(streams, service):
+    client, *_ = service
+    answer = client.put('/v1/titles/a/stream', json={'audio_stream': 0}, headers=AUTH)
+    assert answer.status_code == 202, answer.text
+    request = answer.json()['request']
+    assert (request['audio_stream'], request['revise_to'], request['filter']['ids']) == (0, 'extract', ['a'])
+    refused = client.put('/v1/titles/a/stream', json={'audio_stream': 5}, headers=AUTH)
+    assert (refused.status_code, refused.json()['title']) == (422, 'No such stream')

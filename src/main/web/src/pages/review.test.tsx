@@ -206,7 +206,7 @@ describe('titles', () => {
     expect(confirm).toHaveTextContent('Send 2 titles back to the designer?')
     await userEvent.click(within(confirm).getByRole('button', { name: 'Redesign' }))
     await waitFor(() => expect(router.state.location.pathname).toBe('/jobs/j1'))
-    expect(sent).toEqual([{ filter: { out_of_date: true, new_since_scan: false }, through: 'design', redesign: true,
+    expect(sent).toEqual([{ filter: { out_of_date: true, new_since_scan: false }, through: 'design', redesign: true, revise_to: 'design',
                             scan_first: false, retry_failed: false }])
   })
 
@@ -276,7 +276,7 @@ describe('titles', () => {
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/jobs/pub'))
     const expected = { filter: { needs: ['publish'], kind: 'movie', new_since_scan: false }, through: 'publish',
-                       scan_first: false, retry_failed: false, redesign: false }
+                       scan_first: false, retry_failed: false, redesign: false, revise_to: 'design' }
     expect(bodies).toEqual([expected, expected])
   })
 })
@@ -431,44 +431,132 @@ describe('reviewing a title', () => {
 })
 
 
-describe('redesigning one title', () => {
-  it('confirms, queues only this title and opens the job', async () => {
+describe('revising one title', () => {
+  function reviseRoutes() {
+    const sent: unknown[] = []
+    server.use(http.post('/v1/revise', async ({ request }) => {
+      const body = await request.json() as { run: boolean; ids: string[] }
+      sent.push(body)
+      return json(body.run ? { revised: [], failed: [], job: runJob() }
+        : { revised: [{ id: 'a', reverted: [], extract_invalidated: false }], failed: [], job: null })
+    }), http.get('/v1/jobs/job-1', () => json(runJob())), http.get('/v1/jobs/job-1/log', () => json([])))
+    return sent
+  }
+
+  it('redesigns now in one job, sending only this title, and opens the job', async () => {
     reviewRoutes({ status: 'accepted', chosen_index: 0 })
-    const requests: unknown[] = []
-    server.use(http.post('/v1/jobs/run', async ({ request }) => {
-      requests.push(await request.json())
-      return json(runJob(), 202)
-    }), http.get('/v1/jobs/job-1', () => json(runJob())),
-    http.get('/v1/jobs/job-1/log', () => json([])))
+    const sent = reviseRoutes()
     const router = renderApp('/titles/a?source=films&needs=review')
-    await userEvent.click(await screen.findByRole('button', { name: 'Redesign…' }))
-    expect(requests).toEqual([])
-    const confirm = screen.getByRole('group', { name: 'Redesign title' })
-    expect(confirm).toHaveTextContent('Any acceptance is undone')
-    await userEvent.click(within(confirm).getByRole('button', { name: 'Redesign' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Revise…' }))
+    expect(sent).toEqual([])
+    const dialog = screen.getByRole('group', { name: 'Revise' })
+    expect(dialog).toHaveTextContent('marked out of date')
+    await userEvent.type(within(dialog).getByLabelText(/Why/), 'too much boost')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Redesign' }))
     await waitFor(() => expect(router.state.location.pathname).toBe('/jobs/job-1'))
-    expect(requests).toEqual([{ filter: { ids: ['a'], new_since_scan: false }, through: 'design', scan_first: false,
-      retry_failed: true, redesign: true }])
+    expect(sent).toEqual([{ ids: ['a'], to: 'design', reason: 'too much boost', run: true }])
+  })
+
+  it('re-extracts, or reopens for review now, and says what came of it', async () => {
+    reviewRoutes({ status: 'accepted', chosen_index: 0 })
+    const sent = reviseRoutes()
+    const router = renderApp('/titles/a')
+    await userEvent.click(await screen.findByRole('button', { name: 'Revise…' }))
+    let dialog = screen.getByRole('group', { name: 'Revise' })
+    await userEvent.click(within(dialog).getByLabelText('Re-extract and redesign'))
+    await userEvent.click(within(dialog).getByLabelText(/Extract & design now/))
+    expect(dialog).toHaveTextContent('Nothing is redesigned, extracted or published now')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Re-extract and redesign' }))
+    expect(await screen.findByText('Sent back: 1 title.')).toBeInTheDocument()
+    expect(sent.at(-1)).toEqual({ ids: ['a'], to: 'extract', reason: '', run: false })
+    await userEvent.click(screen.getByRole('button', { name: 'Revise…' }))
+    dialog = screen.getByRole('group', { name: 'Revise' })
+    await userEvent.click(within(dialog).getByLabelText('Reopen for review'))
+    expect(within(dialog).queryByLabelText(/Extract & design now/)).not.toBeInTheDocument()
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Reopen for review' }))
+    await waitFor(() => expect(sent.at(-1)).toEqual({ ids: ['a'], to: 'review', reason: '', run: false }))
+    expect(router.state.location.pathname).toBe('/titles/a')
   })
 
   it.each([
     [{ in_flight: true }, 'A run is working on this title.'],
-    [{ status: 'published' as const }, 'Redesigning a published title requires repository writes to be enabled.'],
-  ])('blocks redesign when %j', async (fields, reason) => {
+    [{ status: 'published' as const }, 'Sending a published title back requires repository writes to be enabled.'],
+  ])('blocks revise when %j', async (fields, reason) => {
     reviewRoutes(fields)
     renderApp('/titles/a')
-    expect(await screen.findByRole('button', { name: 'Redesign…' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Redesign…' })).toHaveAttribute('title', reason)
+    expect(await screen.findByRole('button', { name: 'Revise…' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Revise…' })).toHaveAttribute('title', reason)
   })
 
   it('shows submission errors and keeps the title open', async () => {
     reviewRoutes()
-    server.use(http.post('/v1/jobs/run', () => json({ title: 'Queue full', status: 409,
+    server.use(http.post('/v1/revise', () => json({ title: 'Queue full', status: 409,
       detail: 'The job queue is full.' }, 409)))
     const router = renderApp('/titles/a')
-    await userEvent.click(await screen.findByRole('button', { name: 'Redesign…' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Revise…' }))
     await userEvent.click(screen.getByRole('button', { name: 'Redesign' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('The job queue is full.')
     expect(router.state.location.pathname).toBe('/titles/a')
+  })
+})
+
+describe('choosing the audio stream', () => {
+  const streams = { chosen: 1, source: '', streams: [
+    { index: 0, text: '1: LPCM 2.0', preferred: false }, { index: 1, text: '2: DTS-HD MA 5.1', preferred: true }] }
+
+  it('lists the streams, and extracts another in one job', async () => {
+    reviewRoutes()
+    const chosen: unknown[] = []
+    server.use(http.get('/v1/titles/a/streams', () => json(streams)),
+               http.put('/v1/titles/a/stream', async ({ request }) => {
+                 chosen.push(await request.json())
+                 return json(runJob(), 202)
+               }),
+               http.get('/v1/jobs/job-1', () => json(runJob())), http.get('/v1/jobs/job-1/log', () => json([])))
+    const router = renderApp('/titles/a')
+    await userEvent.click(await screen.findByRole('button', { name: 'Audio stream…' }))
+    const picker = screen.getByRole('group', { name: 'Audio stream' })
+    const select = await within(picker).findByRole('combobox')
+    expect(select).toHaveValue('1')
+    expect(within(picker).getByRole('button', { name: 'Extract this stream' })).toBeDisabled()   // already extracted
+    await userEvent.selectOptions(select, '0')
+    await userEvent.click(within(picker).getByRole('button', { name: 'Extract this stream' }))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/jobs/job-1'))
+    expect(chosen).toEqual([{ audio_stream: 0 }])
+  })
+
+  it('says when the source lists none', async () => {
+    reviewRoutes()
+    server.use(http.get('/v1/titles/a/streams', () => json({ chosen: 0, source: '', streams: [] })))
+    renderApp('/titles/a')
+    await userEvent.click(await screen.findByRole('button', { name: 'Audio stream…' }))
+    expect(await screen.findByText(/lists no audio streams/)).toBeInTheDocument()
+  })
+})
+
+describe('revising titles from the list', () => {
+  it('sends the titles selected back, and forgets the selection when the list changes', async () => {
+    const sent: unknown[] = []
+    server.use(statusRoute(status({ index: index() })),
+               http.get('/v1/titles', () => json({ total: 2, offset: 0, limit: 100, titles: [title('a'), title('b')] })),
+               http.post('/v1/revise', async ({ request }) => {
+                 sent.push(await request.json())
+                 return json({ revised: [{ id: 'a', reverted: [], extract_invalidated: false }],
+                               failed: [{ id: 'b', reason: 'not designed yet: nothing to send back' }], job: null })
+               }))
+    renderApp('/titles')
+    await userEvent.click(await screen.findByLabelText('Select every title on this page'))
+    expect(screen.getByRole('group', { name: 'Selected titles' })).toHaveTextContent('2 titles selected')
+    await userEvent.click(screen.getByLabelText('Select B'))
+    await userEvent.click(screen.getByRole('button', { name: 'Revise selected…' }))
+    const dialog = screen.getByRole('group', { name: 'Revise' })
+    await userEvent.click(within(dialog).getByLabelText(/Extract & design now/))
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Redesign' }))
+    await waitFor(() => expect(sent).toEqual([{ ids: ['a'], to: 'design', reason: '', run: false }]))
+    expect(await screen.findByRole('status')).toHaveTextContent('Sent back: 1 title. Not sent back: b (not designed yet')
+    expect(screen.queryByRole('group', { name: 'Selected titles' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByLabelText('Select A'))
+    await userEvent.selectOptions(screen.getByLabelText('Filter kind'), 'tv')
+    await waitFor(() => expect(screen.queryByRole('group', { name: 'Selected titles' })).not.toBeInTheDocument())
   })
 })

@@ -126,22 +126,13 @@ Built 2026-10-21; described in [web-app.md §4.2](web-app.md#42-metadata-and-art
 [pipeline-service.md](pipeline-service.md), record in [archive/web-parity-record.md](archive/web-parity-record.md#wp4).
 Choosing among TMDB's posters is not built: a poster's address can be pasted into *Download*.
 
-### WP5 — Revise, retry and stream choice
+### WP5 — Revise, retry and stream choice — done
 
-- **Service:** `POST /v1/titles/{id}/revise` `{to: review|design|extract, reason, digest}` over
-  `pipeline.library.revise` (the same function the desktop's `worklist_revise.py` calls); a published title needs
-  `allow_repository_writes` and the profile's repositories, and the response says which catalogue files were reverted.
-  `to: design|extract` can also queue the run (`run: true`), the existing single-title redesign job generalised.
-  `GET /v1/titles/{id}/streams` (`describe_streams`) and `PUT /v1/titles/{id}/stream` `{audio_stream}` — choosing a
-  stream sends the title back to extract, as the desktop's *Choose audio stream* does. Retry is `revise` on a failed
-  title (or the existing `retry_failed` run flag).
-- **Selective, many titles:** `POST /v1/revise` `{ids[], to, reason, run}` with a per-id result list (as
-  `revise_titles()`/`ReviseOutcome`), and on the Titles page a **selection column** (checkbox per row, *select all
-  matching the filter*) with *Revise…* acting on the selection. The existing *Redesign out of date…* becomes one preset
-  of it.
-- **Client:** the review page's *Redesign…* becomes *Revise…*: the three depths with the desktop's wording
-  (`revise_text`, moved to the shared module if it is not already Qt-free), and a stream picker on the Playback line.
-- Tests: route rules per depth and status, the bulk outcome, the Titles selection and confirmation.
+Built 2026-10-21; described in [web-app.md §4.3](web-app.md#43-revise-and-the-audio-stream), record in
+[archive/web-parity-record.md](archive/web-parity-record.md#wp5). Not built: *select all matching the filter* (the
+selection is per page, up to 100 at a time), and reading a title's streams from its file when the source lists none
+(the desktop's probe; the browser says to use the app). Retry is *Revise* to design or extract, or New job's *retry
+failed*.
 
 ### WP6 — Contract 1.5: design adjustments (both sides)
 

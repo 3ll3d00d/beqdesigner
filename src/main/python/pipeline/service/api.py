@@ -530,7 +530,8 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
 
     edits.register(v1, edits.EditRoutes(context=context, read_index=read_index, review_row=review_row,
                                          review_entry=review_entry, in_flight=in_flight, review_model=review_model,
-                                         refresh=refresher.request, problem=ServiceProblem, responses=_responses))
+                                         refresh=refresher.request, problem=ServiceProblem, responses=_responses,
+                                         submit=manager.submit, repository_writes=config.allow_repository_writes))
 
     @v1.get('/review/next', response_model=models.NextTitle, tags=['review'],
             summary='The next title waiting for a decision after one, in the filtered list (wrapping round)',
@@ -588,7 +589,8 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
         check_sources(context(), body.filter)
         selection_of(body.filter)   # refused now, not when it runs, while no designer says its design version
         return accepted(manager.submit(RunRequest(body.filter.to_selection(), body.through.value, body.scan_first,
-                                                  body.retry_failed, redesign=body.redesign)))
+                                                  body.retry_failed, redesign=body.redesign, revise_to=body.revise_to,
+                                                  audio_stream=body.audio_stream)))
 
     @v1.post('/jobs/accept', status_code=202, response_model=models.Job, tags=['jobs'],
              summary="Accept the designer's top pick for confident titles (needs allow_repository_writes, unless a dry run)",

@@ -142,3 +142,44 @@ def revise_entry(queue_dir: str, entry_id: str, to: str, reason: str = '', *, wo
     item_dir = entry_directory(work_dir, entry_id)
     invalidated = invalidate_extract(item_dir) | invalidate_season_track(item_dir)
     return ReviseResult(result.entry, result.reverted, extract_invalidated=invalidated)
+
+
+def choose_stream(index, queue_dir: str, entry_id: str, audio_stream: int, *, work_dir: str,
+                  xml_repo: Optional[RepoTarget] = None, images_repo: Optional[RepoTarget] = None, xml_dir: str = '',
+                  image_dir: str = '', category_folders: bool = False, meta_defaults: Optional[dict] = None):
+    '''
+    A person's choice of a title's audio stream (zero-based): kept in the index, and -- for a title already extracted --
+    the title sent back to extract, its entry told the stream and, unless a person edited them, the stream's audio
+    types. The next run extracts and designs that stream. The desktop's title page and the service's revise job share it.
+    :param index: a writable `LibraryIndex`.
+    :return: the indexed item, with the stream chosen.
+    :raises ValueError: for a season (choose per episode), a stream the title does not list, or a published title whose
+        repositories are not given; nothing is changed then.
+    '''
+    old = index.units([entry_id]).get(entry_id)
+    if old is None:
+        raise ValueError(f'no indexed title {entry_id!r}')
+    if not hasattr(old, 'audio_stream_details'):
+        raise ValueError('choose an audio stream for each episode, not for a grouped season')
+    if not 0 <= audio_stream < len(old.audio_stream_details):
+        raise ValueError(f'audio stream {audio_stream + 1} is not available for {entry_id!r}')
+    try:
+        entry = read_entry(queue_dir, entry_id)
+    except FileNotFoundError:
+        entry = None
+    if entry is not None:
+        # the fallible published-repository checks come before either half of the choice is kept: a refusal changes nothing
+        revise_entry(queue_dir, entry_id, 'extract', f'Audio stream {audio_stream + 1} selected', work_dir=work_dir,
+                     xml_repo=xml_repo, images_repo=images_repo, xml_dir=xml_dir, image_dir=image_dir,
+                     category_folders=category_folders, meta_defaults=meta_defaults)
+    chosen = index.select_audio_stream(entry_id, audio_stream)
+    if entry is not None:
+        # audio types still as the source gave them follow the stream; a person's edit stays
+        meta = dict(read_entry(queue_dir, entry_id).meta)
+        if 'audio_types' not in meta or meta.get('audio_types') == old.meta.get('audio_types'):
+            if chosen.meta.get('audio_types'):
+                meta['audio_types'] = chosen.meta['audio_types']
+            else:
+                meta.pop('audio_types', None)
+        update_entry(queue_dir, entry_id, audio_stream=audio_stream, meta=meta)
+    return chosen

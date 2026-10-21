@@ -10,6 +10,7 @@ import {
 } from '../api/filter'
 import type { Schemas } from '../api/client'
 import { PAGE_SIZE, useNextTitle, usePlan, useStatus, useSubmitRun, useTitles } from '../api/hooks'
+import { ReviseDialog, reviseSummary } from '../components/ReviseDialog'
 import { ScanSources } from '../components/ScanSources'
 import { count, NEEDS_ORDER, NEEDS_WORDS, type NeedsWord } from '../format'
 import { repositoryRefusal } from './NewJobPage'
@@ -117,6 +118,7 @@ function FilterRow({ filter, sources, onChange }: {
   const set = (patch: Partial<TitleFilter>) => onChange((current) => ({ ...current, ...patch }))
   return (
     <tr className="filters">
+      <td />
       <td><FilterText label="Filter title" value={filter.match ?? ''} placeholder="title, name, id or path"
                       onChange={(match) => set({ match })} /></td>
       <td><FilterText label="Filter year" value={filter.year ?? ''} placeholder=">=2020" onChange={(year) => set({ year })} /></td>
@@ -157,7 +159,7 @@ function Repositories({ filter }: { filter: TitleFilter }) {
   const [asking, setAsking] = useState<'publish' | 'commit' | null>(null)
   const refusal = repositoryRefusal(status.data)
   const request = (through: 'publish' | 'commit') => ({
-    filter: cleanFilter({ ...filter, needs: [through] }), through, scan_first: false, retry_failed: false, redesign: false,
+    filter: cleanFilter({ ...filter, needs: [through] }), through, scan_first: false, retry_failed: false, redesign: false, revise_to: 'design' as const,
   })
 
   function ask(through: 'publish' | 'commit') {
@@ -205,7 +207,8 @@ function RedesignOutOfDate({ filter, total }: { filter: TitleFilter, total: numb
   const navigate = useNavigate()
   const [asking, setAsking] = useState(false)
   const request = (): Schemas['RunJobRequest'] => ({
-    filter: cleanFilter({ ...filter, ids: [] }), through: 'design', redesign: true, scan_first: false, retry_failed: false,
+    filter: cleanFilter({ ...filter, ids: [] }), through: 'design', redesign: true, revise_to: 'design', scan_first: false,
+    retry_failed: false,
   })
   return (
     <div className="redesign">
@@ -235,6 +238,15 @@ export function TitlesPage() {
   const next = useNextTitle()
   const navigate = useNavigate()
   const [nothing, setNothing] = useState('')
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [revising, setRevising] = useState(false)
+  const [revised, setRevised] = useState('')
+  const [listed, setListed] = useState(query)
+  if (listed !== query) {   // another list: what was selected in the last one is not in it
+    setListed(query)
+    setSelected(new Set())
+    setRevising(false)
+  }
   const sources = status.data?.index?.sources.map((s) => s.name) ?? []
   const link = (id: string) => `/titles/${encodeURIComponent(id)}${query ? `?${query}` : ''}`
 
@@ -250,6 +262,16 @@ export function TitlesPage() {
   }
 
   const page = titles.data
+  const onPage = page?.titles.map((t) => t.id) ?? []
+  const allOnPage = onPage.length > 0 && onPage.every((id) => selected.has(id))
+  const select = (ids: string[], on: boolean) => setSelected((was) => {
+    const next = new Set(was)
+    for (const id of ids) {
+      if (on) next.add(id)
+      else next.delete(id)
+    }
+    return next
+  })
   return (
     <section>
       <div className="title-row">
@@ -291,17 +313,39 @@ export function TitlesPage() {
       </div>
       {filter.out_of_date === true && page && page.total > 0 && <RedesignOutOfDate filter={filter} total={page.total} />}
       <Repositories filter={filter} />
+      {selected.size > 0 && (
+        <div className="actions" role="group" aria-label="Selected titles">
+          <span>{count(selected.size, 'title')} selected</span>
+          <button type="button" className="secondary" onClick={() => setRevising(true)}>Revise selected…</button>
+          <button type="button" className="secondary" onClick={() => setSelected(new Set())}>Clear selection</button>
+        </div>
+      )}
+      {revising && selected.size > 0 && (
+        <ReviseDialog ids={[...selected]} name={count(selected.size, 'title')}
+                      published={page?.titles.some((t) => selected.has(t.id) && t.publish_state !== '') ?? false}
+                      onClose={() => setRevising(false)}
+                      onDone={(outcome) => {
+                        setRevising(false)
+                        setSelected(new Set())
+                        setRevised(reviseSummary(outcome))
+                      }} />
+      )}
+      {revised && <p role="status">{revised}</p>}
       {titles.isError && <p role="alert" className="problem">{titles.error.message}</p>}
       <p className="muted">{page ? `${count(page.total, 'title')} (${describeFilter(filter)}).` : ' '}</p>
       <div className="table-wrap">
         <table className="list">
           <thead>
-            <tr>{COLUMNS.map((c) => <SortHeading key={c.sort} column={c} order={order} onSort={(by) => update(filter, includeDone, 0, by)} />)}</tr>
+            <tr><th><input type="checkbox" aria-label="Select every title on this page" checked={allOnPage}
+                           onChange={(e) => select(onPage, e.target.checked)} /></th>
+              {COLUMNS.map((c) => <SortHeading key={c.sort} column={c} order={order} onSort={(by) => update(filter, includeDone, 0, by)} />)}</tr>
             <FilterRow filter={filter} sources={sources} onChange={(change) => update(change)} />
           </thead>
           <tbody>
             {page?.titles.map((t) => (
               <tr key={t.id} className={`tier-${t.tier}`}>
+                <td><input type="checkbox" aria-label={`Select ${t.title || t.display_name || t.id}`} checked={selected.has(t.id)}
+                           onChange={(e) => select([t.id], e.target.checked)} /></td>
                 <td><Link to={link(t.id)}>{t.title || t.display_name || t.id}</Link>{t.is_new && <span className="badge">new</span>}</td>
                 <td>{t.year}</td>
                 <td>{t.kind === 'tv' ? 'TV' : 'Movie'}</td>

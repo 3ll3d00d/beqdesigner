@@ -4,7 +4,7 @@
     "title": "BEQDesigner pipeline service",
     "summary": "Scan a library, extract and design BEQ filters for titles chosen by filter, on demand or on a schedule, and follow the jobs that do it.",
     "description": "A person decides a title through the review routes or in the BEQDesigner app. Every /v1 route needs the bearer token (Authorize, above). `GET /health` says which release this is.",
-    "version": "1.7.0"
+    "version": "1.8.0"
   },
   "paths": {
     "/health": {
@@ -1597,6 +1597,266 @@
         }
       }
     },
+    "/v1/revise": {
+      "post": {
+        "tags": [
+          "edit"
+        ],
+        "summary": "Send titles back to review, design or extract: now, or in one run job",
+        "operationId": "revise_v1_revise_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviseOutcome"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/titles/{title_id}/streams": {
+      "get": {
+        "tags": [
+          "edit"
+        ],
+        "summary": "A title's audio streams, and the one extracted",
+        "operationId": "streams_v1_titles__title_id__streams_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "title_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Title Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TitleStreams"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/titles/{title_id}/stream": {
+      "put": {
+        "tags": [
+          "edit"
+        ],
+        "summary": "Extract and design a title from another audio stream: a run job",
+        "operationId": "choose_v1_titles__title_id__stream_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "title_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Title Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StreamChoice"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunJob"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
     "/v1/review/next": {
       "get": {
         "tags": [
@@ -2955,6 +3215,32 @@
           "overridden"
         ],
         "title": "ArtworkState"
+      },
+      "AudioStream": {
+        "properties": {
+          "index": {
+            "type": "integer",
+            "title": "Index",
+            "description": "Zero-based: what a stream choice sends."
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "description": "As a person picks it: \"2: DTS-HD MA 5.1, English, 48 kHz\"."
+          },
+          "preferred": {
+            "type": "boolean",
+            "title": "Preferred",
+            "description": "The one extracted when nobody has chosen."
+          }
+        },
+        "type": "object",
+        "required": [
+          "index",
+          "text",
+          "preferred"
+        ],
+        "title": "AudioStream"
       },
       "AutoThrough": {
         "type": "string",
@@ -4681,6 +4967,129 @@
         "title": "Review",
         "description": "What a person decides a title on, and whether they can. "
       },
+      "ReviseFailure": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "reason"
+        ],
+        "title": "ReviseFailure"
+      },
+      "ReviseOutcome": {
+        "properties": {
+          "revised": {
+            "items": {
+              "$ref": "#/components/schemas/RevisedTitle"
+            },
+            "type": "array",
+            "title": "Revised",
+            "description": "Sent back now (none when a job does it)."
+          },
+          "failed": {
+            "items": {
+              "$ref": "#/components/schemas/ReviseFailure"
+            },
+            "type": "array",
+            "title": "Failed"
+          },
+          "job": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RunJob"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The run job doing it, when run was asked for."
+          }
+        },
+        "type": "object",
+        "required": [
+          "revised",
+          "failed"
+        ],
+        "title": "ReviseOutcome"
+      },
+      "ReviseRequest": {
+        "properties": {
+          "ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Ids"
+          },
+          "to": {
+            "type": "string",
+            "enum": [
+              "review",
+              "design",
+              "extract"
+            ],
+            "title": "To"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason",
+            "description": "Kept in the reviewer note.",
+            "default": ""
+          },
+          "run": {
+            "type": "boolean",
+            "title": "Run",
+            "description": "With design or extract: do it now, in one run job (refused for review). Without: the titles wait for the next run.",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "ids",
+          "to"
+        ],
+        "title": "ReviseRequest",
+        "description": "Send titles back: to review (decide again), design (designed again) or extract (extracted and designed again). "
+      },
+      "RevisedTitle": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "reverted": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reverted",
+            "description": "Catalogue files whose unpublished changes were put back as git has them."
+          },
+          "extract_invalidated": {
+            "type": "boolean",
+            "title": "Extract Invalidated"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "reverted",
+          "extract_invalidated"
+        ],
+        "title": "RevisedTitle"
+      },
       "RunJob": {
         "properties": {
           "id": {
@@ -4817,6 +5226,29 @@
             "title": "Redesign",
             "description": "Invalidate the existing designs before running, then design them in one run (the whole designer pool at once). Requires through=design and either 1 to 500 ids and no other filter, or out_of_date=true (with any other filter but ids): every designed title it selects that is not accepted or published. The titles must be reviewed again.",
             "default": false
+          },
+          "revise_to": {
+            "type": "string",
+            "enum": [
+              "design",
+              "extract"
+            ],
+            "title": "Revise To",
+            "description": "With redesign: send each title back to design (the default), or to extract it again.",
+            "default": "design"
+          },
+          "audio_stream": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audio Stream",
+            "description": "With redesign, revise_to=extract and one id: the audio stream (zero-based) to extract from now on."
           }
         },
         "additionalProperties": false,
@@ -5646,6 +6078,22 @@
         "title": "StateEvent",
         "description": "The job entered a state; the stream ends with a finished one. "
       },
+      "StreamChoice": {
+        "properties": {
+          "audio_stream": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Audio Stream",
+            "description": "Zero-based, as TitleStreams lists them."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "audio_stream"
+        ],
+        "title": "StreamChoice"
+      },
       "Through": {
         "type": "string",
         "enum": [
@@ -6081,6 +6529,34 @@
         ],
         "title": "TitleSort",
         "description": "A column of the titles table to order by; without one, work-list order (tier, then oldest waiting first). "
+      },
+      "TitleStreams": {
+        "properties": {
+          "chosen": {
+            "type": "integer",
+            "title": "Chosen",
+            "description": "The stream extracted now (zero-based)."
+          },
+          "source": {
+            "type": "string",
+            "title": "Source",
+            "description": "Who chose it: `manual` (a person), `source` (the library), or empty (preferred)."
+          },
+          "streams": {
+            "items": {
+              "$ref": "#/components/schemas/AudioStream"
+            },
+            "type": "array",
+            "title": "Streams"
+          }
+        },
+        "type": "object",
+        "required": [
+          "chosen",
+          "source",
+          "streams"
+        ],
+        "title": "TitleStreams"
       },
       "TmdbLookup": {
         "properties": {

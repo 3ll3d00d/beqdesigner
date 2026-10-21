@@ -231,7 +231,7 @@ Every request and response body is a named pydantic model in
 | `GET /v1/titles/{id}` | → `Title` | 404 if unknown |
 | `POST /v1/plan` | `RunRequest` → `PlanPreview` | dry run: what would run and what would be skipped and why |
 | `POST /v1/jobs/scan` | `ScanRequest` → 202 `Job` | |
-| `POST /v1/jobs/run` | `RunRequest` → 202 `Job` | `redesign: true` with 1-500 `ids` (no other filter, through design) sends every one back, all checked first, then designs them in one run; or with `out_of_date: true` (any other filter but ids) sends back every designed title out of date that is not accepted or published |
+| `POST /v1/jobs/run` | `RunRequest` → 202 `Job` | `redesign: true` with 1-500 `ids` (no other filter, through design) sends every one back (`revise_to` design, or extract; with one id and extract, `audio_stream` chooses the stream: `revise.choose_stream()`), all checked first, then designs them in one run; or with `out_of_date: true` (any other filter but ids) sends back every designed title out of date that is not accepted or published |
 | `POST /v1/jobs/accept` | `AcceptRequest` → 202 `Job` | guarded (§6.4) |
 | `GET /v1/jobs` | query `state`, `kind`, `limit` → `JobList` | newest first |
 | `GET /v1/jobs/{id}` | → `Job` | |
@@ -252,6 +252,9 @@ Every request and response body is a named pydantic model in
 | `GET /v1/titles/{id}/artwork` | → image | `entry_art_path()`; 404 none |
 | `PUT /v1/titles/{id}/artwork` | `ArtworkChoice` → `Review` | `url` downloaded or `data_base64` stored in `<queue>/_art_cache/` (`artwork_edit`: png or jpeg only, 20 MB), `art_overridden`; 409 as metadata, 422 not an image |
 | `DELETE /v1/titles/{id}/artwork` | query `digest` → `Review` | clears it; a later run may choose one again |
+| `POST /v1/revise` | `ReviseRequest` → `ReviseOutcome` | `revise_entry()` for each id now (each refused alone: no such title, in flight, not designed, published without `allow_repository_writes`, already pending for review), the index refreshed; or with `run` (design or extract) one redesign run job, returned in `job` |
+| `GET /v1/titles/{id}/streams` | → `TitleStreams` | the index's `audio_stream_details` in words (`describe_streams`), the one extracted and the preferred; 409 a season |
+| `PUT /v1/titles/{id}/stream` | `StreamChoice` → 202 `RunJob` | a redesign job to extract with `audio_stream`; 409 in flight or a season, 422 no such stream |
 | `GET /openapi.json`, `/docs`, `/redoc` | | the interface and its try-it-out page |
 
 Submitting returns `202` with the `Job` and `Location: /v1/jobs/{id}`. Errors
