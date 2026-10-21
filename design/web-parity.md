@@ -184,6 +184,12 @@ Removes the biggest reason to go back to the desktop: a title whose metadata is 
 
 ### WP6 — Contract 1.5: design adjustments (both sides)
 
+**Contract agreed 2026-10-21** and written into [designer-interface.md](designer-interface.md) (§2 "Adjustments",
+§3 "Adjustment outcomes", §7), the three `docs/schema/http_designer_*.schema.json` and the conformance spec's "1.5".
+The first kinds are `exclude_band`, `floor`, `max_boost`, `goal_tilt` and `note`; `ceiling`, `goal_tolerance`,
+`strategies`, `max_sections` and `exclude_times` wait (a designer may offer its own as `x-` kinds meanwhile). The
+contract is normative; where the sketch below differs, the contract wins. Not built on either side.
+
 A general protocol by which a caller **asks for adjustments** to a design and the designer **answers each one**:
 honoured, adapted, declined or not understood, saying why. The designer stays free to react as it sees fit; the caller always
 learns what was done with what it asked. This is the normal way a caller influences a design, not a carve-out.
@@ -318,11 +324,9 @@ in parallel, since it needs beqforge's side.
 
 ## 6. Open questions
 
-1. **The restated §2 rule** (WP6): agree the wording with beqforge before building either side.
-2. **Which adjustment kinds first.** Proposed minimum: `exclude_band`, `floor`, `max_boost`, `goal_tilt`, `note`.
-   `exclude_times` interacts with `coverage` (a complete programme with stretches excluded is no longer quite one);
-   decide whether the designer reports it as an excerpt.
+1. **`exclude_times`** interacts with `coverage` (a complete programme with stretches excluded is no longer quite
+   one): decide whether the designer reports it as an excerpt before adding the kind.
 
-Decided 2026-10-21: the spectrogram is a binary uint8 grid (WP2); the catalogue is read per title on demand from
+Decided 2026-10-21: the contract rule and the first adjustment kinds (WP6); the spectrogram is a binary uint8 grid (WP2); the catalogue is read per title on demand from
 beqcatalogue's `compare/` files (WP3); a title keeps every variant until a person discards it, and a variant's
 adjustments persist (WP7).

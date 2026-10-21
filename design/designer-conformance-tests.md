@@ -1,4 +1,4 @@
-# Designer conformance test spec — v1.2
+# Designer conformance test spec — v1.5
 
 **Document type:** Reference test specification — not a backlog.
 
@@ -325,3 +325,30 @@ for this checklist rather than a copy of one project's taste.
   same identity as the responses.
 - Designer side: a golden of answers on fixture requests, keyed to the `design_version` it was made with, fails when an
   answer moves beyond its tolerance without a bump.
+
+
+## 1.5: adjustments
+
+Caller side:
+- A request without adjustments is sent exactly as before (the version it sent under 1.4, no `adjustments` key).
+- A request with adjustments is sent as `"1.5"`, each as `{id, kind, params, text}`, ids unique; it is sent only to a
+  designer whose `/health` reports 1.5 or later (or one configured to take them).
+- An outcome naming an id the request did not send, or one id twice, is refused as a contract violation.
+- `adapted` without `applied` and `reason`, `declined`/`not_understood` without `reason`, or an unknown `outcome` is
+  refused.
+- An adjustment without an outcome (a pre-1.5 designer's answer) is kept and shown as *not acknowledged*, not refused.
+- `adjustment_kinds` on `/health` is read and offered; a kind it does not list can still be sent.
+- Adjustments are part of the request's identity on the caller's side (its design cache and fingerprint), never of
+  `design_settings`.
+
+Designer side:
+- A request with no or empty `adjustments` gives the same answer as the 1.4 golden.
+- Every adjustment gets exactly one outcome, on a design and a decline alike.
+- An unknown kind is answered `not_understood`; a missing, mistyped or out-of-range parameter `declined` with a reason;
+  neither raises or fails the request.
+- The same adjustments in a different order give the same answer.
+- Each kind of §2's table that the designer lists on `/health` changes the answer in the direction asked on a fixture
+  where the evidence allows it (`max_boost` lowers the peak boost; `floor` moves the lowest corrected frequency up;
+  `exclude_band` leaves the band uncorrected; `goal_tilt` raises the low end of the goal), and is declined or adapted,
+  with a reason, on one where it does not.
+- An adjustment never makes a design that fails the designer's own checks a candidate (§4).

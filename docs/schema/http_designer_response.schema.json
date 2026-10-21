@@ -6,7 +6,7 @@
   "type": "object",
   "properties": {
     "contract_version": {
-      "enum": ["1.0", "1.1", "1.2", "1.3"]
+      "enum": ["1.0", "1.1", "1.2", "1.3", "1.5"]
     },
     "candidates": {
       "description": "success: a non-empty array, best (most preferred) first -- candidates[0] is the only one the caller acts on automatically. Absent/null on decline. No entry may carry rejection_reasons.",
@@ -70,11 +70,32 @@
     "designer_build": {
       "oneOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }],
       "description": "1.4, optional: the designer's build, for people; a caller keys nothing on it."
+    },
+    "adjustment_outcomes": {
+      "oneOf": [{ "type": "array", "items": { "$ref": "#/$defs/adjustmentOutcome" } }, { "type": "null" }],
+      "description": "1.5, with either shape: one per request adjustment -- design/designer-interface.md §3, \"Adjustment outcomes\". Only to a \"1.5\" request."
     }
   },
   "required": ["contract_version"],
   "additionalProperties": true,
   "$defs": {
+    "adjustmentOutcome": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "description": "the adjustment's id" },
+        "outcome": { "enum": ["honoured", "adapted", "declined", "not_understood"] },
+        "applied": { "type": ["object", "null"], "description": "the params actually used: required for adapted, optional for honoured, absent or null otherwise" },
+        "reason": { "type": ["string", "null"], "description": "for a person; required for every outcome but honoured" }
+      },
+      "required": ["id", "outcome"],
+      "allOf": [
+        { "if": { "properties": { "outcome": { "const": "adapted" } } },
+          "then": { "required": ["applied", "reason"], "properties": { "applied": { "type": "object" }, "reason": { "type": "string", "minLength": 1 } } } },
+        { "if": { "properties": { "outcome": { "enum": ["declined", "not_understood"] } } },
+          "then": { "required": ["reason"], "properties": { "applied": { "type": "null" }, "reason": { "type": "string", "minLength": 1 } } } }
+      ],
+      "additionalProperties": false
+    },
     "biquadSpec": {
       "type": "object",
       "properties": {

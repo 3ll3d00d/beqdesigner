@@ -142,3 +142,63 @@ def test_a_1_4_response_and_health_saying_the_designers_identity_are_valid(respo
 def test_an_identity_out_of_range_is_refused_by_the_schemas(response_schema, health_schema, field, value):
     assert list(response_schema.iter_errors({**_response(), **_IDENTITY, field: value}))
     assert list(health_schema.iter_errors({'contract_version': '1.2', 'shared_root': True, **_IDENTITY, field: value}))
+
+
+_ADJUSTMENTS = [{'id': 'a1', 'kind': 'exclude_band', 'params': {'low_hz': 28.0, 'high_hz': 34.0}},
+                {'id': 'a2', 'kind': 'goal_tilt', 'params': {'db_per_octave': 1.0}, 'text': 'a little more weight'},
+                {'id': 'a3', 'kind': 'note', 'params': {}, 'text': 'the opening logo is not the film'},
+                {'id': 'a4', 'kind': 'x-beqforge-strategy', 'params': {'names': ['parametric']}, 'text': None}]
+
+
+def test_a_1_5_request_with_adjustments_is_valid(request_schema):
+    request_schema.validate({**_inline_body(), 'contract_version': '1.5', 'adjustments': _ADJUSTMENTS})
+    request_schema.validate({**_inline_body(), 'adjustments': None})
+
+
+@pytest.mark.parametrize('adjustment', [{'kind': 'floor', 'params': {'hz': 8}}, {'id': 'a', 'params': {}},
+                                        {'id': 'a', 'kind': 'floor'}, {'id': '', 'kind': 'floor', 'params': {}},
+                                        {'id': 'a', 'kind': 'floor', 'params': [8]},
+                                        {'id': 'a', 'kind': 'floor', 'params': {}, 'why': 'extra'}])
+def test_an_adjustment_not_of_the_shape_is_refused(request_schema, adjustment):
+    assert not request_schema.is_valid({**_inline_body(), 'contract_version': '1.5', 'adjustments': [adjustment]})
+
+
+def test_an_unknown_kind_or_bad_params_pass_the_schema_to_be_answered_in_the_outcome(request_schema):
+    request_schema.validate({**_inline_body(), 'contract_version': '1.5',
+                             'adjustments': [{'id': 'a', 'kind': 'floor', 'params': {'hz': -3}},
+                                             {'id': 'b', 'kind': 'make_it_better', 'params': {}}]})
+
+
+_OUTCOMES = [{'id': 'a1', 'outcome': 'honoured'},
+             {'id': 'a2', 'outcome': 'adapted', 'applied': {'db_per_octave': 0.5}, 'reason': 'capped by the evidence'},
+             {'id': 'a3', 'outcome': 'not_understood', 'applied': None, 'reason': 'no time ranges in this designer'},
+             {'id': 'a4', 'outcome': 'declined', 'reason': 'unknown strategy'}]
+
+
+def test_a_1_5_response_answering_its_adjustments_is_valid(response_schema):
+    response_schema.validate({**_response(), 'contract_version': '1.5', 'adjustment_outcomes': _OUTCOMES})
+    decline = {'contract_version': '1.5', 'decline_reason': 'no_rolloff_detected', 'adjustment_outcomes': _OUTCOMES}
+    response_schema.validate(decline)
+
+
+@pytest.mark.parametrize('outcome', [{'id': 'a', 'outcome': 'ignored', 'reason': 'x'},
+                                     {'id': 'a', 'outcome': 'adapted', 'reason': 'x'},
+                                     {'id': 'a', 'outcome': 'adapted', 'applied': {'db': 3}},
+                                     {'id': 'a', 'outcome': 'declined'},
+                                     {'id': 'a', 'outcome': 'declined', 'reason': ''},
+                                     {'id': 'a', 'outcome': 'declined', 'applied': {'db': 3}, 'reason': 'x'},
+                                     {'outcome': 'honoured'}])
+def test_an_outcome_without_what_it_needs_is_refused(response_schema, outcome):
+    assert not response_schema.is_valid({**_response(), 'contract_version': '1.5', 'adjustment_outcomes': [outcome]})
+
+
+def test_health_may_list_the_adjustment_kinds_it_knows(health_schema):
+    kinds = {'floor': {'description': 'restore nothing below', 'params': {
+        'hz': {'type': 'number', 'unit': 'Hz', 'minimum': 1, 'maximum': 40, 'default': 5}}},
+        'note': {'description': 'free text'}}
+    health_schema.validate({'contract_version': '1.5', 'shared_root': True, 'adjustment_kinds': kinds})
+    assert not health_schema.is_valid({'contract_version': '1.5', 'shared_root': True,
+                                       'adjustment_kinds': {'floor': {'params': {}}}})
+    assert not health_schema.is_valid({'contract_version': '1.5', 'shared_root': True,
+                                       'adjustment_kinds': {'floor': {'description': 'x',
+                                                                      'params': {'hz': {'type': 'float'}}}}})

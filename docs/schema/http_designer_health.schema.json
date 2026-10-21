@@ -37,6 +37,33 @@
     "design_settings_detail": {
       "type": "object",
       "description": "1.4, optional: the settings design_settings digests, by name, for a person to see why two designers disagree; never a key."
+    },
+    "adjustment_kinds": {
+      "type": "object",
+      "description": "1.5, optional and advisory: the adjustment kinds this designer knows (design/designer-interface.md §2 and §7.1), by kind. A caller builds its choices from it; a kind not listed may still be sent and is answered not_understood.",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "description": { "type": "string" },
+          "params": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "type": { "enum": ["number", "integer", "string", "boolean"] },
+                "unit": { "type": "string" },
+                "minimum": { "type": "number" },
+                "maximum": { "type": "number" },
+                "default": {},
+                "description": { "type": "string" }
+              },
+              "additionalProperties": true
+            }
+          }
+        },
+        "required": ["description"],
+        "additionalProperties": true
+      }
     }
   },
   "required": [

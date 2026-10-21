@@ -1,6 +1,8 @@
-# BEQ filter designer interface — v1.4
+# BEQ filter designer interface — v1.5
 
-**Status:** CONTRACT, fully implemented on this repo's side, 1.1's `rejected`
+**Status:** CONTRACT. 1.5's adjustments (§2, §3) are agreed, written into the
+schemas, and **not yet built on either side** (TODO WP, chunk WP6). Up to 1.4 it
+is fully implemented on this repo's side, 1.1's `rejected`
 included (reviewed, and overridable by a person, on the title page) — both bindings
 (in-process callable and HTTP, `§7.1`) exist; see
 [`src/main/python/pipeline/README.md`](../src/main/python/pipeline/README.md#the-designer-contract)
@@ -64,6 +66,16 @@ designer's non-default settings that can; and `designer_build`, for people --
 so a caller can tell which of its designs a designer upgrade could change.
 `/health` may add `design_settings_detail`. A 1.3 caller ignores them.*
 
+*v1.5, additive (§2, "Adjustments"; §3, "Adjustment outcomes"; §7.1): a
+request may carry `adjustments` — changes a caller asks for, such as a band to
+leave alone, a lowest frequency, a boost cap or a tilted goal — and a 1.5
+designer answers each one in `adjustment_outcomes`: honoured, adapted,
+declined or not understood, with why. The designer decides what to do with
+each; the caller always learns what was done. `GET /health` may list the
+`adjustment_kinds` a designer knows. §2's "What is deliberately absent" is
+restated: a designer acts on no *unstated* preference. A request without
+adjustments is unchanged and must be answered exactly as under 1.4.*
+
 *A test checklist for whoever implements this contract, extracted from two
 independent implementations' test suites (this repo's caller side and
 beqforge's designer side), is `design/designer-conformance-tests.md`.*
@@ -86,7 +98,9 @@ callback, no streaming, no iteration protocol — "iterate until acceptable"
 candidate) and/or declining**, not by being called repeatedly with feedback.
 If you want to try several internal candidates before answering, return the
 ones worth showing a human, ranked — that no longer has to collapse to a
-single filter before it reaches the caller.
+single filter before it reaches the caller. 1.5's `adjustments` (§2) do not
+change this: a request with adjustments is a new, self-contained call, not a
+reply to an earlier one, and you keep no state between them.
 
 **Must be deterministic given the same input**, or as close as your method
 allows — the caller may re-run it and compare. Any internal randomness
@@ -121,6 +135,7 @@ class DesignRequest:
     coverage: Literal['complete_programme', 'excerpt']   # see below
     channels: dict[str, ndarray] | None = None   # optional, diagnostic — see below
     bass_management: dict | None = None          # see below
+    adjustments: list[DesignAdjustment] | None = None   # 1.5 — see "Adjustments" below
 ```
 
 **`mono_mix`** is a full-band sum of all channels with the LFE channel
@@ -190,12 +205,66 @@ fixed headroom of `abs(float(headroom_type)) + 10` dB. Meaningful only
 together with `channels` — without a per-channel decomposition there is no
 sub feed to build regardless of what this says.
 
-**What is deliberately absent, and why:** no headroom/max-boost/device
-preference of any kind. Your answer must not be shaped by what the caller
-intends to do with it — see `mv_adjust_db`/`gain_reduction_db` in §3 for
-where headroom information flows, and it flows *out*, never in.
-`bass_management` above is the one exception, and it's an exception on
-purpose: it is a fact, not a preference — see why there above.
+**No unstated preference (restated in 1.5).** Your answer must not be
+shaped by what you guess the caller intends to do with it: there is no
+implicit headroom, max-boost or device preference, and you must not infer
+one — see `mv_adjust_db`/`gain_reduction_db` in §3 for where headroom
+information flows, and it flows *out*. `bass_management` above is a fact
+about the playback chain, not a preference. What a caller *does* want
+changed it says explicitly, in `adjustments` below, and you answer each one;
+that is the only way a preference reaches you, and it is always stated,
+always answered and always recorded.
+
+**`adjustments`, added in 1.5:** changes the caller asks for in this design
+— typically a person's, after reviewing an earlier answer for the same
+title. `None` or an empty list means none, and the request must then be
+answered exactly as a 1.4 request would be.
+
+```python
+@dataclass(frozen=True)
+class DesignAdjustment:
+    id: str                    # the caller's, unique within the request; echoed in its outcome
+    kind: str                  # a kind from the table below, or one a designer lists on /health
+    params: dict               # the kind's parameters, by name; {} when it has none
+    text: str | None = None    # what the person said, in their words: for your record, and the content of 'note'
+```
+
+| `kind` | `params` | asks you to |
+|---|---|---|
+| `exclude_band` | `low_hz`, `high_hz` (`0 < low_hz < high_hz`) | treat this frequency range as neither evidence of a rolloff nor something to correct: no boost is targeted inside it, and nothing measured inside it moves the design. Several may be sent. |
+| `floor` | `hz` (> 0) | restore nothing below `hz`: the content edge is no lower than this |
+| `max_boost` | `db` (> 0) | let the published cascade boost no more than `db` at any frequency |
+| `goal_tilt` | `db_per_octave` | tilt the goal you design towards by this much per octave, rising towards the low end when positive (a "bass boost" goal), relative to the goal you would otherwise build |
+| `note` | none | read `text`; act on it if you can, and answer it in either case |
+
+How you treat an adjustment is yours to decide, against the evidence, and
+you report what you did (§3, "Adjustment outcomes"). Rules:
+
+- **Weigh, don't obey blindly.** §4's line is unchanged: an adjustment can
+  make a design narrower or weaker; it never makes you publish what your
+  evidence does not support. Decline an adjustment that would (a
+  `max_boost` you can honour, a `floor` below where anything was measured
+  that you cannot), and say why in its outcome.
+- **A declined adjustment is not a declined design.** Answer with your best
+  design given the adjustments you did act on. Decline the design (§4) only
+  on the evidence, as always — though an adjustment may be why the evidence
+  left is too thin (an `exclude_band` over the only rolloff), which you then
+  say in `decline_message`.
+- **Unknown kinds are not errors.** Answer them `not_understood`. A kind a
+  designer defines for itself starts with `x-` (`x-beqforge-strategy`), so
+  it never collides with one this contract adds later.
+- **Bad parameters are not errors either**: a missing, mistyped or
+  out-of-range parameter is answered `declined` with the reason. Only a body
+  that is not this shape at all (an `adjustments` that is not a list, an
+  entry without `id` or `kind`, two entries with one `id`) may be refused as
+  an implementation failure.
+- **Order carries no meaning**, and the same adjustments must give the same
+  answer whatever their order (§1, determinism). Two of a kind where only one
+  makes sense (two `floor`s) are yours to reconcile: honour or adapt one and
+  decline the other, saying so.
+- **Adjustments are part of the request**, like the audio: the same audio
+  with the same adjustments must reproduce the same answer, and they never
+  change `design_settings` (§3, which describes your server-wide settings).
 
 **No guarantee of provenance.** `mono_mix`/`channels` may be real
 theatrical/consumer audio, a known filter applied to known-clean material for
@@ -285,6 +354,17 @@ class DesignResponse:
     design_version: int | None = None    # >= 0; bumped by a change that can alter an answer
     design_settings: str | None = None   # digest of the non-default settings that can
     designer_build: str | None = None    # the build, for people; never a key
+
+    # 1.5, with either shape: one per request adjustment. See "Adjustment
+    # outcomes" below.
+    adjustment_outcomes: list[AdjustmentOutcome] | None = None
+
+@dataclass(frozen=True)
+class AdjustmentOutcome:
+    id: str                       # the adjustment's id
+    outcome: Literal['honoured', 'adapted', 'declined', 'not_understood']
+    applied: dict | None = None   # the params actually used: required for 'adapted', optional for 'honoured', None otherwise
+    reason: str | None = None     # for a person; required for every outcome but 'honoured'
 ```
 
 **`candidates`** replaces what earlier drafts of this document expressed as
@@ -556,6 +636,27 @@ caller keeps it with each design and selects as *out of date* those whose
 identity differs from what the designers it can use now report on `/health`
 (§7.1); it never redesigns on that alone.
 
+**Adjustment outcomes (1.5).** A 1.5 designer returns exactly one
+`AdjustmentOutcome` per entry of the request's `adjustments`, on a design
+and a decline alike, and `None` (or omits the field) when the request had
+none:
+
+- **`honoured`** — done as asked. `applied` may repeat the params.
+- **`adapted`** — done in part or differently: a `max_boost` of 10 dB met at
+  12 dB because 10 left the rolloff uncorrected, a band narrowed to where
+  the evidence was. `applied` holds what was actually used; `reason` says why.
+- **`declined`** — not acted on, with `reason`: it would have you publish
+  what the evidence does not support, it contradicts another adjustment, or
+  its params are missing or out of range.
+- **`not_understood`** — a kind you do not know, or a `note` you could not act
+  on; `reason` may say what you took it to mean.
+
+The caller rejects as a contract violation an outcome naming an `id` the
+request did not send, or one `id` twice. An adjustment with no outcome —
+every one, from a designer before 1.5, which ignores the request field — is
+shown to a person as *not acknowledged*: the caller cannot tell whether it
+was acted on. `reason` is free text for a person, not machine-parsed.
+
 ---
 
 ## 4. Declining
@@ -591,10 +692,11 @@ require BEQ" — the catalogue's convention for a title that needs no
 correction — so no report claims a correction was made.
 
 **What's yours to decline on, versus what to report and let the caller
-decide.** §2 keeps the input surface small on purpose — no headroom,
-max-boost, or device preference crosses in — but that leaves a gap: what do
-you do when a real decision point turns on exactly one of those things you
-weren't given? Decline only on grounds internal to the evidence itself — no
+decide.** §2 keeps the input surface small on purpose — no unstated
+headroom, max-boost or device preference crosses in, and a stated one comes
+only as an adjustment you weigh — but that leaves a gap: what do you do when
+a real decision point turns on exactly one of those things you weren't
+given? Decline only on grounds internal to the evidence itself — no
 rolloff detected, insufficient coherent bandwidth, an unstable estimate,
 your own confidence floor (`confidence_below_internal_threshold` already
 implies this). Whether a correction is *worth* publishing given how much of
@@ -789,7 +891,12 @@ caller ignores them (below), which is exactly why they are a separate list.
 otherwise, so a request with every array inline is unchanged. 1.3 adds
 optional response fields only (§3, "How well the filters match"); a designer
 may return them whatever version the request names, as it may the 1.1 fields. 1.4 adds the design identity
-(§3, "Design identity") to responses and `/health`, on the same terms. Changes within `1.x`
+(§3, "Design identity") to responses and `/health`, on the same terms. 1.5
+adds `adjustments` to the request: a caller sends `"1.5"` exactly when the
+request carries at least one adjustment (and then whatever else the body
+holds, arrays by reference included), and the version it sent before
+otherwise, so a request without adjustments is unchanged. A designer may
+return `adjustment_outcomes` to a `"1.5"` request only. Changes within `1.x`
 will be additive-only (new optional fields, defaulting to `None`/absent);
 you can ignore fields you don't recognise on the request side, and the
 caller does the same for the response. A breaking change bumps to `2.0` and
@@ -825,7 +932,10 @@ caller spawning or managing it. This repo's caller-side implementation is
 ```
 
 `channels`/`bass_management` are JSON `null` exactly when the corresponding
-`DesignRequest` field is `None`. **Arrays are base64-encoded raw
+`DesignRequest` field is `None`. `adjustments` (1.5) is omitted when there are none,
+and otherwise a JSON array of `{"id", "kind", "params", "text"}` objects
+(`text` omitted or `null` when none); `adjustment_outcomes` comes back the
+same way, as `{"id", "outcome", "applied", "reason"}`. **Arrays are base64-encoded raw
 little-endian float64 bytes, not JSON number arrays** — at the common 1 kHz
 decimated rate, a 2-hour `mono_mix` is ~58 MB as float64 (§8's own figure);
 JSON's text encoding of that many floats bloats it 3-5x for no benefit on a
@@ -905,6 +1015,15 @@ carried, and nothing after decoding may tell the two apart. The rules:
   `designer_build` as on a response (§3, "Design identity"), and
   `design_settings_detail`, the non-default settings as an object, so a person
   can see why two designers disagree; a caller shows it and keys nothing on it.
+  From 1.5 it may list `adjustment_kinds`: each kind it knows (§2's and its
+  own `x-` kinds), as `{kind: {"description": str, "params": {name: {"type":
+  "number" | "integer" | "string" | "boolean", "unit": str, "minimum":
+  number, "maximum": number, "default": any, "description": str}}}}`, every
+  member but `description` optional. It is advisory: a caller builds its
+  choices from it, but may still send a kind not listed, which is answered
+  `not_understood`. A caller sends adjustments only to a designer whose
+  `/health` reports `contract_version` 1.5 or later, or that it was
+  configured to send them to.
   The caller reads it
   once, before its first request by reference to that designer, and sends
   none — failing the design with the answer in its message — when the
@@ -919,7 +1038,7 @@ that check happens after either binding hands back a `DesignResponse`, not
 as part of decoding one.
 
 **Formal spec:** `docs/schema/http_designer_request.schema.json`,
-`http_designer_response.schema.json` and (1.2) `http_designer_health.schema.json` — the machine-checkable version of the
+`http_designer_response.schema.json` and (1.2) `http_designer_health.schema.json` (with 1.5's adjustments in all three) — the machine-checkable version of the
 shapes above, meant for implementers in any language (unlike the rest of
 this document, which only needs to match this repo's own Python).
 
