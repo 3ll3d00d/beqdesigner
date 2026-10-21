@@ -104,9 +104,10 @@ failed*.
 **Caller side built 2026-10-21** (record in [archive/web-parity-record.md](archive/web-parity-record.md#wp6-caller-side)):
 the contract types and checks, the HTTP binding (sent only to a designer whose `/health` says 1.5), the queue entry's
 `adjustments` and `adjustment_outcomes`, the design fingerprint, `POST /v1/revise`'s `adjustments`, and the kinds every
-endpoint lists on `/v1/status`. **Left: beqforge** implements the kinds it can and lists them on `/health` (a handoff
-in its own repo). Until it does, the browser has no kinds to offer and a design asked for adjustments is refused by
-the binding with the designer's version.
+endpoint lists on `/v1/status`. **beqforge's side** is built on its branch `contract-1.5-adjustments` (`a062ae8`:
+`beqforge/adjustments.py`, all five kinds; default answers unchanged on its 11 baseline titles), and was checked end to
+end against this repo's client. **Left:** merge it and release beqforge; until a designer reports 1.5 on `/health`, the
+browser has no kinds to offer.
 
 **Contract agreed 2026-10-21** and written into [designer-interface.md](designer-interface.md) (§2 "Adjustments",
 §3 "Adjustment outcomes", §7), the three `docs/schema/http_designer_*.schema.json` and the conformance spec's "1.5".
