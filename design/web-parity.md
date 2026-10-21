@@ -94,8 +94,8 @@ Choosing among TMDB's posters is not built: a poster's address can be pasted int
 ### WP5 — Revise, retry and stream choice — done
 
 Built 2026-10-21; described in [web-app.md §4.3](web-app.md#43-revise-and-the-audio-stream), record in
-[archive/web-parity-record.md](archive/web-parity-record.md#wp5). Not built: *select all matching the filter* (the
-selection is per page, up to 100 at a time), and reading a title's streams from its file when the source lists none
+[archive/web-parity-record.md](archive/web-parity-record.md#wp5). *Select all matching the filter* followed the same day
+(up to the 500 a revise takes). Not built: reading a title's streams from its file when the source lists none
 (the desktop's probe; the browser says to use the app). Retry is *Revise* to design or extract, or New job's *retry
 failed*.
 

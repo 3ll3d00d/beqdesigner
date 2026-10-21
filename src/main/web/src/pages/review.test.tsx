@@ -582,3 +582,23 @@ describe('filtering on adjustments and design runs', () => {
     expect(screen.getByText(/asked to change something, with an adjustment not honoured, with one design run/)).toBeInTheDocument()
   })
 })
+
+describe('selecting every title the filter matches', () => {
+  it('collects the ids page by page, at most 500, and says when it stopped short', async () => {
+    const offsets: string[] = []
+    server.use(statusRoute(status({ index: index() })),
+               http.get('/v1/titles', ({ request }) => {
+                 const query = new URL(request.url).searchParams
+                 const offset = Number(query.get('offset') ?? 0)
+                 offsets.push(String(offset))
+                 const titles = Array.from({ length: 100 }, (_, i) => title(`t${offset + i}`))
+                 return json({ total: 620, offset, limit: 100, titles })
+               }))
+    renderApp('/titles?kind=movie')
+    await userEvent.click(await screen.findByLabelText('Select every title on this page'))
+    await userEvent.click(screen.getByRole('button', { name: 'Select all 620 matching (the first 500)' }))
+    await waitFor(() => expect(screen.getByRole('group', { name: 'Selected titles' })).toHaveTextContent('500 titles selected'))
+    expect(offsets.slice(1)).toEqual(['0', '100', '200', '300', '400'])
+    expect(screen.getByRole('status')).toHaveTextContent('Selected the first 500 of 620')
+  })
+})

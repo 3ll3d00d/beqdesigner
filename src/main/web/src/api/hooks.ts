@@ -481,3 +481,23 @@ export function useSaveEdited(id: string) {
     },
   })
 }
+
+/** How many titles one revise may send back at once (the service's MAX_REDESIGN_IDS). */
+export const MAX_REVISED = 500
+
+/** Every title id the filter matches, page by page, up to MAX_REVISED: for selecting a whole list, not one page. */
+export function useMatchingIds() {
+  const { client } = useAuth()
+  return async (filter: TitleFilter, includeDone: boolean): Promise<{ ids: string[]; total: number }> => {
+    const ids: string[] = []
+    let total = 0
+    for (let offset = 0; offset < MAX_REVISED; offset += PAGE_SIZE) {
+      const page = unwrap(await client.GET('/v1/titles', {
+        params: { query: { ...cleanFilter(filter), include_done: includeDone, limit: PAGE_SIZE, offset } } }))
+      total = page.total
+      ids.push(...page.titles.map((t) => t.id))
+      if (offset + PAGE_SIZE >= page.total) break
+    }
+    return { ids: ids.slice(0, MAX_REVISED), total }
+  }
+}

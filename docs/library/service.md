@@ -288,7 +288,8 @@ otherwise it lasts until the tab is closed. The token is checked with the servic
   stacked) with your edit drawn live beside it; *Add a low shelf* for more bass, *Add a peak*, reorder or remove.
   *Save as a new design* makes it the title's current design run, to review and accept like any other; the one it
   started from is kept. Not on an accepted or published title (reopen it first).
-* **Revise:** *Revise…* on a review, or tick titles on the Titles page and *Revise selected…*: reopen for review,
+* **Revise:** *Revise…* on a review, or tick titles on the Titles page (tick the heading's box,
+  then *Select all … matching* for the whole list, up to 500) and *Revise selected…*: reopen for review,
   redesign, or re-extract and redesign, with a reason kept in the title's note. *Extract & design now* starts one job
   for them all; otherwise they wait for the next run. To redesign or re-extract, *Ask the designer to change something*
   offers the adjustments the designer lists (beqforge, from the release that takes contract 1.5): ignore a band (drag

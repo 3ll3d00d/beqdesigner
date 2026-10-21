@@ -9,7 +9,7 @@ import {
   type Sort, type TitleFilter, type TitleSort,
 } from '../api/filter'
 import type { Schemas } from '../api/client'
-import { PAGE_SIZE, useNextTitle, usePlan, useStatus, useSubmitRun, useTitles } from '../api/hooks'
+import { MAX_REVISED, PAGE_SIZE, useMatchingIds, useNextTitle, usePlan, useStatus, useSubmitRun, useTitles } from '../api/hooks'
 import { ReviseDialog, reviseSummary } from '../components/ReviseDialog'
 import { ScanSources } from '../components/ScanSources'
 import { count, NEEDS_ORDER, NEEDS_WORDS, type NeedsWord } from '../format'
@@ -258,6 +258,8 @@ export function TitlesPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [revising, setRevising] = useState(false)
   const [revised, setRevised] = useState('')
+  const [selecting, setSelecting] = useState(false)
+  const matching = useMatchingIds()
   const [listed, setListed] = useState(query)
   if (listed !== query) {   // another list: what was selected in the last one is not in it
     setListed(query)
@@ -275,6 +277,21 @@ export function TitlesPage() {
       else setNothing('No title in this list is waiting for a decision.')
     } catch (error) {
       setNothing(error instanceof Error ? error.message : String(error))
+    }
+  }
+
+  async function selectEveryMatching() {
+    setSelecting(true)
+    try {
+      const found = await matching(filter, includeDone)
+      setSelected(new Set(found.ids))
+      setRevised(found.total > found.ids.length
+        ? `Selected the first ${found.ids.length.toLocaleString()} of ${found.total.toLocaleString()}: a revise takes at most ${MAX_REVISED}.`
+        : '')
+    } catch (error) {
+      setRevised(error instanceof Error ? error.message : String(error))
+    } finally {
+      setSelecting(false)
     }
   }
 
@@ -339,6 +356,11 @@ export function TitlesPage() {
       {selected.size > 0 && (
         <div className="actions" role="group" aria-label="Selected titles">
           <span>{count(selected.size, 'title')} selected</span>
+          {allOnPage && page && page.total > selected.size && selected.size < MAX_REVISED && (
+            <button type="button" className="link" disabled={selecting} onClick={() => void selectEveryMatching()}>
+              {selecting ? 'Selecting…' : `Select all ${page.total.toLocaleString()} matching${page.total > MAX_REVISED
+                ? ` (the first ${MAX_REVISED})` : ''}`}</button>
+          )}
           <button type="button" className="secondary" onClick={() => setRevising(true)}>Revise selected…</button>
           <button type="button" className="secondary" onClick={() => setSelected(new Set())}>Clear selection</button>
         </div>

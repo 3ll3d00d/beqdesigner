@@ -223,7 +223,8 @@ design* back with the reason; saving sends `PUT /v1/titles/{id}/edited` and the 
 ### 4.3 Revise and the audio stream
 
 *Revise…* on the review page, and *Revise selected…* over the titles ticked on the Titles page (a checkbox per row, one
-in the heading for the page; the selection is forgotten when the list changes), open `ReviseDialog`: *Reopen for
+in the heading for the page, then *Select all N matching*, which collects the ids page by page up to the 500 a revise
+takes, `useMatchingIds`; the selection is forgotten when the list changes), open `ReviseDialog`: *Reopen for
 review*, *Redesign* or *Re-extract and redesign*, in the desktop's words (`worklist_revise.CHOICES`), a reason kept in
 the note, and for the last two *Extract & design now* (on by default). It sends `POST /v1/revise`: with `run`, one
 redesign job (`revise_to` design or extract) and the job page opens; without, the titles are sent back at once and the

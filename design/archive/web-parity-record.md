@@ -164,3 +164,5 @@ frequencies; the full suite, 3379 passed, 1 skipped.
 - **A band picked by dragging on the chart:** `AdjustmentsEditor` *Pick a band on the chart*, the next drag on the
   magnitude chart becomes an `exclude_band`, the bands shaded (`MagnitudeChart` `bands`). Evidence: the web test "takes a
   band to ignore from a drag across the chart".
+- **Select every title the filter matches:** *Select all N matching* after the page is ticked, up to 500 (`useMatchingIds`).
+  Evidence: the web test "selecting every title the filter matches".
