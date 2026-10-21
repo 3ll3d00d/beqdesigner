@@ -139,6 +139,21 @@ def safe_fingerprint(item: LibraryItem) -> str:
         return ''
 
 
+def design_multichannel_variants(keep_multichannel: bool, manifest: Mapping[str, Any]) -> List[bool]:
+    '''
+    Whether a single title's design was fed a decomposition (design_fingerprint()'s `multichannel`), as the run decides it:
+    a kept multichannel extraction of a source that is not mono, or, for a mono source, its one channel (run._design_work
+    sends it as FC unless it cannot be loaded, so either is current). An unknown channel count allows either too.
+    '''
+    if not keep_multichannel:
+        return [False]
+    count = manifest.get('source_channel_count')
+    if count == 1:
+        return [True, False]
+    kept = 'multichannel_source_fingerprint' in manifest
+    return [kept] + ([not kept] if count is None and kept else [])
+
+
 def unit_fingerprint(unit: Unit) -> str:
     ''' An item's fingerprint; a season's is one over its episodes' (and which episodes they are). '''
     if isinstance(unit, SeasonGroup):
@@ -497,9 +512,7 @@ class Evaluator:
         else:
             extract, manifest = self._extract_item(item, fingerprint)
             design_source, changed_source = fingerprint, fingerprint
-            count = manifest.get('source_channel_count')
-            kept = settings.keep_multichannel and 'multichannel_source_fingerprint' in manifest and count != 1
-            multichannel = [kept] + ([not kept] if count is None and kept else [])
+            multichannel = design_multichannel_variants(settings.keep_multichannel, manifest)
 
         if design_source is None:  # a season with nothing (current) to join
             design = 'none' if facts is None else 'protected' if facts.status in _PUBLISHED else 'stale'

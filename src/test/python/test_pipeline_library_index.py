@@ -818,6 +818,21 @@ def test_a_multichannel_extract_that_is_missing_makes_the_extract_stale(env):
     assert _row(env, 'fs-a').extract_state == 'current'  # not asked to keep it
 
 
+@pytest.mark.parametrize('sent_its_channel', [True, False])
+def test_a_mono_title_designed_from_its_one_channel_is_current_not_designed_again(env, sent_its_channel):
+    ''' The run sends a mono source's one channel as FC (F3); the index read that design as stale, so every run redesigned it. '''
+    item = _item('a')
+    _extracted(env, item, channels=1)
+    _entry(env, item)
+    update_entry(env.queue, item.id, design_fingerprint=design_fingerprint(
+        item, DESIGNER, CONFIG, 'complete_programme', multichannel=sent_its_channel, source=item.fingerprint))
+    settings = ScanSettings(work_dir=env.work, queue_dir=env.queue, designer=DESIGNER, keep_multichannel=True)
+
+    _scan(env, item, settings=settings)
+
+    assert (_row(env, 'fs-a').design_state, _row(env, 'fs-a').needs) == ('current', 'review')
+
+
 # --- seasons -----------------------------------------------------------------------------------------------------------
 
 def _episode(number, **overrides):

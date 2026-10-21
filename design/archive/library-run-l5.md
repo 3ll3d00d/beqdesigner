@@ -27,7 +27,13 @@ designer flaw that is not about mono (Butch Cassidy and the Sundance Kid, +20.9 
 Birds, +7.9 dB on a -10.2 dB notch at 120 Hz), handed to beqforge as F11 in its TODO 29 proposal. White Heat's design
 (+21.8 dB, Q 5.6 at 92 Hz beside a -10 dB notch at 100 Hz, and a shelf at 327 Hz) is worth a person's look in review.
 
-After deploying, a mono entry's design inputs change (it now has a decomposition), so the schedule redesigns the
-mono titles on its own; accepted and published entries are protected as always.
+After deploying (2.2.0-alpha.22) the mono titles did not redesign on their own: discovery still judged a mono
+source's design as fed no decomposition, so they stayed current until a redesign job (`ef982059`, 28 titles,
+2026-10-21) ran. Its results matched the drill except that Double Indemnity designed (the drill had no loud events), and so did Le
+Samouraï (not in the drill). Discovery then
+read every one of them as stale ("source or settings changed"): they were listed under design rather than review,
+and each scheduled run selected them only to find their designs cached (the run's own check takes them as current). Fixed: `status.design_multichannel_variants()`, shared by discovery and the drift banner, takes a mono source's
+design as current whether or not its channel was sent (test: `test_pipeline_library_index.py`
+`test_a_mono_title_designed_from_its_one_channel_is_current_not_designed_again`).
 
 Tests: `test_pipeline_library_run.py` (the mono decomposition sent as FC; a season's joined track sends none).

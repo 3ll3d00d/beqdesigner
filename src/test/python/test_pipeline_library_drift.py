@@ -156,6 +156,8 @@ def _reference_drift(index, settings, rows=None):
         count = manifest.get('source_channel_count')
         kept = bool(settings.keep_multichannel and 'multichannel_source_fingerprint' in manifest and count != 1)
         variants = [kept] + ([not kept] if count is None and kept else [])
+        if settings.keep_multichannel and count == 1:
+            variants = [True, False]   # a mono source's one channel is sent as its decomposition (F3)
         now = {design_fingerprint(item, settings.designer, settings.config, settings.coverage, multichannel=mc,
                                   source=facts.source_fingerprint) for mc in variants}
         if facts.design_fingerprint not in now:

@@ -26,7 +26,7 @@ from typing import List, Optional, Sequence
 from pipeline.library.design_cache import PROTECTED_STATUSES, design_fingerprint
 from pipeline.library.extract_cache import read_manifest
 from pipeline.library.index import LibraryIndex, TitleRow
-from pipeline.library.status import EntryFacts, ScanSettings, read_entry_facts
+from pipeline.library.status import EntryFacts, ScanSettings, design_multichannel_variants, read_entry_facts
 from pipeline.library.workdir import entry_directory
 
 
@@ -42,9 +42,7 @@ def _multichannel_variants(settings: ScanSettings, item_dir: str) -> List[bool]:
         manifest = read_manifest(item_dir) if os.path.isdir(item_dir) else {}
     except (OSError, ValueError):   # an unreadable manifest: discovery would call the extraction stale; here it says nothing
         manifest = {}
-    count = manifest.get('source_channel_count')
-    kept = bool(settings.keep_multichannel and 'multichannel_source_fingerprint' in manifest and count != 1)
-    return [kept] + ([not kept] if count is None and kept else [])
+    return design_multichannel_variants(settings.keep_multichannel, manifest)
 
 
 def designed_under_other_settings(index: LibraryIndex, settings: ScanSettings,
