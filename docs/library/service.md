@@ -291,8 +291,8 @@ otherwise it lasts until the tab is closed. The token is checked with the servic
 * **Revise:** *Revise…* on a review, or tick titles on the Titles page and *Revise selected…*: reopen for review,
   redesign, or re-extract and redesign, with a reason kept in the title's note. *Extract & design now* starts one job
   for them all; otherwise they wait for the next run. To redesign or re-extract, *Ask the designer to change something*
-  offers the adjustments the designer lists (beqforge, from the release that takes contract 1.5): ignore a band (or the
-  chart's range), restore nothing below a frequency, cap the boost, tilt the goal for more bass, a note in words, and
+  offers the adjustments the designer lists (beqforge, from the release that takes contract 1.5): ignore a band (drag
+  across the chart for it, or use the chart's range; the bands asked are shaded on the chart), restore nothing below a frequency, cap the boost, tilt the goal for more bass, a note in words, and
   any of its own. They are asked again by every redesign of the title until changed. *Audio stream…* extracts and designs a title from another of its
   audio streams.
 

@@ -1,7 +1,7 @@
 // Redesigning with adjustments and the title's design runs (design/web-parity.md WP7) against a mocked service: the
 // editor built from the kinds the designer lists, what is sent, the designer's answers, and earlier runs drawn, used
 // and discarded.
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw/http'
 
@@ -12,12 +12,13 @@ import { chart, index, METADATA_FIELDS, review, runJob } from '../test/fixtures'
 import { renderApp } from '../test/render'
 import { server, status, statusRoute, TOKEN } from '../test/server'
 
-const drawn = vi.hoisted(() => [] as { series: { label?: string; dash?: number[] }[] }[])
+const drawn = vi.hoisted(() => [] as { series: { label?: string; dash?: number[] }[];
+                                       hooks: { setSelect: ((u: unknown) => void)[]; draw: ((u: unknown) => void)[] } }[])
 vi.mock('uplot', () => ({
   default: class {
     over = document.createElement('div')
     cursor = { left: -1 }
-    constructor(options: { series: { label?: string }[] }) {
+    constructor(options: (typeof drawn)[number]) {
       drawn.push(options)
     }
     setSize() {}
@@ -113,6 +114,30 @@ describe('redesigning with adjustments', () => {
       { kind: 'max_boost', params: { db: 10 }, text: null },
       { kind: 'exclude_band', params: { low_hz: 1, high_hz: 160 } },
       { kind: 'note', params: {}, text: 'the logo is not the film' }] })
+  })
+
+  it('takes a band to ignore from a drag across the chart, and shades the bands asked', async () => {
+    const { sent } = routes()
+    renderApp('/titles/a')
+    await userEvent.click(await screen.findByRole('button', { name: 'Revise…' }))
+    const dialog = screen.getByRole('group', { name: 'Revise' })
+    await userEvent.click(await within(dialog).findByLabelText(/Ask the designer to change something/))
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Pick a band on the chart' }))
+    expect(screen.getByText(/Drag across the chart to choose the band/)).toBeInTheDocument()
+    const u = { select: { left: 28.04, top: 0, width: 5.96, height: 300 }, over: { clientHeight: 300 },
+                posToVal: (px: number) => px, setSelect: () => {} }
+    act(() => drawn.at(-1)!.hooks.setSelect[0]!(u))
+    await waitFor(() => expect(within(dialog).getByLabelText(/^low_hz/)).toHaveValue('28'))
+    expect(within(dialog).getByLabelText(/^high_hz/)).toHaveValue('34')
+    expect(screen.queryByText(/Drag across the chart to choose the band/)).not.toBeInTheDocument()
+    const filled: number[][] = []
+    const ctx = { save() {}, restore() {}, fillRect: (...r: number[]) => filled.push(r), fillStyle: '' }
+    await waitFor(() => {
+      drawn.at(-1)!.hooks.draw[0]!({ ctx, bbox: { top: 0, height: 100 }, valToPos: (v: number) => v })
+      expect(filled.at(-1)).toEqual([28, 0, 6, 100])
+    })
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Redesign' }))
+    await waitFor(() => expect(sent.at(-1)!.adjustments).toEqual([{ kind: 'exclude_band', params: { low_hz: 28, high_hz: 34 } }]))
   })
 
   it('asks nothing of a designer that lists no kinds', async () => {

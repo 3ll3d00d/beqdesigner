@@ -54,10 +54,14 @@ interface Props {
   onZoom?: (x: Range, y: Range | null) => void
   /** A double click: back to the preset. */
   onReset?: () => void
+  /** Frequency ranges to shade (the bands a redesign is asked to ignore). */
+  bands?: Range[]
   height?: number
 }
 
-export function MagnitudeChart({ series, view, highlighted = null, onZoom, onReset, height = 360 }: Props) {
+const NO_BANDS: Range[] = []   // one empty list, so a chart with no bands is not drawn again on every render
+
+export function MagnitudeChart({ series, view, highlighted = null, onZoom, onReset, bands = NO_BANDS, height = 360 }: Props) {
   const holder = useRef<HTMLDivElement>(null)
   const zoom = useRef(onZoom)
   const reset = useRef(onReset)
@@ -97,6 +101,17 @@ export function MagnitudeChart({ series, view, highlighted = null, onZoom, onRes
       legend: { show: true },
       cursor: { points: { show: false }, drag: { x: true, y: true, uni: 30, setScale: false } },
       hooks: {
+        draw: [(u: uPlot) => {   // the bands asked to be ignored, under a light wash
+          if (!bands.length || !u.ctx) return
+          const { top, height: tall } = u.bbox
+          u.ctx.save()
+          u.ctx.fillStyle = 'rgba(214, 97, 107, 0.15)'
+          for (const [low, high] of bands) {
+            const a = u.valToPos(low, 'x', true), b = u.valToPos(high, 'x', true)
+            u.ctx.fillRect(Math.min(a, b), top, Math.abs(b - a), tall)
+          }
+          u.ctx.restore()
+        }],
         setSelect: [(u: uPlot) => {
           const { left, top, width, height: tall } = u.select
           if (width < 2 && tall < 2) return
@@ -134,7 +149,7 @@ export function MagnitudeChart({ series, view, highlighted = null, onZoom, onRes
       resize.disconnect()
       plot.destroy()
     }
-  }, [series, view, highlighted, height])
+  }, [series, view, highlighted, height, bands])
   if (!series.length) return <p className="muted">No measured curve for this title.</p>
   if (!shown.length) return <p className="muted">Nothing to draw: every curve is hidden.</p>
   return <div ref={holder} className="chart" role="img" aria-label={`Chart: ${shown.map((s) => s.name).join('; ')}`} />

@@ -6,7 +6,7 @@ import { Link, useNavigate, useParams } from 'react-router'
 
 import type { Schemas } from '../api/client'
 import { useChart, useDecide, useNextTitle, useReview, useStatus, useVariantCharts } from '../api/hooks'
-import { DEFAULT_VIEW, loadView, saveView, type ChartView } from '../chart/view'
+import { DEFAULT_VIEW, loadView, saveView, type ChartView, type Range } from '../chart/view'
 import { ChartControls } from '../components/ChartControls'
 import { HeatmapView } from '../components/HeatmapView'
 import { MagnitudeChart } from '../components/MagnitudeChart'
@@ -124,6 +124,13 @@ export function ReviewPage() {
   const candidate = offered[picked]
   const [view, setView] = useState<ChartView>(loadView)
   const [visual, setVisual] = useState<Visual>('magnitude')
+  // while *Revise…* waits for a band to be dragged across the chart: what to do with it; and the bands it asks to ignore
+  const [pickBand, setPickBand] = useState<{ take: (range: Range) => void } | null>(null)
+  const [bands, setBands] = useState<Range[]>([])
+  const onPick = (take: ((range: Range) => void) | null) => {
+    setPickBand(take ? { take } : null)
+    if (take) setVisual('magnitude')
+  }
   const [overlaid, setOverlaid] = useState<{ title: string; variants: string[] }>({ title: titleId, variants: [] })
   const shownVariants = overlaid.title === titleId ? overlaid.variants : []
   const variantCharts = useVariantCharts(titleId, shownVariants, view.smoothing)
@@ -230,6 +237,7 @@ export function ReviewPage() {
       {revising && (
         <ReviseDialog ids={[titleId]} name={data!.title} published={data!.status === 'published'}
                       asked={data!.adjustments as Ask[]} chartRange={view.x}
+                      onPick={onPick} picking={!!pickBand} onBands={setBands}
                       onClose={() => setRevising(false)}
                       onDone={(outcome) => {
                         setRevising(false)
@@ -304,9 +312,18 @@ export function ReviewPage() {
           {visual === 'magnitude' && (
             <>
               <ChartControls view={view} series={magnitude} onChange={changeView} />
+              {pickBand && <p className="notice" role="status">Drag across the chart to choose the band the redesign
+                ignores.</p>}
               {chart.isError ? <p role="alert" className="problem">{chart.error.message}</p>
-                : <MagnitudeChart series={magnitude} view={view} highlighted={picked}
-                                  onZoom={(x, y) => changeView({ ...view, x, y })}
+                : <MagnitudeChart series={magnitude} view={view} highlighted={picked} bands={bands}
+                                  onZoom={(x, y) => {
+                                    if (pickBand) {
+                                      pickBand.take(x)
+                                      setPickBand(null)
+                                    } else {
+                                      changeView({ ...view, x, y })
+                                    }
+                                  }}
                                   onReset={() => changeView({ ...view, x: DEFAULT_VIEW.x, y: null })} />}
             </>
           )}

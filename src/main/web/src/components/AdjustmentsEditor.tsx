@@ -10,7 +10,7 @@ export type KindSpec = { description: string; params?: Record<string, ParamSpec>
 
 /** Common asks, as kinds and parameters: offered only when the designer lists the kind. */
 export const PRESETS: { label: string; ask: (range: Range) => Ask }[] = [
-  { label: 'Ignore the chart\'s range', ask: ([low, high]) => ({ kind: 'exclude_band', params: { low_hz: round(low), high_hz: round(high) } }) },
+  { label: 'Ignore the chart\'s range', ask: (range) => bandAsk(range) },
   { label: 'Bass boost +1 dB/oct', ask: () => ({ kind: 'goal_tilt', params: { db_per_octave: 1 } }) },
   { label: 'Cap the boost at 15 dB', ask: () => ({ kind: 'max_boost', params: { db: 15 } }) },
   { label: 'Nothing below 10 Hz', ask: () => ({ kind: 'floor', params: { hz: 10 } }) },
@@ -64,9 +64,22 @@ interface Props {
   onChange: (asks: Ask[]) => void
   /** The magnitude chart's frequency range, for "ignore the chart's range". */
   chartRange: Range
+  /** Lets the next drag across the chart add a band to ignore; absent where there is no chart. */
+  onPickBand?: () => void
+  /** A drag on the chart is awaited. */
+  picking?: boolean
 }
 
-export function AdjustmentsEditor({ kinds, value, onChange, chartRange }: Props) {
+/** The frequency ranges a list of asks ignores, for shading on the chart. */
+export function bandsOf(asks: Ask[]): Range[] {
+  return asks.filter((a) => a.kind === 'exclude_band').map((a) => [Number(a.params?.low_hz), Number(a.params?.high_hz)] as Range)
+    .filter(([low, high]) => Number.isFinite(low) && Number.isFinite(high) && low < high)
+}
+
+/** An ask to ignore the band dragged across. */
+export const bandAsk = ([low, high]: Range): Ask => ({ kind: 'exclude_band', params: { low_hz: round(low), high_hz: round(high) } })
+
+export function AdjustmentsEditor({ kinds, value, onChange, chartRange, onPickBand, picking = false }: Props) {
   const names = Object.keys(kinds)
   const set = (i: number, ask: Ask) => onChange(value.map((a, j) => (j === i ? ask : a)))
   return (
@@ -113,6 +126,10 @@ export function AdjustmentsEditor({ kinds, value, onChange, chartRange }: Props)
         {names.length > 0 && (
           <button type="button" className="secondary small" onClick={() => onChange([...value, blankAsk(names[0]!, kinds[names[0]!])])}>
             Add an adjustment</button>
+        )}
+        {kinds.exclude_band && onPickBand && (
+          <button type="button" className="secondary small" aria-pressed={picking} onClick={onPickBand}>
+            {picking ? 'Drag across the chart…' : 'Pick a band on the chart'}</button>
         )}
         {PRESETS.map((preset) => {
           const ask = preset.ask(chartRange)

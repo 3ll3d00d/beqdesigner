@@ -1,14 +1,16 @@
 // Sending titles back (design/web-parity.md WP5): to review, design or extract, in the desktop's words
 // (model/worklist_revise.py CHOICES), now in one run job or for the next run. One title from its review, or the titles
 // selected on the Titles page.
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 
 import type { Schemas } from '../api/client'
 import { useRevise, useStatus } from '../api/hooks'
 import { FREQUENCY_RANGE, type Range } from '../chart/view'
 import { count } from '../format'
-import { AdjustmentsEditor, askProblem, type Ask, type KindSpec } from './AdjustmentsEditor'
+import { AdjustmentsEditor, askProblem, bandAsk, bandsOf, type Ask, type KindSpec } from './AdjustmentsEditor'
+
+const NO_BANDS: Range[] = []
 
 type To = Schemas['ReviseRequest']['to']
 
@@ -36,9 +38,16 @@ interface Props {
   asked?: Ask[]
   /** The chart's frequency range, for an adjustment that ignores it. */
   chartRange?: Range
+  /** Hands the page what to do with the next drag across the chart (null: stop waiting for one). */
+  onPick?: (take: ((range: Range) => void) | null) => void
+  /** A drag on the chart is awaited. */
+  picking?: boolean
+  /** The bands the asks ignore, for the page to shade on the chart. */
+  onBands?: (bands: Range[]) => void
 }
 
-export function ReviseDialog({ ids, name, published = false, onClose, onDone, asked = [], chartRange = FREQUENCY_RANGE }: Props) {
+export function ReviseDialog({ ids, name, published = false, onClose, onDone, asked = [], chartRange = FREQUENCY_RANGE,
+                              onPick, picking = false, onBands }: Props) {
   const revise = useRevise()
   const status = useStatus()
   const navigate = useNavigate()
@@ -53,6 +62,17 @@ export function ReviseDialog({ ids, name, published = false, onClose, onDone, as
   const run = now && to !== 'review'
   const sending = adjusting && to !== 'review'
   const problem = sending ? asks.map((a) => askProblem(a, kinds[a.kind])).find(Boolean) ?? '' : ''
+  const shaded = sending ? bandsOf(asks) : NO_BANDS
+  const shadedKey = JSON.stringify(shaded)
+  const page = useRef({ onBands, onPick })   // the page's latest callbacks, without making each render a change
+  useEffect(() => { page.current = { onBands, onPick } })
+  useEffect(() => {
+    page.current.onBands?.(JSON.parse(shadedKey) as Range[])
+  }, [shadedKey])
+  useEffect(() => () => {   // closed: nothing shaded, and no drag awaited
+    page.current.onBands?.([])
+    page.current.onPick?.(null)
+  }, [])
   function submit() {
     revise.mutate({ ids, to, reason: reason.trim(), run, ...(sending ? { adjustments: asks } : {}) }, {
       onSuccess: (outcome) => {
@@ -91,7 +111,11 @@ export function ReviseDialog({ ids, name, published = false, onClose, onDone, as
           </label>
           {!takes && <p className="muted">The designer lists no adjustments it takes (it is older than contract 1.5, or
             it cannot be reached): it is asked nothing.</p>}
-          {adjusting && <AdjustmentsEditor kinds={kinds} value={asks} onChange={setAsks} chartRange={chartRange} />}
+          {adjusting && (
+            <AdjustmentsEditor kinds={kinds} value={asks} onChange={setAsks} chartRange={chartRange} picking={picking}
+                               onPickBand={onPick && (() => onPick(picking ? null
+                                 : (range) => setAsks((was) => [...was, bandAsk(range)])))} />
+          )}
           {!adjusting && asked.length > 0 && <p className="muted">The next design is asked what this one was: change it
             above.</p>}
         </div>

@@ -190,8 +190,7 @@ differently from the sketch: the entry's own design fields stay the **current** 
 the index and the desktop title page are unchanged) and `QueueEntry.variants` holds the others; a design is accepted
 from the current variant, so taking an earlier design is *Use this one*, then Accept. `adjusted_with` (what a design was
 made with) is kept apart from `adjustments` (what the next one is asked). The Titles filters on adjustments and
-variants followed the same day (`adjusted`, `unmet`, `several_runs`). Not built: picking a band by dragging on the
-chart (the *Ignore the chart's range* preset uses the zoomed range instead). Queuing per-title adjustments for one run is *Revise* without *Extract & design now*, then a run.
+variants followed the same day (`adjusted`, `unmet`, `several_runs`). So did picking a band by dragging on the chart. Queuing per-title adjustments for one run is *Revise* without *Extract & design now*, then a run.
 
 ### WP8 — Editing the chosen design's filters — done
 

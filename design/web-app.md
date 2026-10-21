@@ -185,7 +185,9 @@ boost and the RMS difference between our design's filtered average and the track
 shows `AdjustmentsEditor`: a list of asks, each a kind with the parameter inputs its spec gives (number, string or
 boolean, with unit and bounds checked by `askProblem()`; the designer still judges them) and an optional *Why*; *Add an
 adjustment* and presets for the kinds listed (ignore the chart's frequency range, +1 dB/oct, a 15 dB cap, nothing
-below 10 Hz). For one title it starts from the review's `adjustments`. The list goes as `ReviseRequest.adjustments`
+below 10 Hz), and *Pick a band on the chart*: the page then takes the magnitude chart's next drag as an `exclude_band`
+(`ReviewPage`'s `pickBand`, a prompt above the chart) instead of a zoom, and the bands asked for are shaded on it
+(`MagnitudeChart`'s `bands`, drawn in uPlot's `draw` hook). For one title it starts from the review's `adjustments`. The list goes as `ReviseRequest.adjustments`
 (`[]` asks for none; unticked, each title keeps its own).
 
 `VariantsPanel` lists the current design run (`variant_id`, `designed_at`, `adjusted_with` and each ask's outcome,

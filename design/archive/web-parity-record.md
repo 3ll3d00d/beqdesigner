@@ -161,3 +161,6 @@ frequencies; the full suite, 3379 passed, 1 skipped.
   them from the entry summary, `Selection`/`TitleFilter` filter on `adjusted`, `unmet` and `several_runs` (API 1.14.0),
   and `Title` carries them for the list's badges. Evidence: `test_pipeline_library_adjusted_filters.py` (7), the web
   test "filtering on adjustments and design runs".
+- **A band picked by dragging on the chart:** `AdjustmentsEditor` *Pick a band on the chart*, the next drag on the
+  magnitude chart becomes an `exclude_band`, the bands shaded (`MagnitudeChart` `bands`). Evidence: the web test "takes a
+  band to ignore from a drag across the chart".
