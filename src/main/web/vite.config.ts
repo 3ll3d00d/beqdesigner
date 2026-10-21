@@ -21,5 +21,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
     restoreMocks: true,
+    // above setup.ts's 5 s waits, so a wait that fails says what it waited for rather than that the test ran out
+    testTimeout: 15_000,
   },
 })
