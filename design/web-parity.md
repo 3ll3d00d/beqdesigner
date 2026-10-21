@@ -1,4 +1,4 @@
-# Web app parity — editing, visualisation, comparison and guided redesign
+# Web app parity — editing, visualisation, comparison and adjusted redesign
 
 **Document type:** Plan — **design, not built** (drafted 2026-10-20). TODO row **WP**, chunks WP0–WP8 below, all
 *Not started*. When a chunk lands, describe what was built in [web-app.md](web-app.md) (and
@@ -18,7 +18,7 @@ some things it cannot:
    toggles; the spectrogram (the publication heatmap and an interactive one); every design on one chart.
 3. **Compare** against other BEQs: published catalogue entries for the same title, overlaid on our chart and applied
    to our measured curves, and a redesign against the design it replaces.
-4. **Redesign on request**, selectively: one title or a chosen set, with instructions such as *ignore 28–34 Hz*,
+4. **Redesign with adjustments**, selectively: one title or a chosen set, with instructions such as *ignore 28–34 Hz*,
    *don't go below 8 Hz*, *cap the boost at 15 dB*, *tilt the goal +1 dB/oct* (a bass-boosted target), *only the
    parametric strategy* — whatever the designer says it supports.
 
@@ -35,7 +35,7 @@ own row later.
 - **Optimistic concurrency everywhere.** Every write sends back the digest it was read at (as `Decision` does with
   `offered_digest()`) and is refused with 409 *Changed since it was read* otherwise. Every write is refused while the
   title is in flight (review-over-http.md's rule).
-- **Authority unchanged.** Writes that touch only the queue entry (metadata, artwork, revise to review, design requests) need
+- **Authority unchanged.** Writes that touch only the queue entry (metadata, artwork, revise to review, discarding a variant) need
   only the token. Anything that touches the catalogue repositories (revising a published title, publish, commit) stays
   behind `allow_repository_writes`, as now.
 - **Contract first.** New routes go into `docs/schema/service.openapi.json` and `src/api/schema.d.ts` in the chunk that
@@ -54,7 +54,7 @@ own row later.
 | *Metadata* tab, TMDB reload, artwork, autosave, badge | Read-only line; Accept held back | WP4 |
 | Reopen / Revise (review, design, extract), retry, choose audio stream | *Redesign…* only (one id, design) | WP5 |
 | Open project (hand-edit filters in the main window) | No | WP8 |
-| Redesign on request | Neither | WP6, WP7 |
+| Redesign with adjustments, variants | Neither | WP6, WP7 |
 
 ## 4. Chunks
 
@@ -64,10 +64,9 @@ No user-visible change; the desktop keeps working exactly as before.
 
 - `pipeline/library/metadata_edit.py`: `field_texts`, `parse_audio_types`, `apply_changes`, `save_meta_changes`
   (returns the entry and whether it changed) and `metadata_digest(entry)`. `model/worklist_metadata.py` imports them.
-- `pipeline/library/catalogue.py`: `published_catalogue(cache_dir, refresh)` (download, size cap, atomic replace) and
-  `matching_entries` (from `model/worklist_catalogue.py`, already widget-free but under `model/`), plus
-  `catalogue_filter(entry) -> CompleteFilter` built from the catalogue's filter list. `model/catalogue.py`'s
-  `CatalogueEntry` is Qt-free in its data half; split it if it is not.
+- `pipeline/library/catalogue.py`: `matching_entries` (from `model/worklist_catalogue.py`, already widget-free but
+  under `model/`) and `catalogue_filter(filters) -> CompleteFilter` built from a catalogue filter list, plus the
+  on-demand reader WP3 uses (below). The desktop's full `database.json` download stays where it is.
 - `pipeline/library/spectrum.py`: `comparison_request()` / `render_comparison()` from `model/worklist_spectrum.py`
   (they already use only `pipeline.*` and `model.codec`).
 - Add each module to `test_qt_free_modules.py`. Tests: the existing `gui/test_worklist_metadata*.py`,
@@ -107,9 +106,12 @@ Two views, one data source.
   wav's stamp, the design's filter and the spec, and `ETag`ged.
 - **Interactive spectrogram (beyond):** `GET /v1/titles/{id}/spectrogram?candidate=N&filtered=bool` returns the
   time×frequency grid the heatmap is drawn from (`model.heatmap.spectrogram_data`), quantised to uint8 dB steps over a
-  stated range, as a compact binary body (`application/octet-stream` with a small JSON header, or JSON with base64 —
-  decide in the chunk by size on a 3-hour title) at a bounded resolution (≤ 2048 time bins × ≤ 512 frequency bins, the
-  service decimating). Same cache and 202 rule.
+  stated range, as a binary body (`application/octet-stream`, sent compressed): a fixed little-endian header (magic,
+  format version, time and frequency bin counts, first time and step, first frequency and step, dB floor and step)
+  then the grid, one byte per cell, time-major. No JSON or base64: the grid is the whole payload, so it is the smallest
+  form and decodes straight into a typed array for the canvas. Resolution is bounded (≤ 2048 time × ≤ 512 frequency
+  bins, the service taking the max over each time bin so short hits survive): at most 1 MiB before compression. Same
+  cache and 202 rule.
 - **Client:** a `Spectrogram` component drawing to `<canvas>` with a colour map matching `beq_dark`, linked zoom with
   the magnitude chart's x (frequency) axis, time zoom by drag, *unfiltered | filtered | difference* toggle, and a
   max-over-time strip (the "where are the heavy hits" view of `model/analysis.py`'s `MaxSpectrumByTime`). Lazy: fetched
@@ -120,19 +122,27 @@ Two views, one data source.
 
 ### WP3 — Comparison with published BEQs
 
-- **Service:** `GET /v1/titles/{id}/catalogue` — the matching catalogue entries (WP0's `matching_entries`, with the
-  "other tracks / editions" switch as `include_other=true`), each with author, edition, audio, the catalogue page URL
-  and its image URLs; `GET /v1/titles/{id}/catalogue/{entry}/chart` — that entry's filter response and our measured
-  average/peak **filtered by their filter**, on the same grid as WP1's chart; `POST /v1/catalogue/refresh` — refetch
-  `database.json` (a job; token only; the cache dir is the service's `--catalogue-dir`, default under the work dir).
-  Images are proxied through the service (`/v1/catalogue/image?url=`, allow-listed to the catalogue's hosts, cached) so
-  the browser needs no third-party access and the token-free page loads nothing external.
+- **On demand, not the whole catalogue.** `database.json` is 38 MB (15,512 entries); the service never downloads it.
+  beqcatalogue already publishes what a per-title lookup needs: `compare/titles.json` (1.1 MB: key, title, year,
+  content type, authors; keys end in the TMDB id, e.g. `film-10-cloverfield-lane_333371`) and `compare/<key>.json`
+  (about 1 KB: each author's entry with audio types, season/episode, edition and filters). The service fetches the
+  index with `If-None-Match` at most once a day, finds the title by TMDB id (then title and year, WP0's matching), and
+  fetches that title's file when a review asks, caching both under the work dir with their `ETag`s.
+- **beqcatalogue change (small, own repo):** add each entry's `catalogue_url`, `images` and `underlying` to
+  `compare/<key>.json` (written by `beqcatalogue/devices.py`), so the per-title file carries everything the panel shows.
+  Until it does, the panel shows filters and links to the compare page, without images.
+- **Routes:** `GET /v1/titles/{id}/catalogue` — the matching entries (with `include_other=true` for other tracks and
+  editions), each with author, edition, audio and links; `GET /v1/titles/{id}/catalogue/{key}/{n}/chart` — that
+  entry's filter response and our measured average/peak **filtered by their filter**, on the same grid as WP1's chart.
+  Images are proxied through the service (`/v1/catalogue/image?url=`, allow-listed to the catalogue's image hosts,
+  cached) so the page loads nothing from third parties.
 - **Client:** the *Published BEQs* tab lists matches; ticking one or more overlays, in WP1's workbench, their filter
   response (secondary axis) and *our track under their BEQ* beside *our track under our design*; their published
   image beside ours (WP2's heatmap). A difference trace (ours − theirs, filtered average) answers "how far apart are
   we" at a glance; a one-line summary per entry gives the max boost, the frequency it peaks at and the RMS difference
   across 5–40 Hz.
-- Tests: matching and the catalogue filter build (unit), the image proxy's allow-list and caching (service), the
+- Tests: matching and the catalogue filter build (unit), the index/file fetch with ETags against a fake server, the
+  image proxy's allow-list and caching (service), the
   overlay controls (web).
 
 ### WP4 — Metadata and artwork editing
@@ -172,27 +182,27 @@ Removes the biggest reason to go back to the desktop: a title whose metadata is 
   (`revise_text`, moved to the shared module if it is not already Qt-free), and a stream picker on the Playback line.
 - Tests: route rules per depth and status, the bulk outcome, the Titles selection and confirmation.
 
-### WP6 — Contract 1.5: design requests (both sides)
+### WP6 — Contract 1.5: design adjustments (both sides)
 
-A general protocol by which a caller **asks** for changes to a design and the designer **answers each ask**: honoured,
-adapted, declined or not understood, saying why. The designer stays free to react as it sees fit; the caller always
+A general protocol by which a caller **asks for adjustments** to a design and the designer **answers each one**:
+honoured, adapted, declined or not understood, saying why. The designer stays free to react as it sees fit; the caller always
 learns what was done with what it asked. This is the normal way a caller influences a design, not a carve-out.
 
 It replaces the reading of designer-interface.md §2 "What is deliberately absent" as "nothing may cross in". The
 concern that text protects is a designer *inferring* the caller's intent and shaping its answer silently; that stays
-ruled out. Restated for 1.5: **a designer acts on no unstated preference; a stated request is an input it weighs
+ruled out. Restated for 1.5: **a designer acts on no unstated preference; a stated adjustment is an input it weighs
 against the evidence and reports on.** §4's line is unchanged: a request can make a design weaker or narrower, and a
 designer may decline one that would have it publish what its evidence does not support (an excluded band that held the
-only rolloff, a boost where there is no content), saying so in the request's outcome.
+only rolloff, a boost where there is no content), saying so in that adjustment's outcome.
 
 - **Request (additive, optional):**
 
   ```python
-  requests: list[DesignAsk] | None = None   # 1.5
+  adjustments: list[DesignAdjustment] | None = None   # 1.5
 
   @dataclass(frozen=True)
-  class DesignAsk:
-      id: str               # the caller's, echoed in the outcome
+  class DesignAdjustment:
+      id: str               # the caller's, echoed in its outcome
       kind: str             # from the vocabulary below, or one a designer advertises; unknown kinds are allowed
       params: dict          # the kind's parameters
       text: str | None = None   # what the person said, for the designer's record and for kind 'note'
@@ -216,51 +226,63 @@ only rolloff, a boost where there is no content), saying so in the request's out
   beqforge already has internal dials for most of these (`DiagnoseParams.exclude_bands_hz`,
   `DesignParams.max_boost_db` / `lowest_frequency_hz` / `max_sections`, `--goal-tilt`, `--goal-tolerance`,
   `strategies`, `content_edge`); today they are server-wide settings, folded into `design_settings`.
-- **Response:** `request_outcomes: list[{id, outcome: 'honoured' | 'adapted' | 'declined' | 'not_understood',
-  applied: dict | None, reason: str | None}]` -- one per ask, `applied` the parameters actually used (after clamping,
-  for `adapted`), `reason` required for anything but `honoured`. A 1.5 designer answers every ask; an ask it does not
-  know is `not_understood`, never an error. A designer before 1.5 ignores `requests` (the 1.x rule: unknown request
+- **Response:** `adjustment_outcomes: list[{id, outcome: 'honoured' | 'adapted' | 'declined' | 'not_understood',
+  applied: dict | None, reason: str | None}]` -- one per adjustment, `applied` the parameters actually used (after clamping,
+  for `adapted`), `reason` required for anything but `honoured`. A 1.5 designer answers every adjustment; one it does not
+  know is `not_understood`, never an error. A designer before 1.5 ignores `adjustments` (the 1.x rule: unknown request
   fields are ignored) and returns no outcomes, which the caller shows as *not acknowledged by this designer*.
-  A declined ask does not decline the design: the design is the designer's best answer to the asks it did act on.
-- **Discovery (advisory):** `GET /health` adds `request_kinds: {kind: {params: {name: {type, unit, min, max,
+  A declined adjustment does not decline the design: the design is the designer's best answer to the adjustments it
+  did act on.
+- **Discovery (advisory):** `GET /health` adds `adjustment_kinds: {kind: {params: {name: {type, unit, min, max,
   default}}, description}}`. The caller builds its form from it, so a new kind needs no caller release, but discovery
   only informs: the caller may still send a kind the designer did not list (a `note`, or a kind newer than the health
   it read), and the outcome says what happened.
 - **Who asks:** the protocol does not care. The caller records provenance on its side: a person on the review page, a
   bulk revise, or (later, if wanted) a profile default sent with every request.
-- **Identity:** the asks are part of the request, like the audio; not part of `design_settings` (server-wide). The
-  caller adds a canonical digest of the asks sent to the entry's `design_fingerprint`, so the design cache never serves
-  an answer to different asks, and a redesign-by-version sends the stored asks again. A request with no asks must
+- **Identity:** the adjustments are part of the request, like the audio; not part of `design_settings` (server-wide). The
+  caller adds a canonical digest of the adjustments sent to the entry's `design_fingerprint`, so the design cache never serves
+  an answer to different adjustments, and a redesign-by-version sends the variant's adjustments again. A request with no adjustments must
   design exactly as 1.4 did (golden test both sides; no `design_version` bump unless a default changes).
-- **Caller storage:** `QueueEntry.requests` (each ask with who, when and why) and `request_outcomes` (the designer's
-  answers). `revise_entry(to='design', requests=…)` sets them; *Clear requests* removes them and marks the design stale.
-  Kept across re-extraction.
-- **Work:** designer-interface.md §2 (the restated rule, `requests`), §3 (`request_outcomes`), §4 (declining an ask vs
+- **Caller storage:** see *Variants* in WP7: the adjustments sent and the designer's outcomes are stored with the
+  variant they produced, permanently. Kept across re-extraction.
+- **Work:** designer-interface.md §2 (the restated rule, `adjustments`), §3 (`adjustment_outcomes`), §4 (declining an adjustment vs
   declining the design), §7 (health) and the conformance spec; `pipeline/designer` (request, health, outcome parsing),
   the fingerprint, `QueueEntry`, the service models; beqforge implements the vocabulary it can and advertises it (a
   handoff in its own `TODO.md`/`plans/`).
 - Tests: conformance (each outcome kind, an unknown kind answered `not_understood`, a pre-1.5 designer ignoring the
-  field), fingerprint changes with asks and not without, cache separation, replay on redesign-by-version.
+  field), fingerprint changes with adjustments and not without, cache separation, replay on redesign-by-version.
 
-### WP7 — Guided redesign in the browser
+### WP7 — Adjusted redesign and variants in the browser
 
-- **Revise… with requests:** WP5's dialog gains a *Requests* section built from the designer's advertised kinds
-  (WP6): numbers with their units and bounds, band lists, strategy checkboxes, and always a free-text note. Presets for
-  the common asks (*ignore a band*, *bass boost +N dB/oct*, *cap the boost*, *higher content edge*) add those asks; the
-  person sees the exact asks that will be sent.
+- **Variants.** A title holds **several design variants**, not one set of designs. A variant is one design run's
+  result: its designs (candidates and rejected), the adjustments sent (each with who asked, when and why), the
+  designer's outcome for each, the designer and its identity (1.4), the extraction it was designed from, and when.
+  The first unadjusted design is variant 1; each redesign adds one rather than replacing what is there.
+  `QueueEntry.variants` replaces the entry's single `candidates`/`rejected` (migrated: today's designs become variant 1
+  with no adjustments), with `current_variant` naming the one the review page opens on; `offered`, the digest and the
+  decision rules work within the current variant, and accepting records `(variant, design)`.
+- **Persistent.** A variant's adjustments are never edited or dropped by the service: redesign-by-version, a re-extract
+  or a revise to review all keep them. Re-running a variant (*Redesign this variant*) sends the same adjustments again
+  and adds a new variant, so the earlier answer stays for comparison. A variant goes only when a person discards it
+  (*Discard variant…*, digest-checked, refused for the accepted or published variant).
+- **Pick between them.** The review page has a variant selector (number, adjustments in one line, designer, date, how
+  many designs, the outcome summary) beside the design list; WP1's workbench overlays designs from any variants at
+  once (one line style per variant), so a person compares across variants and accepts any design in any of them.
+- **Revise… with adjustments:** WP5's dialog gains an *Adjustments* section built from the designer's advertised kinds
+  (WP6): numbers with their units and bounds, band lists, strategy checkboxes, and always a free-text note. It starts
+  from the current variant's adjustments (to tweak them) or empty. Presets for the common ones (*ignore a band*,
+  *bass boost +N dB/oct*, *cap the boost*, *higher content edge*); the person sees exactly what will be sent.
 - **Pick on the chart:** with the dialog open, drag on the magnitude chart (or the spectrogram) to add an excluded
-  frequency band, or a time range on the spectrogram for `exclude_times_s`; the bands are shaded on both views.
-- **Selective, in bulk:** from the Titles selection (WP5), the same asks sent for every selected title, or *per-title*
-  asks queued one at a time from each review page and then **Run the titles with requests** as one job
-  (`needs` design, filter `with_requests=true`).
-- **See what it did:** the review page lists each ask with its outcome (honoured / adapted with what was used /
-  declined or not understood with the designer's reason), and a
-  **Previous design** comparison: before a guided (or any) redesign replaces the entry's designs, the service keeps the
-  last set as `QueueEntry.previous` (designs, chosen index, asks and outcomes, designer identity, when) — one level of history —
-  and WP1's workbench overlays it, dashed, against the new ones. *Restore previous* puts it back without a design run
-  (a revise of its own, digest-checked).
-- **Filter on the Titles page:** *With requests* (any, yes, no) and *Requests not honoured* (any ask declined, not understood or not acknowledged).
-- Tests: the form from a capability fixture, chart band picking, bulk submit, previous-design comparison and restore.
+  frequency band, or a time range on the spectrogram for `exclude_times`; the ranges are shaded on both views.
+- **Selective, in bulk:** from the Titles selection (WP5), the same adjustments sent for every selected title, or
+  per-title adjustments queued from each review page and then **Run the queued variants** as one job (`needs` design,
+  filter `pending_variant=true`).
+- **See what it did:** the variant lists each adjustment with its outcome (honoured / adapted with what was used /
+  declined or not understood with the designer's reason).
+- **Filter on the Titles page:** *Variants* (one, several), *Adjusted* (any, yes, no) and *Adjustments not honoured*
+  (any declined, not understood or not acknowledged).
+- Tests: the variants migration and its round trip, decisions within a variant, discard rules, replay keeping the
+  adjustments, the form from a capability fixture, chart range picking, bulk submit, cross-variant overlay.
 
 ### WP8 — Editing the chosen design's filters
 
@@ -268,7 +290,8 @@ The desktop does this by opening the `.beq` project in the main window; the brow
 
 - **Service:** `GET /v1/titles/{id}/projects` (`worklist_projects.py`'s states, moved down in WP0: mono/multichannel,
   *modified since design*), and `PUT /v1/titles/{id}/design/{n}/filters` `{digest, filters}` — an edited copy of a
-  design, stored as a new offered design marked `edited_from: n` (the designer's original stays for comparison), its
+  design, stored as a new variant whose one design is marked `edited_from: (variant, n)` and whose adjustments record
+  the edit (so it persists, is compared and discarded like any other variant), its
   filters validated with the same rules as a designer's `BiquadSpec` (§5: types, ranges, stability, the device's slot
   budget) and realised at the entry's `fs`. Accepting it writes the projects through the existing hash gate, so a later
   redesign still respects hand edits.
@@ -296,9 +319,10 @@ in parallel, since it needs beqforge's side.
 ## 6. Open questions
 
 1. **The restated §2 rule** (WP6): agree the wording with beqforge before building either side.
-2. **Which kinds first.** Proposed minimum: `exclude_band`, `floor`, `max_boost`, `goal_tilt`, `note`.
+2. **Which adjustment kinds first.** Proposed minimum: `exclude_band`, `floor`, `max_boost`, `goal_tilt`, `note`.
    `exclude_times` interacts with `coverage` (a complete programme with stretches excluded is no longer quite one);
    decide whether the designer reports it as an excerpt.
-3. **Spectrogram transport** (binary vs JSON) and resolution: decide on a measured 3-hour title in WP2.
-4. **Catalogue cache on the service** — its own download, or a mounted copy of the desktop's `BEQ_DOWNLOAD_DIR`.
-5. **History depth** — one previous design set (proposed) or several.
+
+Decided 2026-10-21: the spectrogram is a binary uint8 grid (WP2); the catalogue is read per title on demand from
+beqcatalogue's `compare/` files (WP3); a title keeps every variant until a person discards it, and a variant's
+adjustments persist (WP7).

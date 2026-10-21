@@ -63,7 +63,7 @@ outside it. A beqforge version bump invalidates its bundled optimiser seed
 | 23 | D3 | | by-reference §5 | Planned; optional, not started | Contract addition; beqforge coordination |
 | 24 | O2 | | former §9 reviewer questions | Behavior exists; acceptance decision missing | Real reviewer feedback |
 | 25 | O1 | | D6 | Optional idea; no implementation decision | Product decision |
-| 26 | WP | | [web parity](web-parity.md) | Not started; chunks WP0-WP8 | WP6: beqforge agreement on contract 1.5 design requests |
+| 26 | WP | | [web parity](web-parity.md) | Not started; chunks WP0-WP8 | WP6: beqforge agreement on contract 1.5 design adjustments |
 
 E3 is outside the milestone only if E2's sample shows the documented DVD
 main-title fallback is truthful for the catalogue's discs; if it silently
@@ -194,7 +194,7 @@ close it after a few weeks without recurrence.
 
 Bring the browser app to and beyond the desktop title page: metadata/artwork/stream/revise editing, a chart workbench
 (zoom, limits, smoothing, normalisation), spectrograms, comparison with published BEQs, filter editing, and selective
-redesign on request: a caller asks, the designer answers each ask (contract 1.5). Chunks, order and open questions are in
+redesign on request: a caller sends adjustments, the designer answers each one, and every variant is kept (contract 1.5). Chunks, order and open questions are in
 [web-parity.md](web-parity.md) (plan, not built).
 
 **Done when:** every chunk there is built, tested and described in web-app.md, and web-app.md §1 no longer lists
