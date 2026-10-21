@@ -48,6 +48,17 @@ def managers():
         manager.stop(grace_seconds=5)
 
 
+
+def _saved_jobs(state_dir):
+    '''
+    The job history as written, by id; None while it cannot be read: on Windows the manager's os.replace may be swapping
+    the file in as the test opens it (PermissionError), and a test reads it without the manager's lock.
+    '''
+    try:
+        return {job['id']: job for job in json.loads((state_dir / 'jobs.json').read_text())}
+    except (PermissionError, FileNotFoundError, ValueError):
+        return None
+
 def test_jobs_run_one_at_a_time_in_the_order_they_were_asked(managers):
     gate = Gate()
     manager = managers(gate)
@@ -231,7 +242,8 @@ def test_only_the_latest_finished_jobs_are_kept(managers, tmp_path):
     _until(lambda: jobs[-1].finished)
 
     assert [job.id for job in manager.jobs()] == [jobs[3].id, jobs[2].id]
-    assert len(json.loads((tmp_path / 'jobs.json').read_text())) == 2
+    _until(lambda: _saved_jobs(tmp_path) is not None)
+    assert len(_saved_jobs(tmp_path)) == 2
 
 
 def test_a_damaged_history_is_ignored(managers, tmp_path):
@@ -342,5 +354,7 @@ def test_a_joined_job_is_kept_in_the_history_with_the_run_it_joined(managers, tm
     run.release.set()
     _until(lambda: joined.finished)
 
-    saved = {job['id']: job for job in json.loads((tmp_path / 'jobs.json').read_text())}
+    # the host finishes a moment after the job that joined it, and its history is written after that
+    _until(lambda: {joined.id, host.id} <= {i for i, j in (_saved_jobs(tmp_path) or {}).items() if j['finished_at']})
+    saved = _saved_jobs(tmp_path)
     assert saved[joined.id]['joined_to'] == host.id and saved[host.id]['joined_to'] is None

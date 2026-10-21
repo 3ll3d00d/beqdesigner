@@ -5,6 +5,7 @@ run has in hand, and an edit made against metadata that has changed since.
 '''
 import base64
 import io
+import os
 import json
 
 import pytest
@@ -155,7 +156,8 @@ def test_an_image_sent_is_kept_in_the_art_cache_and_served(service):
                                                       'data_base64': base64.b64encode(_png()).decode()}, headers=AUTH)
     assert answer.status_code == 200, answer.text
     assert answer.json()['artwork'] == {'present': True, 'overridden': True, 'name': 'a.png'}
-    assert read_entry(queue, 'a').art_path.endswith('_art_cache/a.png')
+    kept = read_entry(queue, 'a').art_path
+    assert os.path.basename(kept) == 'a.png' and os.path.basename(os.path.dirname(kept)) == '_art_cache'   # any OS's separator
     served = client.get('/v1/titles/a/artwork', headers=AUTH)
     assert served.status_code == 200 and served.headers['content-type'] == 'image/png' and served.content == _png()
 
