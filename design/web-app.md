@@ -9,10 +9,9 @@ chunk records and evidence, is [archive/web-review.md](archive/web-review.md). T
 ## 1. Goal
 
 A browser app, served by the pipeline service itself, giving a basic view of what the desktop work list and title page
-do: the workload and its status, starting and following jobs, and deciding each title's design. Publishing and
-committing accepted titles are offered behind the service's `allow_repository_writes`. Metadata editing, TMDB and
-artwork, Revise/Reopen, projects, the profile and Review Folder stay in the desktop app; a title whose metadata is
-incomplete says what is missing and holds Accept back.
+do: the workload and its status, starting and following jobs, deciding each title's design, and editing its metadata
+and artwork (with TMDB). Publishing and committing accepted titles are offered behind the service's
+`allow_repository_writes`. Revise/Reopen, projects, the profile and Review Folder stay in the desktop app.
 
 ## 2. Decision rules are shared
 
@@ -108,7 +107,7 @@ message. Tests: `test_pipeline_library_decide.py`.
   - *Review*: the title, its status, what it needs; the designs (rejected ones listed apart, with how many reasons),
     commentary of the one highlighted (or the decline; full width under the designs and chart), the playback chain and
     designer, the metadata as one line under the heading (content type, audio types, genres by name) and what it lacks,
-    and the chart with its controls (§4.1). *Accept design N*, *Reject* and *Skip*, with keys A, R, S, and 1–9 to highlight a design; the keys
+    the chart with its controls (§4.1), and *Edit metadata and artwork* (§4.2). *Accept design N*, *Reject* and *Skip*, with keys A, R, S, and 1–9 to highlight a design; the keys
     stand aside while a text field has focus. A blocked decision is disabled and says why. Accepting a rejected design
     asks first, with the designer's reasons, and sends `override_rejection`. A refused decision shows the service's
     reason and the title as it is now. After a decision, or Skip, `GET /v1/review/next` in the same filtered list opens
@@ -141,6 +140,19 @@ read, defaults when storage refuses) and changed by `ChartControls`:
 
 Every series is placed on the frequencies of the one with the most points in range, the others interpolated
 (`chartData()`). *Reset view* restores the defaults.
+
+### 4.2 Metadata and artwork
+
+`MetadataPanel` edits a title as the desktop's Metadata tab does, over `PATCH /v1/titles/{id}/metadata`, the TMDB and
+the artwork routes ([pipeline-service.md](pipeline-service.md) §6.1). Its fields come from `GET /v1/metadata/fields`
+(Essentials, then *More* folded): text, the audio types as checkboxes over a comma-separated text (values not offered
+are kept), language and source typed or picked. A field is saved when it is left, on Enter or *Save*: only the fields
+typed, with the review's `metadata_digest`. A 409 *Changed since it was read* reads the review again and keeps what was
+typed, to be saved against what is there now. *Revert* (which does not take the focus, so leaving the field does not
+save it first) throws away what is unsaved. *Reload from TMDB* fills the form and the extras (genres, overview,
+collection) unsaved; it is disabled when `/v1/status` says `tmdb` is false. The poster is fetched as a blob (an `<img>`
+cannot send the token); upload (read as base64), download from an address, and clear answer with the review. Problems
+`metadata_problems` lists are shown and their fields marked; a run with the title in hand disables the form.
 
 ## 5. Build and delivery
 

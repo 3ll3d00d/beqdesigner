@@ -6,7 +6,7 @@ import { http, HttpResponse } from 'msw/http'
 
 import { saveToken } from '../api/token'
 import { chartData, FREQUENCY_RANGE, resample } from '../components/MagnitudeChart'
-import { candidate, chart, index, review, runJob, title } from '../test/fixtures'
+import { candidate, chart, index, METADATA_FIELDS, review, runJob, title } from '../test/fixtures'
 import { renderApp } from '../test/render'
 import { server, status, statusRoute, TOKEN } from '../test/server'
 
@@ -35,6 +35,7 @@ function reviewRoutes(over: Parameters<typeof review>[0] = {}, nextId: string | 
   server.use(
     statusRoute(status({ index: index() })),
     http.get('/v1/titles/a/review', () => json(review(over))),
+    http.get('/v1/metadata/fields', () => json(METADATA_FIELDS)),
     http.get('/v1/titles/a/chart', ({ request }) => {
       const asked = new URL(request.url).searchParams.get('candidate')
       charts.push(asked)
@@ -292,7 +293,7 @@ describe('reviewing a title', () => {
     expect(within(screen.getByRole('list', { name: 'Rejected designs' })).getByText(/1 reason/)).toBeInTheDocument()
     expect(screen.getByText('top pick')).toBeInTheDocument()
     expect(screen.getByText('shelf at 20 Hz')).toBeInTheDocument()
-    expect(screen.getByText('DTS-HD MA 5.1')).toBeInTheDocument()
+    expect(screen.getByLabelText('Metadata')).toHaveTextContent('DTS-HD MA 5.1')
     expect(screen.getByText(/Designed by rolloff \(beqforge 0.2.0\)/)).toBeInTheDocument()
     await waitFor(() => expect(drawn.length).toBeGreaterThan(0))
     expect(charts).toContain('0')
@@ -388,7 +389,8 @@ describe('reviewing a title', () => {
     renderApp('/titles/a')
     expect(await screen.findByRole('button', { name: 'Accept design 1' })).toBeDisabled()
     expect(screen.getByText(/^Accept: Fill in the missing metadata first/)).toBeInTheDocument()
-    expect(screen.getByRole('note')).toHaveTextContent('audio types are missing')
+    expect(screen.getByRole('note')).toHaveTextContent('fix it in the Metadata panel')
+    expect(screen.getByLabelText('What the metadata lacks')).toHaveTextContent('audio types are missing')
     expect(screen.getByRole('button', { name: 'Reject' })).toBeEnabled()
   })
 

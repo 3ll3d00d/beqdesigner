@@ -6,8 +6,11 @@ The rules are the title page's (its module docstring has the why): an edit is me
 now**, only the keys a person touched; a blank field unsets its key (`REMOVE`) so a default applies again, except episodes,
 where a blank is a real "no episodes" (`[]`); a change of the season or the TMDB id drops the TMDB season a run looked up.
 '''
+import hashlib
+import json
 import logging
 import traceback
+from dataclasses import dataclass
 from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 import requests
@@ -33,6 +36,56 @@ SOURCES = ('Disc', 'Apple TV+', 'Amazon', 'DC Universe', 'Disney+', 'HBOMax', 'H
 LANGUAGES = ('English', 'Danish', 'French', 'German', 'Italian', 'Norwegian', 'Portuguese', 'Russian', 'Spanish',
              'Arabic', 'Farsi', 'Hebrew', 'Turkish', 'Hindi', 'Tamil', 'Telugu', 'Bengal', 'Cantonese', 'Japanese',
              'Korean', 'Mandarin', 'Indonesian', 'Thai', 'Vietnamese', 'Swahili', 'Mayan')
+
+
+@dataclass(frozen=True)
+class FieldSpec:
+    ''' One metadata field as a form shows it: the title page's labels and tips, for the service's browser form. '''
+    key: str
+    label: str
+    group: str                 # 'essentials' or 'more'
+    tip: str = ''
+    kind: str = 'text'         # 'text'; 'choices' (several from `choices`); 'choice' (one, typed or from `choices`)
+    choices: Tuple[str, ...] = ()
+
+
+FIELD_SPECS = (
+    FieldSpec('title', 'Title', 'essentials', 'The title as the catalogue shows it. Required.'),
+    FieldSpec('year', 'Year', 'essentials', 'Release year (first air year for a series). Required.'),
+    FieldSpec('audio_types', 'Audio types', 'essentials', 'The audio formats this filter is for. At least one is required.',
+              'choices', AUDIO_TYPES),
+    FieldSpec('edition', 'Edition', 'essentials', "e.g. Director's Cut"),
+    FieldSpec('season', 'Season', 'essentials', 'The season number, for a TV series. Blank if not a TV show. Changing it '
+                                                'drops the TMDB season id a run looked up.'),
+    FieldSpec('episodes', 'Episodes', 'essentials', 'The episodes of that season this filter covers, e.g. 1-8 or 1-3, 5. '
+                                                    'Blank if not a TV show.'),
+    FieldSpec('note', 'Note', 'essentials', 'A note shown with the filter in the catalogue.'),
+    FieldSpec('warning', 'Warning', 'essentials', 'A warning shown with the filter in the catalogue.'),
+    FieldSpec('the_movie_db', 'TMDB id', 'essentials', 'The TMDB id. With one, Reload fetches that title; without, it '
+                                                       'searches by title and year.'),
+    FieldSpec('alt_title', 'Alt title', 'more', 'The original or alternative title.'),
+    FieldSpec('sort_title', 'Sort title', 'more', 'How the title sorts. Blank: the title, lower case, without a leading '
+                                                  '"the".'),
+    FieldSpec('language', 'Language', 'more', 'Blank: the default from the sync settings, else English.', 'choice',
+              LANGUAGES),
+    FieldSpec('source', 'Source', 'more', 'Blank: the default from the sync settings, else Disc.', 'choice', SOURCES),
+    FieldSpec('rating', 'Rating', 'more'),
+    FieldSpec('author', 'Author', 'more'),
+    FieldSpec('avs', 'AVS post', 'more', 'The AVS Forum post URL.'),
+    FieldSpec('runtime', 'Runtime', 'more', 'Minutes.'),
+    FieldSpec('gain', 'Gain', 'more', "The master volume adjustment published with the filter. Blank: the chosen "
+                                      "candidate's."),
+)
+assert tuple(f.key for f in FIELD_SPECS) == TEXT_FIELDS
+
+
+def metadata_digest(entry: QueueEntry) -> str:
+    '''
+    What an edit of a title's metadata or artwork was made against: a hash of its `meta`, `art_path` and `art_overridden`.
+    A write that names another digest was made against something that has changed since (a run, another person).
+    '''
+    seen = json.dumps([entry.meta, entry.art_path, entry.art_overridden], sort_keys=True, default=str)
+    return hashlib.sha256(seen.encode('utf-8')).hexdigest()[:32]
 
 
 def field_texts(meta: Mapping[str, Any]) -> Dict[str, str]:

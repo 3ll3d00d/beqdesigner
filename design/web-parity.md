@@ -120,25 +120,11 @@ Two views, one data source.
   image proxy's allow-list and caching (service), the
   overlay controls (web).
 
-### WP4 — Metadata and artwork editing
+### WP4 — Metadata and artwork editing — done
 
-Removes the biggest reason to go back to the desktop: a title whose metadata is incomplete can be fixed and accepted.
-
-- **Service:** `PATCH /v1/titles/{id}/metadata` with `{digest, changes}` (`metadata_edit.save_meta_changes`; refused in flight,
-  409 on a changed digest, 422 with the field when a value is invalid); `Review` gains `metadata_digest` and the
-  editable fields with their typed choices (content type, audio types, genres) so the form is built from data, not
-  duplicated. `POST /v1/titles/{id}/metadata/tmdb` — TMDB reload (the service's `--tmdb-api-key` / `BEQ_TMDB_API_KEY`;
-  the key redacted from any error, as the desktop's review fix does); returns proposed values, the client shows the
-  difference and the person applies them through the PATCH. `PUT /v1/titles/{id}/artwork` — choose from TMDB posters,
-  a URL (downloaded by the service with the desktop's image checks, `worklist_artwork.py` moved down in WP0), an upload
-  (size- and type-checked), or clear; `GET /v1/titles/{id}/artwork` serves the current one.
-- **Client:** a *Metadata* panel on the review page: Essentials and More, the missing fields highlighted (the same
-  `metadata_problems()` list), autosave on blur with a visible saved/saving/failed state, *Discard* to the read values,
-  and the poster with *Change…*. Accept stays held back until `metadata_problems` is empty, now with a link to the
-  field instead of "use the desktop app".
-- `metadata_hint` for the service changes from "the app" to the panel; web-app.md §1's "stay in the desktop app" list
-  shrinks accordingly.
-- Tests: route rules (digest, in flight, validation, TMDB key redaction), form round trip, autosave, the Accept gate.
+Built 2026-10-21; described in [web-app.md §4.2](web-app.md#42-metadata-and-artwork) and the route table of
+[pipeline-service.md](pipeline-service.md), record in [archive/web-parity-record.md](archive/web-parity-record.md#wp4).
+Choosing among TMDB's posters is not built: a poster's address can be pasted into *Download*.
 
 ### WP5 — Revise, retry and stream choice
 

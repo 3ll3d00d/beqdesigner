@@ -23,6 +23,7 @@ from pipeline.library.bass import describe as describe_bass_management
 from pipeline.library.decide import DECISION_FROM, STATUS_WORDS, DecisionRefused, decide, decision_blocked, \
     next_waiting_id, offered_digest
 from pipeline.library.index import IndexFileError, LibraryIndex
+from pipeline.library.metadata_edit import field_texts, metadata_digest
 from pipeline.library.review_chart import SMOOTHING, workbench_curves
 from pipeline.library.selection import plan_stages
 from pipeline.library.status import metadata_problems
@@ -35,14 +36,15 @@ from pipeline.service.jobs import FINISHED, AcceptRequest, JobFinished, JobManag
 from pipeline.service.scheduler import AutoScheduler
 from pipeline.service.lease import read_lease
 from pipeline.service.notify import Notifier
+from pipeline.service import edits
 from pipeline.service.refresh import IndexRefresher
-from pipeline.review import fit_text, has_measured_fit, read_entry
+from pipeline.review import entry_art_path, fit_text, has_measured_fit, read_entry
 
 PROBLEM_JSON = 'application/problem+json'
 
 # how a title that needs a run gets one, said where the service is asked (decision_blocked's run_hint)
 RUN_FROM_JOBS = 'Run it through design first (POST /v1/jobs/run).'
-METADATA_IN_APP = 'in the BEQDesigner app'   # metadata is not edited over HTTP
+METADATA_IN_APP = 'in the Metadata panel, or the BEQDesigner app'   # PATCH /v1/titles/{id}/metadata
 DECISION_REFUSED = {'changed': 'Changed since it was read', 'blocked': 'Not offered now',
                     'metadata': 'Metadata incomplete', 'override': 'The designer rejected this design'}
 
@@ -454,7 +456,13 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
             metadata=dict(entry.meta), metadata_problems=problems,
             blocked=models.Blocked(accept=blocked('accept'), reject=blocked('reject')), in_flight=running,
             playback=describe_bass_management(entry.bass_management), designer=entry.designer,
-            designer_build=entry.designer_build, needs=row.needs, detail=row.detail, reviewer_note=entry.reviewer_note)
+            designer_build=entry.designer_build, needs=row.needs, detail=row.detail, reviewer_note=entry.reviewer_note,
+            metadata_digest=metadata_digest(entry), metadata_texts=field_texts(entry.meta), artwork=artwork_state(settings, entry))
+
+    def artwork_state(settings, entry) -> models.ArtworkState:
+        path = entry_art_path(entry, settings.work_dir or None)
+        return models.ArtworkState(present=bool(path) and os.path.isfile(path), overridden=entry.art_overridden,
+                                   name=os.path.basename(path) if path else None)
 
     @v1.get('/titles/{title_id}/review', response_model=models.Review, tags=['review'],
             summary='What a person decides a title on: its designs, metadata problems and what is offered',
@@ -519,6 +527,10 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
             raise ServiceProblem(503, 'Not saved', f'{title_id}: {type(error).__name__}: {error}')
         refresher.request()   # the index learns of it by reading the outputs again (pipeline/service/refresh.py)
         return review_model(ctx, settings, row, written)
+
+    edits.register(v1, edits.EditRoutes(context=context, read_index=read_index, review_row=review_row,
+                                         review_entry=review_entry, in_flight=in_flight, review_model=review_model,
+                                         refresh=refresher.request, problem=ServiceProblem, responses=_responses))
 
     @v1.get('/review/next', response_model=models.NextTitle, tags=['review'],
             summary='The next title waiting for a decision after one, in the filtered list (wrapping round)',

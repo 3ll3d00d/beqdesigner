@@ -246,6 +246,12 @@ Every request and response body is a named pydantic model in
 | `GET /v1/titles/{id}/chart` | query `candidate` or `candidates` (`all`, or indexes), `smoothing`, `responses` → `Chart` | measured curves, and after each design asked for (`ChartSeries.candidate`), with each one's response (`kind` filter) when asked; the main window's smoothing (`review_chart.SMOOTHING`) of all but the responses; 422 no such design, both `candidate` and `candidates`, an unknown smoothing or one a curve is too sparse for |
 | `POST /v1/titles/{id}/decision` | `Decision` → `Review` | §6.8; 409 refused (why in `title`/`detail`), 422 invalid |
 | `GET /v1/review/next` | query `after` + `TitleFilter` → `NextTitle` | 204 when no other title in the list waits |
+| `GET /v1/metadata/fields` | → `MetadataField[]` | `metadata_edit.FIELD_SPECS`: the title page's fields, labels, tips and choices |
+| `PATCH /v1/titles/{id}/metadata` | `MetadataEdit` → `Review` | `metadata_edit.changes_from_texts()` then `save_meta_changes()` (only the fields sent, merged into the entry on disk); 409 `In flight` or `Changed since it was read` (the `metadata_digest` differs), 422 not an edit; the index refreshed after |
+| `POST /v1/titles/{id}/metadata/tmdb` | `TmdbLookup` → `TmdbProposal` | `tmdb_reload()`/`tmdb_fill()`, nothing saved; 409 no `TMDB_API_KEY`, 502 TMDB failed (the key redacted) |
+| `GET /v1/titles/{id}/artwork` | → image | `entry_art_path()`; 404 none |
+| `PUT /v1/titles/{id}/artwork` | `ArtworkChoice` → `Review` | `url` downloaded or `data_base64` stored in `<queue>/_art_cache/` (`artwork_edit`: png or jpeg only, 20 MB), `art_overridden`; 409 as metadata, 422 not an image |
+| `DELETE /v1/titles/{id}/artwork` | query `digest` → `Review` | clears it; a later run may choose one again |
 | `GET /openapi.json`, `/docs`, `/redoc` | | the interface and its try-it-out page |
 
 Submitting returns `202` with the `Job` and `Location: /v1/jobs/{id}`. Errors

@@ -241,3 +241,79 @@ export function useDecide(id: string) {
     },
   })
 }
+
+// --- editing a title (design/web-parity.md WP4) ------------------------------------------------------------------------
+
+/** The metadata fields a title page edits, in order: they never change while the service runs. */
+export function useMetadataFields() {
+  const { client } = useAuth()
+  return useQuery({
+    queryKey: ['metadata-fields'],
+    queryFn: async () => unwrap(await client.GET('/v1/metadata/fields')),
+    staleTime: Infinity,
+  })
+}
+
+/** A write that answers with the title's Review: it replaces the one shown, and the list learns of it. */
+function useReviewWrite<T>(id: string, write: (body: T) => Promise<Schemas['Review']>) {
+  const queries = useQueryClient()
+  return useMutation({
+    mutationFn: write,
+    onSuccess: (review) => queries.setQueryData(keys.review(id), review),
+    onError: () => void queries.invalidateQueries({ queryKey: keys.review(id) }),   // show what is there now
+    onSettled: () => void queries.invalidateQueries({ queryKey: ['titles'] }),
+  })
+}
+
+export function useEditMetadata(id: string) {
+  const { client } = useAuth()
+  return useReviewWrite(id, async (body: Schemas['MetadataEdit']) =>
+    unwrap(await client.PATCH('/v1/titles/{title_id}/metadata', { params: { path: { title_id: id } }, body })))
+}
+
+export function useTmdbLookup(id: string) {
+  const { client } = useAuth()
+  return useMutation({
+    mutationFn: async (body: Schemas['TmdbLookup']) =>
+      unwrap(await client.POST('/v1/titles/{title_id}/metadata/tmdb', { params: { path: { title_id: id } }, body })),
+  })
+}
+
+export function useSetArtwork(id: string) {
+  const { client } = useAuth()
+  return useReviewWrite(id, async (body: Schemas['ArtworkChoice']) =>
+    unwrap(await client.PUT('/v1/titles/{title_id}/artwork', { params: { path: { title_id: id } }, body })))
+}
+
+export function useClearArtwork(id: string) {
+  const { client } = useAuth()
+  return useReviewWrite(id, async (digest: string) =>
+    unwrap(await client.DELETE('/v1/titles/{title_id}/artwork', { params: { path: { title_id: id }, query: { digest } } })))
+}
+
+/**
+ * The title's poster as an object URL (an <img> cannot send the token), fetched again when `version` changes; null while
+ * there is none. The URL is revoked when it is replaced or the page goes.
+ */
+export function useArtworkUrl(id: string, version: string | null) {
+  const { client } = useAuth()
+  const [url, setUrl] = useState<string | null>(null)
+  useEffect(() => {
+    if (version === null) return
+    let made: string | null = null
+    let live = true
+    void client.GET('/v1/titles/{title_id}/artwork', { params: { path: { title_id: id } }, parseAs: 'blob' })
+      .then((result) => {
+        if (!live || !result.response.ok || !(result.data instanceof Blob)) return
+        made = URL.createObjectURL(result.data)
+        setUrl(made)
+      })
+      .catch(() => {})
+    return () => {
+      live = false
+      if (made) URL.revokeObjectURL(made)
+      setUrl(null)
+    }
+  }, [client, id, version])
+  return version === null ? null : url
+}

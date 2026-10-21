@@ -17,7 +17,7 @@ from pipeline.service.jobs import MAX_REDESIGN_IDS, redesign_problem
 from pipeline.library.state import NEEDS, FLAG_DUPLICATE, FLAG_GONE, FLAG_IGNORED, FLAG_IN_CATALOGUE, FLAG_SHADOWED
 from pipeline.library.year import YEAR_PATTERN, YearRange, numeric_year
 
-API_VERSION = '1.6.0'
+API_VERSION = '1.7.0'
 
 
 class Needs(str, Enum):
@@ -303,8 +303,7 @@ class Review(BaseModel):
     chosen_index: Optional[int] = Field(description='The design accepted or published, into the designs offered.')
     declined: Optional[Decline] = Field(description='The designer found nothing to correct; its one candidate is flat.')
     metadata: Dict[str, Any]
-    metadata_problems: List[str] = Field(description='What publish would refuse: Accept is not offered until it is fixed '
-                                                     '(in the BEQDesigner app).')
+    metadata_problems: List[str] = Field(description='What publish would refuse: Accept is not offered until it is fixed.')
     blocked: Blocked
     in_flight: bool = Field(description='A run is working on this title now.')
     playback: str = Field(description='The playback chain the designer was told about.')
@@ -313,6 +312,57 @@ class Review(BaseModel):
     needs: Needs
     detail: str
     reviewer_note: Optional[str]
+    metadata_digest: str = Field('', description='What the metadata and artwork were read at: send it back with an edit, '
+                                                 'which is refused if they have changed since.')
+    metadata_texts: Dict[str, str] = Field({}, description='Each editable field as text, by key (`GET /v1/metadata/fields`).')
+    artwork: Optional['ArtworkState'] = None
+
+
+class ArtworkState(BaseModel):
+    present: bool = Field(description='The poster file is there to show (`GET /v1/titles/{id}/artwork`).')
+    overridden: bool = Field(description='A person chose it (or cleared it): a run never replaces it.')
+    name: Optional[str] = Field(None, description="The poster's file name.")
+
+
+Review.model_rebuild()
+
+
+class MetadataField(BaseModel):
+    key: str
+    label: str
+    group: Literal['essentials', 'more']
+    tip: str
+    kind: Literal['text', 'choice', 'choices'] = Field(description='`choices`: several of `choices`, as a comma-separated '
+                                                                   'text; `choice`: one, typed or picked.')
+    choices: List[str]
+
+
+class MetadataEdit(Input):
+    digest: str = Field(description="The Review's metadata_digest.")
+    texts: Dict[str, str] = Field({}, description='The fields changed, as typed, by key; a blank one unsets it (blank '
+                                                  'episodes mean none).')
+    extras: Dict[str, Any] = Field({}, description='What a TMDB reload filled that has no field of its own (overview, '
+                                                   'genres, collection), as the reload gave it.')
+
+
+class TmdbLookup(Input):
+    tmdb_id: Optional[str] = Field(None, description='Look this TMDB id up; else search by title and year.')
+    title: Optional[str] = None
+    year: Optional[str] = None
+    season: Optional[str] = Field(None, description='A season makes it a TV search.')
+
+
+class TmdbProposal(BaseModel):
+    found: bool
+    texts: Dict[str, str] = Field(description='The fields TMDB filled, as texts: apply them with a MetadataEdit.')
+    extras: Dict[str, Any] = Field(description='overview, genres and collection, to send back as MetadataEdit.extras.')
+    message: str
+
+
+class ArtworkChoice(Input):
+    digest: str = Field(description="The Review's metadata_digest.")
+    url: Optional[str] = Field(None, description='Download the png or jpeg image here (http or https).')
+    data_base64: Optional[str] = Field(None, description='Or use this png or jpeg image, base64-encoded (at most 20 MB).')
 
 
 class ChartSeries(BaseModel):

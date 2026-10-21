@@ -192,6 +192,76 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/metadata/fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The metadata fields a title page edits, in order, with their labels and choices */
+        get: operations["fields_v1_metadata_fields_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/titles/{title_id}/metadata": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change a title's metadata (refused if it changed since it was read, or a run has the title) */
+        patch: operations["edit_metadata_v1_titles__title_id__metadata_patch"];
+        trace?: never;
+    };
+    "/v1/titles/{title_id}/metadata/tmdb": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Look a title up on TMDB: what it would fill (nothing is saved) */
+        post: operations["tmdb_v1_titles__title_id__metadata_tmdb_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/titles/{title_id}/artwork": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A title's poster image */
+        get: operations["artwork_v1_titles__title_id__artwork_get"];
+        /** Set a title's poster: an image downloaded from a URL, or one sent */
+        put: operations["choose_artwork_v1_titles__title_id__artwork_put"];
+        post?: never;
+        /** Clear a title's poster (a later run may choose one again) */
+        delete: operations["clear_artwork_v1_titles__title_id__artwork_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/review/next": {
         parameters: {
             query?: never;
@@ -462,6 +532,42 @@ export interface components {
             below_threshold: number;
             /** Not For Review */
             not_for_review: number;
+        };
+        /** ArtworkChoice */
+        ArtworkChoice: {
+            /**
+             * Digest
+             * @description The Review's metadata_digest.
+             */
+            digest: string;
+            /**
+             * Url
+             * @description Download the png or jpeg image here (http or https).
+             */
+            url?: string | null;
+            /**
+             * Data Base64
+             * @description Or use this png or jpeg image, base64-encoded (at most 20 MB).
+             */
+            data_base64?: string | null;
+        };
+        /** ArtworkState */
+        ArtworkState: {
+            /**
+             * Present
+             * @description The poster file is there to show (`GET /v1/titles/{id}/artwork`).
+             */
+            present: boolean;
+            /**
+             * Overridden
+             * @description A person chose it (or cleared it): a run never replaces it.
+             */
+            overridden: boolean;
+            /**
+             * Name
+             * @description The poster's file name.
+             */
+            name?: string | null;
         };
         /**
          * AutoThrough
@@ -847,6 +953,52 @@ export interface components {
          * @enum {string}
          */
         Kind: "movie" | "tv";
+        /** MetadataEdit */
+        MetadataEdit: {
+            /**
+             * Digest
+             * @description The Review's metadata_digest.
+             */
+            digest: string;
+            /**
+             * Texts
+             * @description The fields changed, as typed, by key; a blank one unsets it (blank episodes mean none).
+             * @default {}
+             */
+            texts: {
+                [key: string]: string;
+            };
+            /**
+             * Extras
+             * @description What a TMDB reload filled that has no field of its own (overview, genres, collection), as the reload gave it.
+             * @default {}
+             */
+            extras: {
+                [key: string]: unknown;
+            };
+        };
+        /** MetadataField */
+        MetadataField: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /**
+             * Group
+             * @enum {string}
+             */
+            group: "essentials" | "more";
+            /** Tip */
+            tip: string;
+            /**
+             * Kind
+             * @description `choices`: several of `choices`, as a comma-separated text; `choice`: one, typed or picked.
+             * @enum {string}
+             */
+            kind: "text" | "choice" | "choices";
+            /** Choices */
+            choices: string[];
+        };
         /**
          * Needs
          * @enum {string}
@@ -1106,7 +1258,7 @@ export interface components {
             };
             /**
              * Metadata Problems
-             * @description What publish would refuse: Accept is not offered until it is fixed (in the BEQDesigner app).
+             * @description What publish would refuse: Accept is not offered until it is fixed.
              */
             metadata_problems: string[];
             blocked: components["schemas"]["Blocked"];
@@ -1129,6 +1281,21 @@ export interface components {
             detail: string;
             /** Reviewer Note */
             reviewer_note: string | null;
+            /**
+             * Metadata Digest
+             * @description What the metadata and artwork were read at: send it back with an edit, which is refused if they have changed since.
+             * @default
+             */
+            metadata_digest: string;
+            /**
+             * Metadata Texts
+             * @description Each editable field as text, by key (`GET /v1/metadata/fields`).
+             * @default {}
+             */
+            metadata_texts: {
+                [key: string]: string;
+            };
+            artwork?: components["schemas"]["ArtworkState"] | null;
         };
         /** RunJob */
         RunJob: {
@@ -1699,6 +1866,44 @@ export interface components {
          * @enum {string}
          */
         TitleSort: "title" | "year" | "kind" | "source" | "needs" | "detail" | "confidence" | "candidate_count" | "flags";
+        /** TmdbLookup */
+        TmdbLookup: {
+            /**
+             * Tmdb Id
+             * @description Look this TMDB id up; else search by title and year.
+             */
+            tmdb_id?: string | null;
+            /** Title */
+            title?: string | null;
+            /** Year */
+            year?: string | null;
+            /**
+             * Season
+             * @description A season makes it a TV search.
+             */
+            season?: string | null;
+        };
+        /** TmdbProposal */
+        TmdbProposal: {
+            /** Found */
+            found: boolean;
+            /**
+             * Texts
+             * @description The fields TMDB filled, as texts: apply them with a MetadataEdit.
+             */
+            texts: {
+                [key: string]: string;
+            };
+            /**
+             * Extras
+             * @description overview, genres and collection, to send back as MetadataEdit.extras.
+             */
+            extras: {
+                [key: string]: unknown;
+            };
+            /** Message */
+            message: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -2311,6 +2516,395 @@ export interface operations {
                 };
             };
             /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    fields_v1_metadata_fields_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetadataField"][];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    edit_metadata_v1_titles__title_id__metadata_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                title_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MetadataEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Review"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    tmdb_v1_titles__title_id__metadata_tmdb_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                title_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TmdbLookup"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TmdbProposal"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    artwork_v1_titles__title_id__artwork_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                title_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": unknown;
+                    "image/jpeg": unknown;
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    choose_artwork_v1_titles__title_id__artwork_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                title_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArtworkChoice"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Review"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    clear_artwork_v1_titles__title_id__artwork_delete: {
+        parameters: {
+            query: {
+                /** @description The Review's metadata_digest. */
+                digest: string;
+            };
+            header?: never;
+            path: {
+                title_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Review"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Error */
             422: {
                 headers: {
                     [name: string]: unknown;

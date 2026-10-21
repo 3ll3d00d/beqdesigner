@@ -117,6 +117,10 @@ Stopping it (Ctrl-C, or `SIGTERM`) lets the title in hand finish, then stops.
 | `GET /v1/titles/{id}/chart` | the title's measured curves, and the same after one design (`?candidate=`) or several (`?candidates=all` or `0,2`); `smoothing` (`1`-`24` for 1/N octave, `sg`) and `responses=true` (each design's own response) |
 | `POST /v1/titles/{id}/decision` | accept a design, or reject the title (see "Deciding a title" below) |
 | `GET /v1/review/next` | the next title waiting for a decision after one (`?after=`), in a filtered list |
+| `GET /v1/metadata/fields` | the metadata fields a title page edits, with their labels and choices |
+| `PATCH /v1/titles/{id}/metadata` | change a title's metadata: the fields changed, as typed, and the review's `metadata_digest` |
+| `POST /v1/titles/{id}/metadata/tmdb` | what TMDB would fill in (needs `TMDB_API_KEY`; nothing is saved) |
+| `GET`, `PUT`, `DELETE /v1/titles/{id}/artwork` | the title's poster; set it from a URL or an image sent (png or jpeg, base64); clear it |
 | `GET /health`, `/ready` | is it up; is it able to work |
 
 A run selects titles with the same filters as the work list, plus two it has no box for:
@@ -245,8 +249,14 @@ otherwise it lasts until the tab is closed. The token is checked with the servic
   title waiting in the same list opens. The rules are the app's title page's ("Deciding a title", above), and a decision
   that is not offered says why.
 
-Not in the browser: editing metadata, TMDB and artwork, *Revise*, projects, settings and Review Folder. Use the app for
-those; a title whose metadata is incomplete says what is missing. Publish and commit are offered only when the settings
+* **Metadata:** under the review, *Edit metadata and artwork*: the title page's fields (*More* folds the rest away), each
+  saved when you leave it (or Enter, or *Save*), only what you changed. If a run or someone else changed the metadata
+  since the page read it, nothing is overwritten: the page reads it again, keeps what you typed and asks you to save it
+  again. *Reload from TMDB* fills in what TMDB knows without saving it (the service needs `TMDB_API_KEY`); *Revert*
+  throws away what is not saved. Artwork: upload a png or jpeg, download one from an address, or clear it. A title a
+  run is working on cannot be edited until the run has finished with it.
+
+Not in the browser: *Revise*, projects, settings and Review Folder. Use the app for those. Publish and commit are offered only when the settings
 file allows them (`allow_repository_writes: true`) and the profile names the filter repository; bulk accept is not offered.
 
 Behind a reverse proxy, the live progress is a long-lived response (Server-Sent Events). The service asks nginx not to

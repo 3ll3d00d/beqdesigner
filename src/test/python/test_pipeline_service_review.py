@@ -127,7 +127,7 @@ def test_incomplete_metadata_is_listed_and_holds_accept_back(service):
     review = _review(client, 'b')
 
     assert review['metadata_problems']
-    assert review['blocked']['accept'].startswith('Fill in the missing metadata first (in the BEQDesigner app): ')
+    assert review['blocked']['accept'].startswith('Fill in the missing metadata first (in the Metadata panel, or the BEQDesigner app): ')
     refused = _decide(client, 'b', decision='accept', candidate=0, digest=review['digest'])
     assert (refused.status_code, refused.json()['title']) == (409, 'Metadata incomplete')
     assert read_entry(queue, 'b').status == 'pending'

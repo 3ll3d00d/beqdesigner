@@ -81,6 +81,8 @@ export function review(overrides: Partial<Schemas['Review']> = {}): Schemas['Rev
     metadata_problems: [], blocked: { accept: '', reject: '' }, in_flight: false,
     playback: 'none sent: the designer assumed its own playback chain', designer: 'rolloff', designer_build: 'beqforge 0.2.0',
     needs: 'review', detail: 'designed', reviewer_note: null,
+    metadata_digest: 'm1', metadata_texts: { title: 'Alien', year: '1979', audio_types: 'DTS-HD MA 5.1' },
+    artwork: { present: false, overridden: false, name: null },
     ...overrides,
   }
 }
@@ -106,3 +108,13 @@ export function title(id: string, overrides: Partial<Schemas['Title']> = {}): Sc
            extract_state: 'done', design_state: 'done', review_state: 'pending', publish_state: '', commit_state: '',
            confidence: 0.8, candidate_count: 2, failure: '', is_new: false, state_since: NOW, last_seen: NOW, ...overrides }
 }
+
+export const METADATA_FIELDS: Schemas['MetadataField'][] = [
+  { key: 'title', label: 'Title', group: 'essentials', tip: 'Required.', kind: 'text', choices: [] },
+  { key: 'year', label: 'Year', group: 'essentials', tip: 'Required.', kind: 'text', choices: [] },
+  { key: 'audio_types', label: 'Audio types', group: 'essentials', tip: '', kind: 'choices',
+    choices: ['Atmos', 'DTS-HD MA 5.1', 'DD+'] },
+  { key: 'note', label: 'Note', group: 'essentials', tip: '', kind: 'text', choices: [] },
+  { key: 'the_movie_db', label: 'TMDB id', group: 'essentials', tip: '', kind: 'text', choices: [] },
+  { key: 'language', label: 'Language', group: 'more', tip: '', kind: 'choice', choices: ['English', 'French'] },
+]

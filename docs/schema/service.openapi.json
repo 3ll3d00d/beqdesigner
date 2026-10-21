@@ -4,7 +4,7 @@
     "title": "BEQDesigner pipeline service",
     "summary": "Scan a library, extract and design BEQ filters for titles chosen by filter, on demand or on a schedule, and follow the jobs that do it.",
     "description": "A person decides a title through the review routes or in the BEQDesigner app. Every /v1 route needs the bearer token (Authorize, above). `GET /health` says which release this is.",
-    "version": "1.6.0"
+    "version": "1.7.0"
   },
   "paths": {
     "/health": {
@@ -1074,6 +1074,525 @@
               }
             },
             "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/metadata/fields": {
+      "get": {
+        "tags": [
+          "edit"
+        ],
+        "summary": "The metadata fields a title page edits, in order, with their labels and choices",
+        "operationId": "fields_v1_metadata_fields_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MetadataField"
+                  },
+                  "type": "array",
+                  "title": "Response Fields V1 Metadata Fields Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/titles/{title_id}/metadata": {
+      "patch": {
+        "tags": [
+          "edit"
+        ],
+        "summary": "Change a title's metadata (refused if it changed since it was read, or a run has the title)",
+        "operationId": "edit_metadata_v1_titles__title_id__metadata_patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "title_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Title Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MetadataEdit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Review"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/titles/{title_id}/metadata/tmdb": {
+      "post": {
+        "tags": [
+          "edit"
+        ],
+        "summary": "Look a title up on TMDB: what it would fill (nothing is saved)",
+        "operationId": "tmdb_v1_titles__title_id__metadata_tmdb_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "title_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Title Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TmdbLookup"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TmdbProposal"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "502": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/titles/{title_id}/artwork": {
+      "get": {
+        "tags": [
+          "edit"
+        ],
+        "summary": "A title's poster image",
+        "operationId": "artwork_v1_titles__title_id__artwork_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "title_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Title Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "image/png": {},
+              "image/jpeg": {}
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "edit"
+        ],
+        "summary": "Set a title's poster: an image downloaded from a URL, or one sent",
+        "operationId": "choose_artwork_v1_titles__title_id__artwork_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "title_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Title Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArtworkChoice"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Review"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "edit"
+        ],
+        "summary": "Clear a title's poster (a later run may choose one again)",
+        "operationId": "clear_artwork_v1_titles__title_id__artwork_delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "title_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Title Id"
+            }
+          },
+          {
+            "name": "digest",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The Review's metadata_digest.",
+              "title": "Digest"
+            },
+            "description": "The Review's metadata_digest."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Review"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
           }
         }
       }
@@ -2366,6 +2885,77 @@
         ],
         "title": "AcceptResult"
       },
+      "ArtworkChoice": {
+        "properties": {
+          "digest": {
+            "type": "string",
+            "title": "Digest",
+            "description": "The Review's metadata_digest."
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url",
+            "description": "Download the png or jpeg image here (http or https)."
+          },
+          "data_base64": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Base64",
+            "description": "Or use this png or jpeg image, base64-encoded (at most 20 MB)."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "digest"
+        ],
+        "title": "ArtworkChoice"
+      },
+      "ArtworkState": {
+        "properties": {
+          "present": {
+            "type": "boolean",
+            "title": "Present",
+            "description": "The poster file is there to show (`GET /v1/titles/{id}/artwork`)."
+          },
+          "overridden": {
+            "type": "boolean",
+            "title": "Overridden",
+            "description": "A person chose it (or cleared it): a run never replaces it."
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "The poster's file name."
+          }
+        },
+        "type": "object",
+        "required": [
+          "present",
+          "overridden"
+        ],
+        "title": "ArtworkState"
+      },
       "AutoThrough": {
         "type": "string",
         "enum": [
@@ -3216,6 +3806,88 @@
         ],
         "title": "Kind"
       },
+      "MetadataEdit": {
+        "properties": {
+          "digest": {
+            "type": "string",
+            "title": "Digest",
+            "description": "The Review's metadata_digest."
+          },
+          "texts": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Texts",
+            "description": "The fields changed, as typed, by key; a blank one unsets it (blank episodes mean none).",
+            "default": {}
+          },
+          "extras": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Extras",
+            "description": "What a TMDB reload filled that has no field of its own (overview, genres, collection), as the reload gave it.",
+            "default": {}
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "digest"
+        ],
+        "title": "MetadataEdit"
+      },
+      "MetadataField": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "group": {
+            "type": "string",
+            "enum": [
+              "essentials",
+              "more"
+            ],
+            "title": "Group"
+          },
+          "tip": {
+            "type": "string",
+            "title": "Tip"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "text",
+              "choice",
+              "choices"
+            ],
+            "title": "Kind",
+            "description": "`choices`: several of `choices`, as a comma-separated text; `choice`: one, typed or picked."
+          },
+          "choices": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Choices"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label",
+          "group",
+          "tip",
+          "kind",
+          "choices"
+        ],
+        "title": "MetadataField"
+      },
       "Needs": {
         "type": "string",
         "enum": [
@@ -3902,7 +4574,7 @@
             },
             "type": "array",
             "title": "Metadata Problems",
-            "description": "What publish would refuse: Accept is not offered until it is fixed (in the BEQDesigner app)."
+            "description": "What publish would refuse: Accept is not offered until it is fixed."
           },
           "blocked": {
             "$ref": "#/components/schemas/Blocked"
@@ -3956,6 +4628,31 @@
               }
             ],
             "title": "Reviewer Note"
+          },
+          "metadata_digest": {
+            "type": "string",
+            "title": "Metadata Digest",
+            "description": "What the metadata and artwork were read at: send it back with an edit, which is refused if they have changed since.",
+            "default": ""
+          },
+          "metadata_texts": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Metadata Texts",
+            "description": "Each editable field as text, by key (`GET /v1/metadata/fields`).",
+            "default": {}
+          },
+          "artwork": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ArtworkState"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -5384,6 +6081,93 @@
         ],
         "title": "TitleSort",
         "description": "A column of the titles table to order by; without one, work-list order (tier, then oldest waiting first). "
+      },
+      "TmdbLookup": {
+        "properties": {
+          "tmdb_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tmdb Id",
+            "description": "Look this TMDB id up; else search by title and year."
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year"
+          },
+          "season": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Season",
+            "description": "A season makes it a TV search."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "TmdbLookup"
+      },
+      "TmdbProposal": {
+        "properties": {
+          "found": {
+            "type": "boolean",
+            "title": "Found"
+          },
+          "texts": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Texts",
+            "description": "The fields TMDB filled, as texts: apply them with a MetadataEdit."
+          },
+          "extras": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Extras",
+            "description": "overview, genres and collection, to send back as MetadataEdit.extras."
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "found",
+          "texts",
+          "extras",
+          "message"
+        ],
+        "title": "TmdbProposal"
       }
     },
     "securitySchemes": {

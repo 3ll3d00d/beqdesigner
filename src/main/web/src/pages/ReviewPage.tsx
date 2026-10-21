@@ -9,6 +9,7 @@ import { useChart, useDecide, useNextTitle, useReview, useStatus, useSubmitRun }
 import { DEFAULT_VIEW, loadView, saveView, type ChartView } from '../chart/view'
 import { ChartControls } from '../components/ChartControls'
 import { MagnitudeChart } from '../components/MagnitudeChart'
+import { MetadataPanel } from '../components/MetadataPanel'
 import { metadataText, NEEDS_WORDS, type NeedsWord } from '../format'
 import { useListParams } from './TitlesPage'
 
@@ -74,7 +75,7 @@ function Commentary({ candidate, review }: { candidate: Candidate | undefined; r
   )
 }
 
-/** The title's metadata as one line under its heading, and what stops it being accepted. */
+/** The title's metadata as one line under its heading (the Metadata panel, below, edits it and says what is missing). */
 function Metadata({ review }: { review: Review }) {
   const meta = review.metadata as Record<string, unknown>
   const parts = ['content_type', 'audio_types', 'genres'].map((k) => metadataText(meta[k])).filter(Boolean)
@@ -82,10 +83,9 @@ function Metadata({ review }: { review: Review }) {
     <>
       {parts.length > 0 && <p className="metadata" aria-label="Metadata">{parts.join(' · ')}</p>}
       {review.metadata_problems.length > 0 && (
-        <div className="problem" role="note">
-          <p>Metadata not complete, so it cannot be accepted (fix it in the BEQDesigner app):</p>
-          <ul>{review.metadata_problems.map((p) => <li key={p}>{p}</li>)}</ul>
-        </div>
+        <p className="problem" role="note">
+          Metadata not complete, so it cannot be accepted: <a href="#metadata-heading">fix it in the Metadata panel</a>.
+        </p>
       )}
     </>
   )
@@ -286,6 +286,7 @@ export function ReviewPage() {
         </section>
         <Commentary candidate={candidate} review={data!} />
       </div>
+      <MetadataPanel review={data!} />
     </section>
   )
 }

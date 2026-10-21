@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw/http'
 
 import { saveToken } from '../api/token'
-import { chart, index, review } from '../test/fixtures'
+import { chart, index, METADATA_FIELDS, review } from '../test/fixtures'
 import { renderApp } from '../test/render'
 import { server, status, statusRoute, TOKEN } from '../test/server'
 
@@ -45,6 +45,7 @@ function routes() {
   server.use(
     statusRoute(status({ index: index() })),
     http.get('/v1/titles/a/review', () => json(review())),
+    http.get('/v1/metadata/fields', () => json(METADATA_FIELDS)),
     http.get('/v1/titles/a/chart', ({ request }) => {
       const query = new URL(request.url).searchParams
       asked.push(query)
