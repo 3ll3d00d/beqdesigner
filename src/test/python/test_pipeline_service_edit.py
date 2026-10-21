@@ -322,3 +322,58 @@ def test_with_a_run_they_are_kept_before_the_job_sends_the_titles_back(service):
 def test_adjustments_that_cannot_be_asked_are_a_422(service, body):
     client, *_ = service
     assert _revise(client, ids=['a'], **body).status_code == 422
+
+
+# --- variants (WP7) --------------------------------------------------------------------------------------------------------
+
+@pytest.fixture
+def two_runs(service):
+    ''' Title a's current design is v2 (asked to cap the boost); v1 before it asked for nothing. '''
+    from dataclasses import asdict
+    client, _, queue, _ = service
+    entry = read_entry(queue, 'a')
+    v1 = {name: value for name, value in asdict(entry).items() if name in (
+        'fs', 'curve', 'peak_curve', 'audio_stream', 'candidates', 'rejected', 'decline_reason', 'decline_message',
+        'design_fingerprint', 'source_fingerprint', 'bass_management', 'designer', 'designer_build', 'design_version',
+        'design_settings', 'adjusted_with', 'adjustment_outcomes')}
+    v1.update(variant_id='v1', designed_at='2026-10-01T10:00:00+00:00', candidates=v1['candidates'][:1])
+    asked = [{'id': 'a1', 'kind': 'max_boost', 'params': {'db': 10}}]
+    update_entry(queue, 'a', variant_id='v2', variants=[v1], adjustments=asked, adjusted_with=asked,
+                 adjustment_outcomes=[{'id': 'a1', 'outcome': 'honoured', 'applied': None, 'reason': None}])
+    return client, queue
+
+
+def test_a_review_lists_the_other_design_runs_and_what_each_was_asked(two_runs):
+    client, _ = two_runs
+    review = _review(client)
+    assert review['variant_id'] == 'v2' and review['adjusted_with'][0]['kind'] == 'max_boost'
+    assert [(v['variant_id'], v['designs'], v['adjusted_with']) for v in review['variants']] == [('v1', 2, [])]   # a candidate and a rejected design
+
+
+def test_another_run_is_charted_by_name(two_runs):
+    client, _ = two_runs
+    chart = client.get('/v1/titles/a/chart', params={'variant': 'v1', 'candidates': 'all'}, headers=AUTH).json()
+    assert chart['candidates'] == [0, 1] and {s['variant'] for s in chart['series'] if s['filtered']} == {'v1'}
+    assert chart['series'][2]['name'].endswith('(v1)')
+    assert client.get('/v1/titles/a/chart', params={'variant': 'v9'}, headers=AUTH).status_code == 404
+
+
+def test_an_earlier_run_is_used_again_and_the_current_one_kept(two_runs):
+    client, queue = two_runs
+    digest = _review(client)['digest']
+    answer = client.post('/v1/titles/a/variants/v1/use', json={'digest': digest}, headers=AUTH)
+    assert answer.status_code == 200, answer.text
+    body = answer.json()
+    assert body['variant_id'] == 'v1' and body['adjustments'] == [] and len(body['candidates']) == 1
+    assert [v['variant_id'] for v in body['variants']] == ['v2']
+    stale = client.post('/v1/titles/a/variants/v2/use', json={'digest': digest}, headers=AUTH)
+    assert (stale.status_code, stale.json()['title']) == (409, 'Changed since it was read')
+
+
+def test_a_run_is_discarded_but_never_the_current_one(two_runs):
+    client, queue = two_runs
+    digest = _review(client)['digest']
+    refused = client.delete('/v1/titles/a/variants/v2', params={'digest': digest}, headers=AUTH)
+    assert (refused.status_code, refused.json()['title']) == (409, 'Not now')
+    gone = client.delete('/v1/titles/a/variants/v1', params={'digest': digest}, headers=AUTH)
+    assert gone.status_code == 200 and gone.json()['variants'] == [] and read_entry(queue, 'a').variants == []

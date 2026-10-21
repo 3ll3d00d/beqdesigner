@@ -5,7 +5,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 
 import type { Schemas } from '../api/client'
-import { useChart, useDecide, useNextTitle, useReview, useStatus } from '../api/hooks'
+import { useChart, useDecide, useNextTitle, useReview, useStatus, useVariantCharts } from '../api/hooks'
 import { DEFAULT_VIEW, loadView, saveView, type ChartView } from '../chart/view'
 import { ChartControls } from '../components/ChartControls'
 import { HeatmapView } from '../components/HeatmapView'
@@ -15,6 +15,8 @@ import { PublishedBeqs } from '../components/PublishedBeqs'
 import { ReviseDialog, reviseSummary } from '../components/ReviseDialog'
 import { Spectrogram } from '../components/Spectrogram'
 import { StreamPicker } from '../components/StreamPicker'
+import { VariantsPanel } from '../components/VariantsPanel'
+import type { Ask } from '../components/AdjustmentsEditor'
 import { metadataText, NEEDS_WORDS, type NeedsWord } from '../format'
 import { useListParams } from './TitlesPage'
 
@@ -120,8 +122,14 @@ export function ReviewPage() {
   const candidate = offered[picked]
   const [view, setView] = useState<ChartView>(loadView)
   const [visual, setVisual] = useState<Visual>('magnitude')
+  const [overlaid, setOverlaid] = useState<{ title: string; variants: string[] }>({ title: titleId, variants: [] })
+  const shownVariants = overlaid.title === titleId ? overlaid.variants : []
+  const variantCharts = useVariantCharts(titleId, shownVariants, view.smoothing)
   const chart = useChart(titleId, { candidate: offered.length ? picked : null, all: view.allDesigns && offered.length > 1,
                                     smoothing: view.smoothing, responses: view.responses }, !!data)
+  // the other design runs shown: their curves after each of their designs, drawn dashed under the current one's
+  const magnitude = [...(chart.data?.series ?? []),
+                     ...variantCharts.flatMap((q) => (q.data?.series ?? []).filter((s) => s.filtered && s.kind !== 'filter'))]
   const changeView = (next: ChartView) => {
     setView(next)
     saveView(next)
@@ -215,6 +223,7 @@ export function ReviewPage() {
       {reviseBlocked && <p className="muted">{reviseBlocked}</p>}
       {revising && (
         <ReviseDialog ids={[titleId]} name={data!.title} published={data!.status === 'published'}
+                      asked={data!.adjustments as Ask[]} chartRange={view.x}
                       onClose={() => setRevising(false)}
                       onDone={(outcome) => {
                         setRevising(false)
@@ -288,9 +297,9 @@ export function ReviewPage() {
           </div>
           {visual === 'magnitude' && (
             <>
-              <ChartControls view={view} series={chart.data?.series ?? []} onChange={changeView} />
+              <ChartControls view={view} series={magnitude} onChange={changeView} />
               {chart.isError ? <p role="alert" className="problem">{chart.error.message}</p>
-                : <MagnitudeChart series={chart.data?.series ?? []} view={view} highlighted={picked}
+                : <MagnitudeChart series={magnitude} view={view} highlighted={picked}
                                   onZoom={(x, y) => changeView({ ...view, x, y })}
                                   onReset={() => changeView({ ...view, x: DEFAULT_VIEW.x, y: null })} />}
             </>
@@ -308,6 +317,8 @@ export function ReviewPage() {
         </section>
         <Commentary candidate={candidate} review={data!} />
       </div>
+      <VariantsPanel review={data!} shown={shownVariants}
+                     onShow={(variants) => setOverlaid({ title: titleId, variants })} />
       <MetadataPanel review={data!} />
     </section>
   )

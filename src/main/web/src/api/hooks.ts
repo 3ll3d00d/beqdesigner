@@ -421,3 +421,47 @@ export function usePublishedCharts(id: string, indexes: number[], smoothing: str
     })),
   })
 }
+
+// --- design variants (design/web-parity.md WP7) ------------------------------------------------------------------------------
+
+/** Every design of each of the title's other design runs, after it: for drawing them beside the current one. */
+export function useVariantCharts(id: string, variants: string[], smoothing: string) {
+  const { client } = useAuth()
+  return useQueries({
+    queries: variants.map((variant) => ({
+      queryKey: ['variant-chart', id, variant, smoothing],
+      queryFn: async () => unwrap(await client.GET('/v1/titles/{title_id}/chart', {
+        params: { path: { title_id: id },
+                  query: { variant, candidates: 'all', ...(smoothing === 'none' ? {} : { smoothing }) } } })),
+      staleTime: 60_000,
+    })),
+  })
+}
+
+export function useUseVariant(id: string) {
+  const { client } = useAuth()
+  const queries = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ variant, digest }: { variant: string; digest: string }) =>
+      unwrap(await client.POST('/v1/titles/{title_id}/variants/{variant_id}/use', {
+        params: { path: { title_id: id, variant_id: variant } }, body: { digest } })),
+    onSuccess: (review) => queries.setQueryData(keys.review(id), review),
+    onError: () => void queries.invalidateQueries({ queryKey: keys.review(id) }),
+    onSettled: () => {
+      void queries.invalidateQueries({ queryKey: ['titles'] })
+      void queries.invalidateQueries({ queryKey: ['chart', id] })
+    },
+  })
+}
+
+export function useDiscardVariant(id: string) {
+  const { client } = useAuth()
+  const queries = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ variant, digest }: { variant: string; digest: string }) =>
+      unwrap(await client.DELETE('/v1/titles/{title_id}/variants/{variant_id}', {
+        params: { path: { title_id: id, variant_id: variant }, query: { digest } } })),
+    onSuccess: (review) => queries.setQueryData(keys.review(id), review),
+    onError: () => void queries.invalidateQueries({ queryKey: keys.review(id) }),
+  })
+}

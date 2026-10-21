@@ -109,3 +109,20 @@ Evidence: `test_pipeline_library_catalogue_remote.py` (7, over `catalogue_fixtur
 
 Evidence: `test_pipeline_designer_adjustments.py` (17), adjustment tests in `test_pipeline_service_edit.py`; the full
 suite, 3349 passed, 1 skipped.
+
+## WP7
+
+**2026-10-21.** Adjusted redesigns and kept design runs.
+
+- Shared: `pipeline/library/variants.py` (`kept_variants`, `next_variant_id`, `use_variant`, `discard_variant`,
+  `variant_view`); `design_cache.design_if_needed` keeps the run a redesign replaces; `QueueEntry.variant_id`,
+  `designed_at`, `variants`, `adjusted_with`.
+- Service (API 1.12.0): `Review.variant_id`/`designed_at`/`variants`/`adjusted_with`; `/chart?variant=`;
+  `POST .../variants/{vid}/use`, `DELETE .../variants/{vid}`.
+- Browser: `AdjustmentsEditor` in `ReviseDialog`, `VariantsPanel`, other runs drawn dashed.
+- Found by the variants tests: revise wrote the next design's adjustments onto the entry before the redesign, so the
+  run it replaced would have been kept with the wrong ones; hence `adjusted_with`.
+
+Evidence: `test_pipeline_library_variants.py` (6), variant tests in `test_pipeline_service_edit.py`; web
+`src/pages/adjust.test.tsx` (6). Web: 121 tests (3 runs), build (it now passes Vite's 500 kB warning: 507 kB, 163 kB
+gzipped). Python: 3360 passed, 1 skipped.

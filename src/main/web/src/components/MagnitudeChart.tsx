@@ -29,7 +29,10 @@ export function seriesColour(s: Series, several: boolean): string {
 
 /** How one curve is drawn: dashed before a design, solid after; a peak dotted among several designs; the highlighted widest. */
 export function seriesStyle(s: Series, all: Series[], highlighted: number | null) {
-  const designs = new Set(all.filter((c) => c.filtered).map((c) => c.candidate))
+  if (s.variant) {   // another design run of the title, drawn thin and dashed under the current one
+    return { stroke: DESIGN_COLOURS[(s.candidate ?? 0) % DESIGN_COLOURS.length]!, width: 1.25, dash: [5, 4] }
+  }
+  const designs = new Set(all.filter((c) => c.filtered && !c.variant).map((c) => c.candidate))
   const several = designs.size > 1
   const anyFiltered = all.some((c) => c.filtered && c.kind !== 'filter')
   const focused = !several || s.candidate === null || s.candidate === highlighted

@@ -17,7 +17,7 @@ from pipeline.service.jobs import MAX_REDESIGN_IDS, redesign_problem
 from pipeline.library.state import NEEDS, FLAG_DUPLICATE, FLAG_GONE, FLAG_IGNORED, FLAG_IN_CATALOGUE, FLAG_SHADOWED
 from pipeline.library.year import YEAR_PATTERN, YearRange, numeric_year
 
-API_VERSION = '1.11.0'
+API_VERSION = '1.12.0'
 
 
 class Needs(str, Enum):
@@ -315,12 +315,35 @@ class Review(BaseModel):
     metadata_digest: str = Field('', description='What the metadata and artwork were read at: send it back with an edit, '
                                                  'which is refused if they have changed since.')
     metadata_texts: Dict[str, str] = Field({}, description='Each editable field as text, by key (`GET /v1/metadata/fields`).')
-    adjustments: List[Dict[str, Any]] = Field([], description='What the designer was asked to change (contract 1.5): '
+    adjustments: List[Dict[str, Any]] = Field([], description='What the next design is asked to change (contract 1.5): '
                                                              '{id, kind, params, text, by, at, reason}.')
+    variant_id: Optional[str] = Field(None, description='Which design run this is (v1, v2...); none for one designed '
+                                                        'before they were numbered.')
+    designed_at: Optional[datetime] = None
+    variants: List['VariantSummary'] = Field([], description="The title's other design runs, kept until discarded: "
+                                                            'use one again, or chart it beside this one.')
+    adjusted_with: List[Dict[str, Any]] = Field([], description='The adjustments the design here was made with '
+                                                               '(adjustments is what the next design is asked).')
     adjustment_outcomes: List[Dict[str, Any]] = Field([], description="The designer's answer to each: {id, outcome, "
                                                                      "applied, reason}; none for one it did not answer "
                                                                      "(a designer before 1.5).")
     artwork: Optional['ArtworkState'] = None
+
+
+class VariantSummary(BaseModel):
+    variant_id: str
+    designed_at: Optional[datetime]
+    designer: Optional[str]
+    designer_build: Optional[str]
+    design_version: Optional[int]
+    designs: int = Field(description='How many designs it offered (candidates, then rejected).')
+    declined: bool
+    adjusted_with: List[Dict[str, Any]]
+    adjustment_outcomes: List[Dict[str, Any]]
+
+
+class VariantChoice(Input):
+    digest: str = Field(description="The Review's digest: what was looked at.")
 
 
 class ArtworkState(BaseModel):
@@ -330,6 +353,8 @@ class ArtworkState(BaseModel):
 
 
 Review.model_rebuild()
+
+
 
 
 class MetadataField(BaseModel):
@@ -376,6 +401,7 @@ class ChartSeries(BaseModel):
     filtered: bool = Field(description='After a design (always true of a `filter`).')
     candidate: Optional[int] = Field(None, description='The design it is after, or the response of; none for the measured '
                                                        'curves.')
+    variant: Optional[str] = Field(None, description='The design run it is from, when the chart was asked for another.')
     x: List[float] = Field(description='Frequency, Hz.')
     y: List[float] = Field(description='Magnitude, dB.')
 

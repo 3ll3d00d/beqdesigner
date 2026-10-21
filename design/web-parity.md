@@ -182,37 +182,16 @@ only rolloff, a boost where there is no content), saying so in that adjustment's
 - Tests: conformance (each outcome kind, an unknown kind answered `not_understood`, a pre-1.5 designer ignoring the
   field), fingerprint changes with adjustments and not without, cache separation, replay on redesign-by-version.
 
-### WP7 — Adjusted redesign and variants in the browser
+### WP7 — Adjusted redesign and variants in the browser — done
 
-- **Variants.** A title holds **several design variants**, not one set of designs. A variant is one design run's
-  result: its designs (candidates and rejected), the adjustments sent (each with who asked, when and why), the
-  designer's outcome for each, the designer and its identity (1.4), the extraction it was designed from, and when.
-  The first unadjusted design is variant 1; each redesign adds one rather than replacing what is there.
-  `QueueEntry.variants` replaces the entry's single `candidates`/`rejected` (migrated: today's designs become variant 1
-  with no adjustments), with `current_variant` naming the one the review page opens on; `offered`, the digest and the
-  decision rules work within the current variant, and accepting records `(variant, design)`.
-- **Persistent.** A variant's adjustments are never edited or dropped by the service: redesign-by-version, a re-extract
-  or a revise to review all keep them. Re-running a variant (*Redesign this variant*) sends the same adjustments again
-  and adds a new variant, so the earlier answer stays for comparison. A variant goes only when a person discards it
-  (*Discard variant…*, digest-checked, refused for the accepted or published variant).
-- **Pick between them.** The review page has a variant selector (number, adjustments in one line, designer, date, how
-  many designs, the outcome summary) beside the design list; WP1's workbench overlays designs from any variants at
-  once (one line style per variant), so a person compares across variants and accepts any design in any of them.
-- **Revise… with adjustments:** WP5's dialog gains an *Adjustments* section built from the designer's advertised kinds
-  (WP6): numbers with their units and bounds, band lists, strategy checkboxes, and always a free-text note. It starts
-  from the current variant's adjustments (to tweak them) or empty. Presets for the common ones (*ignore a band*,
-  *bass boost +N dB/oct*, *cap the boost*, *higher content edge*); the person sees exactly what will be sent.
-- **Pick on the chart:** with the dialog open, drag on the magnitude chart (or the spectrogram) to add an excluded
-  frequency band, or a time range on the spectrogram for `exclude_times`; the ranges are shaded on both views.
-- **Selective, in bulk:** from the Titles selection (WP5), the same adjustments sent for every selected title, or
-  per-title adjustments queued from each review page and then **Run the queued variants** as one job (`needs` design,
-  filter `pending_variant=true`).
-- **See what it did:** the variant lists each adjustment with its outcome (honoured / adapted with what was used /
-  declined or not understood with the designer's reason).
-- **Filter on the Titles page:** *Variants* (one, several), *Adjusted* (any, yes, no) and *Adjustments not honoured*
-  (any declined, not understood or not acknowledged).
-- Tests: the variants migration and its round trip, decisions within a variant, discard rules, replay keeping the
-  adjustments, the form from a capability fixture, chart range picking, bulk submit, cross-variant overlay.
+Built 2026-10-21; described in [web-app.md §4.6](web-app.md#46-adjustments-and-design-runs) and
+`pipeline/library/variants.py`, record in [archive/web-parity-record.md](archive/web-parity-record.md#wp7). Built
+differently from the sketch: the entry's own design fields stay the **current** variant (so decisions, publishing,
+the index and the desktop title page are unchanged) and `QueueEntry.variants` holds the others; a design is accepted
+from the current variant, so taking an earlier design is *Use this one*, then Accept. `adjusted_with` (what a design was
+made with) is kept apart from `adjustments` (what the next one is asked). Not built: picking a band by dragging on the
+chart (the *Ignore the chart's range* preset uses the zoomed range instead), and the Titles filters on adjustments and
+variants. Queuing per-title adjustments for one run is *Revise* without *Extract & design now*, then a run.
 
 ### WP8 — Editing the chosen design's filters
 

@@ -108,7 +108,7 @@ message. Tests: `test_pipeline_library_decide.py`.
   - *Review*: the title, its status, what it needs; the designs (rejected ones listed apart, with how many reasons),
     commentary of the one highlighted (or the decline; full width under the designs and chart), the playback chain and
     designer, the metadata as one line under the heading (content type, audio types, genres by name) and what it lacks,
-    the chart with its controls (§4.1) beside *Spectrogram*, *Heatmap* and *Published BEQs* tabs (§4.4, §4.5), *Edit metadata and artwork* (§4.2), and *Revise…* and *Audio stream…* (§4.3). *Accept design N*, *Reject* and *Skip*, with keys A, R, S, and 1–9 to highlight a design; the keys
+    the chart with its controls (§4.1) beside *Spectrogram*, *Heatmap* and *Published BEQs* tabs (§4.4, §4.5), *Edit metadata and artwork* (§4.2), *Revise…* and *Audio stream…* (§4.3), and *Design runs* (§4.6). *Accept design N*, *Reject* and *Skip*, with keys A, R, S, and 1–9 to highlight a design; the keys
     stand aside while a text field has focus. A blocked decision is disabled and says why. Accepting a rejected design
     asks first, with the designer's reasons, and sends `override_rejection`. A refused decision shows the service's
     reason and the title as it is now. After a decision, or Skip, `GET /v1/review/next` in the same filtered list opens
@@ -175,6 +175,22 @@ entries asks for each one's chart (`usePublishedCharts`) and draws them on the w
 curves carry `candidate` `CATALOGUE_BASE` + its index and take colours of their own. Each ticked entry says its peak
 boost and the RMS difference between our design's filtered average and the track under it over 5-40 Hz
 (`comparison()`).
+
+### 4.6 Adjustments and design runs
+
+`ReviseDialog` (to design or extract) has *Ask the designer to change something*, enabled when `/v1/status` lists
+`designer.adjustment_kinds` (the kinds every endpoint up lists; none from a designer before contract 1.5). Ticked, it
+shows `AdjustmentsEditor`: a list of asks, each a kind with the parameter inputs its spec gives (number, string or
+boolean, with unit and bounds checked by `askProblem()`; the designer still judges them) and an optional *Why*; *Add an
+adjustment* and presets for the kinds listed (ignore the chart's frequency range, +1 dB/oct, a 15 dB cap, nothing
+below 10 Hz). For one title it starts from the review's `adjustments`. The list goes as `ReviseRequest.adjustments`
+(`[]` asks for none; unticked, each title keeps its own).
+
+`VariantsPanel` lists the current design run (`variant_id`, `designed_at`, `adjusted_with` and each ask's outcome,
+`outcomeText()`; what the next design is asked when it differs) and the earlier ones newest first. Ticking one fetches
+`/chart?variant=…&candidates=all` (`useVariantCharts`) and adds its filtered curves to the magnitude chart, thin and
+dashed (`seriesStyle()` for a series with `variant`). *Use this one* (disabled on an accepted or published title) and
+*Discard…* (asks first) send the review's `digest`.
 
 ## 5. Build and delivery
 

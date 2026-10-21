@@ -125,6 +125,8 @@ Stopping it (Ctrl-C, or `SIGTERM`) lets the title in hand finish, then stops.
 | `GET /v1/titles/{id}/spectrogram` | the title's spectrogram as a grid of bytes for drawing (`?candidate=`, `filtered`, `max_hz`): 202 while drawn |
 | `GET /v1/titles/{id}/catalogue` | the BEQs the catalogue has published for the title, each marked whether it is for the same track |
 | `GET /v1/titles/{id}/catalogue/{id}/chart` | one published BEQ (its `index` in the list, as the second id)'s response, and the title's curves under it (`smoothing` as the chart) |
+| `POST /v1/titles/{id}/variants/{id}/use` | make an earlier design run of the title its current one again (the current one is kept) |
+| `DELETE /v1/titles/{id}/variants/{id}` | discard one of the title's earlier design runs |
 | `POST /v1/revise` | send titles back to review, design or extract (`ids`, `to`, `reason`): now, or with `run` in one run job |
 | `GET /v1/titles/{id}/streams` | the title's audio streams and the one extracted |
 | `PUT /v1/titles/{id}/stream` | extract and design the title from another audio stream: a run job |
@@ -272,9 +274,17 @@ otherwise it lasts until the tab is closed. The token is checked with the servic
   editions on request): tick any to draw its response and your track under it beside your design, with its peak boost
   and how far it is from yours. The service reads only that title's entry from the catalogue (`BEQ_CATALOGUE_URL` to
   point elsewhere) and keeps it a day.
+* **Design runs:** every design of a title is kept until you discard it. Under the review, *Design runs* lists the
+  current one and the earlier ones, each with what the designer was asked to change and what it did with each ask
+  (honoured, adapted, declined, not understood, or not acknowledged by a designer older than contract 1.5). Tick an
+  earlier one to draw its designs dashed on the chart; *Use this one* makes it current again (the current one is kept);
+  *Discard…* forgets it.
 * **Revise:** *Revise…* on a review, or tick titles on the Titles page and *Revise selected…*: reopen for review,
   redesign, or re-extract and redesign, with a reason kept in the title's note. *Extract & design now* starts one job
-  for them all; otherwise they wait for the next run. *Audio stream…* extracts and designs a title from another of its
+  for them all; otherwise they wait for the next run. To redesign or re-extract, *Ask the designer to change something*
+  offers the adjustments the designer lists (beqforge, from the release that takes contract 1.5): ignore a band (or the
+  chart's range), restore nothing below a frequency, cap the boost, tilt the goal for more bass, a note in words, and
+  any of its own. They are asked again by every redesign of the title until changed. *Audio stream…* extracts and designs a title from another of its
   audio streams.
 
 Not in the browser: projects, settings and Review Folder. Use the app for those. Publish and commit are offered only when the settings

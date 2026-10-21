@@ -4,7 +4,7 @@
     "title": "BEQDesigner pipeline service",
     "summary": "Scan a library, extract and design BEQ filters for titles chosen by filter, on demand or on a schedule, and follow the jobs that do it.",
     "description": "A person decides a title through the review routes or in the BEQDesigner app. Every /v1 route needs the bearer token (Authorize, above). `GET /health` says which release this is.",
-    "version": "1.11.0"
+    "version": "1.12.0"
   },
   "paths": {
     "/health": {
@@ -915,6 +915,24 @@
               "title": "Responses"
             },
             "description": "Also each design's own magnitude response (`kind` filter)."
+          },
+          {
+            "name": "variant",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Another of the title's design runs (Review.variants), its designs charted in place of the current one's.",
+              "title": "Variant"
+            },
+            "description": "Another of the title's design runs (Review.variants), its designs charted in place of the current one's."
           }
         ],
         "responses": {
@@ -1853,6 +1871,219 @@
               }
             },
             "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/titles/{title_id}/variants/{variant_id}/use": {
+      "post": {
+        "tags": [
+          "edit"
+        ],
+        "summary": "Make an earlier design run of a title its current one again (the current one is kept)",
+        "operationId": "use_v1_titles__title_id__variants__variant_id__use_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "title_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Title Id"
+            }
+          },
+          {
+            "name": "variant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Variant Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VariantChoice"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Review"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/titles/{title_id}/variants/{variant_id}": {
+      "delete": {
+        "tags": [
+          "edit"
+        ],
+        "summary": "Discard one of a title's earlier design runs",
+        "operationId": "discard_v1_titles__title_id__variants__variant_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "title_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Title Id"
+            }
+          },
+          {
+            "name": "variant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Variant Id"
+            }
+          },
+          {
+            "name": "digest",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The Review's digest: what was looked at.",
+              "title": "Digest"
+            },
+            "description": "The Review's digest: what was looked at."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Review"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
           }
         }
       }
@@ -4062,6 +4293,18 @@
             "title": "Candidate",
             "description": "The design it is after, or the response of; none for the measured curves."
           },
+          "variant": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Variant",
+            "description": "The design run it is from, when the chart was asked for another."
+          },
           "x": {
             "items": {
               "type": "number"
@@ -5561,7 +5804,50 @@
             },
             "type": "array",
             "title": "Adjustments",
-            "description": "What the designer was asked to change (contract 1.5): {id, kind, params, text, by, at, reason}.",
+            "description": "What the next design is asked to change (contract 1.5): {id, kind, params, text, by, at, reason}.",
+            "default": []
+          },
+          "variant_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Variant Id",
+            "description": "Which design run this is (v1, v2...); none for one designed before they were numbered."
+          },
+          "designed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Designed At"
+          },
+          "variants": {
+            "items": {
+              "$ref": "#/components/schemas/VariantSummary"
+            },
+            "type": "array",
+            "title": "Variants",
+            "description": "The title's other design runs, kept until discarded: use one again, or chart it beside this one.",
+            "default": []
+          },
+          "adjusted_with": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Adjusted With",
+            "description": "The adjustments the design here was made with (adjustments is what the next design is asked).",
             "default": []
           },
           "adjustment_outcomes": {
@@ -7303,6 +7589,112 @@
           "message"
         ],
         "title": "TmdbProposal"
+      },
+      "VariantChoice": {
+        "properties": {
+          "digest": {
+            "type": "string",
+            "title": "Digest",
+            "description": "The Review's digest: what was looked at."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "digest"
+        ],
+        "title": "VariantChoice"
+      },
+      "VariantSummary": {
+        "properties": {
+          "variant_id": {
+            "type": "string",
+            "title": "Variant Id"
+          },
+          "designed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Designed At"
+          },
+          "designer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Designer"
+          },
+          "designer_build": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Designer Build"
+          },
+          "design_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Design Version"
+          },
+          "designs": {
+            "type": "integer",
+            "title": "Designs",
+            "description": "How many designs it offered (candidates, then rejected)."
+          },
+          "declined": {
+            "type": "boolean",
+            "title": "Declined"
+          },
+          "adjusted_with": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Adjusted With"
+          },
+          "adjustment_outcomes": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Adjustment Outcomes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "variant_id",
+          "designed_at",
+          "designer",
+          "designer_build",
+          "design_version",
+          "designs",
+          "declined",
+          "adjusted_with",
+          "adjustment_outcomes"
+        ],
+        "title": "VariantSummary"
       }
     },
     "securitySchemes": {

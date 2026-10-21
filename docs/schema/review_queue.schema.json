@@ -105,6 +105,18 @@
         "additionalProperties": true
       }
     },
+    "adjusted_with": {
+      "type": "array",
+      "description": "contract 1.5: the adjustments the design here was made with (adjustments is what the next design is asked)",
+      "items": { "type": "object" }
+    },
+    "variant_id": { "type": "string", "description": "which design run the design here is (v1, v2...)" },
+    "designed_at": { "type": "string", "description": "UTC ISO-8601, when the design here was made" },
+    "variants": {
+      "type": "array",
+      "description": "the title's earlier design runs, kept until a person discards one (pipeline.library.variants): each the design fields of an entry",
+      "items": { "type": "object" }
+    },
     "adjustment_outcomes": {
       "type": "array",
       "description": "contract 1.5: the designer's answer to each adjustment, from the design that is here; empty when it answered none",

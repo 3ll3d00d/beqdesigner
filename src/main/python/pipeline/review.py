@@ -118,8 +118,14 @@ class QueueEntry:
     adjustments: List[dict] = field(default_factory=list)   # 1.5: what a person asked the designer to change (each
                                                # {id, kind, params, text, by, at, reason}); sent with every design of
                                                # the title until changed, so a redesign asks the same again
+    adjusted_with: List[dict] = field(default_factory=list)   # 1.5: the adjustments the design here was made with
+                                               # (`adjustments` is what the next design is asked)
     adjustment_outcomes: List[dict] = field(default_factory=list)   # 1.5: the designer's answer to each, from the
                                                # design that is here ({id, outcome, applied, reason}); [] when none
+    variant_id: Optional[str] = None          # which design run the fields above are ('v1', 'v2'...); None before kept
+    designed_at: Optional[str] = None         # UTC ISO-8601, when that design was made; None before it was recorded
+    variants: List[dict] = field(default_factory=list)   # the title's earlier design runs, kept until a person discards
+                                               # one (pipeline.library.variants): each the design fields of a QueueEntry
 
     @property
     def design_identity(self):
@@ -254,7 +260,8 @@ def _summary_from_dict(c: dict) -> CandidateSummary:
 
 
 # written only when known, so a reader from before them (which refuses a field it does not know) meets them only then
-_WRITTEN_WHEN_KNOWN = ('design_version', 'design_settings')
+_WRITTEN_WHEN_KNOWN = ('design_version', 'design_settings', 'variant_id', 'designed_at')
+_WRITTEN_WHEN_ANY = ('adjustments', 'adjusted_with', 'adjustment_outcomes', 'variants')
 
 
 def _entry_to_dict(entry: QueueEntry) -> dict:
@@ -265,6 +272,9 @@ def _entry_to_dict(entry: QueueEntry) -> dict:
     d = asdict(entry)
     for name in _WRITTEN_WHEN_KNOWN:
         if d.get(name) is None:
+            d.pop(name, None)
+    for name in _WRITTEN_WHEN_ANY:
+        if not d.get(name):
             d.pop(name, None)
     for candidate in [*d.get('candidates', []), *d.get('rejected', [])]:
         for name in FIT_FIELDS:
@@ -442,6 +452,8 @@ def design_and_queue(session: Session, entry_id: str, wav_path: str, designer: s
     entry.bass_management = dict(bass_management) if bass_management else None
     entry.designer = designer
     entry.adjustments = [dict(a) for a in adjustments or ()]
+    entry.adjusted_with = [dict(a) for a in adjustments or ()]
+    entry.designed_at = datetime.now(timezone.utc).isoformat(timespec='seconds')
     entry.designer_build = entry.designer_build or designer_build(entry)   # 1.4 says it; before, its commentary did
     write_queue_entry(queue_dir, entry)
     if project_dir is not None:

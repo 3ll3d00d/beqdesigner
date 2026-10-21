@@ -24,6 +24,7 @@ from pipeline.library.decide import DECISION_FROM, STATUS_WORDS, DecisionRefused
     next_waiting_id, offered_digest
 from pipeline.library.index import IndexFileError, LibraryIndex
 from pipeline.library.metadata_edit import field_texts, metadata_digest
+from pipeline.library.variants import variant_view
 from pipeline.library.review_chart import SMOOTHING, workbench_curves
 from pipeline.library.selection import plan_stages
 from pipeline.library.status import metadata_problems
@@ -466,7 +467,16 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
             playback=describe_bass_management(entry.bass_management), designer=entry.designer,
             designer_build=entry.designer_build, needs=row.needs, detail=row.detail, reviewer_note=entry.reviewer_note,
             metadata_digest=metadata_digest(entry), metadata_texts=field_texts(entry.meta), artwork=artwork_state(settings, entry),
-            adjustments=list(entry.adjustments), adjustment_outcomes=list(entry.adjustment_outcomes))
+            adjustments=list(entry.adjustments), adjusted_with=list(entry.adjusted_with),
+            adjustment_outcomes=list(entry.adjustment_outcomes), variant_id=entry.variant_id,
+            designed_at=entry.designed_at, variants=[variant_summary(v) for v in entry.variants])
+
+    def variant_summary(v: dict) -> models.VariantSummary:
+        return models.VariantSummary(
+            variant_id=v.get('variant_id') or '', designed_at=v.get('designed_at'), designer=v.get('designer'),
+            designer_build=v.get('designer_build'), design_version=v.get('design_version'),
+            designs=len(v.get('candidates') or []) + len(v.get('rejected') or []), declined=bool(v.get('decline_reason')),
+            adjusted_with=list(v.get('adjusted_with') or []), adjustment_outcomes=list(v.get('adjustment_outcomes') or []))
 
     def artwork_state(settings, entry) -> models.ArtworkState:
         path = entry_art_path(entry, settings.work_dir or None)
@@ -494,12 +504,20 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
                                                                     'or `24` (1/N octave), or `sg` (Savitzky-Golay)'
                                                                     '.')] = None,
               responses: Annotated[bool, Query(description="Also each design's own magnitude response "
-                                                           "(`kind` filter).")] = False):
+                                                           "(`kind` filter).")] = False,
+              variant: Annotated[Optional[str], Query(description='Another of the title\'s design runs (Review.variants), '
+                                                                  'its designs charted in place of the current '
+                                                                  'one\'s.')] = None):
         ctx = context()
         settings = ctx.scan_settings()
         with read_index(ctx) as index:
             review_row(index, title_id)
         entry = review_entry(settings, title_id)
+        if variant is not None:
+            try:
+                entry = variant_view(entry, variant)
+            except KeyError as error:
+                raise ServiceProblem(404, 'No such variant', str(error).strip("'"))
         count = len(entry.offered)
         if candidate is not None and candidates is not None:
             raise ServiceProblem(422, 'Both candidate and candidates', 'Ask for one design or for several, not both')
@@ -513,7 +531,8 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
             raise ServiceProblem(422, 'Cannot smooth', str(error)) from None
         return models.Chart(candidate=candidate, candidates=designs,
                             smoothing=None if smooth is None else str(smooth).lower(), series=[
-            models.ChartSeries(name=c.data.name, kind=c.kind, filtered=c.filtered, candidate=c.candidate,
+            models.ChartSeries(name=c.data.name + (f' ({variant})' if variant and c.filtered else ''), kind=c.kind,
+                               filtered=c.filtered, candidate=c.candidate, variant=variant if c.filtered else None,
                                x=c.data.x.tolist(), y=c.data.y.tolist()) for c in curves])
 
     @v1.post('/titles/{title_id}/decision', response_model=models.Review, tags=['review'],

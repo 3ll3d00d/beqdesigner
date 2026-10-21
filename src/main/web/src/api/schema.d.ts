@@ -313,6 +313,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/titles/{title_id}/variants/{variant_id}/use": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Make an earlier design run of a title its current one again (the current one is kept) */
+        post: operations["use_v1_titles__title_id__variants__variant_id__use_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/titles/{title_id}/variants/{variant_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Discard one of a title's earlier design runs */
+        delete: operations["discard_v1_titles__title_id__variants__variant_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/titles/{title_id}/heatmap.png": {
         parameters: {
             query?: never;
@@ -869,6 +903,11 @@ export interface components {
              * @description The design it is after, or the response of; none for the measured curves.
              */
             candidate?: number | null;
+            /**
+             * Variant
+             * @description The design run it is from, when the chart was asked for another.
+             */
+            variant?: string | null;
             /**
              * X
              * @description Frequency, Hz.
@@ -1517,10 +1556,31 @@ export interface components {
             };
             /**
              * Adjustments
-             * @description What the designer was asked to change (contract 1.5): {id, kind, params, text, by, at, reason}.
+             * @description What the next design is asked to change (contract 1.5): {id, kind, params, text, by, at, reason}.
              * @default []
              */
             adjustments: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Variant Id
+             * @description Which design run this is (v1, v2...); none for one designed before they were numbered.
+             */
+            variant_id?: string | null;
+            /** Designed At */
+            designed_at?: string | null;
+            /**
+             * Variants
+             * @description The title's other design runs, kept until discarded: use one again, or chart it beside this one.
+             * @default []
+             */
+            variants: components["schemas"]["VariantSummary"][];
+            /**
+             * Adjusted With
+             * @description The adjustments the design here was made with (adjustments is what the next design is asked).
+             * @default []
+             */
+            adjusted_with: {
                 [key: string]: unknown;
             }[];
             /**
@@ -2236,6 +2296,42 @@ export interface components {
             /** Message */
             message: string;
         };
+        /** VariantChoice */
+        VariantChoice: {
+            /**
+             * Digest
+             * @description The Review's digest: what was looked at.
+             */
+            digest: string;
+        };
+        /** VariantSummary */
+        VariantSummary: {
+            /** Variant Id */
+            variant_id: string;
+            /** Designed At */
+            designed_at: string | null;
+            /** Designer */
+            designer: string | null;
+            /** Designer Build */
+            designer_build: string | null;
+            /** Design Version */
+            design_version: number | null;
+            /**
+             * Designs
+             * @description How many designs it offered (candidates, then rejected).
+             */
+            designs: number;
+            /** Declined */
+            declined: boolean;
+            /** Adjusted With */
+            adjusted_with: {
+                [key: string]: unknown;
+            }[];
+            /** Adjustment Outcomes */
+            adjustment_outcomes: {
+                [key: string]: unknown;
+            }[];
+        };
     };
     responses: never;
     parameters: never;
@@ -2731,6 +2827,8 @@ export interface operations {
                 smoothing?: string | null;
                 /** @description Also each design's own magnitude response (`kind` filter). */
                 responses?: boolean;
+                /** @description Another of the title's design runs (Review.variants), its designs charted in place of the current one's. */
+                variant?: string | null;
             };
             header?: never;
             path: {
@@ -3435,6 +3533,149 @@ export interface operations {
                 };
             };
             /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    use_v1_titles__title_id__variants__variant_id__use_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                title_id: string;
+                variant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VariantChoice"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Review"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    discard_v1_titles__title_id__variants__variant_id__delete: {
+        parameters: {
+            query: {
+                /** @description The Review's digest: what was looked at. */
+                digest: string;
+            };
+            header?: never;
+            path: {
+                title_id: string;
+                variant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Review"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Error */
             422: {
                 headers: {
                     [name: string]: unknown;

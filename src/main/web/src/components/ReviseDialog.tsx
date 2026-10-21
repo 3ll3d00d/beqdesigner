@@ -5,8 +5,10 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router'
 
 import type { Schemas } from '../api/client'
-import { useRevise } from '../api/hooks'
+import { useRevise, useStatus } from '../api/hooks'
+import { FREQUENCY_RANGE, type Range } from '../chart/view'
 import { count } from '../format'
+import { AdjustmentsEditor, askProblem, type Ask, type KindSpec } from './AdjustmentsEditor'
 
 type To = Schemas['ReviseRequest']['to']
 
@@ -30,18 +32,29 @@ interface Props {
   onClose: () => void
   /** Sent back now (no job): what came of it. */
   onDone?: (outcome: Schemas['ReviseOutcome']) => void
+  /** What the next design of the title is asked now (one title), to start from. */
+  asked?: Ask[]
+  /** The chart's frequency range, for an adjustment that ignores it. */
+  chartRange?: Range
 }
 
-export function ReviseDialog({ ids, name, published = false, onClose, onDone }: Props) {
+export function ReviseDialog({ ids, name, published = false, onClose, onDone, asked = [], chartRange = FREQUENCY_RANGE }: Props) {
   const revise = useRevise()
+  const status = useStatus()
   const navigate = useNavigate()
   const [to, setTo] = useState<To>('design')
   const [now, setNow] = useState(true)
   const [reason, setReason] = useState('')
+  const [adjusting, setAdjusting] = useState(false)
+  const [asks, setAsks] = useState<Ask[]>(() => asked.map((a) => ({ kind: a.kind, params: a.params ?? {}, text: a.text ?? null })))
+  const kinds = (status.data?.designer?.adjustment_kinds ?? {}) as Record<string, KindSpec>
+  const takes = Object.keys(kinds).length > 0
   const chosen = REVISE_CHOICES.find((c) => c.to === to)!
   const run = now && to !== 'review'
+  const sending = adjusting && to !== 'review'
+  const problem = sending ? asks.map((a) => askProblem(a, kinds[a.kind])).find(Boolean) ?? '' : ''
   function submit() {
-    revise.mutate({ ids, to, reason: reason.trim(), run }, {
+    revise.mutate({ ids, to, reason: reason.trim(), run, ...(sending ? { adjustments: asks } : {}) }, {
       onSuccess: (outcome) => {
         if (outcome.job) navigate(`/jobs/${outcome.job.id}`)
         else onDone?.(outcome)
@@ -70,11 +83,25 @@ export function ReviseDialog({ ids, name, published = false, onClose, onDone }: 
         : 'Nothing is redesigned, extracted or published now: this only changes what each title needs next.'}</p>
       {published && <p>A published title's uncommitted catalogue files are put back as git has them; committed files stay
         until you publish again (a revision) and commit it.</p>}
+      {to !== 'review' && (
+        <div className="adjusting">
+          <label className="check">
+            <input type="checkbox" checked={adjusting} disabled={!takes} onChange={(e) => setAdjusting(e.target.checked)} />
+            Ask the designer to change something{ids.length > 1 ? ' (the same for every title)' : ''}
+          </label>
+          {!takes && <p className="muted">The designer lists no adjustments it takes (it is older than contract 1.5, or
+            it cannot be reached): it is asked nothing.</p>}
+          {adjusting && <AdjustmentsEditor kinds={kinds} value={asks} onChange={setAsks} chartRange={chartRange} />}
+          {!adjusting && asked.length > 0 && <p className="muted">The next design is asked what this one was: change it
+            above.</p>}
+        </div>
+      )}
       <label className="inline">Why (kept in the note)
         <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="optional" />
       </label>
       <div className="actions">
-        <button type="button" disabled={revise.isPending} onClick={submit}>{chosen.label}</button>
+        <button type="button" disabled={revise.isPending || !!problem} title={problem || undefined}
+                onClick={submit}>{chosen.label}</button>
         <button type="button" className="secondary" disabled={revise.isPending} onClick={onClose}>Back</button>
       </div>
       {revise.error && <p role="alert" className="problem">{revise.error.message}</p>}

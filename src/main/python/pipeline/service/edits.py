@@ -19,7 +19,9 @@ from fastapi.responses import FileResponse, JSONResponse
 from pipeline.library.artwork_edit import ArtworkError, download_artwork, set_artwork, store_image
 from pipeline.library.metadata_edit import FIELD_SPECS, TmdbError, changes_from_texts, metadata_digest, save_meta_changes, \
     tmdb_fill, tmdb_reload
+from pipeline.library.decide import offered_digest
 from pipeline.library.revise import revise_entry
+from pipeline.library.variants import VariantRefused, discard_variant, use_variant
 from pipeline.library.selection import Selection
 from pipeline.library.streams import describe_streams, preferred_stream
 from pipeline.metadata import BeqMetadata
@@ -257,3 +259,39 @@ def register(v1: APIRouter, deps: EditRoutes) -> None:
                                      redesign=True, revise_to='extract', audio_stream=body.audio_stream))
         return JSONResponse(models.job_model(job).model_dump(mode='json'), status_code=202,
                             headers={'Location': f'/v1/jobs/{job.id}'})
+
+    # --- variants (WP7) --------------------------------------------------------------------------------------------
+
+    def as_looked_at(title_id: str, digest: str):
+        ctx = deps.context()
+        settings = ctx.scan_settings()
+        with deps.read_index(ctx) as index:
+            row = deps.review_row(index, title_id)
+        entry = deps.review_entry(settings, title_id)
+        if deps.in_flight(ctx, row):
+            raise Problem(409, 'In flight', RUNNING)
+        if digest != offered_digest(entry):
+            raise Problem(409, CHANGED, f'{title_id}: its designs changed since they were read; read them again')
+        return ctx, settings, row
+
+    @v1.post('/titles/{title_id}/variants/{variant_id}/use', response_model=models.Review, tags=['edit'],
+             summary='Make an earlier design run of a title its current one again (the current one is kept)',
+             responses=responses(404, 409, 503))
+    def use(title_id: str, variant_id: str, body: models.VariantChoice) -> models.Review:
+        ctx, settings, row = as_looked_at(title_id, body.digest)
+        try:
+            use_variant(settings.queue_dir, title_id, variant_id)
+        except VariantRefused as refused:
+            raise Problem(409, 'Not now', str(refused))
+        return written(ctx, settings, row, title_id)
+
+    @v1.delete('/titles/{title_id}/variants/{variant_id}', response_model=models.Review, tags=['edit'],
+               summary='Discard one of a title\'s earlier design runs', responses=responses(404, 409, 503))
+    def discard(title_id: str, variant_id: str,
+                digest: Annotated[str, Query(description="The Review's digest: what was looked at.")]) -> models.Review:
+        ctx, settings, row = as_looked_at(title_id, digest)
+        try:
+            discard_variant(settings.queue_dir, title_id, variant_id)
+        except VariantRefused as refused:
+            raise Problem(409, 'Not now', str(refused))
+        return written(ctx, settings, row, title_id)

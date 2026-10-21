@@ -11,6 +11,7 @@ from pipeline.library.artwork import resolve_art
 from pipeline.library.extract_cache import source_fingerprint
 from pipeline.library.source import LibraryItem
 from pipeline.orchestrate import Session
+from pipeline.library.variants import kept_variants, next_variant_id
 from pipeline.review import QueueEntry, design_and_queue, read_entry, update_entry
 
 
@@ -175,6 +176,8 @@ def design_if_needed(session: Session, item: LibraryItem, wav_path: str, designe
     if not (art_overridden or (art_path and os.path.isfile(art_path))):
         art_path = resolve_art(item, meta or {}, project_dir)
     kept = {'reviewer_note': existing.reviewer_note, 'revision': existing.revision} if existing is not None else {}
+    # the design it replaces is kept as a variant, until a person discards it (pipeline.library.variants)
+    kept.update(variants=kept_variants(existing), variant_id=next_variant_id(existing))
     entry = update_entry(queue_dir, entry.id, design_fingerprint=fingerprint, source_fingerprint=recorded_source or source_fingerprint(item),
                          art_path=art_path,
                          art_overridden=art_overridden, **kept)

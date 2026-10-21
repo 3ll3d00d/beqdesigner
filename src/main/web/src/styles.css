@@ -203,3 +203,15 @@ img.heatmap { width: 100%; height: auto; border-radius: 4px; }
 .published-list { list-style: none; padding: 0; margin: 0.5rem 0; display: grid; gap: 0.25rem; }
 .published-list li { display: flex; flex-wrap: wrap; gap: 0.25rem 0.6rem; align-items: center; }
 .published-list label.check { margin: 0; }
+
+.variants { margin-top: 1rem; }
+.variants .variant { border-top: 1px solid var(--line); padding: 0.5rem 0; }
+.variants .variant.current { border-top: none; }
+.variants .actions { margin: 0.3rem 0; }
+.asks { margin: 0.25rem 0 0; padding-left: 1.2rem; }
+.warn { color: var(--warn); }
+.adjustments ol { padding-left: 1.2rem; display: grid; gap: 0.4rem; }
+.adjustments li { display: flex; flex-wrap: wrap; gap: 0.3rem 0.8rem; align-items: center; }
+.adjustments input.number { width: 6rem; }
+.adjusting { margin: 0.5rem 0; }
+button.danger.small { padding: 0.15rem 0.6rem; font-size: 0.85rem; }
