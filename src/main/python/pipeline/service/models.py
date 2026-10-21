@@ -17,7 +17,7 @@ from pipeline.service.jobs import MAX_REDESIGN_IDS, redesign_problem
 from pipeline.library.state import NEEDS, FLAG_DUPLICATE, FLAG_GONE, FLAG_IGNORED, FLAG_IN_CATALOGUE, FLAG_SHADOWED
 from pipeline.library.year import YEAR_PATTERN, YearRange, numeric_year
 
-API_VERSION = '1.8.0'
+API_VERSION = '1.9.0'
 
 
 class Needs(str, Enum):

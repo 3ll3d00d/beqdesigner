@@ -4,7 +4,7 @@
     "title": "BEQDesigner pipeline service",
     "summary": "Scan a library, extract and design BEQ filters for titles chosen by filter, on demand or on a schedule, and follow the jobs that do it.",
     "description": "A person decides a title through the review routes or in the BEQDesigner app. Every /v1 route needs the bearer token (Authorize, above). `GET /health` says which release this is.",
-    "version": "1.8.0"
+    "version": "1.9.0"
   },
   "paths": {
     "/health": {
@@ -1813,6 +1813,242 @@
               }
             },
             "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/titles/{title_id}/heatmap.png": {
+      "get": {
+        "tags": [
+          "review"
+        ],
+        "summary": "The publication heatmap of a design: filtered on the left, as it would be published",
+        "operationId": "heatmap_v1_titles__title_id__heatmap_png_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "title_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Title Id"
+            }
+          },
+          {
+            "name": "candidate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "A design; default the chosen one, else the first.",
+              "title": "Candidate"
+            },
+            "description": "A design; default the chosen one, else the first."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "image/png": {}
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "202": {
+            "description": "Being rendered: ask again after `Retry-After` seconds."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/titles/{title_id}/spectrogram": {
+      "get": {
+        "tags": [
+          "review"
+        ],
+        "summary": "A title's spectrogram as a grid of bytes, for drawing (design/web-parity.md WP2)",
+        "operationId": "spectrogram_v1_titles__title_id__spectrogram_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "title_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Title Id"
+            }
+          },
+          {
+            "name": "candidate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The design applied when filtered; default the chosen one, else the first.",
+              "title": "Candidate"
+            },
+            "description": "The design applied when filtered; default the chosen one, else the first."
+          },
+          {
+            "name": "filtered",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "After the design (else as measured).",
+              "default": false,
+              "title": "Filtered"
+            },
+            "description": "After the design (else as measured)."
+          },
+          {
+            "name": "max_hz",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "maximum": 500,
+              "exclusiveMinimum": 0,
+              "description": "The highest frequency kept.",
+              "default": 160.0,
+              "title": "Max Hz"
+            },
+            "description": "The highest frequency kept."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A 40-byte little-endian header -- magic `BEQS`, version (u16), reserved (u16), time bins (u32), frequency bins (u32), then as f32: first time (s), time step (s), first frequency (Hz), frequency step (Hz), the level of cell value 1 (dB), dB per value -- then one byte per cell, time-major; 0 is below the floor.",
+            "content": {
+              "application/octet-stream": {}
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "202": {
+            "description": "Being rendered: ask again after `Retry-After` seconds."
           },
           "404": {
             "content": {

@@ -36,7 +36,7 @@ from pipeline.service.jobs import FINISHED, AcceptRequest, JobFinished, JobManag
 from pipeline.service.scheduler import AutoScheduler
 from pipeline.service.lease import read_lease
 from pipeline.service.notify import Notifier
-from pipeline.service import edits
+from pipeline.service import edits, visuals
 from pipeline.service.refresh import IndexRefresher
 from pipeline.review import entry_art_path, fit_text, has_measured_fit, read_entry
 
@@ -122,7 +122,8 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
                static_dir: Optional[str] = None, ui_dir: Optional[str] = None, version: Optional[str] = None,
                checks: Optional[Callable[[], List[models.Check]]] = None,
                scheduler: Optional[AutoScheduler] = None, notifier: Optional[Notifier] = None,
-               designer: Optional[DesignerProbe] = None, refresher: Optional[IndexRefresher] = None) -> FastAPI:
+               designer: Optional[DesignerProbe] = None, refresher: Optional[IndexRefresher] = None,
+               render_queue: Optional[visuals.RenderQueue] = None) -> FastAPI:
     '''
     :param require_token: False only for a service bound to loopback and started with --no-auth.
     :param static_dir: a local copy of swagger-ui-dist and redoc, served at /static (the Docker image has one); None loads
@@ -133,6 +134,7 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
         whether it answers, which is reported but does not make the service unready).
     :param designer: asks the designer's /health (default: one over the profile).
     :param refresher: brings the index up to date after a decision (default: one over the profile and this manager).
+    :param render_queue: draws heatmaps and spectrograms off the request (default: a pool of two).
     '''
     version = version or read_version()
     if require_token and not config.token:
@@ -143,6 +145,7 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
                                            on_designer_down=lambda reason: notifier.designer_unavailable(
                                                designer.last.name if designer.last else '', reason))
     notifier = notifier or Notifier(manager, config.profile_path, config.notify, env=env, start=False)
+    render_queue = render_queue or visuals.RenderQueue()
     refresher = refresher or IndexRefresher(lambda: load(config.profile_path, env),
                                             busy=lambda: manager.current is not None or bool(manager.queued))
     app = FastAPI(title='BEQDesigner pipeline service', version=models.API_VERSION, docs_url=None, redoc_url=None,
@@ -532,6 +535,10 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
                                          review_entry=review_entry, in_flight=in_flight, review_model=review_model,
                                          refresh=refresher.request, problem=ServiceProblem, responses=_responses,
                                          submit=manager.submit, repository_writes=config.allow_repository_writes))
+
+    visuals.register(v1, visuals.VisualRoutes(context=context, read_index=read_index, review_row=review_row,
+                                              review_entry=review_entry, entry_title=entry_title, problem=ServiceProblem,
+                                              responses=_responses, queue=render_queue))
 
     @v1.get('/review/next', response_model=models.NextTitle, tags=['review'],
             summary='The next title waiting for a decision after one, in the filtered list (wrapping round)',

@@ -66,3 +66,17 @@ Evidence: `test_pipeline_service_edit.py` (revise, streams), `test_pipeline_serv
 stream, request checks), `gui/test_worklist_stream_choice.py` unchanged; web `review.test.tsx` (revising one title,
 choosing the stream, revising from the list). Web: typecheck, lint, 103 tests (8 consecutive full runs), build. Python:
 `pytest -n auto src/test/python`, 3303 passed, 1 skipped. The metadata panel test now waits for the fields' own request.
+
+## WP2
+
+**2026-10-21.** A title's spectrogram and publication heatmap are drawn in the browser.
+
+- Shared: `spectrum.spectrogram_grid()` and `SpectrogramGrid` (encode/decode).
+- Service (API 1.9.0): `GET /v1/titles/{id}/heatmap.png`, `GET /v1/titles/{id}/spectrogram`, on
+  `pipeline/service/visuals.py`'s `RenderQueue` (202 while drawing; files kept under `<work>/<id>/web/`).
+- Browser: `src/chart/grid.ts`, `Spectrogram`, `HeatmapView`, the chart card's tabs. Looked at in Chrome against a
+  running service with a synthetic 10-minute track: the steady tone and three bursts where expected, the low shelf's
+  +4.5 dB in *Difference*, the heatmap PNG.
+
+Evidence: `test_pipeline_service_visuals.py` (6), `test_pipeline_library_spectrum.py` (grid tests); web
+`src/chart/grid.test.ts`, `src/pages/visuals.test.tsx`.

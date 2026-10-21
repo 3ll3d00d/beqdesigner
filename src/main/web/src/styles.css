@@ -191,3 +191,11 @@ ul.endpoints { list-style: none; padding: 0; margin: 0.4rem 0 0; display: grid; 
 .artwork img { max-width: 180px; max-height: 270px; border: 1px solid var(--line); border-radius: 4px; }
 .artwork-actions { display: grid; gap: 0.5rem; justify-items: start; }
 @media (max-width: 640px) { .meta-form { grid-template-columns: 1fr; } }
+
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.tabs { display: flex; gap: 0.25rem; border-bottom: 1px solid var(--line); margin-bottom: 0.6rem; }
+.spectrogram canvas { display: block; max-width: 100%; }
+.spectrogram canvas[aria-label^='Spectrogram'] { cursor: crosshair; }
+.spectrogram .row { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; align-items: center; margin-bottom: 0.4rem; }
+.spectrogram .legend .swatch { display: inline-block; width: 0.8rem; height: 0.8rem; vertical-align: middle; border-radius: 2px; }
+img.heatmap { width: 100%; height: auto; border-radius: 4px; }

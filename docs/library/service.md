@@ -121,6 +121,8 @@ Stopping it (Ctrl-C, or `SIGTERM`) lets the title in hand finish, then stops.
 | `PATCH /v1/titles/{id}/metadata` | change a title's metadata: the fields changed, as typed, and the review's `metadata_digest` |
 | `POST /v1/titles/{id}/metadata/tmdb` | what TMDB would fill in (needs `TMDB_API_KEY`; nothing is saved) |
 | `GET`, `PUT`, `DELETE /v1/titles/{id}/artwork` | the title's poster; set it from a URL or an image sent (png or jpeg, base64); clear it |
+| `GET /v1/titles/{id}/heatmap.png` | the publication heatmap of a design (`?candidate=`): 202 while the service draws it, then the image |
+| `GET /v1/titles/{id}/spectrogram` | the title's spectrogram as a grid of bytes for drawing (`?candidate=`, `filtered`, `max_hz`): 202 while drawn |
 | `POST /v1/revise` | send titles back to review, design or extract (`ids`, `to`, `reason`): now, or with `run` in one run job |
 | `GET /v1/titles/{id}/streams` | the title's audio streams and the one extracted |
 | `PUT /v1/titles/{id}/stream` | extract and design the title from another audio stream: a run job |
@@ -259,6 +261,11 @@ otherwise it lasts until the tab is closed. The token is checked with the servic
   throws away what is not saved. Artwork: upload a png or jpeg, download one from an address, or clear it. A title a
   run is working on cannot be edited until the run has finished with it.
 
+* **Looking at it:** above the chart, *Magnitude*, *Spectrogram* and *Heatmap*. The spectrogram puts frequency across --
+  the chart's range and log setting, so zooming one zooms the other -- and time down: as measured, after the design, or
+  the difference (blue quieter, red louder), with the loudest level of each frequency in a strip below. Drag across to
+  zoom the frequencies, down to zoom into part of the title; double-click (or *Whole title*) to go back. *Heatmap* is the
+  image publish would write. The service draws each once (it says so meanwhile) and keeps it with the title's work.
 * **Revise:** *Revise…* on a review, or tick titles on the Titles page and *Revise selected…*: reopen for review,
   redesign, or re-extract and redesign, with a reason kept in the title's note. *Extract & design now* starts one job
   for them all; otherwise they wait for the next run. *Audio stream…* extracts and designs a title from another of its

@@ -8,9 +8,11 @@ import type { Schemas } from '../api/client'
 import { useChart, useDecide, useNextTitle, useReview, useStatus } from '../api/hooks'
 import { DEFAULT_VIEW, loadView, saveView, type ChartView } from '../chart/view'
 import { ChartControls } from '../components/ChartControls'
+import { HeatmapView } from '../components/HeatmapView'
 import { MagnitudeChart } from '../components/MagnitudeChart'
 import { MetadataPanel } from '../components/MetadataPanel'
 import { ReviseDialog, reviseSummary } from '../components/ReviseDialog'
+import { Spectrogram } from '../components/Spectrogram'
 import { StreamPicker } from '../components/StreamPicker'
 import { metadataText, NEEDS_WORDS, type NeedsWord } from '../format'
 import { useListParams } from './TitlesPage'
@@ -93,6 +95,11 @@ function Metadata({ review }: { review: Review }) {
   )
 }
 
+type Visual = 'magnitude' | 'spectrogram' | 'heatmap'
+const VISUALS: { id: Visual; label: string }[] = [
+  { id: 'magnitude', label: 'Magnitude' }, { id: 'spectrogram', label: 'Spectrogram' }, { id: 'heatmap', label: 'Heatmap' },
+]
+
 export function ReviewPage() {
   const { titleId = '' } = useParams()
   const { filter, query } = useListParams()
@@ -110,6 +117,7 @@ export function ReviewPage() {
   const picked = data && pick?.digest === data.digest ? pick.index : (data?.chosen_index ?? 0)
   const candidate = offered[picked]
   const [view, setView] = useState<ChartView>(loadView)
+  const [visual, setVisual] = useState<Visual>('magnitude')
   const chart = useChart(titleId, { candidate: offered.length ? picked : null, all: view.allDesigns && offered.length > 1,
                                     smoothing: view.smoothing, responses: view.responses }, !!data)
   const changeView = (next: ChartView) => {
@@ -269,12 +277,29 @@ export function ReviewPage() {
           )}
         </section>
         <section className="card chart-card" aria-labelledby="chart">
-          <h2 id="chart">Chart</h2>
-          <ChartControls view={view} series={chart.data?.series ?? []} onChange={changeView} />
-          {chart.isError ? <p role="alert" className="problem">{chart.error.message}</p>
-            : <MagnitudeChart series={chart.data?.series ?? []} view={view} highlighted={picked}
-                              onZoom={(x, y) => changeView({ ...view, x, y })}
-                              onReset={() => changeView({ ...view, x: DEFAULT_VIEW.x, y: null })} />}
+          <h2 id="chart" className="visually-hidden">Chart</h2>
+          <div className="tabs" role="tablist" aria-label="How to look at it">
+            {VISUALS.map((v) => (
+              <button key={v.id} type="button" role="tab" aria-selected={visual === v.id}
+                      className={`tab${visual === v.id ? ' on' : ''}`} onClick={() => setVisual(v.id)}>{v.label}</button>
+            ))}
+          </div>
+          {visual === 'magnitude' && (
+            <>
+              <ChartControls view={view} series={chart.data?.series ?? []} onChange={changeView} />
+              {chart.isError ? <p role="alert" className="problem">{chart.error.message}</p>
+                : <MagnitudeChart series={chart.data?.series ?? []} view={view} highlighted={picked}
+                                  onZoom={(x, y) => changeView({ ...view, x, y })}
+                                  onReset={() => changeView({ ...view, x: DEFAULT_VIEW.x, y: null })} />}
+            </>
+          )}
+          {visual === 'spectrogram' && (offered.length
+            ? <Spectrogram titleId={titleId} candidate={picked} view={view} onZoom={(x) => changeView({ ...view, x })}
+                           onReset={() => changeView({ ...view, x: DEFAULT_VIEW.x })} />
+            : <p className="muted">No design yet: nothing to draw.</p>)}
+          {visual === 'heatmap' && (offered.length
+            ? <HeatmapView titleId={titleId} candidate={picked} title={data!.title} />
+            : <p className="muted">No design yet: nothing to draw.</p>)}
         </section>
         <Commentary candidate={candidate} review={data!} />
       </div>

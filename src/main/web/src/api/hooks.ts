@@ -1,7 +1,7 @@
 // The service's data as TanStack Query hooks: one query key per resource, so a change (a job submitted, a decision) can
 // refresh exactly what it affects.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { useAuth } from '../auth/auth'
 import { FINISHED_STATES } from '../format'
@@ -353,4 +353,45 @@ export function useChooseStream(id: string) {
       params: { path: { title_id: id } }, body: { audio_stream: audioStream } })) as Job,
     onSuccess: refresh,
   })
+}
+
+// --- what a title's audio looks like (design/web-parity.md WP2) ----------------------------------------------------------
+
+/** A drawing the service renders off the request: `pending` while it answers 202, then the bytes. */
+type Rendered<T> = { pending: true } | { pending: false; data: T }
+
+function renderedQuery<T>(key: unknown[], fetchIt: () => Promise<{ response: Response; data?: unknown; error?: unknown }>,
+                          enabled: boolean) {
+  return {
+    queryKey: key,
+    queryFn: async (): Promise<Rendered<T>> => {
+      const result = await fetchIt()
+      if (result.response.status === 202) return { pending: true }
+      return { pending: false, data: unwrap(result) as T }
+    },
+    enabled,
+    retry: false,
+    staleTime: 5 * 60_000,
+    refetchInterval: (query: { state: { data?: Rendered<T> } }) => (query.state.data?.pending ? 2000 : false),
+  }
+}
+
+/** A title's spectrogram grid, as measured or after a design (`decodeGrid()` reads it). */
+export function useSpectrogram(id: string, candidate: number, filtered: boolean, maxHz: number, enabled: boolean) {
+  const { client } = useAuth()
+  return useQuery(renderedQuery<ArrayBuffer>(['spectrogram', id, candidate, filtered, maxHz], () =>
+    client.GET('/v1/titles/{title_id}/spectrogram', {
+      params: { path: { title_id: id }, query: { candidate, filtered, max_hz: maxHz } }, parseAs: 'arrayBuffer' }), enabled))
+}
+
+/** The publication heatmap of a design, as an object URL (revoked when replaced or the page goes). */
+export function useHeatmapUrl(id: string, candidate: number, enabled: boolean) {
+  const { client } = useAuth()
+  const query = useQuery(renderedQuery<Blob>(['heatmap', id, candidate], () =>
+    client.GET('/v1/titles/{title_id}/heatmap.png', {
+      params: { path: { title_id: id }, query: { candidate } }, parseAs: 'blob' }), enabled))
+  const blob = query.data && !query.data.pending ? query.data.data : null
+  const url = useMemo(() => (blob ? URL.createObjectURL(blob) : null), [blob])
+  useEffect(() => () => { if (url) URL.revokeObjectURL(url) }, [url])
+  return { ...query, url, pending: !!query.data?.pending }
 }

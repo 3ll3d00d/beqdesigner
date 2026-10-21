@@ -108,7 +108,7 @@ message. Tests: `test_pipeline_library_decide.py`.
   - *Review*: the title, its status, what it needs; the designs (rejected ones listed apart, with how many reasons),
     commentary of the one highlighted (or the decline; full width under the designs and chart), the playback chain and
     designer, the metadata as one line under the heading (content type, audio types, genres by name) and what it lacks,
-    the chart with its controls (§4.1), *Edit metadata and artwork* (§4.2), and *Revise…* and *Audio stream…* (§4.3). *Accept design N*, *Reject* and *Skip*, with keys A, R, S, and 1–9 to highlight a design; the keys
+    the chart with its controls (§4.1) beside *Spectrogram* and *Heatmap* tabs (§4.4), *Edit metadata and artwork* (§4.2), and *Revise…* and *Audio stream…* (§4.3). *Accept design N*, *Reject* and *Skip*, with keys A, R, S, and 1–9 to highlight a design; the keys
     stand aside while a text field has focus. A blocked decision is disabled and says why. Accepting a rejected design
     asks first, with the designer's reasons, and sends `override_rejection`. A refused decision shows the service's
     reason and the title as it is now. After a decision, or Skip, `GET /v1/review/next` in the same filtered list opens
@@ -154,6 +154,17 @@ save it first) throws away what is unsaved. *Reload from TMDB* fills the form an
 collection) unsaved; it is disabled when `/v1/status` says `tmdb` is false. The poster is fetched as a blob (an `<img>`
 cannot send the token); upload (read as base64), download from an address, and clear answer with the review. Problems
 `metadata_problems` lists are shown and their fields marked; a run with the title in hand disables the form.
+
+### 4.4 Spectrogram and heatmap
+
+The review's chart card has tabs: *Magnitude* (§4.1), *Spectrogram* and *Heatmap*, for the design highlighted. Both
+drawings are rendered by the service off the request, so `renderedQuery()` reads a 202 as "pending" and asks again
+every 2 s. `Spectrogram` decodes the grid (`src/chart/grid.ts`, `decodeGrid()`) and paints it pixel by pixel
+(`paint()`: frequency across on the chart's range and log setting, time down; a perceptual scale over the 60 dB below the
+loudest cell; *Difference* blue-white-red over ±20 dB from the grids before and after the design) into a canvas, with
+`loudestByFrequency()` in a strip under it. A horizontal drag zooms the frequencies (the shared `ChartView`, so the
+magnitude chart follows), a vertical one the times (kept on the page), a double click resets both. *Heatmap* shows the
+PNG as an object URL.
 
 ## 5. Build and delivery
 

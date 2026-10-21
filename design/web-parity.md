@@ -70,30 +70,12 @@ Built 2026-10-21; described in [web-app.md §4.1](web-app.md#41-the-chart), reco
 [archive/web-parity-record.md](archive/web-parity-record.md#wp1). The main window offers smoothing to 1/24 octave (the
 `acoustics` package has no 1/48), so the route does too.
 
-### WP2 — Spectrogram
+### WP2 — Spectrogram — done
 
-Two views, one data source.
-
-- **Publication heatmap (parity):** `GET /v1/titles/{id}/heatmap.png?candidate=N` — exactly the image publish would
-  write (`pipeline/publish/heatmap.py` `heatmap_for`, the spec from the profile/preferences), via WP0's
-  `pipeline/library/spectrum.py`. Rendering takes seconds, so the first request starts it on the service's pool and
-  answers 202 with `Retry-After`; the PNG is cached under `<work_dir>/<id>/web/heatmap-<digest>.png` keyed by the mono
-  wav's stamp, the design's filter and the spec, and `ETag`ged.
-- **Interactive spectrogram (beyond):** `GET /v1/titles/{id}/spectrogram?candidate=N&filtered=bool` returns the
-  time×frequency grid the heatmap is drawn from (`model.heatmap.spectrogram_data`), quantised to uint8 dB steps over a
-  stated range, as a binary body (`application/octet-stream`, sent compressed): a fixed little-endian header (magic,
-  format version, time and frequency bin counts, first time and step, first frequency and step, dB floor and step)
-  then the grid, one byte per cell, time-major. No JSON or base64: the grid is the whole payload, so it is the smallest
-  form and decodes straight into a typed array for the canvas. Resolution is bounded (≤ 2048 time × ≤ 512 frequency
-  bins, the service taking the max over each time bin so short hits survive): at most 1 MiB before compression. Same
-  cache and 202 rule.
-- **Client:** a `Spectrogram` component drawing to `<canvas>` with a colour map matching `beq_dark`, linked zoom with
-  the magnitude chart's x (frequency) axis, time zoom by drag, *unfiltered | filtered | difference* toggle, and a
-  max-over-time strip (the "where are the heavy hits" view of `model/analysis.py`'s `MaxSpectrumByTime`). Lazy: fetched
-  only when its tab is opened.
-- A **Visualise** area on the review page holds tabs *Magnitude*, *Spectrogram*, *Heatmap*, *Published BEQs* (WP3).
-- Tests: cache key and 202/200 behaviour (`test_pipeline_service_spectrum.py`), the quantisation round trip, and the
-  component's rendering against a fake canvas context.
+Built 2026-10-21; described in [web-app.md §4.4](web-app.md#44-spectrogram-and-heatmap), record in
+[archive/web-parity-record.md](archive/web-parity-record.md#wp2). The binary grid was measured on a 3-hour synthetic
+title: 2.4 s to compute, 314 KB. The service draws with the default `HeatmapSpec`, not a person's Analyse Signal
+preferences (it has none).
 
 ### WP3 — Comparison with published BEQs
 
