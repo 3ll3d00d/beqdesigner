@@ -51,7 +51,7 @@ from qtpy.QtWidgets import QAbstractSpinBox, QApplication, QComboBox, QLineEdit,
 
 from model.magnitude import MagnitudeModel
 from model.worklist_spectrum import SpectrumPanel, comparison_request
-from model.worklist_catalogue import catalogue_target
+from pipeline.library.catalogue_match import catalogue_target
 from model.worklist_published import PublishedPanel
 from model.worklist_metadata import MetadataPanel, badge_alarms, badge_text, ok_colour
 from model.worklist_model import warning_colour

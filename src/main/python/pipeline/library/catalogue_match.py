@@ -1,7 +1,9 @@
-"""Metadata matching for the title page's published-BEQ lookup (no widgets)."""
+"""Metadata matching of a library title to published BEQs (no widgets): the title page's *Published BEQs* tab and the service."""
 import re
 import unicodedata
 from dataclasses import dataclass
+
+from model.iir import CompleteFilter, HighShelf, LowShelf, PeakingEQ
 
 
 def _key(value):
@@ -112,3 +114,27 @@ def matching_entries(target, entries, include_other_tracks=False):
     return sorted((entry for entry in entries if matches_title(target, entry) and
                    (include_other_tracks or matches_track(target, entry))),
                   key=lambda e: (e.author.casefold(), e.formatted_title.casefold(), str(e.idx)))
+
+
+_TYPES = {'PeakingEQ': PeakingEQ, 'LowShelf': LowShelf, 'HighShelf': HighShelf}
+
+
+def catalogue_biquads(filters, fs=96000):
+    """
+    A catalogue entry's filters (`{type, freq, gain, q}`, and in beqcatalogue's `compare/` files a `count` of repeats) as
+    biquads, in order.
+    :raises ValueError: for a filter type the catalogue does not use.
+    """
+    result = []
+    for f in filters or []:
+        kind = _TYPES.get(f.get('type'))
+        if kind is None:
+            raise ValueError(f"Unknown filt_type {f.get('type')}")
+        for _ in range(max(1, int(f.get('count') or 1))):
+            result.append(kind(fs, f['freq'], f['q'], f['gain'], f_id=len(result)))
+    return result
+
+
+def catalogue_filter(filters, fs=96000, description='Published BEQ'):
+    """ A catalogue entry's filters as one `CompleteFilter`, for its response or to apply it to a measured curve. """
+    return CompleteFilter(fs=fs, filters=catalogue_biquads(filters, fs), description=description, sort_by_id=True)

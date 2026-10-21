@@ -30,8 +30,7 @@ own row later.
 
 - **Rules are shared, not copied.** As `decide.py` / `review_chart.py` are today (web-app.md §2): every write the web
   app gains is a Qt-free function in `pipeline/library/` that the desktop module is rewired onto *in the same chunk*, so
-  the title page and the service cannot disagree. Where the logic sits in a Qt module today (`model/worklist_metadata.py`
-  `save_meta_changes`, `model/worklist_published.py` `published_catalogue`, `model/worklist_spectrum.py`), WP0 moves it.
+  the title page and the service cannot disagree. Where the logic sat in a Qt module (`model/worklist_metadata.py`, `model/worklist_spectrum.py`), WP0 moved it.
 - **Optimistic concurrency everywhere.** Every write sends back the digest it was read at (as `Decision` does with
   `offered_digest()`) and is refused with 409 *Changed since it was read* otherwise. Every write is refused while the
   title is in flight (review-over-http.md's rule).
@@ -58,19 +57,12 @@ own row later.
 
 ## 4. Chunks
 
-### WP0 — Push the remaining title-page logic down (Qt-free)
+### WP0 — Push the remaining title-page logic down (Qt-free) — done
 
-No user-visible change; the desktop keeps working exactly as before.
-
-- `pipeline/library/metadata_edit.py`: `field_texts`, `parse_audio_types`, `apply_changes`, `save_meta_changes`
-  (returns the entry and whether it changed) and `metadata_digest(entry)`. `model/worklist_metadata.py` imports them.
-- `pipeline/library/catalogue.py`: `matching_entries` (from `model/worklist_catalogue.py`, already widget-free but
-  under `model/`) and `catalogue_filter(filters) -> CompleteFilter` built from a catalogue filter list, plus the
-  on-demand reader WP3 uses (below). The desktop's full `database.json` download stays where it is.
-- `pipeline/library/spectrum.py`: `comparison_request()` / `render_comparison()` from `model/worklist_spectrum.py`
-  (they already use only `pipeline.*` and `model.codec`).
-- Add each module to `test_qt_free_modules.py`. Tests: the existing `gui/test_worklist_metadata*.py`,
-  `gui/test_worklist_*published*`/spectrum tests still pass unchanged; new unit tests on each function.
+Built 2026-10-21; record in [archive/web-parity-record.md](archive/web-parity-record.md#wp0). Moved:
+`pipeline/library/metadata_edit.py`, `catalogue_match.py` (plus `catalogue_biquads`/`catalogue_filter`) and
+`spectrum.py`. Left for the chunk that needs it: the artwork checks (WP4: they read images with Qt's `QImageReader`),
+`worklist_revise.py`'s words (WP5) and `worklist_projects.py` (WP8, already Qt-free).
 
 ### WP1 — The chart workbench
 
@@ -149,7 +141,7 @@ Two views, one data source.
 
 Removes the biggest reason to go back to the desktop: a title whose metadata is incomplete can be fixed and accepted.
 
-- **Service:** `PATCH /v1/titles/{id}/metadata` with `{digest, changes}` (WP0's `save_meta_changes`; refused in flight,
+- **Service:** `PATCH /v1/titles/{id}/metadata` with `{digest, changes}` (`metadata_edit.save_meta_changes`; refused in flight,
   409 on a changed digest, 422 with the field when a value is invalid); `Review` gains `metadata_digest` and the
   editable fields with their typed choices (content type, audio types, genres) so the form is built from data, not
   duplicated. `POST /v1/titles/{id}/metadata/tmdb` — TMDB reload (the service's `--tmdb-api-key` / `BEQ_TMDB_API_KEY`;

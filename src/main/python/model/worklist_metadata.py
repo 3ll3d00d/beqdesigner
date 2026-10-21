@@ -42,10 +42,8 @@ Reload fills only what TMDB knows (it has no audio types) and leaves the form di
 '''
 import logging
 import os
-import traceback
-from typing import Any, Callable, Dict, List, Mapping, Optional, Set, Tuple
+from typing import Any, Callable, Dict, List, Mapping, Optional, Set
 
-import requests
 from qtpy.QtCore import QEvent, QObject, QRunnable, Qt, QThreadPool, Signal
 from qtpy.QtGui import QPixmap
 from qtpy.QtWidgets import QCheckBox, QComboBox, QFileDialog, QFormLayout, QGridLayout, QHBoxLayout, QLineEdit, QPushButton, QWidget
@@ -53,8 +51,12 @@ from qtpy.QtWidgets import QCheckBox, QComboBox, QFileDialog, QFormLayout, QGrid
 from model.preferences import TMDB_API_KEY
 from model.worklist_artwork import ArtworkError, DownloadJob, check_local_image
 from model.worklist_model import is_dark_palette, warning_colour
+from pipeline.library.metadata_edit import AUDIO_TYPES as _AUDIO_TYPES, \
+    INDEXED_STATUSES, LANGUAGES as _LANGUAGES, REMOVE, SOURCES as _SOURCES, TEXT_FIELDS, TMDB_EXTRAS as _TMDB_EXTRAS, \
+    TmdbError, apply_changes, badge_alarms, badge_text, changes_from_texts, field_texts, parse_audio_types, \
+    save_meta_changes, tmdb_fill, tmdb_reload  # noqa: F401 (the names the page's own tests and callers import from here)
 from pipeline.library.status import metadata_problems
-from pipeline.metadata import BeqMetadata, format_episodes, parse_episodes, redact, tmdb_details_by_id, tmdb_lookup  # noqa: F401 (redact: the page's own tests and callers)
+from pipeline.metadata import BeqMetadata, redact  # noqa: F401 (redact: the page's own tests and callers)
 from pipeline.review import QueueEntry, entry_art_path, read_entry, update_entry
 from ui.worklistmetadata import Ui_metadataPanel
 
@@ -62,112 +64,19 @@ logger = logging.getLogger('worklist')
 
 NARROW_FORM_WIDTH = 440   # px: a metadata column narrower than this puts every label above its field
 
-REMOVE = object()   # a change that unsets a key of `meta`
-
 # the meta key of each text box, in the order they are shown
 _FIELDS = {'title': 'titleField', 'year': 'yearField', 'audio_types': 'audioTypesField', 'edition': 'editionField',
            'season': 'seasonField', 'episodes': 'episodesField', 'note': 'noteField', 'warning': 'warningField',
            'the_movie_db': 'movieDbIdField', 'alt_title': 'altTitleField', 'sort_title': 'sortTitleField',
            'language': 'languageField', 'source': 'sourceField', 'rating': 'ratingField', 'author': 'authorField',
            'avs': 'avsField', 'runtime': 'runtimeField', 'gain': 'gainField'}
-INDEXED_STATUSES = ('pending', 'accepted', 'published')   # the index says "metadata incomplete" of these, and of no other
 NO_ENTRY = 'This title has no queue entry yet: there is nothing to edit until it is designed.'
 UNREADABLE = 'The queue entry of this title could not be read (see above): there is nothing to edit until that is fixed.'
 RUNNING = 'A run is working on this title now: its metadata cannot be edited until it finishes.'
 _STANDING = (NO_ENTRY, UNREADABLE, RUNNING)   # sentences that say what the panel *is*, so they go when it stops being so
-_TMDB_EXTRAS = ('overview', 'genres', 'collection')   # from a TMDB reload: kept, not shown in a box of their own
-_FILL_FROM_TMDB = ('title', 'alt_title', 'year', 'rating', 'runtime', 'the_movie_db')
 _PROBLEM_FIELD = (('title', 'titleField'), ('year', 'yearField'), ('audio type', 'audioTypesField'),
                   ('episodes', 'episodesField'))
-_AUDIO_TYPES = ('Atmos', 'TrueHD 7.1', 'TrueHD 5.1', 'DTS:X', 'DTS-HD MA 7.1', 'DTS-HD MA 6.1',
-                'DTS-HD MA 5.1', 'DD+ Atmos', 'DD+', 'DD 5.1', 'LPCM 7.1', 'LPCM 5.1')
-_SOURCES = ('Disc', 'Apple TV+', 'Amazon', 'DC Universe', 'Disney+', 'HBOMax', 'Hulu', 'iTunes', 'Netflix',
-            'Paramount+', 'Peacock')
-_LANGUAGES = ('English', 'Danish', 'French', 'German', 'Italian', 'Norwegian', 'Portuguese', 'Russian', 'Spanish',
-              'Arabic', 'Farsi', 'Hebrew', 'Turkish', 'Hindi', 'Tamil', 'Telugu', 'Bengal', 'Cantonese', 'Japanese',
-              'Korean', 'Mandarin', 'Indonesian', 'Thai', 'Vietnamese', 'Swahili', 'Mayan')
-
-
-# --- what is said and what is written (no widgets) ---------------------------------------------------------------------------
-
-def field_texts(meta: Mapping[str, Any]) -> Dict[str, str]:
-    ''' What each text box shows for `meta`: audio types comma separated, episodes as ranges ("1-3, 5"). '''
-    texts = {}
-    for key in _FIELDS:
-        value = meta.get(key)
-        if key == 'audio_types':
-            texts[key] = ', '.join(str(v) for v in value) if isinstance(value, (list, tuple)) else str(value or '')
-        elif key == 'episodes':
-            try:
-                texts[key] = format_episodes(value or [])
-            except TypeError:   # not a list of numbers: show it as it is rather than lose it
-                texts[key] = str(value)
-        else:
-            texts[key] = '' if value is None else str(value)
-    return texts
-
-
-def parse_audio_types(text: str) -> List[str]:
-    return [t.strip() for t in text.split(',') if t.strip()]
-
-
-def apply_changes(meta: Mapping[str, Any], changes: Mapping[str, Any]) -> dict:
-    '''
-    :return: a copy of `meta` with `changes` applied: a value replaces the key's, `REMOVE` unsets it. A change of the season
-        *or of the TMDB id* also drops `season_id` and `season_episode_count`: they are the old season's, of the old series.
-    '''
-    merged = dict(meta)
-    for key, value in changes.items():
-        if value is REMOVE:
-            merged.pop(key, None)
-        else:
-            merged[key] = value
-    if any(_differs(meta, changes, key) for key in ('season', 'the_movie_db')):
-        merged.pop('season_id', None)
-        merged.pop('season_episode_count', None)
-    return merged
-
-
-def _differs(meta: Mapping[str, Any], changes: Mapping[str, Any], key: str) -> bool:
-    ''' Whether `changes` sets `key` to something other than what `meta` has (unset and blank are the same). '''
-    if key not in changes:
-        return False
-    new = '' if changes[key] is REMOVE else str(changes[key] or '')
-    return new != str(meta.get(key) or '')
-
-
-def save_meta_changes(queue_dir: str, entry_id: str, changes: Mapping[str, Any]) -> Tuple[QueueEntry, bool]:
-    '''
-    Applies `changes` to the entry **as it is on disk now** (not as it was when the page showed it).
-    :return: (the entry, whether anything was written): an edit that leaves the metadata as it is writes nothing.
-    :raises FileNotFoundError: if the title has no queue entry.
-    '''
-    fresh = read_entry(queue_dir, entry_id)
-    merged = apply_changes(fresh.meta, changes)
-    if merged == fresh.meta:
-        return fresh, False
-    return update_entry(queue_dir, entry_id, meta=merged), True
-
-
-def badge_alarms(problems: List[str], status: str) -> bool:
-    '''
-    Whether the badge should warn. The index judges the metadata of a pending, accepted or published title only; a skipped or
-    rejected one is not headed for the catalogue, so what is missing is said there without the alarm.
-    '''
-    return bool(problems) and status in INDEXED_STATUSES
-
-
-def badge_text(problems: List[str], status: str, unsaved: bool) -> str:
-    '''
-    The header line: what is missing, or that the metadata is complete. "Ready to publish" is only said of a title that has
-    been accepted; before that the metadata being complete is all that is known. A skipped or rejected title is not "not
-    ready to publish" -- it is not going to be published as it is -- so its gaps are only listed (`badge_alarms`).
-    '''
-    if problems:
-        text = ('Not ready to publish: ' if badge_alarms(problems, status) else 'Metadata incomplete: ') + '; '.join(problems)
-    else:
-        text = 'Ready to publish' if status in ('accepted', 'published') else 'Metadata complete'
-    return text + (' (unsaved edits)' if unsaved else '')
+assert tuple(_FIELDS) == TEXT_FIELDS
 
 
 def ok_colour() -> str:
@@ -188,17 +97,10 @@ class _TmdbJob(QRunnable):
         self._args = (api_key, tmdb_id, title, year, kind)
 
     def run(self):
-        api_key, tmdb_id, title, year, kind = self._args
         try:
-            found = tmdb_details_by_id(tmdb_id, api_key, kind=kind) if tmdb_id else \
-                tmdb_lookup(title, year, api_key, kind=kind)
-        except requests.RequestException as error:      # HTTPError, ConnectionError, Timeout...
-            self.signals.failed.emit(redact(f'TMDB lookup failed: {error}', api_key))
-        except Exception as error:                      # an answer that is not what TMDB says it is
-            # the traceback is redacted too: an exception's text may carry the URL, key and all
-            logger.error('TMDB lookup for %s failed: %s', tmdb_id or title,
-                         redact(''.join(traceback.format_exception(error)), api_key))
-            self.signals.failed.emit(redact(f'TMDB lookup failed: {type(error).__name__}: {error}', api_key))
+            found = tmdb_reload(*self._args)
+        except TmdbError as error:
+            self.signals.failed.emit(str(error))
         else:
             self.signals.finished.emit(found)
 
@@ -433,22 +335,8 @@ class MetadataPanel(QWidget, Ui_metadataPanel):
         :return: what the person has changed, by `meta` key (see `apply_changes`).
         :raises ValueError: (with a sentence for the person) if the episodes are not numbers and ranges.
         '''
-        changes: Dict[str, Any] = {}
-        for key in self._dirty:
-            if key in _TMDB_EXTRAS:
-                changes[key] = self._extras[key]
-                continue
-            text = self._boxes[key].text().strip()
-            if key == 'episodes':
-                try:
-                    changes[key] = parse_episodes(text)
-                except ValueError as error:
-                    raise ValueError(f'Episodes: {error} (use numbers and ranges such as 1-3, 5)') from None
-            elif key == 'audio_types':
-                changes[key] = parse_audio_types(text) or REMOVE
-            else:
-                changes[key] = text or REMOVE
-        return changes
+        return changes_from_texts({key: self._boxes[key].text() for key in self._dirty if key not in _TMDB_EXTRAS},
+                                  {key: self._extras[key] for key in self._dirty if key in _TMDB_EXTRAS})
 
     def problems(self) -> List[str]:
         '''
@@ -566,21 +454,18 @@ class MetadataPanel(QWidget, Ui_metadataPanel):
         if not self._tmdb_done(generation):
             self.tmdb_finished.emit('')
             return
-        if not found.the_movie_db:
+        texts, extras = tmdb_fill(found)
+        if not texts:
             message = f'TMDB has no match for "{title}"' + (f' ({year})' if year else '') + '. Nothing was changed.'
             self._say(message, True)
             self.tmdb_finished.emit(message)
             return
-        for key in _FILL_FROM_TMDB:
-            value = getattr(found, key)
-            if value:
-                self._boxes[key].setText(value)
-                self._dirty.add(key)
-        for key in _TMDB_EXTRAS:
-            value = getattr(found, key)
-            if value:
-                self._extras[key] = value
-                self._dirty.add(key)
+        for key, value in texts.items():
+            self._boxes[key].setText(value)
+            self._dirty.add(key)
+        for key, value in extras.items():
+            self._extras[key] = value
+            self._dirty.add(key)
         self.genresLabel.setText(', '.join(g.get('name', '') for g in found.genres if isinstance(g, dict)))
         message = 'Filled in from TMDB. It is saved when you leave a field or move on (Revert undoes it).'
         self._say(message)

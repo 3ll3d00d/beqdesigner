@@ -38,8 +38,8 @@ def _slow_tmdb(monkeypatch, gate):
     def lookup(*args, **kwargs):
         gate.wait(10)
         return _found()
-    monkeypatch.setattr('model.worklist_metadata.tmdb_lookup', lookup)
-    monkeypatch.setattr('model.worklist_metadata.tmdb_details_by_id', lookup)
+    monkeypatch.setattr('pipeline.library.metadata_edit.tmdb_lookup', lookup)
+    monkeypatch.setattr('pipeline.library.metadata_edit.tmdb_details_by_id', lookup)
 
 
 def test_a_tmdb_answer_after_back_is_dropped_and_never_saved_to_the_title_that_was_left(qtbot, tmp_path, monkeypatch):
@@ -184,7 +184,7 @@ def test_a_tmdb_connection_error_has_no_key_either(qtbot, tmp_path, monkeypatch)
 def test_an_unexpected_error_is_redacted_in_the_message_and_in_the_log(qtbot, monkeypatch, caplog):
     def broken(*args, **kwargs):
         raise ValueError(f'cannot read http://h/3/movie/1?api_key={quote_plus(KEY)}&x=1 or {KEY}')
-    monkeypatch.setattr('model.worklist_metadata.tmdb_lookup', broken)
+    monkeypatch.setattr('pipeline.library.metadata_edit.tmdb_lookup', broken)
     job = _TmdbJob(KEY, '', 'Heat', '1995', 'movie')
     seen = []
     job.signals.failed.connect(seen.append)
@@ -385,14 +385,14 @@ def test_reloading_from_tmdb_with_another_id_drops_them_and_with_the_same_id_kee
     window = _window(qtbot, tmp_path, [('r-alien', {'meta': _series()}), ('r-arrival', {})])
     window._preferences.set(TMDB_API_KEY, 'a-key')
     page = _on_metadata(qtbot, window, 'r-alien')
-    monkeypatch.setattr('model.worklist_metadata.tmdb_details_by_id', lambda *a, **k: _found(the_movie_db='1'))
+    monkeypatch.setattr('pipeline.library.metadata_edit.tmdb_details_by_id', lambda *a, **k: _found(the_movie_db='1'))
 
     with qtbot.waitSignal(page.metadata.tmdb_finished, timeout=10000):
         page.metadata.reload_tmdb()
     assert page.flush()
     assert read_entry(_queue(tmp_path), 'r-alien').meta['season_id'] == '77'                    # the same series
 
-    monkeypatch.setattr('model.worklist_metadata.tmdb_lookup', lambda *a, **k: _found(the_movie_db='555'))
+    monkeypatch.setattr('pipeline.library.metadata_edit.tmdb_lookup', lambda *a, **k: _found(the_movie_db='555'))
     _clear(qtbot, page.metadata.movieDbIdField)
     assert page.flush()                                                                          # the id is gone: no by-id lookup
     with qtbot.waitSignal(page.metadata.tmdb_finished, timeout=10000):

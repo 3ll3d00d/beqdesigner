@@ -122,8 +122,8 @@ def _tmdb(monkeypatch, result=None, error=None, calls=None):
             raise error
         return result
 
-    monkeypatch.setattr('model.worklist_metadata.tmdb_lookup', lookup)
-    monkeypatch.setattr('model.worklist_metadata.tmdb_details_by_id', details)
+    monkeypatch.setattr('pipeline.library.metadata_edit.tmdb_lookup', lookup)
+    monkeypatch.setattr('pipeline.library.metadata_edit.tmdb_details_by_id', details)
 
 
 # --- what is said and written, with no widgets --------------------------------------------------------------------------------
@@ -635,7 +635,7 @@ def test_a_write_that_fails_is_shown_and_the_edit_is_kept(qtbot, tmp_path, monke
     window = _window(qtbot, tmp_path, REVIEWABLE)
     page = _on_metadata(qtbot, window, 'r-alien')
     _type(qtbot, page.metadata.noteField, 'kept')
-    monkeypatch.setattr('model.worklist_metadata.update_entry', lambda *a, **k: (_ for _ in ()).throw(OSError('disk full')))
+    monkeypatch.setattr('pipeline.library.metadata_edit.update_entry', lambda *a, **k: (_ for _ in ()).throw(OSError('disk full')))
 
     assert page.flush() is False
 
@@ -850,7 +850,7 @@ def test_a_lookup_that_comes_back_after_the_page_moved_on_is_dropped(qtbot, tmp_
         gate.wait(10)
         return _found()
 
-    monkeypatch.setattr('model.worklist_metadata.tmdb_lookup', slow)
+    monkeypatch.setattr('pipeline.library.metadata_edit.tmdb_lookup', slow)
     window = _window(qtbot, tmp_path, REVIEWABLE)
     page = _on_metadata(qtbot, window, 'r-alien')
     try:

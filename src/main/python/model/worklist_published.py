@@ -14,7 +14,7 @@ from model.catalogue import CatalogueEntry, DatabaseDownloader, load_catalogue
 from model.execution_events import redact_text
 from model.preferences import BEQ_DOWNLOAD_DIR
 from model.worklist_artwork import ArtworkError, cache_path, check_local_image, download_artwork
-from model.worklist_catalogue import matching_entries
+from pipeline.library.catalogue_match import matching_entries
 from model.worklist_image import ScaledImage
 from model.magnitude import MagnitudeModel
 from mpl import MplWidget

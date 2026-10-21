@@ -16,7 +16,7 @@ import model.worklist_published as published
 from model.catalogue import CatalogueEntry
 from model.preferences import BEQ_DOWNLOAD_DIR
 from model.worklist_artwork import cache_path
-from model.worklist_catalogue import CatalogueTarget, catalogue_target, matching_entries
+from pipeline.library.catalogue_match import CatalogueTarget, catalogue_target, matching_entries
 from test_worklist_title import _designer, _open, _window  # noqa: F401
 
 

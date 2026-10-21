@@ -15,7 +15,7 @@ from qtpy.QtGui import QDesktopServices, QImageReader, QPixmap
 from qtpy.QtWidgets import QDialog, QMessageBox, QSizePolicy, QListWidgetItem, QMenu, QAction, QPushButton
 from sortedcontainers import SortedSet
 
-from model.iir import HighShelf, LowShelf, PeakingEQ, BiquadWithQGain
+from model.iir import BiquadWithQGain
 from model.minidsp_qt import FilterPublisher, FilterPublisherSignals
 from model.preferences import BEQ_DOWNLOAD_DIR, BINARIES_MINIDSP_RS, MINIDSP_RS_OPTIONS
 from model.report import block_signals
@@ -575,22 +575,8 @@ class CatalogueEntry:
         return self.title
 
     def iir_filters(self, fs=96000) -> List[BiquadWithQGain]:
-        return [self.__convert(i, f, fs) for i, f in enumerate(self.filters)]
-
-    @staticmethod
-    def __convert(i: int, f: dict, fs: int) -> BiquadWithQGain:
-        t = f['type']
-        freq = f['freq']
-        gain = f['gain']
-        q = f['q']
-        if t == 'PeakingEQ':
-            return PeakingEQ(fs, freq, q, gain, f_id=i)
-        elif t == 'LowShelf':
-            return LowShelf(fs, freq, q, gain, f_id=i)
-        elif t == 'HighShelf':
-            return HighShelf(fs, freq, q, gain, f_id=i)
-        else:
-            raise ValueError(f"Unknown filt_type {t}")
+        from pipeline.library.catalogue_match import catalogue_biquads
+        return catalogue_biquads(self.filters, fs)
 
 
 def load_catalogue(beq_file) -> List[CatalogueEntry]:

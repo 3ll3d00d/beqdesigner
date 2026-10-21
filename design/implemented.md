@@ -485,7 +485,7 @@ Refresh bypasses that cache. Generation duration is recorded in the app logs.
 Changed requests coalesce behind one worker; results for a title left behind
 are discarded. Missing audio and project conflicts are shown on the tab.
 
-The title page’s Published BEQs tab uses `worklist_catalogue` to match the
+The title page’s Published BEQs tab uses `pipeline/library/catalogue_match.py` to match the
 aggregate catalogue by TMDB identity (movie/TV separately), with title/year
 fallback, then audio and known edition/language/source and TV episode metadata.
 Audio codecs match when their normalized sets intersect, accepting lists or
