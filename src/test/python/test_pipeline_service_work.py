@@ -417,3 +417,22 @@ def test_a_revise_job_is_checked_when_it_is_asked_for(fields, says):
     ids = fields.pop('ids', ('a',))
     with pytest.raises(ValueError, match=says):
         RunRequest(Selection(ids=ids), scan_first=False, redesign=True, **fields)
+
+
+def test_a_stream_chosen_from_streams_read_from_the_file_keeps_them_first(manager, profile, monkeypatch):
+    from pipeline.library.index import LibraryIndex, index_path
+    from pipeline.service.context import load_context
+    ids, queue = _scanned_with_entries(manager, profile)
+    ctx = load_context(str(profile), {})
+    probed = []
+    monkeypatch.setattr(work, 'probe_stream_details', lambda item: probed.append(item.id) or _STREAMS)
+    monkeypatch.setattr(work, 'run_stages', lambda profile_, selection, through, **kw: StagesReport(through, 1))
+
+    job = _done(manager, RunRequest(Selection(ids=(ids[0],)), scan_first=False, redesign=True, revise_to='extract',
+                                    audio_stream=1))
+
+    assert job.state == 'succeeded', job.error
+    assert probed == [ids[0]]
+    with LibraryIndex(index_path(ctx.work_dir), readonly=True) as index:
+        item = index.units([ids[0]])[ids[0]]
+    assert len(item.audio_stream_details) == 2 and (item.audio_stream, item.audio_stream_source) == (1, 'manual')

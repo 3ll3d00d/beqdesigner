@@ -2340,6 +2340,12 @@ export interface components {
              * @description Who chose it: `manual` (a person), `source` (the library), or empty (preferred).
              */
             source: string;
+            /**
+             * Probed
+             * @description The source listed none: read from the file now, and kept when one is chosen.
+             * @default false
+             */
+            probed: boolean;
             /** Streams */
             streams: components["schemas"]["AudioStream"][];
         };

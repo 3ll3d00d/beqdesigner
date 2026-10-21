@@ -15,6 +15,7 @@ from pipeline.library.index import LibraryIndex, ScanResult
 from pipeline.library.handoff import STOPPED, WITHDRAWN, hand_off, outcomes as title_outcomes
 from pipeline.library.join import JOINABLE, JoinQueue, JoinRequest
 from pipeline.library.revise import choose_stream, revise_entry
+from pipeline.library.streams import probe_stream_details
 from pipeline.publish.git import RepoTarget
 from pipeline.review import read_entry
 from pipeline.library.selection import Selection, plan_stages
@@ -128,6 +129,10 @@ def run(context: JobContext, request: RunRequest, control: JobControl, *, allow_
                              xml_dir=settings.xml_dir, image_dir=settings.image_dir,
                              category_folders=settings.category_folders, meta_defaults=settings.meta_defaults)
                 if request.audio_stream is not None:
+                    unit = index.units([title_id]).get(title_id)
+                    if unit is not None and hasattr(unit, 'audio_stream_details') and not unit.audio_stream_details:
+                        # the source listed none: read from the file, kept, as the desktop's title page does (W2)
+                        index.set_audio_stream_details(title_id, probe_stream_details(unit))
                     choose_stream(index, settings.queue_dir, title_id, request.audio_stream, work_dir=settings.work_dir,
                                   **where)
                 else:

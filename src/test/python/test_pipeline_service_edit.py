@@ -427,3 +427,44 @@ def test_an_edit_needs_a_design_to_edit_an_open_title_and_what_was_looked_at(ser
     refused = _edit_design(client, digest=_review(client)['digest'], source=0, filters=[SHELF])
     assert refused.status_code == 409 and 'reopen it' in refused.json()['detail']
     assert _edit_design(client, digest=digest, source=0, filters=[dict(SHELF, type='all_pass')]).status_code == 422
+
+
+# --- streams read from the file when the source lists none ------------------------------------------------------------------
+
+PROBED = ({'codec': 'TrueHD', 'channels': '8', 'audio_types': ('TrueHD 7.1',)},
+          {'codec': 'AC3', 'channels': '6', 'audio_types': ('DD 5.1',)})
+
+
+@pytest.fixture
+def unlisted(setup):
+    ''' Title a's one file, listed with no audio streams (a filesystem source lists none). '''
+    import sqlite3
+    from pipeline.library.index import index_path, item_to_json
+    from pipeline.library.source import LibraryItem
+    _, work, _ = setup
+    db = sqlite3.connect(index_path(str(work)))
+    with db:
+        db.execute("UPDATE titles SET unit = 'item', items = ? WHERE id = 'a'",
+                   (json.dumps([item_to_json(LibraryItem('a', '/m/a.mkv', 'Alien'))]),))
+    db.close()
+
+
+def test_streams_the_source_did_not_list_are_read_from_the_file(unlisted, service, monkeypatch):
+    client, *_ = service
+    monkeypatch.setattr('pipeline.service.edits.probe_stream_details', lambda item: PROBED)
+    body = client.get('/v1/titles/a/streams', headers=AUTH).json()
+    assert body['probed'] is True and [s['text'][:12] for s in body['streams']] == ['1: TrueHD 7.', '2: AC3 5.1']
+    answer = client.put('/v1/titles/a/stream', json={'audio_stream': 1}, headers=AUTH)
+    assert answer.status_code == 202 and answer.json()['request']['audio_stream'] == 1
+    assert client.put('/v1/titles/a/stream', json={'audio_stream': 2}, headers=AUTH).status_code == 422
+
+
+def test_a_file_that_cannot_be_read_says_why(unlisted, service, monkeypatch):
+    client, *_ = service
+
+    def fail(item):
+        raise ValueError('/m/a.mkv cannot be found (is the media share mounted here?)')
+    monkeypatch.setattr('pipeline.service.edits.probe_stream_details', fail)
+    answer = client.get('/v1/titles/a/streams', headers=AUTH)
+    assert (answer.status_code, answer.json()['title']) == (409, 'Streams not read')
+    assert 'media share mounted' in answer.json()['detail']

@@ -1,5 +1,6 @@
 // Choosing a title's audio stream (design/web-parity.md WP5): the streams the source lists, the one extracted now, and a
-// run job that extracts and designs another -- as the desktop's *Choose audio stream* does.
+// run job that extracts and designs another -- as the desktop's *Choose audio stream* does. A source that lists none
+// has them read from the file by the service.
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
 
@@ -24,8 +25,7 @@ export function StreamPicker({ titleId, blocked }: { titleId: string; blocked: s
       {streams.isPending && <p className="muted">Reading the streams…</p>}
       {streams.isError && <p role="alert" className="problem">{streams.error.message}</p>}
       {data && (data.streams.length === 0
-        ? <p className="muted">The source lists no audio streams for this title: choose one in the BEQDesigner app, which
-            reads them from the file.</p>
+        ? <p className="muted">This title has no audio stream to choose.</p>
         : (
           <>
             <label className="inline">Extract
@@ -38,6 +38,8 @@ export function StreamPicker({ titleId, blocked }: { titleId: string; blocked: s
               </select>
             </label>
             {data.source === 'manual' && <p className="muted">The stream extracted now was chosen by a person.</p>}
+            {data.probed && <p className="muted">The source lists none: these were read from the file, and are kept when
+              you choose one.</p>}
             <p>Choosing another forgets the extraction and design; one job extracts and designs that stream, and the new
               designs need review.</p>
           </>

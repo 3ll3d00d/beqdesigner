@@ -295,7 +295,7 @@ otherwise it lasts until the tab is closed. The token is checked with the servic
   offers the adjustments the designer lists (beqforge, from the release that takes contract 1.5): ignore a band (drag
   across the chart for it, or use the chart's range; the bands asked are shaded on the chart), restore nothing below a frequency, cap the boost, tilt the goal for more bass, a note in words, and
   any of its own. They are asked again by every redesign of the title until changed. *Audio stream…* extracts and designs a title from another of its
-  audio streams.
+  audio streams (read from the file when the library lists none).
 
 Not in the browser: projects, settings and Review Folder. Use the app for those. Publish and commit are offered only when the settings
 file allows them (`allow_repository_writes: true`) and the profile names the filter repository; bulk accept is not offered.

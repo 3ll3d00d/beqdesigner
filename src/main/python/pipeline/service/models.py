@@ -17,7 +17,7 @@ from pipeline.service.jobs import MAX_REDESIGN_IDS, redesign_problem
 from pipeline.library.state import NEEDS, FLAG_DUPLICATE, FLAG_GONE, FLAG_IGNORED, FLAG_IN_CATALOGUE, FLAG_SHADOWED
 from pipeline.library.year import YEAR_PATTERN, YearRange, numeric_year
 
-API_VERSION = '1.14.0'
+API_VERSION = '1.15.0'
 
 
 class Needs(str, Enum):
@@ -563,6 +563,7 @@ class StreamChoice(Input):
 class TitleStreams(BaseModel):
     chosen: int = Field(description='The stream extracted now (zero-based).')
     source: str = Field(description='Who chose it: `manual` (a person), `source` (the library), or empty (preferred).')
+    probed: bool = Field(False, description='The source listed none: read from the file now, and kept when one is chosen.')
     streams: List[AudioStream]
 
 

@@ -25,7 +25,7 @@ from pipeline.designer.contract import BiquadSpec
 from pipeline.designer.convert import ContractViolation
 from pipeline.library.variants import VariantRefused, discard_variant, save_edited, use_variant
 from pipeline.library.selection import Selection
-from pipeline.library.streams import describe_streams, preferred_stream
+from pipeline.library.streams import describe_streams, preferred_stream, probe_stream_details
 from pipeline.metadata import BeqMetadata
 from pipeline.publish.git import RepoTarget
 from pipeline.review import entry_art_path, read_entry, update_entry
@@ -229,6 +229,16 @@ def register(v1: APIRouter, deps: EditRoutes) -> None:
             deps.refresh()
         return models.ReviseOutcome(revised=revised, failed=failed)
 
+    def listed_or_probed(item) -> tuple:
+        ''' The streams the source listed; else read from the file (ffprobe) now -- kept only once one is chosen. '''
+        if item.audio_stream_details:
+            return item.audio_stream_details, False
+        try:
+            return probe_stream_details(item), True
+        except ValueError as error:
+            raise Problem(409, 'Streams not read', f'The source lists no audio streams and the file could not be read: '
+                                                   f'{error}')
+
     @v1.get('/titles/{title_id}/streams', response_model=models.TitleStreams, tags=['edit'],
             summary="A title's audio streams, and the one extracted", responses=responses(404, 409, 503))
     def streams(title_id: str) -> models.TitleStreams:
@@ -238,9 +248,9 @@ def register(v1: APIRouter, deps: EditRoutes) -> None:
             item = index.units([title_id]).get(title_id)
         if item is None or not hasattr(item, 'audio_stream_details'):
             raise Problem(409, 'A season', 'a season is a file per episode: choose an audio stream for each episode')
-        details = item.audio_stream_details
+        details, probed = listed_or_probed(item)
         preferred = preferred_stream(details) if details else 0
-        return models.TitleStreams(chosen=item.audio_stream, source=item.audio_stream_source or '', streams=[
+        return models.TitleStreams(chosen=item.audio_stream, source=item.audio_stream_source or '', probed=probed, streams=[
             models.AudioStream(index=i, text=text, preferred=i == preferred)
             for i, text in enumerate(describe_streams(details))])
 
@@ -255,8 +265,9 @@ def register(v1: APIRouter, deps: EditRoutes) -> None:
             raise Problem(409, 'In flight', RUNNING)
         if item is None or not hasattr(item, 'audio_stream_details'):
             raise Problem(409, 'A season', 'a season is a file per episode: choose an audio stream for each episode')
-        if not 0 <= body.audio_stream < len(item.audio_stream_details):
-            raise Problem(422, 'No such stream', f'{title_id} lists {len(item.audio_stream_details)} audio stream(s)')
+        details, _ = listed_or_probed(item)
+        if not 0 <= body.audio_stream < len(details):
+            raise Problem(422, 'No such stream', f'{title_id} has {len(details)} audio stream(s)')
         job = deps.submit(RunRequest(Selection(ids=(title_id,)), 'design', scan_first=False, retry_failed=True,
                                      redesign=True, revise_to='extract', audio_stream=body.audio_stream))
         return JSONResponse(models.job_model(job).model_dump(mode='json'), status_code=202,

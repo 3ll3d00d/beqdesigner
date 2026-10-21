@@ -166,3 +166,7 @@ frequencies; the full suite, 3379 passed, 1 skipped.
   band to ignore from a drag across the chart".
 - **Select every title the filter matches:** *Select all N matching* after the page is ticked, up to 500 (`useMatchingIds`).
   Evidence: the web test "selecting every title the filter matches".
+- **Streams read from the file:** `streams.probe_stream_details()` (moved from the desktop's probe job, which now calls
+  it); `GET .../streams` probes when the source lists none (`probed`), the stream job keeps what it read (API 1.15.0).
+  Evidence: the probing tests in `test_pipeline_service_edit.py` and `test_pipeline_service_work.py`;
+  `gui/test_worklist_stream_choice.py` unchanged.

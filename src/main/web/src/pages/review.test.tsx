@@ -525,12 +525,21 @@ describe('choosing the audio stream', () => {
     expect(chosen).toEqual([{ audio_stream: 0 }])
   })
 
-  it('says when the source lists none', async () => {
+  it('says when the streams were read from the file, or why they could not be', async () => {
     reviewRoutes()
-    server.use(http.get('/v1/titles/a/streams', () => json({ chosen: 0, source: '', streams: [] })))
+    server.use(http.get('/v1/titles/a/streams', () => json({ ...streams, probed: true })))
     renderApp('/titles/a')
     await userEvent.click(await screen.findByRole('button', { name: 'Audio stream…' }))
-    expect(await screen.findByText(/lists no audio streams/)).toBeInTheDocument()
+    expect(await screen.findByText(/read from the file/)).toBeInTheDocument()
+  })
+
+  it('says why a file could not be read', async () => {
+    reviewRoutes()
+    server.use(http.get('/v1/titles/a/streams', () => json({ title: 'Streams not read', status: 409,
+                                                              detail: 'the media share is not mounted' }, 409)))
+    renderApp('/titles/a')
+    await userEvent.click(await screen.findByRole('button', { name: 'Audio stream…' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('the media share is not mounted')
   })
 })
 

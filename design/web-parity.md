@@ -95,8 +95,8 @@ Choosing among TMDB's posters is not built: a poster's address can be pasted int
 
 Built 2026-10-21; described in [web-app.md §4.3](web-app.md#43-revise-and-the-audio-stream), record in
 [archive/web-parity-record.md](archive/web-parity-record.md#wp5). *Select all matching the filter* followed the same day
-(up to the 500 a revise takes). Not built: reading a title's streams from its file when the source lists none
-(the desktop's probe; the browser says to use the app). Retry is *Revise* to design or extract, or New job's *retry
+(up to the 500 a revise takes), and so did reading a title's streams from its file when the source lists none
+(`streams.probe_stream_details`, the desktop's probe, shared). Retry is *Revise* to design or extract, or New job's *retry
 failed*.
 
 ### WP6 — Contract 1.5: design adjustments (both sides) — caller side done
@@ -112,7 +112,7 @@ the binding with the designer's version.
 §3 "Adjustment outcomes", §7), the three `docs/schema/http_designer_*.schema.json` and the conformance spec's "1.5".
 The first kinds are `exclude_band`, `floor`, `max_boost`, `goal_tilt` and `note`; `ceiling`, `goal_tolerance`,
 `strategies`, `max_sections` and `exclude_times` wait (a designer may offer its own as `x-` kinds meanwhile). The
-contract is normative; where the sketch below differs, the contract wins. Not built on either side.
+contract is normative; where the sketch below differs, the contract wins.
 
 A general protocol by which a caller **asks for adjustments** to a design and the designer **answers each one**:
 honoured, adapted, declined or not understood, saying why. The designer stays free to react as it sees fit; the caller always

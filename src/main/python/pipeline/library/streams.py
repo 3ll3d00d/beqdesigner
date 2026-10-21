@@ -231,3 +231,32 @@ def audio_ordinal(streams: Sequence[Mapping], selected: Sequence[int]) -> tuple[
         return None, f'stream {audio} of the file is not an audio stream'
     ordered = [stream.get('index') for stream in streams if stream.get('codec_type') == 'audio']
     return ordered.index(audio), ''
+
+
+def probe_stream_details(item) -> tuple:
+    '''
+    A title's audio streams read from its file with ffprobe, as a source lists them (`details_from_ffprobe`), for a source
+    that listed none: opened as extraction opens it (its playlist, its title hint). Blocks for as long as ffprobe takes.
+    The desktop's title page and the service (its streams route and the job that extracts a chosen stream) share it.
+    :param item: a `LibraryItem`.
+    :raises ValueError: with the reason in words: the file is not here, has no audio, or ffprobe failed (its last line).
+    '''
+    import os
+    from pipeline.config import AnalysisConfig
+    from pipeline.library.extract_cache import title_hint
+    from pipeline.orchestrate import Session
+    path = item.source_path
+    if item.source_path_problem:
+        raise ValueError(item.source_path_problem)
+    if not os.path.exists(path):
+        raise ValueError(f'{path} cannot be found (is the media share mounted here?)')
+    try:
+        streams = Session(AnalysisConfig()).probe_audio_streams(path, item.playlist_name, title_hint(item))
+    except Exception as error:
+        stderr = getattr(error, 'stderr', None)
+        reason = (stderr.decode('utf-8', 'replace').strip().splitlines() or [str(error)])[-1] \
+            if isinstance(stderr, bytes) else str(error)
+        raise ValueError(reason) from None
+    if not streams:
+        raise ValueError(f'{path} has no audio stream')
+    return details_from_ffprobe(streams)

@@ -34,9 +34,7 @@ from pipeline.config import AnalysisConfig
 from pipeline.library.index import LibraryIndex
 from pipeline.library.profile import Profile
 from pipeline.library.status import ScanSettings
-from pipeline.library.extract_cache import title_hint
-from pipeline.library.streams import describe_streams, details_from_ffprobe
-from pipeline.orchestrate import Session
+from pipeline.library.streams import describe_streams, probe_stream_details
 from pipeline.library.revise import choose_stream
 
 logger = logging.getLogger('worklist')
@@ -82,22 +80,11 @@ class _ProbeJob(QRunnable):
         self._title_id, self._item, self._title = title_id, item, title
 
     def run(self):
-        path = self._item.source_path
         try:
-            if self._item.source_path_problem:
-                raise ValueError(self._item.source_path_problem)
-            if not os.path.exists(path):
-                raise ValueError(f'{path} cannot be found (is the media share mounted here?)')
-            streams = Session(AnalysisConfig()).probe_audio_streams(path, self._item.playlist_name,
-                                                                    title_hint(self._item))
-            if not streams:
-                raise ValueError(f'{path} has no audio stream')
-            self.signals.found.emit(self._title_id, details_from_ffprobe(streams))
+            self.signals.found.emit(self._title_id, probe_stream_details(self._item))
         except Exception as error:
-            stderr = getattr(error, 'stderr', None)
-            reason = (stderr.decode('utf-8', 'replace').strip().splitlines() or [str(error)])[-1] \
-                if isinstance(stderr, bytes) else str(error)
-            logger.warning('Could not read the audio streams of %s (%s): %s', self._title, path, reason)
+            reason = str(error)
+            logger.warning('Could not read the audio streams of %s (%s): %s', self._title, self._item.source_path, reason)
             self.signals.failed.emit(self._title_id, f'{self._title}: {reason}')
 
 
