@@ -208,6 +208,24 @@ def _validate_biquad_spec(spec: BiquadSpec, prefix: str) -> None:
 _TYPE_MAP = {'peaking_eq': 'peaking_eq', 'low_shelf': 'low_shelf', 'high_shelf': 'high_shelf'}
 
 
+def specs_to_complete_filter(specs: List[BiquadSpec], fs: int, where: str = 'filters'):
+    '''
+    A person's hand-edited design (design/web-parity.md WP8) as a CompleteFilter at `fs`, held to the rules a designer's
+    filters are (§5: publishable types, a positive frequency below fs/2 and Q, a finite gain, the section budget).
+    :raises ContractViolation: naming the section, if one breaks them.
+    '''
+    if not specs:
+        raise ContractViolation(f"{where} is empty: a design needs at least one section")
+    if len(specs) > MAX_BIQUAD_SECTIONS:
+        raise ContractViolation(f"{len(specs)} biquad sections exceeds the budget of {MAX_BIQUAD_SECTIONS}")
+    for i, spec in enumerate(specs):
+        _validate_biquad_spec(spec, f"{where}[{i}]")
+        if spec.freq_hz >= fs / 2:
+            raise ContractViolation(f"{where}[{i}].freq_hz must be below {fs / 2:g} Hz (half the rate), got {spec.freq_hz}")
+    return _candidate_to_complete_filter(DesignCandidate(filters=list(specs), confidence=1.0, mv_adjust_db=0.0,
+                                                         method='fitted'), fs)
+
+
 def to_complete_filter(response: DesignResponse, fs: int):
     '''
     Validates response, then converts its top-ranked candidate

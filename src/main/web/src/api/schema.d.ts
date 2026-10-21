@@ -347,6 +347,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/titles/{title_id}/edited": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Save a person's edit of one of a title's designs: a new design run (the current one is kept) */
+        put: operations["edited_v1_titles__title_id__edited_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/titles/{title_id}/heatmap.png": {
         parameters: {
             query?: never;
@@ -1044,6 +1061,41 @@ export interface components {
             adjustment_kinds?: {
                 [key: string]: unknown;
             };
+        };
+        /** EditedDesign */
+        EditedDesign: {
+            /**
+             * Digest
+             * @description The Review's digest: what was looked at.
+             */
+            digest: string;
+            /**
+             * Source
+             * @description The design edited, by its index in the Review.
+             */
+            source: number;
+            /** Filters */
+            filters: components["schemas"]["EditedFilter"][];
+        };
+        /** EditedFilter */
+        EditedFilter: {
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "low_shelf" | "high_shelf" | "peaking_eq";
+            /** Freq Hz */
+            freq_hz: number;
+            /** Gain Db */
+            gain_db: number;
+            /** Q */
+            q: number;
+            /**
+             * Count
+             * @description How many of it in a row (a stacked shelf).
+             * @default 1
+             */
+            count: number;
         };
         /**
          * ExtractProgressEvent
@@ -3676,6 +3728,77 @@ export interface operations {
                 };
             };
             /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    edited_v1_titles__title_id__edited_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                title_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EditedDesign"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Review"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     [name: string]: unknown;

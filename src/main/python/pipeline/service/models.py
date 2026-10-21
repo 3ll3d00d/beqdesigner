@@ -17,7 +17,7 @@ from pipeline.service.jobs import MAX_REDESIGN_IDS, redesign_problem
 from pipeline.library.state import NEEDS, FLAG_DUPLICATE, FLAG_GONE, FLAG_IGNORED, FLAG_IN_CATALOGUE, FLAG_SHADOWED
 from pipeline.library.year import YEAR_PATTERN, YearRange, numeric_year
 
-API_VERSION = '1.12.0'
+API_VERSION = '1.13.0'
 
 
 class Needs(str, Enum):
@@ -340,6 +340,20 @@ class VariantSummary(BaseModel):
     declined: bool
     adjusted_with: List[Dict[str, Any]]
     adjustment_outcomes: List[Dict[str, Any]]
+
+
+class EditedFilter(Input):
+    type: Literal['low_shelf', 'high_shelf', 'peaking_eq']
+    freq_hz: float
+    gain_db: float
+    q: float
+    count: int = Field(1, ge=1, le=10, description='How many of it in a row (a stacked shelf).')
+
+
+class EditedDesign(Input):
+    digest: str = Field(description="The Review's digest: what was looked at.")
+    source: int = Field(ge=0, description='The design edited, by its index in the Review.')
+    filters: List[EditedFilter] = Field(min_length=1, max_length=10)
 
 
 class VariantChoice(Input):

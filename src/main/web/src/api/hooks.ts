@@ -465,3 +465,19 @@ export function useDiscardVariant(id: string) {
     onError: () => void queries.invalidateQueries({ queryKey: keys.review(id) }),
   })
 }
+
+/** Save a person's edit of a design: a new design run (design/web-parity.md WP8). */
+export function useSaveEdited(id: string) {
+  const { client } = useAuth()
+  const queries = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: Schemas['EditedDesign']) =>
+      unwrap(await client.PUT('/v1/titles/{title_id}/edited', { params: { path: { title_id: id } }, body })),
+    onSuccess: (review) => queries.setQueryData(keys.review(id), review),
+    onError: () => void queries.invalidateQueries({ queryKey: keys.review(id) }),
+    onSettled: () => {
+      void queries.invalidateQueries({ queryKey: ['titles'] })
+      void queries.invalidateQueries({ queryKey: ['chart', id] })
+    },
+  })
+}

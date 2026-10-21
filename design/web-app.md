@@ -12,7 +12,7 @@ A browser app, served by the pipeline service itself, giving a basic view of wha
 do: the workload and its status, starting and following jobs, deciding each title's design, and editing its metadata
 and artwork (with TMDB), sending titles back (revise) and choosing their audio stream. Publishing and committing
 accepted titles are offered behind the service's `allow_repository_writes`. Projects, the profile and Review Folder
-stay in the desktop app.
+stay in the desktop app; a design's filters are edited in the browser (§4.7) rather than through its project.
 
 ## 2. Decision rules are shared
 
@@ -108,7 +108,7 @@ message. Tests: `test_pipeline_library_decide.py`.
   - *Review*: the title, its status, what it needs; the designs (rejected ones listed apart, with how many reasons),
     commentary of the one highlighted (or the decline; full width under the designs and chart), the playback chain and
     designer, the metadata as one line under the heading (content type, audio types, genres by name) and what it lacks,
-    the chart with its controls (§4.1) beside *Spectrogram*, *Heatmap* and *Published BEQs* tabs (§4.4, §4.5), *Edit metadata and artwork* (§4.2), *Revise…* and *Audio stream…* (§4.3), and *Design runs* (§4.6). *Accept design N*, *Reject* and *Skip*, with keys A, R, S, and 1–9 to highlight a design; the keys
+    the chart with its controls (§4.1) beside *Spectrogram*, *Heatmap* and *Published BEQs* tabs (§4.4, §4.5), *Edit metadata and artwork* (§4.2), *Revise…* and *Audio stream…* (§4.3), *Design runs* (§4.6) and *Edit filters…* (§4.7). *Accept design N*, *Reject* and *Skip*, with keys A, R, S, and 1–9 to highlight a design; the keys
     stand aside while a text field has focus. A blocked decision is disabled and says why. Accepting a rejected design
     asks first, with the designer's reasons, and sends `override_rejection`. A refused decision shows the service's
     reason and the title as it is now. After a decision, or Skip, `GET /v1/review/next` in the same filtered list opens
@@ -191,6 +191,16 @@ below 10 Hz). For one title it starts from the review's `adjustments`. The list 
 `/chart?variant=…&candidates=all` (`useVariantCharts`) and adds its filtered curves to the magnitude chart, thin and
 dashed (`seriesStyle()` for a series with `variant`). *Use this one* (disabled on an accepted or published title) and
 *Discard…* (asks first) send the review's `digest`.
+
+### 4.7 Editing a design
+
+*Edit filters…* (not on an accepted or published title) opens `FilterEditor` on the highlighted design: its stored
+filters as rows (`biquad.rowsOf()`; a design with any other kind of filter cannot be edited here), each type, frequency,
+Q, gain and how many stacked, with add (a low shelf, a peak), reorder, remove and *Back to the design*. The edit is drawn
+on the magnitude chart with the view's limits and zoom: the measured curves, the design it started from, the edit's
+response and the curves under it, computed in the browser by `src/chart/biquad.ts` (the RBJ cookbook biquads of
+`model/iir.py`, held to its values in `biquad.test.ts`). `rowProblem()` and the 10-section budget hold *Save as a new
+design* back with the reason; saving sends `PUT /v1/titles/{id}/edited` and the review becomes the new design run.
 
 ## 5. Build and delivery
 

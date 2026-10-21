@@ -377,3 +377,53 @@ def test_a_run_is_discarded_but_never_the_current_one(two_runs):
     assert (refused.status_code, refused.json()['title']) == (409, 'Not now')
     gone = client.delete('/v1/titles/a/variants/v1', params={'digest': digest}, headers=AUTH)
     assert gone.status_code == 200 and gone.json()['variants'] == [] and read_entry(queue, 'a').variants == []
+
+
+# --- editing a design (WP8) ----------------------------------------------------------------------------------------------
+
+SHELF = {'type': 'low_shelf', 'freq_hz': 20.0, 'gain_db': 5.0, 'q': 0.7, 'count': 2}
+
+
+def _edit_design(client, **body):
+    return client.put('/v1/titles/a/edited', json=body, headers=AUTH)
+
+
+def test_an_edit_is_a_new_design_run_and_the_current_one_is_kept(service):
+    client, _, queue, _ = service
+    before = _review(client)
+    answer = _edit_design(client, digest=before['digest'], source=0, filters=[SHELF, {
+        'type': 'peaking_eq', 'freq_hz': 35.0, 'gain_db': -2.0, 'q': 3.0}])
+    assert answer.status_code == 200, answer.text
+    body = answer.json()
+    assert body['variant_id'] == 'v2' and [v['variant_id'] for v in body['variants']] == ['v1']
+    assert len(body['candidates']) == 1 and body['rejected'] == [] and body['candidates'][0]['method'] == 'edited'
+    assert body['candidates'][0]['commentary'] == {'edited_from': 'v1 design 1'}
+    entry = read_entry(queue, 'a')
+    shelf = entry.candidates[0].filters['filters'][0]
+    assert (shelf['_type'], shelf['fc'], shelf['gain'], shelf.get('count')) == ('LowShelf', 20.0, 5.0, 2)
+    assert entry.status == 'pending' and entry.fs == before_fs(queue)
+
+
+def before_fs(queue):
+    return read_entry(queue, 'a').variants[0]['fs']
+
+
+@pytest.mark.parametrize('filters, says', [([dict(SHELF, freq_hz=0)], 'freq_hz must be > 0'),
+                                           ([dict(SHELF, q=-1)], 'q must be > 0'),
+                                           ([dict(SHELF, freq_hz=600000)], 'below'),
+                                           ([dict(SHELF, count=6), dict(SHELF, count=5)], 'exceeds the budget')])
+def test_filters_a_designer_could_not_return_are_refused(service, filters, says):
+    client, *_ = service
+    answer = _edit_design(client, digest=_review(client)['digest'], source=0, filters=filters)
+    assert answer.status_code == 422 and says in answer.json()['detail']
+
+
+def test_an_edit_needs_a_design_to_edit_an_open_title_and_what_was_looked_at(service):
+    client, _, queue, _ = service
+    digest = _review(client)['digest']
+    assert _edit_design(client, digest=digest, source=9, filters=[SHELF]).status_code == 409
+    assert _edit_design(client, digest='old', source=0, filters=[SHELF]).json()['title'] == 'Changed since it was read'
+    update_entry(queue, 'a', status='accepted', chosen_candidate_index=0)
+    refused = _edit_design(client, digest=_review(client)['digest'], source=0, filters=[SHELF])
+    assert refused.status_code == 409 and 'reopen it' in refused.json()['detail']
+    assert _edit_design(client, digest=digest, source=0, filters=[dict(SHELF, type='all_pass')]).status_code == 422

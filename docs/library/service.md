@@ -127,6 +127,7 @@ Stopping it (Ctrl-C, or `SIGTERM`) lets the title in hand finish, then stops.
 | `GET /v1/titles/{id}/catalogue/{id}/chart` | one published BEQ (its `index` in the list, as the second id)'s response, and the title's curves under it (`smoothing` as the chart) |
 | `POST /v1/titles/{id}/variants/{id}/use` | make an earlier design run of the title its current one again (the current one is kept) |
 | `DELETE /v1/titles/{id}/variants/{id}` | discard one of the title's earlier design runs |
+| `PUT /v1/titles/{id}/edited` | save your edit of one of the title's designs as a new design run (the current one is kept) |
 | `POST /v1/revise` | send titles back to review, design or extract (`ids`, `to`, `reason`): now, or with `run` in one run job |
 | `GET /v1/titles/{id}/streams` | the title's audio streams and the one extracted |
 | `PUT /v1/titles/{id}/stream` | extract and design the title from another audio stream: a run job |
@@ -279,6 +280,10 @@ otherwise it lasts until the tab is closed. The token is checked with the servic
   (honoured, adapted, declined, not understood, or not acknowledged by a designer older than contract 1.5). Tick an
   earlier one to draw its designs dashed on the chart; *Use this one* makes it current again (the current one is kept);
   *Discard…* forgets it.
+* **Editing a design:** *Edit filters…* opens the highlighted design's sections (type, frequency, Q, gain, how many
+  stacked) with your edit drawn live beside it; *Add a low shelf* for more bass, *Add a peak*, reorder or remove.
+  *Save as a new design* makes it the title's current design run, to review and accept like any other; the one it
+  started from is kept. Not on an accepted or published title (reopen it first).
 * **Revise:** *Revise…* on a review, or tick titles on the Titles page and *Revise selected…*: reopen for review,
   redesign, or re-extract and redesign, with a reason kept in the title's note. *Extract & design now* starts one job
   for them all; otherwise they wait for the next run. To redesign or re-extract, *Ask the designer to change something*

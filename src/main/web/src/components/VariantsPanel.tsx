@@ -25,7 +25,7 @@ export function outcomeText(ask: Asked, outcomes: Asked[]): string {
 }
 
 function Asks({ asked, outcomes }: { asked: Asked[]; outcomes: Asked[] }) {
-  if (!asked.length) return <span className="muted">asked nothing</span>
+  if (!asked.length) return <p className="muted asked-nothing">asked nothing</p>
   return (
     <ul className="asks">
       {asked.map((a) => (

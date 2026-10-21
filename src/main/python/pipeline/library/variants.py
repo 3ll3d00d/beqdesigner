@@ -130,3 +130,34 @@ def discard_variant(queue_dir: str, entry_id: str, variant_id: str) -> QueueEntr
     updated = replace(entry, variants=kept)
     write_queue_entry(queue_dir, updated)
     return updated
+
+
+def save_edited(queue_dir: str, entry_id: str, source: int, specs) -> QueueEntry:
+    '''
+    A person's edit of design `source` (an index into the current run's offered designs, a decline's flat one included):
+    a new design run, current, whose one design is the edit (`method` 'edited', `commentary['edited_from']` saying which),
+    the current one kept as a variant. It keeps the run's measured curves, designer and identity -- the design is still
+    of that audio, by that designer, then edited -- so it is not out of date; its fit figures, which were the designer's,
+    are dropped. The title waits for a person to decide.
+    :param specs: `contract.BiquadSpec`s, checked by `convert.specs_to_complete_filter`.
+    :raises VariantRefused: for an accepted or published title, or no such design.
+    :raises ContractViolation: for filters a designer could not have returned.
+    '''
+    from datetime import datetime, timezone
+    from pipeline.designer.convert import specs_to_complete_filter
+    entry = read_entry(queue_dir, entry_id)
+    if entry.status in DECIDED:
+        raise VariantRefused(f'{entry_id} is {entry.status}: reopen it for review before editing a design')
+    if not 0 <= source < len(entry.offered):
+        raise VariantRefused(f'{entry_id} offers {len(entry.offered)} design(s), not {source + 1}')
+    picked = entry.offered[source]
+    filters = specs_to_complete_filter(list(specs), entry.fs)
+    edited = CandidateSummary(filters=filters.to_json(), confidence=picked.confidence, method='edited',
+                              mv_adjust_db=picked.mv_adjust_db, gain_reduction_db=picked.gain_reduction_db,
+                              commentary={'edited_from': f'{entry.variant_id or "v1"} design {source + 1}'})
+    updated = replace(entry, candidates=[edited], rejected=[], decline_reason=None, decline_message=None,
+                      adjustment_outcomes=[], variant_id=next_variant_id(entry), status='pending',
+                      chosen_candidate_index=None, designed_at=datetime.now(timezone.utc).isoformat(timespec='seconds'),
+                      variants=kept_variants(entry))
+    write_queue_entry(queue_dir, updated)
+    return updated

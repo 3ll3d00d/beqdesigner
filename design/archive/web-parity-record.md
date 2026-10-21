@@ -126,3 +126,15 @@ suite, 3349 passed, 1 skipped.
 Evidence: `test_pipeline_library_variants.py` (6), variant tests in `test_pipeline_service_edit.py`; web
 `src/pages/adjust.test.tsx` (6). Web: 121 tests (3 runs), build (it now passes Vite's 500 kB warning: 507 kB, 163 kB
 gzipped). Python: 3360 passed, 1 skipped.
+
+## WP8
+
+**2026-10-21.** A design's filters are edited in the browser.
+
+- Shared: `convert.specs_to_complete_filter()`, `variants.save_edited()`.
+- Service (API 1.13.0): `PUT /v1/titles/{id}/edited`.
+- Browser: `src/chart/biquad.ts` (held to `model/iir.py`'s values), `FilterEditor`, *Edit filters…*. Looked at in
+  Chrome against a running service: the edit drawn live, saved as v2 with v1 kept.
+
+Evidence: the edit tests in `test_pipeline_service_edit.py`; web `src/chart/biquad.test.ts`, `src/pages/editor.test.tsx`.
+Web: 131 tests (3 runs). Python: 3366 passed, 1 skipped.

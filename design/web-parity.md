@@ -193,22 +193,13 @@ made with) is kept apart from `adjustments` (what the next one is asked). Not bu
 chart (the *Ignore the chart's range* preset uses the zoomed range instead), and the Titles filters on adjustments and
 variants. Queuing per-title adjustments for one run is *Revise* without *Extract & design now*, then a run.
 
-### WP8 — Editing the chosen design's filters
+### WP8 — Editing the chosen design's filters — done
 
-The desktop does this by opening the `.beq` project in the main window; the browser edits the design directly.
-
-- **Service:** `GET /v1/titles/{id}/projects` (`worklist_projects.py`'s states, moved down in WP0: mono/multichannel,
-  *modified since design*), and `PUT /v1/titles/{id}/design/{n}/filters` `{digest, filters}` — an edited copy of a
-  design, stored as a new variant whose one design is marked `edited_from: (variant, n)` and whose adjustments record
-  the edit (so it persists, is compared and discarded like any other variant), its
-  filters validated with the same rules as a designer's `BiquadSpec` (§5: types, ranges, stability, the device's slot
-  budget) and realised at the entry's `fs`. Accepting it writes the projects through the existing hash gate, so a later
-  redesign still respects hand edits.
-- **Client:** a filter table (type, Fc, Q/S, gain; add, remove, reorder) beside the workbench with the response
-  updated live (client-side biquad maths, unit-tested against `model/iir.py`'s values for each filter type), *Add low
-  shelf* as the manual "bass boost", *Reset to design*, and *Save as edited design*.
-- Tests: validation parity with `iir.py` (a shared fixture of filters and their responses), the route's rules, the
-  editor.
+Built 2026-10-21; described in [web-app.md §4.7](web-app.md#47-editing-a-design), record in
+[archive/web-parity-record.md](archive/web-parity-record.md#wp8). An edit is a new design run (WP7's variants) rather than
+an extra design beside the designer's: it is reviewed and accepted like any other, and publish writes it through the
+existing project rules. Not built: a projects route (the desktop's *modified since design* badge): an edit in the
+browser does not touch the `.beq` projects.
 
 ## 5. Order and dependencies
 

@@ -4,7 +4,7 @@
     "title": "BEQDesigner pipeline service",
     "summary": "Scan a library, extract and design BEQ filters for titles chosen by filter, on demand or on a schedule, and follow the jobs that do it.",
     "description": "A person decides a title through the review routes or in the BEQDesigner app. Every /v1 route needs the bearer token (Authorize, above). `GET /health` says which release this is.",
-    "version": "1.12.0"
+    "version": "1.13.0"
   },
   "paths": {
     "/health": {
@@ -2084,6 +2084,103 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/v1/titles/{title_id}/edited": {
+      "put": {
+        "tags": [
+          "edit"
+        ],
+        "summary": "Save a person's edit of one of a title's designs: a new design run (the current one is kept)",
+        "operationId": "edited_v1_titles__title_id__edited_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "title_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Title Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditedDesign"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Review"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         }
       }
@@ -4571,6 +4668,80 @@
           "checked_at"
         ],
         "title": "DesignerStatus"
+      },
+      "EditedDesign": {
+        "properties": {
+          "digest": {
+            "type": "string",
+            "title": "Digest",
+            "description": "The Review's digest: what was looked at."
+          },
+          "source": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Source",
+            "description": "The design edited, by its index in the Review."
+          },
+          "filters": {
+            "items": {
+              "$ref": "#/components/schemas/EditedFilter"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Filters"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "digest",
+          "source",
+          "filters"
+        ],
+        "title": "EditedDesign"
+      },
+      "EditedFilter": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "low_shelf",
+              "high_shelf",
+              "peaking_eq"
+            ],
+            "title": "Type"
+          },
+          "freq_hz": {
+            "type": "number",
+            "title": "Freq Hz"
+          },
+          "gain_db": {
+            "type": "number",
+            "title": "Gain Db"
+          },
+          "q": {
+            "type": "number",
+            "title": "Q"
+          },
+          "count": {
+            "type": "integer",
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Count",
+            "description": "How many of it in a row (a stacked shelf).",
+            "default": 1
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "type",
+          "freq_hz",
+          "gain_db",
+          "q"
+        ],
+        "title": "EditedFilter"
       },
       "ExtractProgressEvent": {
         "properties": {

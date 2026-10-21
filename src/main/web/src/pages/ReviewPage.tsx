@@ -15,6 +15,7 @@ import { PublishedBeqs } from '../components/PublishedBeqs'
 import { ReviseDialog, reviseSummary } from '../components/ReviseDialog'
 import { Spectrogram } from '../components/Spectrogram'
 import { StreamPicker } from '../components/StreamPicker'
+import { FilterEditor } from '../components/FilterEditor'
 import { VariantsPanel } from '../components/VariantsPanel'
 import type { Ask } from '../components/AdjustmentsEditor'
 import { metadataText, NEEDS_WORDS, type NeedsWord } from '../format'
@@ -113,6 +114,7 @@ export function ReviewPage() {
   const next = useNextTitle()
   const status = useStatus()
   const [revising, setRevising] = useState(false)
+  const [editing, setEditing] = useState<{ title: string; source: number } | null>(null)
   const [pick, setPick] = useState<{ digest: string; index: number } | null>(null)
   const [overriding, setOverriding] = useState(false)
   const [notice, setNotice] = useState('')
@@ -204,6 +206,7 @@ export function ReviewPage() {
     : data!.status === 'published' && !status.data?.repository_writes
       ? 'Sending a published title back requires repository writes to be enabled.' : ''
   const decided = data!.status !== 'pending' && data!.status !== 'skipped'
+  const settled = data!.status === 'accepted' || data!.status === 'published'   // its catalogue files stand for this design
   return (
     <section className="review">
       <p><Link to={list}>← Titles</Link></p>
@@ -218,6 +221,9 @@ export function ReviewPage() {
       <div className="actions">
         <button type="button" className="secondary" disabled={!!reviseBlocked || decide.isPending}
                 title={reviseBlocked || undefined} onClick={() => setRevising(true)}>Revise…</button>
+        <button type="button" className="secondary" disabled={!candidate || settled || data!.in_flight}
+                title={settled ? 'Reopen the title for review before editing a design' : undefined}
+                onClick={() => setEditing({ title: titleId, source: picked })}>Edit filters…</button>
         <StreamPicker titleId={titleId} blocked={data!.in_flight ? 'A run is working on this title.' : reviseBlocked} />
       </div>
       {reviseBlocked && <p className="muted">{reviseBlocked}</p>}
@@ -317,6 +323,10 @@ export function ReviewPage() {
         </section>
         <Commentary candidate={candidate} review={data!} />
       </div>
+      {editing && editing.title === titleId && (
+        <FilterEditor key={`${data!.digest}-${editing.source}`} review={data!} source={editing.source}
+                      series={chart.data?.series ?? []} view={view} onView={changeView} onClose={() => setEditing(null)} />
+      )}
       <VariantsPanel review={data!} shown={shownVariants}
                      onShow={(variants) => setOverlaid({ title: titleId, variants })} />
       <MetadataPanel review={data!} />

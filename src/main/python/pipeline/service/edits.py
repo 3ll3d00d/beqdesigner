@@ -21,7 +21,9 @@ from pipeline.library.metadata_edit import FIELD_SPECS, TmdbError, changes_from_
     tmdb_fill, tmdb_reload
 from pipeline.library.decide import offered_digest
 from pipeline.library.revise import revise_entry
-from pipeline.library.variants import VariantRefused, discard_variant, use_variant
+from pipeline.designer.contract import BiquadSpec
+from pipeline.designer.convert import ContractViolation
+from pipeline.library.variants import VariantRefused, discard_variant, save_edited, use_variant
 from pipeline.library.selection import Selection
 from pipeline.library.streams import describe_streams, preferred_stream
 from pipeline.metadata import BeqMetadata
@@ -294,4 +296,21 @@ def register(v1: APIRouter, deps: EditRoutes) -> None:
             discard_variant(settings.queue_dir, title_id, variant_id)
         except VariantRefused as refused:
             raise Problem(409, 'Not now', str(refused))
+        return written(ctx, settings, row, title_id)
+
+    # --- editing a design's filters (WP8) ----------------------------------------------------------------------------
+
+    @v1.put('/titles/{title_id}/edited', response_model=models.Review, tags=['edit'],
+            summary="Save a person's edit of one of a title's designs: a new design run (the current one is kept)",
+            responses=responses(404, 409, 422, 503))
+    def edited(title_id: str, body: models.EditedDesign) -> models.Review:
+        ctx, settings, row = as_looked_at(title_id, body.digest)
+        specs = [BiquadSpec(type=f.type, freq_hz=f.freq_hz, gain_db=f.gain_db, q=f.q)
+                 for f in body.filters for _ in range(f.count)]
+        try:
+            save_edited(settings.queue_dir, title_id, body.source, specs)
+        except VariantRefused as refused:
+            raise Problem(409, 'Not now', str(refused))
+        except ContractViolation as violation:
+            raise Problem(422, 'Not a design', str(violation))
         return written(ctx, settings, row, title_id)
