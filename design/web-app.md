@@ -100,8 +100,10 @@ message. Tests: `test_pipeline_library_decide.py`.
     work-list order) and the row under the headings filters it (text, year, kind, source, needs, detail, flag; typed
     text is sent once typing pauses); both are the service's (`sort`/`descending`, the filter), so they hold across pages,
     and both live in the address bar (`filterToQuery`/`sortToQuery`, so a list can be linked to). *New since the last
-    scan*, *Include titles that need nothing*, *Designer* (any, declined, not declined) and *Design version* (any, out of
-    date, not out of date) sit above it, *Review next waiting*, *Redesign out of date…* (shown with *Out of date*: one
+    scan*, *Include titles that need nothing*, *Designer* (any, declined, not declined), *Design version* (any, out of
+    date, not out of date), *Adjustments*, *Answers* and *Design runs* (contract 1.5's asks and the
+    kept runs: `adjusted`, `unmet`, `several_runs`, read from the index's entry summary; badges mark titles adjusted, with
+    how many asks were not honoured, or keeping several runs) sit above it, *Review next waiting*, *Redesign out of date…* (shown with *Out of date*: one
     redesign job by version after an inline confirmation), and *Publish accepted…* / *Commit published…*:
     a plan of the filter with `needs` publish (or commit) says how many, an inline confirmation names the repositories,
     and a run job through publish (or commit) is submitted and followed. Disabled with the reason as on New job.

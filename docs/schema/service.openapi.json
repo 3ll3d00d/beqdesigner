@@ -4,7 +4,7 @@
     "title": "BEQDesigner pipeline service",
     "summary": "Scan a library, extract and design BEQ filters for titles chosen by filter, on demand or on a schedule, and follow the jobs that do it.",
     "description": "A person decides a title through the review routes or in the BEQDesigner app. Every /v1 route needs the bearer token (Authorize, above). `GET /health` says which release this is.",
-    "version": "1.13.0"
+    "version": "1.14.0"
   },
   "paths": {
     "/health": {
@@ -532,6 +532,60 @@
               "title": "Out Of Date"
             },
             "description": "true: only designed titles a redesign now could answer differently -- designed with another design version, or other designer settings, than the designers that are up now design with (contract 1.4; a title designed before it takes its version from its build). false: every other title; unset: either. Refused (409) while no designer that is up says its design version."
+          },
+          {
+            "name": "adjusted",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "true: only titles whose current design was asked to change something (contract 1.5); false: only those whose was not.",
+              "title": "Adjusted"
+            },
+            "description": "true: only titles whose current design was asked to change something (contract 1.5); false: only those whose was not."
+          },
+          {
+            "name": "unmet",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "true: only titles where the designer did not honour every adjustment asked (adapted, declined, not understood or unanswered).",
+              "title": "Unmet"
+            },
+            "description": "true: only titles where the designer did not honour every adjustment asked (adapted, declined, not understood or unanswered)."
+          },
+          {
+            "name": "several_runs",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "true: only titles keeping earlier design runs (variants); false: only titles with one.",
+              "title": "Several Runs"
+            },
+            "description": "true: only titles keeping earlier design runs (variants); false: only titles with one."
           },
           {
             "name": "include_done",
@@ -2838,6 +2892,60 @@
               "title": "Out Of Date"
             },
             "description": "true: only designed titles a redesign now could answer differently -- designed with another design version, or other designer settings, than the designers that are up now design with (contract 1.4; a title designed before it takes its version from its build). false: every other title; unset: either. Refused (409) while no designer that is up says its design version."
+          },
+          {
+            "name": "adjusted",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "true: only titles whose current design was asked to change something (contract 1.5); false: only those whose was not.",
+              "title": "Adjusted"
+            },
+            "description": "true: only titles whose current design was asked to change something (contract 1.5); false: only those whose was not."
+          },
+          {
+            "name": "unmet",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "true: only titles where the designer did not honour every adjustment asked (adapted, declined, not understood or unanswered).",
+              "title": "Unmet"
+            },
+            "description": "true: only titles where the designer did not honour every adjustment asked (adapted, declined, not understood or unanswered)."
+          },
+          {
+            "name": "several_runs",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "true: only titles keeping earlier design runs (variants); false: only titles with one.",
+              "title": "Several Runs"
+            },
+            "description": "true: only titles keeping earlier design runs (variants); false: only titles with one."
           },
           {
             "name": "after",
@@ -7372,6 +7480,24 @@
             ],
             "title": "Design Version",
             "description": "The design version it was designed with (contract 1.4, or from its build before it); null if unknown or not designed."
+          },
+          "adjusted": {
+            "type": "boolean",
+            "title": "Adjusted",
+            "description": "Its current design was asked to change something (contract 1.5).",
+            "default": false
+          },
+          "unmet_adjustments": {
+            "type": "integer",
+            "title": "Unmet Adjustments",
+            "description": "How many of those the designer did not simply honour.",
+            "default": 0
+          },
+          "design_runs": {
+            "type": "integer",
+            "title": "Design Runs",
+            "description": "How many design runs it keeps (0: not designed).",
+            "default": 0
           }
         },
         "type": "object",
@@ -7573,6 +7699,42 @@
             ],
             "title": "Out Of Date",
             "description": "true: only designed titles a redesign now could answer differently -- designed with another design version, or other designer settings, than the designers that are up now design with (contract 1.4; a title designed before it takes its version from its build). false: every other title; unset: either. Refused (409) while no designer that is up says its design version."
+          },
+          "adjusted": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Adjusted",
+            "description": "true: only titles whose current design was asked to change something (contract 1.5); false: only those whose was not."
+          },
+          "unmet": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unmet",
+            "description": "true: only titles where the designer did not honour every adjustment asked (adapted, declined, not understood or unanswered)."
+          },
+          "several_runs": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Several Runs",
+            "description": "true: only titles keeping earlier design runs (variants); false: only titles with one."
           }
         },
         "additionalProperties": false,

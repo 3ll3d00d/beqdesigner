@@ -277,7 +277,9 @@ otherwise it lasts until the tab is closed. The token is checked with the servic
   editions on request): tick any to draw its response and your track under it beside your design, with its peak boost
   and how far it is from yours. The service reads only that title's entry from the catalogue (`BEQ_CATALOGUE_URL` to
   point elsewhere) and keeps it a day.
-* **Design runs:** every design of a title is kept until you discard it. Under the review, *Design runs* lists the
+* **Design runs:** every design of a title is kept until you discard it. On *Titles*, *Adjustments*, *Answers* and
+  *Design runs* find titles that were asked to change something, whose asks were not all honoured, or that keep earlier
+  runs. Under the review, *Design runs* lists the
   current one and the earlier ones, each with what the designer was asked to change and what it did with each ask
   (honoured, adapted, declined, not understood, or not acknowledged by a designer older than contract 1.5). Tick an
   earlier one to draw its designs dashed on the chart; *Use this one* makes it current again (the current one is kept);

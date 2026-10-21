@@ -11,6 +11,9 @@ export type TitleSort = Schemas['TitleSort']
 
 export const FLAGS: readonly Flag[] = ['Ignored', 'Shadowed', 'Gone', 'Possible duplicate', 'Already in catalogue']
 
+/** The filters that are true, false or either. */
+const TRISTATE = ['out_of_date', 'adjusted', 'unmet', 'several_runs'] as const
+
 const NEEDS: readonly Needs[] = ['attention', 'review', 'extract', 'design', 'publish', 'commit', 'done']
 
 export function filterFromQuery(params: URLSearchParams): TitleFilter {
@@ -28,8 +31,10 @@ export function filterFromQuery(params: URLSearchParams): TitleFilter {
   if (params.get('new_since_scan') === 'true') filter.new_since_scan = true
   const declined = params.get('declined')
   if (declined === 'true' || declined === 'false') filter.declined = declined === 'true'
-  const outOfDate = params.get('out_of_date')
-  if (outOfDate === 'true' || outOfDate === 'false') filter.out_of_date = outOfDate === 'true'
+  for (const name of TRISTATE) {
+    const value = params.get(name)
+    if (value === 'true' || value === 'false') filter[name] = value === 'true'
+  }
   const ids = params.getAll('ids').filter(Boolean)
   if (ids.length) filter.ids = ids
   return filter
@@ -46,7 +51,7 @@ export function filterToQuery(filter: TitleFilter): URLSearchParams {
   for (const flag of filter.flags ?? []) params.append('flags', flag)
   if (filter.new_since_scan) params.set('new_since_scan', 'true')
   if (typeof filter.declined === 'boolean') params.set('declined', String(filter.declined))
-  if (typeof filter.out_of_date === 'boolean') params.set('out_of_date', String(filter.out_of_date))
+  for (const name of TRISTATE) if (typeof filter[name] === 'boolean') params.set(name, String(filter[name]))
   for (const id of filter.ids ?? []) params.append('ids', id)
   return params
 }
@@ -70,6 +75,12 @@ export function describeFilter(filter: TitleFilter): string {
   if (filter.declined === false) parts.push('not declined by the designer')
   if (filter.out_of_date === true) parts.push('designed out of date')
   if (filter.out_of_date === false) parts.push('not designed out of date')
+  if (filter.adjusted === true) parts.push('asked to change something')
+  if (filter.adjusted === false) parts.push('not asked to change anything')
+  if (filter.unmet === true) parts.push('with an adjustment not honoured')
+  if (filter.unmet === false) parts.push('with every adjustment honoured')
+  if (filter.several_runs === true) parts.push('with earlier design runs')
+  if (filter.several_runs === false) parts.push('with one design run')
   if (filter.ids?.length) parts.push(`${filter.ids.length} chosen`)
   return parts.length ? parts.join(', ') : 'every title'
 }

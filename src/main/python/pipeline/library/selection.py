@@ -59,6 +59,11 @@ class Selection:
     :param out_of_date: True for only designed titles that a redesign now could answer differently (designed with
         another design version or other settings than `current`: design/design-version.md), False for every other
         title; None for either.
+    :param adjusted: True for only titles whose current design was asked to change something (contract 1.5), False for
+        only titles whose was not; None for either.
+    :param unmet: True for only titles where the designer did not honour every adjustment asked (adapted, declined, not
+        understood or unanswered); False for the others; None for either.
+    :param several_runs: True for only titles that keep more than one design run (variants), False for one; None either.
     :param current: what a redesign now would be made with (the designers that are up say it); needed by `out_of_date`,
         and not part of what is selected, so two selections that differ only in it are equal.
     '''
@@ -73,6 +78,9 @@ class Selection:
     flags: Tuple[str, ...] = ()
     declined: Optional[bool] = None
     out_of_date: Optional[bool] = None
+    adjusted: Optional[bool] = None
+    unmet: Optional[bool] = None
+    several_runs: Optional[bool] = None
     current: Optional[CurrentIdentity] = field(default=None, compare=False, repr=False)
 
     def __post_init__(self):
@@ -120,6 +128,12 @@ class Selection:
             rows = [r for r in rows if set(self.flags) <= set(r.flags)]
         if self.declined is not None:
             rows = [r for r in rows if r.detail.startswith(DECLINED_DETAIL) is self.declined]
+        if self.adjusted is not None:
+            rows = [r for r in rows if r.adjusted is self.adjusted]
+        if self.unmet is not None:
+            rows = [r for r in rows if (r.unmet_adjustments > 0) is self.unmet]
+        if self.several_runs is not None:
+            rows = [r for r in rows if (r.design_runs > 1) is self.several_runs]
         if self.out_of_date is not None:
             if self.current is None:
                 raise ValueError('no designer that is up says its design version, so no title can be judged out of date')
@@ -152,6 +166,12 @@ class Selection:
             parts.append(f"flagged {' and '.join(self.flags)}")
         if self.declined is not None:
             parts.append('declined by the designer' if self.declined else 'not declined by the designer')
+        if self.adjusted is not None:
+            parts.append('asked to change something' if self.adjusted else 'not asked to change anything')
+        if self.unmet is not None:
+            parts.append('with an adjustment not honoured' if self.unmet else 'with every adjustment honoured')
+        if self.several_runs is not None:
+            parts.append('with earlier design runs' if self.several_runs else 'with one design run')
         if self.out_of_date is not None:
             parts.append('designed out of date' if self.out_of_date else 'not designed out of date')
         return ', '.join(parts) or 'every title'

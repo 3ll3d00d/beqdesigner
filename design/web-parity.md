@@ -189,9 +189,9 @@ Built 2026-10-21; described in [web-app.md §4.6](web-app.md#46-adjustments-and-
 differently from the sketch: the entry's own design fields stay the **current** variant (so decisions, publishing,
 the index and the desktop title page are unchanged) and `QueueEntry.variants` holds the others; a design is accepted
 from the current variant, so taking an earlier design is *Use this one*, then Accept. `adjusted_with` (what a design was
-made with) is kept apart from `adjustments` (what the next one is asked). Not built: picking a band by dragging on the
-chart (the *Ignore the chart's range* preset uses the zoomed range instead), and the Titles filters on adjustments and
-variants. Queuing per-title adjustments for one run is *Revise* without *Extract & design now*, then a run.
+made with) is kept apart from `adjustments` (what the next one is asked). The Titles filters on adjustments and
+variants followed the same day (`adjusted`, `unmet`, `several_runs`). Not built: picking a band by dragging on the
+chart (the *Ignore the chart's range* preset uses the zoomed range instead). Queuing per-title adjustments for one run is *Revise* without *Extract & design now*, then a run.
 
 ### WP8 — Editing the chosen design's filters — done
 

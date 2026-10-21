@@ -107,7 +107,8 @@ export function title(id: string, overrides: Partial<Schemas['Title']> = {}): Sc
   return { id, title: id.toUpperCase(), display_name: id, year: '2001', kind: 'movie', source: 'films', path: `/m/${id}.mkv`,
            season: '', episodes: [], external_ids: {}, needs: 'review', tier: 'human', detail: 'designed', flags: [],
            extract_state: 'done', design_state: 'done', review_state: 'pending', publish_state: '', commit_state: '',
-           confidence: 0.8, candidate_count: 2, failure: '', is_new: false, state_since: NOW, last_seen: NOW, ...overrides }
+           confidence: 0.8, candidate_count: 2, failure: '', is_new: false, state_since: NOW, last_seen: NOW,
+           adjusted: false, unmet_adjustments: 0, design_runs: 1, ...overrides }
 }
 
 export const METADATA_FIELDS: Schemas['MetadataField'][] = [

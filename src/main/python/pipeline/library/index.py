@@ -387,6 +387,10 @@ class TitleRow:
     is_new: bool = False  # first seen by the latest scan
     # what its queue entry was designed with (design/design-version.md); None: it has no entry
     design_identity: Optional[DesignIdentity] = None
+    # from the same summary (design/web-parity.md WP7): asked to change something, how many asks went unmet, design runs
+    adjusted: bool = False
+    unmet_adjustments: int = 0
+    design_runs: int = 0
 
     @property
     def flags(self) -> List[str]:
@@ -410,7 +414,19 @@ class TitleRow:
             commit_state=row['commit_state'], needs=row['needs'], tier=row['tier'], detail=row['detail'],
             state_since=row['state_since'], confidence=row['confidence'], candidate_count=row['candidate_count'],
             failure=row['failure'], is_new=row['first_seen_generation'] == generation and generation > 0,
-            design_identity=_design_identity(row['entry_summary']))
+            design_identity=_design_identity(row['entry_summary']), **_adjustment_facts(row['entry_summary']))
+
+
+def _adjustment_facts(summary: str) -> dict:
+    ''' What the entry its summary describes was asked (WP7); nothing for a title with no (readable) entry. '''
+    try:
+        facts = json.loads(summary) if summary else None
+    except ValueError:
+        facts = None
+    if not isinstance(facts, dict):
+        return {}
+    return {'adjusted': bool(facts.get('adjusted')), 'unmet_adjustments': int(facts.get('unmet') or 0),
+            'design_runs': int(facts.get('runs') or 1)}
 
 
 def _design_identity(summary: str) -> Optional[DesignIdentity]:

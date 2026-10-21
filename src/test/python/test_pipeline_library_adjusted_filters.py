@@ -1,0 +1,66 @@
+'''
+The Titles filters on adjustments and design runs (design/web-parity.md WP7 follow-up): what the index keeps of each
+entry (status.EntryFacts: adjusted, unmet, runs), what a row says of it, and Selection's three filters.
+'''
+import pytest
+
+from pipeline.library.index import LibraryIndex, index_path
+from pipeline.library.selection import Selection
+from pipeline.library.status import EntryFacts, unmet_adjustments
+from pipeline.review import read_entry, update_entry
+from review_entry_fixture import write_entry
+from worklist_fixture import make_index, title_row
+
+ASKED = [{'id': 'a1', 'kind': 'max_boost', 'params': {'db': 10}}, {'id': 'a2', 'kind': 'note', 'text': 'x'}]
+
+
+def _entry(tmp_path, entry_id, **fields):
+    write_entry(str(tmp_path), entry_id)
+    if fields:
+        update_entry(str(tmp_path), entry_id, **fields)
+    return read_entry(str(tmp_path), entry_id)
+
+
+def test_an_entry_says_whether_it_was_adjusted_how_many_asks_went_unmet_and_its_runs(tmp_path):
+    plain = EntryFacts.of(_entry(tmp_path, 'plain'), 1, 2)
+    assert (plain.adjusted, plain.unmet, plain.runs) == (False, 0, 1)
+    asked = _entry(tmp_path, 'asked', adjusted_with=ASKED, variants=[{'variant_id': 'v1'}, {'variant_id': 'v2'}],
+                   adjustment_outcomes=[{'id': 'a1', 'outcome': 'honoured'}, {'id': 'a2', 'outcome': 'not_understood'}])
+    facts = EntryFacts.of(asked, 1, 2)
+    assert (facts.adjusted, facts.unmet, facts.runs) == (True, 1, 3)
+    assert unmet_adjustments(_entry(tmp_path, 'unanswered', adjusted_with=ASKED)) == 2   # a designer before 1.5
+    assert EntryFacts.from_json(facts.to_json()) == facts
+
+
+@pytest.fixture
+def index(tmp_path):
+    def summary(entry_id, **fields):
+        return EntryFacts.of(_entry(tmp_path / 'q', entry_id, **fields), 1, 2).to_json()
+    rows = [dict(title_row('plain', 'Plain', needs='review'), entry_summary=summary('plain')),
+            dict(title_row('asked', 'Asked', needs='review'), entry_summary=summary(
+                'asked', adjusted_with=ASKED, adjustment_outcomes=[{'id': 'a1', 'outcome': 'honoured'},
+                                                                   {'id': 'a2', 'outcome': 'honoured'}])),
+            dict(title_row('unmet', 'Unmet', needs='review'), entry_summary=summary(
+                'unmet', adjusted_with=ASKED[:1], variants=[{'variant_id': 'v1'}])),
+            title_row('bare', 'Bare', needs='extract')]
+    make_index(tmp_path, rows)
+    with LibraryIndex(index_path(str(tmp_path)), readonly=True) as opened:
+        yield opened
+
+
+@pytest.mark.parametrize('selection, ids', [
+    (Selection(adjusted=True), ['asked', 'unmet']),
+    (Selection(adjusted=False), ['bare', 'plain']),
+    (Selection(unmet=True), ['unmet']),
+    (Selection(several_runs=True), ['unmet']),
+    (Selection(several_runs=False), ['asked', 'bare', 'plain'])])
+def test_the_filters_select_by_what_the_index_keeps(index, selection, ids):
+    assert sorted(r.id for r in selection.rows(index)) == ids
+
+
+def test_a_row_says_the_facts_and_a_title_with_no_entry_has_no_runs(index):
+    rows = {r.id: r for r in index.titles()}
+    assert (rows['unmet'].adjusted, rows['unmet'].unmet_adjustments, rows['unmet'].design_runs) == (True, 1, 2)
+    assert rows['bare'].design_runs == 0
+    assert Selection(adjusted=True, unmet=False, several_runs=True).describe() == \
+        'asked to change something, with every adjustment honoured, with earlier design runs'

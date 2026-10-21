@@ -560,3 +560,25 @@ describe('revising titles from the list', () => {
     await waitFor(() => expect(screen.queryByRole('group', { name: 'Selected titles' })).not.toBeInTheDocument())
   })
 })
+
+describe('filtering on adjustments and design runs', () => {
+  it('sends the three filters, keeps them in the address bar, and marks the titles they are about', async () => {
+    const asked: URLSearchParams[] = []
+    server.use(statusRoute(status({ index: index() })),
+               http.get('/v1/titles', ({ request }) => {
+                 asked.push(new URL(request.url).searchParams)
+                 return json({ total: 1, offset: 0, limit: 100, titles: [
+                   title('a', { adjusted: true, unmet_adjustments: 1, design_runs: 3 })] })
+               }))
+    const router = renderApp('/titles')
+    expect(await screen.findByText('adjusted, 1 not honoured')).toBeInTheDocument()
+    expect(screen.getByText('3 runs')).toBeInTheDocument()
+    await userEvent.selectOptions(screen.getByLabelText('Adjustments'), 'Asked for some')
+    await userEvent.selectOptions(screen.getByLabelText('Answers'), 'Some not honoured')
+    await userEvent.selectOptions(screen.getByLabelText('Design runs'), 'One')
+    await waitFor(() => expect(router.state.location.search).toBe('?adjusted=true&unmet=true&several_runs=false'))
+    await waitFor(() => expect(asked.at(-1)?.get('several_runs')).toBe('false'))
+    expect(asked.at(-1)?.get('adjusted')).toBe('true')
+    expect(screen.getByText(/asked to change something, with an adjustment not honoured, with one design run/)).toBeInTheDocument()
+  })
+})

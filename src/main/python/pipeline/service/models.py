@@ -17,7 +17,7 @@ from pipeline.service.jobs import MAX_REDESIGN_IDS, redesign_problem
 from pipeline.library.state import NEEDS, FLAG_DUPLICATE, FLAG_GONE, FLAG_IGNORED, FLAG_IN_CATALOGUE, FLAG_SHADOWED
 from pipeline.library.year import YEAR_PATTERN, YearRange, numeric_year
 
-API_VERSION = '1.13.0'
+API_VERSION = '1.14.0'
 
 
 class Needs(str, Enum):
@@ -121,12 +121,19 @@ class TitleFilter(Input):
                           'design version, or other designer settings, than the designers that are up now design with '
                           '(contract 1.4; a title designed before it takes its version from its build). false: every '
                           'other title; unset: either. Refused (409) while no designer that is up says its design version.')
+    adjusted: Optional[bool] = Field(None, description='true: only titles whose current design was asked to change '
+                                                       'something (contract 1.5); false: only those whose was not.')
+    unmet: Optional[bool] = Field(None, description='true: only titles where the designer did not honour every '
+                                                    'adjustment asked (adapted, declined, not understood or unanswered).')
+    several_runs: Optional[bool] = Field(None, description='true: only titles keeping earlier design runs (variants); '
+                                                           'false: only titles with one.')
 
     def to_selection(self) -> Selection:
         return Selection(needs=tuple(n.value for n in self.needs), source=self.source, match=self.match,
                          ids=tuple(self.ids), new_since_scan=self.new_since_scan,
                          kind=self.kind.value if self.kind else None, year=self.year, detail=self.detail,
-                         flags=tuple(f.value for f in self.flags), declined=self.declined, out_of_date=self.out_of_date)
+                         flags=tuple(f.value for f in self.flags), declined=self.declined, out_of_date=self.out_of_date,
+                         adjusted=self.adjusted, unmet=self.unmet, several_runs=self.several_runs)
 
     @classmethod
     def of(cls, selection: Any) -> 'TitleFilter':
@@ -135,7 +142,8 @@ class TitleFilter(Input):
         return cls(needs=list(data.get('needs') or ()), new_since_scan=bool(data.get('new_since_scan')),
                    source=data.get('source'), match=data.get('match'), ids=list(data.get('ids') or ()),
                    kind=data.get('kind'), year=data.get('year'), detail=data.get('detail'),
-                   flags=list(data.get('flags') or ()), declined=data.get('declined'), out_of_date=data.get('out_of_date'))
+                   flags=list(data.get('flags') or ()), declined=data.get('declined'), out_of_date=data.get('out_of_date'),
+                   adjusted=data.get('adjusted'), unmet=data.get('unmet'), several_runs=data.get('several_runs'))
 
 
 class TitleSort(str, Enum):
@@ -219,6 +227,9 @@ class Title(BaseModel):
     last_seen: Optional[datetime]
     design_version: Optional[int] = Field(None, description='The design version it was designed with (contract 1.4, or '
                                                             'from its build before it); null if unknown or not designed.')
+    adjusted: bool = Field(False, description='Its current design was asked to change something (contract 1.5).')
+    unmet_adjustments: int = Field(0, description='How many of those the designer did not simply honour.')
+    design_runs: int = Field(0, description='How many design runs it keeps (0: not designed).')
 
     @classmethod
     def of(cls, row) -> 'Title':
@@ -229,7 +240,8 @@ class Title(BaseModel):
                    review_state=row.review_state, publish_state=row.publish_state, commit_state=row.commit_state,
                    confidence=row.confidence, candidate_count=row.candidate_count, failure=row.failure,
                    is_new=row.is_new, state_since=timestamp(row.state_since), last_seen=timestamp(row.last_seen),
-                   design_version=row.design_identity.version if row.design_identity else None)
+                   design_version=row.design_identity.version if row.design_identity else None,
+                   adjusted=row.adjusted, unmet_adjustments=row.unmet_adjustments, design_runs=row.design_runs)
 
 
 class TitlePage(BaseModel):

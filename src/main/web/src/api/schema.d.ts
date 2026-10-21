@@ -2177,6 +2177,24 @@ export interface components {
              * @description The design version it was designed with (contract 1.4, or from its build before it); null if unknown or not designed.
              */
             design_version?: number | null;
+            /**
+             * Adjusted
+             * @description Its current design was asked to change something (contract 1.5).
+             * @default false
+             */
+            adjusted: boolean;
+            /**
+             * Unmet Adjustments
+             * @description How many of those the designer did not simply honour.
+             * @default 0
+             */
+            unmet_adjustments: number;
+            /**
+             * Design Runs
+             * @description How many design runs it keeps (0: not designed).
+             * @default 0
+             */
+            design_runs: number;
         };
         /**
          * TitleEvent
@@ -2267,6 +2285,21 @@ export interface components {
              * @description true: only designed titles a redesign now could answer differently -- designed with another design version, or other designer settings, than the designers that are up now design with (contract 1.4; a title designed before it takes its version from its build). false: every other title; unset: either. Refused (409) while no designer that is up says its design version.
              */
             out_of_date?: boolean | null;
+            /**
+             * Adjusted
+             * @description true: only titles whose current design was asked to change something (contract 1.5); false: only those whose was not.
+             */
+            adjusted?: boolean | null;
+            /**
+             * Unmet
+             * @description true: only titles where the designer did not honour every adjustment asked (adapted, declined, not understood or unanswered).
+             */
+            unmet?: boolean | null;
+            /**
+             * Several Runs
+             * @description true: only titles keeping earlier design runs (variants); false: only titles with one.
+             */
+            several_runs?: boolean | null;
         };
         /** TitleMessage */
         TitleMessage: {
@@ -2672,6 +2705,12 @@ export interface operations {
                 declined?: boolean | null;
                 /** @description true: only designed titles a redesign now could answer differently -- designed with another design version, or other designer settings, than the designers that are up now design with (contract 1.4; a title designed before it takes its version from its build). false: every other title; unset: either. Refused (409) while no designer that is up says its design version. */
                 out_of_date?: boolean | null;
+                /** @description true: only titles whose current design was asked to change something (contract 1.5); false: only those whose was not. */
+                adjusted?: boolean | null;
+                /** @description true: only titles where the designer did not honour every adjustment asked (adapted, declined, not understood or unanswered). */
+                unmet?: boolean | null;
+                /** @description true: only titles keeping earlier design runs (variants); false: only titles with one. */
+                several_runs?: boolean | null;
                 /** @description Include titles that need nothing (as the work list does only on Done). */
                 include_done?: boolean;
                 /** @description Order by this column (work-list order within equal values); a title without a year or confidence comes last either way. */
@@ -4155,6 +4194,12 @@ export interface operations {
                 declined?: boolean | null;
                 /** @description true: only designed titles a redesign now could answer differently -- designed with another design version, or other designer settings, than the designers that are up now design with (contract 1.4; a title designed before it takes its version from its build). false: every other title; unset: either. Refused (409) while no designer that is up says its design version. */
                 out_of_date?: boolean | null;
+                /** @description true: only titles whose current design was asked to change something (contract 1.5); false: only those whose was not. */
+                adjusted?: boolean | null;
+                /** @description true: only titles where the designer did not honour every adjustment asked (adapted, declined, not understood or unanswered). */
+                unmet?: boolean | null;
+                /** @description true: only titles keeping earlier design runs (variants); false: only titles with one. */
+                several_runs?: boolean | null;
                 /** @description The title just decided (or open): the next one after it is found. Absent: the first waiting title in the list. */
                 after?: string | null;
             };

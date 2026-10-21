@@ -201,6 +201,23 @@ function Repositories({ filter }: { filter: TitleFilter }) {
   )
 }
 
+/** A filter that is true, false or either, as a drop-down. */
+function Tristate({ label, value, onChange, yes, no }: {
+  label: string; value: boolean | null | undefined; onChange: (value: boolean | null) => void; yes: string; no: string
+}) {
+  return (
+    <label className="inline">
+      {label}
+      <select aria-label={label} value={value === undefined || value === null ? '' : String(value)}
+              onChange={(e) => onChange(e.target.value === '' ? null : e.target.value === 'true')}>
+        <option value="">Any</option>
+        <option value="true">{yes}</option>
+        <option value="false">{no}</option>
+      </select>
+    </label>
+  )
+}
+
 /** Sends every title the list shows back for redesign, by design version: one job, the whole designer pool at once. */
 function RedesignOutOfDate({ filter, total }: { filter: TitleFilter, total: number }) {
   const run = useSubmitRun()
@@ -310,6 +327,12 @@ export function TitlesPage() {
             <option value="false">Not out of date</option>
           </select>
         </label>
+        <Tristate label="Adjustments" value={filter.adjusted} onChange={(adjusted) => update((f) => ({ ...f, adjusted }))}
+                  yes="Asked for some" no="None asked" />
+        <Tristate label="Answers" value={filter.unmet} onChange={(unmet) => update((f) => ({ ...f, unmet }))}
+                  yes="Some not honoured" no="All honoured" />
+        <Tristate label="Design runs" value={filter.several_runs}
+                  onChange={(several_runs) => update((f) => ({ ...f, several_runs }))} yes="Several" no="One" />
       </div>
       {filter.out_of_date === true && page && page.total > 0 && <RedesignOutOfDate filter={filter} total={page.total} />}
       <Repositories filter={filter} />
@@ -346,7 +369,10 @@ export function TitlesPage() {
               <tr key={t.id} className={`tier-${t.tier}`}>
                 <td><input type="checkbox" aria-label={`Select ${t.title || t.display_name || t.id}`} checked={selected.has(t.id)}
                            onChange={(e) => select([t.id], e.target.checked)} /></td>
-                <td><Link to={link(t.id)}>{t.title || t.display_name || t.id}</Link>{t.is_new && <span className="badge">new</span>}</td>
+                <td><Link to={link(t.id)}>{t.title || t.display_name || t.id}</Link>{t.is_new && <span className="badge">new</span>}
+                  {t.adjusted && <span className={`badge${t.unmet_adjustments ? ' warn' : ''}`}>
+                    adjusted{t.unmet_adjustments ? `, ${t.unmet_adjustments} not honoured` : ''}</span>}
+                  {t.design_runs > 1 && <span className="badge">{t.design_runs} runs</span>}</td>
                 <td>{t.year}</td>
                 <td>{t.kind === 'tv' ? 'TV' : 'Movie'}</td>
                 <td>{t.source}</td>

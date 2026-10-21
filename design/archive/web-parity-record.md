@@ -154,3 +154,10 @@ for what it is).
 
 Evidence: `test_xy_smoothing.py` (12); the review-chart and chart-route smoothing tests now hold the level and the
 frequencies; the full suite, 3379 passed, 1 skipped.
+
+## Finishing (21 October 2026)
+
+- **Titles filters on adjustments and design runs:** `EntryFacts` keeps `adjusted`, `unmet` and `runs`, `TitleRow` reads
+  them from the entry summary, `Selection`/`TitleFilter` filter on `adjusted`, `unmet` and `several_runs` (API 1.14.0),
+  and `Title` carries them for the list's badges. Evidence: `test_pipeline_library_adjusted_filters.py` (7), the web
+  test "filtering on adjustments and design runs".

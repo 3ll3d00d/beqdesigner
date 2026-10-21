@@ -243,6 +243,9 @@ class EntryFacts:
     ctime_ns: int = 0   # coarse filesystem's one mtime tick, is still noticed (write_queue_entry replaces the file)
     published_stem: Optional[str] = None   # the file name it was published under (None: its id)
     adjustments: tuple = ()   # what a person asked the designer to change (1.5): part of the design's fingerprint
+    adjusted: bool = False    # the design here was asked to change something (QueueEntry.adjusted_with)
+    unmet: int = 0            # how many of those the designer did not honour (adapted, declined, not understood, unanswered)
+    runs: int = 1             # how many design runs the title keeps (the current one and its variants)
 
     def __post_init__(self):
         object.__setattr__(self, 'adjustments', tuple(self.adjustments or ()))   # a list, read back from JSON
@@ -254,7 +257,8 @@ class EntryFacts:
                    (entry.decline_message or entry.decline_reason or '') if entry.declined else '',
                    entry.design_fingerprint, entry.source_fingerprint, entry.published_digest, entry.art_path,
                    dict(entry.meta), mtime_ns, size, entry.design_version, entry.design_settings, entry.designer_build,
-                   inode, ctime_ns, entry.published_stem, tuple(entry.adjustments))
+                   inode, ctime_ns, entry.published_stem, tuple(entry.adjustments), bool(entry.adjusted_with),
+                   unmet_adjustments(entry), 1 + len(entry.variants))
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), sort_keys=True)
@@ -269,6 +273,12 @@ class EntryFacts:
             return cls(**json.loads(text))
         except (TypeError, ValueError, KeyError):
             return None
+
+
+def unmet_adjustments(entry: QueueEntry) -> int:
+    ''' How many of the adjustments the design here was made with the designer did not simply honour (1.5). '''
+    honoured = {o.get('id') for o in entry.adjustment_outcomes if o.get('outcome') == 'honoured'}
+    return sum(1 for a in entry.adjusted_with if a.get('id') not in honoured)
 
 
 def _stat_signature(path: Optional[str]) -> Optional[Tuple[int, int, int, int]]:
