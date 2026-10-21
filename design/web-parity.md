@@ -64,28 +64,11 @@ Built 2026-10-21; record in [archive/web-parity-record.md](archive/web-parity-re
 `spectrum.py`. Left for the chunk that needs it: the artwork checks (WP4: they read images with Qt's `QImageReader`),
 `worklist_revise.py`'s words (WP5) and `worklist_projects.py` (WP8, already Qt-free).
 
-### WP1 — The chart workbench
+### WP1 — The chart workbench — done
 
-Mostly client side; one route change.
-
-- **Route:** `GET /v1/titles/{id}/chart` gains `candidates=all|N[,M…]` (default: today's single `candidate`, so old
-  clients are unaffected) and `smoothing=none|1/1…1/48|sg` computed server side with `model/xy.py`'s smoothing (the same
-  code as the desktop, so a 1/6-octave curve is the same curve). Each series carries `kind`, `filtered`, `candidate`.
-  Also returns each design's own filter response (`filter` series) so it can be drawn on a secondary axis, as the main
-  window does.
-- **`MagnitudeChart` becomes a workbench** (still uPlot, still only this component imports it):
-  - drag to zoom x (and y with a modifier), double-click to reset; wheel zoom on x;
-  - a limits popover: x min/max, y min/max, *log x* toggle, presets **Bass (1–160 Hz)**, **Sub (1–40 Hz)**,
-    **Full (1–Nyquist)**, *Auto y*, mirroring `limits_dialog.py`'s full-range/bass buttons;
-  - a legend that toggles each series; *Show*: average / peak, filtered / unfiltered, filter response (secondary y);
-  - *Normalise to*: any visible series (plotted relative to it), as the main window's reference curve;
-  - *Designs*: overlay all designs at once (one colour each, the highlighted one emphasised) rather than one at a time;
-  - a crosshair read-out of every visible series at the cursor frequency;
-  - *Reset view*. View settings persist per browser (`localStorage`, wrapped in try/catch), not per title.
-- **Not** resampled onto the first series' frequencies any more when the x axis is log: uPlot's log distribution on
-  the server's native grid. `chartData()`'s resampling is kept only where series grids differ.
-- Tests: `chartData()` and the smoothing query unit-tested; the workbench's controls with Testing Library against the
-  uPlot recorder (the scales/series it was given); the route's new parameters in `test_pipeline_service_review.py`.
+Built 2026-10-21; described in [web-app.md §4.1](web-app.md#41-the-chart), record in
+[archive/web-parity-record.md](archive/web-parity-record.md#wp1). The main window offers smoothing to 1/24 octave (the
+`acoustics` package has no 1/48), so the route does too.
 
 ### WP2 — Spectrogram
 

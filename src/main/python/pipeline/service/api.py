@@ -23,7 +23,7 @@ from pipeline.library.bass import describe as describe_bass_management
 from pipeline.library.decide import DECISION_FROM, STATUS_WORDS, DecisionRefused, decide, decision_blocked, \
     next_waiting_id, offered_digest
 from pipeline.library.index import IndexFileError, LibraryIndex
-from pipeline.library.review_chart import chart_curves
+from pipeline.library.review_chart import SMOOTHING, workbench_curves
 from pipeline.library.selection import plan_stages
 from pipeline.library.status import metadata_problems
 from pipeline.service import models
@@ -46,6 +46,33 @@ METADATA_IN_APP = 'in the BEQDesigner app'   # metadata is not edited over HTTP
 DECISION_REFUSED = {'changed': 'Changed since it was read', 'blocked': 'Not offered now',
                     'metadata': 'Metadata incomplete', 'override': 'The designer rejected this design'}
 
+
+
+def parse_designs(text: Optional[str], count: int) -> List[int]:
+    ''' The chart's `candidates`: none, `all` (every design offered), or indexes separated by commas, each once. '''
+    if text is None or not text.strip():
+        return []
+    if text.strip().lower() == 'all':
+        return list(range(count))
+    try:
+        designs = [int(part) for part in text.split(',') if part.strip()]
+    except ValueError:
+        raise ServiceProblem(422, 'Not a list of designs', f'{text!r}: use all, or indexes such as 0,2') from None
+    if any(d < 0 for d in designs) or len(set(designs)) != len(designs):
+        raise ServiceProblem(422, 'Not a list of designs', f'{text!r}: each index once, none negative')
+    return designs
+
+
+def parse_smoothing(text: Optional[str]):
+    ''' The chart's `smoothing`, as `review_chart.SMOOTHING` has it. '''
+    if text is None or text.strip().lower() in ('', 'none'):
+        return None
+    value = text.strip().upper()
+    if value == 'SG':
+        return 'SG'
+    if value.isdigit() and int(value) in SMOOTHING:
+        return int(value)
+    raise ServiceProblem(422, 'No such smoothing', f'{text!r}: use none, 1, 2, 3, 6, 12, 24 or sg')
 
 def entry_title(entry, row) -> str:
     ''' What to call a title: the index's title, else the queue entry's, else its id (as the title page does). '''
@@ -440,19 +467,37 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
         return review_model(ctx, settings, row, review_entry(settings, title_id))
 
     @v1.get('/titles/{title_id}/chart', response_model=models.Chart, tags=['review'],
-            summary='The measured curves, and the same after one design', responses=_responses(404, 409, 422, 503))
-    def chart(title_id: str, candidate: Annotated[Optional[int], Query(ge=0, description='A design, by its index; '
-                                                                       'absent: the measured curves only.')] = None):
+            summary='The measured curves, and the same after one or more designs', responses=_responses(404, 409, 422, 503))
+    def chart(title_id: str,
+              candidate: Annotated[Optional[int], Query(ge=0, description='A design, by its index; absent (and no '
+                                                                          '`candidates`): the measured curves only.')] = None,
+              candidates: Annotated[Optional[str], Query(description='Several designs: `all`, or indexes separated by '
+                                                                     'commas. Not with `candidate`.')] = None,
+              smoothing: Annotated[Optional[str], Query(description='`none` (the default), `1`, `2`, `3`, `6`, `12` '
+                                                                    'or `24` (1/N octave), or `sg` (Savitzky-Golay)'
+                                                                    '.')] = None,
+              responses: Annotated[bool, Query(description="Also each design's own magnitude response "
+                                                           "(`kind` filter).")] = False):
         ctx = context()
         settings = ctx.scan_settings()
         with read_index(ctx) as index:
             review_row(index, title_id)
         entry = review_entry(settings, title_id)
-        if candidate is not None and candidate >= len(entry.offered):
-            raise ServiceProblem(422, 'No such design', f'{title_id} offers {len(entry.offered)} design(s)')
-        return models.Chart(candidate=candidate, series=[
-            models.ChartSeries(name=c.data.name, kind=c.kind, filtered=c.filtered, x=c.data.x.tolist(),
-                               y=c.data.y.tolist()) for c in chart_curves(entry, candidate)])
+        count = len(entry.offered)
+        if candidate is not None and candidates is not None:
+            raise ServiceProblem(422, 'Both candidate and candidates', 'Ask for one design or for several, not both')
+        designs = [candidate] if candidate is not None else parse_designs(candidates, count)
+        if any(d >= count for d in designs):
+            raise ServiceProblem(422, 'No such design', f'{title_id} offers {count} design(s)')
+        smooth = parse_smoothing(smoothing)
+        try:
+            curves = workbench_curves(entry, designs, smooth, responses)
+        except ValueError as error:
+            raise ServiceProblem(422, 'Cannot smooth', str(error)) from None
+        return models.Chart(candidate=candidate, candidates=designs,
+                            smoothing=None if smooth is None else str(smooth).lower(), series=[
+            models.ChartSeries(name=c.data.name, kind=c.kind, filtered=c.filtered, candidate=c.candidate,
+                               x=c.data.x.tolist(), y=c.data.y.tolist()) for c in curves])
 
     @v1.post('/titles/{title_id}/decision', response_model=models.Review, tags=['review'],
              summary='Accept a design, or reject the title (refused if what was looked at has changed)',

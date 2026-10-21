@@ -296,6 +296,53 @@ def test_the_chart_is_the_measured_curves_then_each_after_the_design_asked_for(s
     assert client.get('/v1/titles/a/chart', params={'candidate': 3}, headers=AUTH).status_code == 422
 
 
+def test_the_chart_can_carry_every_design_at_once_with_their_responses(service):
+    client, *_ = service
+
+    chart = client.get('/v1/titles/a/chart', params={'candidates': 'all', 'responses': 'true'}, headers=AUTH).json()
+
+    assert chart['candidate'] is None and chart['candidates'] == [0, 1, 2]
+    assert [(s['kind'], s['candidate']) for s in chart['series']] == \
+        [('average', None), ('peak', None)] + [(k, i) for i in range(3) for k in ('average', 'peak', 'filter')]
+    named = {s['name'] for s in chart['series']}
+    assert 'Filtered average audio track (all channels mixed) (design 2)' in named and 'Design 3' in named
+    shelf = next(s for s in chart['series'] if s['kind'] == 'filter' and s['candidate'] == 0)
+    assert shelf['y'][0] == pytest.approx(4.5, abs=0.2) and abs(shelf['y'][-1]) < 0.1   # the 20 Hz +4.5 dB low shelf
+
+
+def test_designs_asked_for_by_index_come_in_the_order_asked(service):
+    client, *_ = service
+    chart = client.get('/v1/titles/a/chart', params={'candidates': '2,0'}, headers=AUTH).json()
+    assert chart['candidates'] == [2, 0]
+    assert [s['candidate'] for s in chart['series'] if s['filtered']] == [2, 2, 0, 0]
+
+
+@pytest.mark.parametrize('params', [{'candidates': '0,0'}, {'candidates': '-1'}, {'candidates': 'one'},
+                                    {'candidates': '0,3'}, {'candidate': 0, 'candidates': '1'},
+                                    {'smoothing': '5'}, {'smoothing': 'loads'}])
+def test_a_chart_that_cannot_be_drawn_is_a_422(service, params):
+    client, *_ = service
+    assert client.get('/v1/titles/a/chart', params=params, headers=AUTH).status_code == 422
+
+
+@pytest.mark.parametrize('smoothing, said', [('none', None), ('6', '6')])
+def test_smoothing_is_the_main_windows_and_leaves_the_responses_alone(service, smoothing, said):
+    client, *_ = service
+    raw = client.get('/v1/titles/a/chart', params={'candidate': 0, 'responses': 'true'}, headers=AUTH).json()
+    chart = client.get('/v1/titles/a/chart', params={'candidate': 0, 'responses': 'true', 'smoothing': smoothing},
+                       headers=AUTH).json()
+    assert chart['smoothing'] == said
+    assert chart['series'][-1] == raw['series'][-1]                       # the design's response is never smoothed
+    if said == '6':
+        assert len(chart['series'][0]['x']) != len(raw['series'][0]['x'])   # onto 1/6-octave centres
+
+
+def test_a_curve_too_sparse_for_savitzky_golay_says_so(service):
+    client, *_ = service
+    answer = client.get('/v1/titles/a/chart', params={'smoothing': 'sg'}, headers=AUTH)
+    assert answer.status_code == 422 and 'cannot be smoothed' in answer.json()['detail']
+
+
 # --- the next title -----------------------------------------------------------------------------------------------------
 
 def test_next_is_the_next_waiting_title_in_the_filtered_list_round_to_the_top(service):

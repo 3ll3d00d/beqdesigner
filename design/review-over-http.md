@@ -7,7 +7,7 @@ the user guide is "Deciding a title" in [`docs/library/service.md`](../docs/libr
 
 The review routes decide one title with the same rules and write as the app's title page, through the Qt-free
 `pipeline/library/decide.py` (`decide()`, `decision_blocked()`, `offered_digest()`) and `review_chart.py`
-(`chart_curves()`); `model/worklist_title_decide.py` calls the same functions.
+(`chart_curves()`, and for the chart route `workbench_curves()`); `model/worklist_title_decide.py` calls the same functions.
 
 - **`Review`** carries the entry's designs as `CandidateView`s (`index` into `offered`: candidates, then the designs the
   designer rejected, `rejected: true`), `chosen_index`, `declined`, the metadata and `metadata_problems`

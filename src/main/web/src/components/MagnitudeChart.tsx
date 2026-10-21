@@ -1,76 +1,129 @@
-// The review chart (design/web-app.md §4): a title's measured average and peak curves, and the same after the chosen
-// design, on a linear 1-160 Hz axis, the range the desktop's charts show -- dashed before, solid after. uPlot stays behind
-// this one component, so its 1.7 release changes only this file.
+// The review chart (design/web-app.md §4.1, design/web-parity.md WP1): a title's measured average and peak curves, and the
+// same after one design or several, drawn as the view says -- its limits, a log frequency axis, which curves, normalised to
+// one -- with each design's own response on a second axis when asked. Drag across it to zoom to a frequency range, the
+// wheel to zoom about the cursor, a double click to go back to the view's preset. uPlot stays behind this one component,
+// so its 1.7 release changes only this file.
 import { useEffect, useRef } from 'react'
 import uPlot from 'uplot'
 import 'uplot/dist/uPlot.min.css'
 
-import type { Schemas } from '../api/client'
+import { chartData, drawnRange, normalise, type ChartView, type Range, type Series, visibleSeries, zoomRange }
+  from '../chart/view'
 
-type Series = Schemas['ChartSeries']
+export { chartData, FREQUENCY_RANGE, resample } from '../chart/view'
 
-const COLOURS = { average: '#2b8cbe', peak: '#e6550d' }
+const MEASURED = { average: '#2b8cbe', peak: '#e6550d' }
+/** One colour per design when several are drawn (the measured curves keep theirs). */
+export const DESIGN_COLOURS = ['#31a354', '#756bb1', '#d6616b', '#8c6d31', '#17becf', '#e377c2', '#7f7f7f', '#bcbd22']
 
-/** The frequencies drawn, in Hz: BEQ is about the bass, and the desktop's charts default to the same range. */
-export const FREQUENCY_RANGE: [number, number] = [1, 160]
+export function seriesColour(s: Series, several: boolean): string {
+  if (s.kind === 'filter') return DESIGN_COLOURS[(s.candidate ?? 0) % DESIGN_COLOURS.length]!
+  if (!s.filtered || !several) return MEASURED[s.kind]
+  return DESIGN_COLOURS[(s.candidate ?? 0) % DESIGN_COLOURS.length]!
+}
 
-/** Linear interpolation of (x, y) at each of `at` (x ascending); outside the range, the end value. */
-export function resample(x: number[], y: number[], at: number[]): number[] {
-  if (x.length === at.length && x.every((v, i) => v === at[i])) return y
-  const out: number[] = []
-  let j = 0
-  for (const v of at) {
-    while (j < x.length - 2 && x[j + 1]! < v) j++
-    const x0 = x[j]!, x1 = x[j + 1] ?? x0, y0 = y[j]!, y1 = y[j + 1] ?? y0
-    out.push(v <= x0 ? y0 : v >= x1 ? y1 : y0 + ((y1 - y0) * (v - x0)) / (x1 - x0))
+/** How one curve is drawn: dashed before a design, solid after; a peak dotted among several designs; the highlighted widest. */
+export function seriesStyle(s: Series, all: Series[], highlighted: number | null) {
+  const designs = new Set(all.filter((c) => c.filtered).map((c) => c.candidate))
+  const several = designs.size > 1
+  const anyFiltered = all.some((c) => c.filtered && c.kind !== 'filter')
+  const focused = !several || s.candidate === null || s.candidate === highlighted
+  return {
+    stroke: seriesColour(s, several),
+    width: s.kind === 'filter' ? 1.25 : s.filtered ? (focused ? 2.5 : 1.25) : 1.5,
+    dash: s.kind === 'filter' ? [2, 3]
+      : !s.filtered ? (anyFiltered ? [6, 4] : undefined)
+        : several && s.kind === 'peak' ? [1, 3] : undefined,
   }
-  return out
 }
 
-/** The series on one shared frequency axis (the first's, within FREQUENCY_RANGE): uPlot's data shape. */
-export function chartData(series: Series[]): uPlot.AlignedData {
-  if (!series.length) return [[]]
-  const first = series[0]!
-  const [low, high] = FREQUENCY_RANGE
-  const x = first.x.filter((v) => v >= low && v <= high)
-  return [x, ...series.map((s) => resample(s.x, s.y, x))]
+interface Props {
+  series: Series[]
+  view: ChartView
+  /** The design highlighted on the page, drawn widest among several. */
+  highlighted?: number | null
+  /** A drag or wheel zoom: the frequencies (and, for a vertical drag, the levels) to draw. */
+  onZoom?: (x: Range, y: Range | null) => void
+  /** A double click: back to the preset. */
+  onReset?: () => void
+  height?: number
 }
 
-export function MagnitudeChart({ series, height = 360 }: { series: Series[]; height?: number }) {
+export function MagnitudeChart({ series, view, highlighted = null, onZoom, onReset, height = 360 }: Props) {
   const holder = useRef<HTMLDivElement>(null)
+  const zoom = useRef(onZoom)
+  const reset = useRef(onReset)
+  useEffect(() => {
+    zoom.current = onZoom
+    reset.current = onReset
+  }, [onZoom, onReset])
+  const shown = normalise(visibleSeries(series, view), view.reference)
   useEffect(() => {
     const element = holder.current
-    if (!element || !series.length) return
-    const filtered = series.some((s) => s.filtered)
+    const shown = normalise(visibleSeries(series, view), view.reference)
+    if (!element || !shown.length) return
     const style = getComputedStyle(document.documentElement)
     const ink = style.getPropertyValue('--muted').trim() || '#888'
     const grid = style.getPropertyValue('--line').trim() || '#ddd'
     const axis = { stroke: ink, grid: { stroke: grid, width: 1 }, ticks: { stroke: grid, width: 1 } }
+    const range = drawnRange(view)
+    const responses = shown.some((s) => s.kind === 'filter')
+    const levels = view.reference === null ? 'dB' : 'dB, relative'
     const plot = new uPlot({
       width: element.clientWidth || 640,
       height,
-      scales: { x: { time: false, range: FREQUENCY_RANGE }, y: { auto: true } },
-      axes: [{ ...axis, label: 'Frequency (Hz)' }, { ...axis, label: 'dB', size: 56 }],
+      scales: {
+        x: { time: false, range, ...(view.logX ? { distr: 3, log: 10 } : {}) },
+        y: view.y ? { auto: false, range: view.y } : { auto: true },
+        ...(responses ? { response: { auto: true } } : {}),
+      },
+      axes: [
+        { ...axis, label: 'Frequency (Hz)' },
+        { ...axis, label: levels, size: 56 },
+        ...(responses ? [{ ...axis, scale: 'response', side: 1, grid: { show: false }, label: 'Filter dB', size: 56 }] : []),
+      ],
       legend: { show: true },
-      cursor: { points: { show: false } },
+      cursor: { points: { show: false }, drag: { x: true, y: true, uni: 30, setScale: false } },
+      hooks: {
+        setSelect: [(u: uPlot) => {
+          const { left, top, width, height: tall } = u.select
+          if (width < 2 && tall < 2) return
+          const x: Range = width >= 2 ? [u.posToVal(left, 'x'), u.posToVal(left + width, 'x')] : range
+          const vertical = tall >= 2 && tall < u.over.clientHeight - 1
+          const y: Range | null = vertical ? [u.posToVal(top + tall, 'y'), u.posToVal(top, 'y')] : view.y
+          u.setSelect({ left: 0, top: 0, width: 0, height: 0 }, false)
+          if (x[0] < x[1]) zoom.current?.(x, y)
+        }],
+      },
       series: [
         { label: 'Hz', value: (_u, v) => (v === null || v === undefined ? '—' : `${v.toFixed(1)} Hz`) },
-        ...series.map((s) => ({
+        ...shown.map((s) => ({
           label: s.name,
-          stroke: COLOURS[s.kind],
-          width: s.filtered ? 2 : 1.5,
-          dash: filtered && !s.filtered ? [6, 4] : undefined,
+          ...seriesStyle(s, shown, highlighted),
+          ...(s.kind === 'filter' ? { scale: 'response' } : {}),
           value: (_u: uPlot, v: number | null) => (v === null || v === undefined ? '—' : `${v.toFixed(1)} dB`),
         })),
       ],
-    }, chartData(series), element)
+    }, chartData(shown, range), element)
+    const wheel = (event: WheelEvent) => {
+      if (!zoom.current || plot.cursor.left === undefined || plot.cursor.left < 0) return
+      event.preventDefault()
+      const at = plot.posToVal(plot.cursor.left, 'x')
+      zoom.current(zoomRange(range, at, event.deltaY < 0 ? 0.8 : 1.25, view.logX), view.y)
+    }
+    const double = () => reset.current?.()
+    plot.over?.addEventListener('wheel', wheel, { passive: false })
+    plot.over?.addEventListener('dblclick', double)
     const resize = new ResizeObserver(() => plot.setSize({ width: element.clientWidth || 640, height }))
     resize.observe(element)
     return () => {
+      plot.over?.removeEventListener('wheel', wheel)
+      plot.over?.removeEventListener('dblclick', double)
       resize.disconnect()
       plot.destroy()
     }
-  }, [series, height])
+  }, [series, view, highlighted, height])
   if (!series.length) return <p className="muted">No measured curve for this title.</p>
-  return <div ref={holder} className="chart" role="img" aria-label={`Chart: ${series.map((s) => s.name).join('; ')}`} />
+  if (!shown.length) return <p className="muted">Nothing to draw: every curve is hidden.</p>
+  return <div ref={holder} className="chart" role="img" aria-label={`Chart: ${shown.map((s) => s.name).join('; ')}`} />
 }

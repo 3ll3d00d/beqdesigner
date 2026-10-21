@@ -165,7 +165,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The measured curves, and the same after one design */
+        /** The measured curves, and the same after one or more designs */
         get: operations["chart_v1_titles__title_id__chart_get"];
         put?: never;
         post?: never;
@@ -563,8 +563,22 @@ export interface components {
         };
         /** Chart */
         Chart: {
-            /** Candidate */
+            /**
+             * Candidate
+             * @description The one design asked for with `candidate`; none when several or none were.
+             */
             candidate: number | null;
+            /**
+             * Candidates
+             * @description Every design charted, in the order asked.
+             * @default []
+             */
+            candidates: number[];
+            /**
+             * Smoothing
+             * @description The smoothing applied to the measured and filtered curves.
+             */
+            smoothing?: string | null;
             /** Series */
             series: components["schemas"]["ChartSeries"][];
         };
@@ -574,14 +588,20 @@ export interface components {
             name: string;
             /**
              * Kind
+             * @description A measured curve, or (`filter`) a design's own response.
              * @enum {string}
              */
-            kind: "average" | "peak";
+            kind: "average" | "peak" | "filter";
             /**
              * Filtered
-             * @description After the chosen design.
+             * @description After a design (always true of a `filter`).
              */
             filtered: boolean;
+            /**
+             * Candidate
+             * @description The design it is after, or the response of; none for the measured curves.
+             */
+            candidate?: number | null;
             /**
              * X
              * @description Frequency, Hz.
@@ -2166,8 +2186,14 @@ export interface operations {
     chart_v1_titles__title_id__chart_get: {
         parameters: {
             query?: {
-                /** @description A design, by its index; absent: the measured curves only. */
+                /** @description A design, by its index; absent (and no `candidates`): the measured curves only. */
                 candidate?: number | null;
+                /** @description Several designs: `all`, or indexes separated by commas. Not with `candidate`. */
+                candidates?: string | null;
+                /** @description `none` (the default), `1`, `2`, `3`, `6`, `12` or `24` (1/N octave), or `sg` (Savitzky-Golay). */
+                smoothing?: string | null;
+                /** @description Also each design's own magnitude response (`kind` filter). */
+                responses?: boolean;
             };
             header?: never;
             path: {

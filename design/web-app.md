@@ -108,7 +108,7 @@ message. Tests: `test_pipeline_library_decide.py`.
   - *Review*: the title, its status, what it needs; the designs (rejected ones listed apart, with how many reasons),
     commentary of the one highlighted (or the decline; full width under the designs and chart), the playback chain and
     designer, the metadata as one line under the heading (content type, audio types, genres by name) and what it lacks,
-    and the chart (§4.1). *Accept design N*, *Reject* and *Skip*, with keys A, R, S, and 1–9 to highlight a design; the keys
+    and the chart with its controls (§4.1). *Accept design N*, *Reject* and *Skip*, with keys A, R, S, and 1–9 to highlight a design; the keys
     stand aside while a text field has focus. A blocked decision is disabled and says why. Accepting a rejected design
     asks first, with the designer's reasons, and sends `override_rejection`. A refused decision shows the service's
     reason and the title as it is now. After a decision, or Skip, `GET /v1/review/next` in the same filtered list opens
@@ -122,10 +122,25 @@ message. Tests: `test_pipeline_library_decide.py`.
 
 ### 4.1 The chart
 
-`MagnitudeChart` draws `GET /v1/titles/{id}/chart?candidate=N`: the measured average and peak curves, dashed when a design
-is applied, and the same after the design, solid -- as the desktop title page draws them. The x axis is linear, 1 to 160 Hz
-(`FREQUENCY_RANGE`, the desktop charts' default range): points outside it are dropped, and every series is resampled onto
-the first's frequencies (`chartData()`).
+`MagnitudeChart` draws `GET /v1/titles/{id}/chart`: the measured average and peak curves, dashed when a design is applied,
+and the same after the design highlighted, solid -- as the desktop title page draws them -- or, with *All designs*,
+after every design at once (`candidates=all`), one colour per design, the highlighted widest and peaks dotted. The view
+(`src/chart/view.ts`, a `ChartView`) is kept per browser in `localStorage` (`beq.chartView`, each setting checked when
+read, defaults when storage refuses) and changed by `ChartControls`:
+
+- **Range:** *Bass* (1-160 Hz, `FREQUENCY_RANGE`, the desktop charts' default and the default view), *Sub* (1-40 Hz)
+  and *Full* (to the highest frequency of any curve); frequency and level limits typed (blank levels: fitted to what is
+  drawn); *Log frequency* (uPlot's log distribution; a range starting at or below 0 Hz starts at 1 Hz).
+- **Zoom:** a drag selects a frequency range (and the levels, when dragged vertically too); the wheel zooms about the
+  cursor (on the log scale when the axis is); a double click goes back to the preset frequencies and fitted levels.
+- **Curves:** *Average*, *Peak*, *Before design*, *After design*; *Filter response* asks for each design's own response
+  (`responses=true`) and draws it on a second level axis; *Smoothing* is sent to the service (`smoothing`), which applies
+  the main window's (`review_chart.SMOOTHING`: none, 1/1-1/24 octave, Savitzky-Golay) after the design, never to a
+  response.
+- **Relative to:** every curve but a response is drawn minus the one chosen (`normalise()`), which becomes flat.
+
+Every series is placed on the frequencies of the one with the most points in range, the others interpolated
+(`chartData()`). *Reset view* restores the defaults.
 
 ## 5. Build and delivery
 

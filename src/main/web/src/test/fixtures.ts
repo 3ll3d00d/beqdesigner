@@ -85,13 +85,19 @@ export function review(overrides: Partial<Schemas['Review']> = {}): Schemas['Rev
   }
 }
 
-export function chart(candidateIndex: number | null): Schemas['Chart'] {
+export function chart(candidateIndex: number | null, designs: number[] = candidateIndex === null ? [] : [candidateIndex],
+                      responses = false): Schemas['Chart'] {
   const x = [0, 10, 20, 40, 80]
   const base = [{ name: 'Average audio track (all channels mixed)', kind: 'average' as const, filtered: false, x, y: [0, 0, 0, 0, 0] },
                 { name: 'Peak audio track (all channels mixed)', kind: 'peak' as const, filtered: false, x, y: [10, 10, 10, 10, 10] }]
-  const after = candidateIndex === null ? [] : [
-    { name: 'Filtered average audio track (all channels mixed)', kind: 'average' as const, filtered: true, x, y: [4, 4, 3, 1, 0] }]
-  return { candidate: candidateIndex, series: [...base, ...after] }
+  const several = designs.length > 1
+  const after = designs.flatMap((d) => [
+    { name: `Filtered average audio track (all channels mixed)${several ? ` (design ${d + 1})` : ''}`, kind: 'average' as const,
+      filtered: true, candidate: d, x, y: [4, 4, 3, 1, 0].map((v) => v + d) },
+    ...(responses ? [{ name: `Design ${d + 1}`, kind: 'filter' as const, filtered: true, candidate: d, x: [1, 10, 100, 500],
+                       y: [4 + d, 4 + d, 0, 0] }] : []),
+  ])
+  return { candidate: several ? null : candidateIndex, candidates: designs, series: [...base, ...after] }
 }
 
 export function title(id: string, overrides: Partial<Schemas['Title']> = {}): Schemas['Title'] {

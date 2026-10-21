@@ -243,7 +243,7 @@ Every request and response body is a named pydantic model in
 | `POST /v1/schedule/trigger` | → 202 `Job` | one tick now; 409 while busy |
 | `POST /v1/notify/test` | `NotifyTest` → `NotifyOutcome` | sample events to one target (§9) |
 | `GET /v1/titles/{id}/review` | → `Review` | §6.8; 404 unknown title, 409 no queue entry |
-| `GET /v1/titles/{id}/chart` | query `candidate` → `Chart` | measured curves, and after one design; 422 no such design |
+| `GET /v1/titles/{id}/chart` | query `candidate` or `candidates` (`all`, or indexes), `smoothing`, `responses` → `Chart` | measured curves, and after each design asked for (`ChartSeries.candidate`), with each one's response (`kind` filter) when asked; the main window's smoothing (`review_chart.SMOOTHING`) of all but the responses; 422 no such design, both `candidate` and `candidates`, an unknown smoothing or one a curve is too sparse for |
 | `POST /v1/titles/{id}/decision` | `Decision` → `Review` | §6.8; 409 refused (why in `title`/`detail`), 422 invalid |
 | `GET /v1/review/next` | query `after` + `TitleFilter` → `NextTitle` | 204 when no other title in the list waits |
 | `GET /openapi.json`, `/docs`, `/redoc` | | the interface and its try-it-out page |

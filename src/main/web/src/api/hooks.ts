@@ -21,7 +21,7 @@ export const keys = {
   schedule: ['schedule'] as const,
   titles: (query: string) => ['titles', query] as const,
   review: (id: string) => ['review', id] as const,
-  chart: (id: string, candidate: number | null) => ['chart', id, candidate] as const,
+  chart: (id: string, query: Record<string, unknown>) => ['chart', id, query] as const,
 }
 
 export function useStatus(refetchInterval = 10_000) {
@@ -188,12 +188,29 @@ export function useReview(id: string) {
   })
 }
 
-export function useChart(id: string, candidate: number | null, enabled: boolean) {
+/** What the chart is asked for: one design (or none), or every design; the smoothing; each design's own response. */
+export interface ChartAsk {
+  candidate: number | null
+  all?: boolean
+  smoothing?: string
+  responses?: boolean
+}
+
+export function chartQuery(ask: ChartAsk) {
+  return {
+    ...(ask.all ? { candidates: 'all' } : ask.candidate === null ? {} : { candidate: ask.candidate }),
+    ...(ask.smoothing && ask.smoothing !== 'none' ? { smoothing: ask.smoothing } : {}),
+    ...(ask.responses ? { responses: true } : {}),
+  }
+}
+
+export function useChart(id: string, ask: ChartAsk, enabled: boolean) {
   const { client } = useAuth()
+  const query = chartQuery(ask)
   return useQuery({
-    queryKey: keys.chart(id, candidate),
+    queryKey: keys.chart(id, query),
     queryFn: async () => unwrap(await client.GET('/v1/titles/{title_id}/chart', {
-      params: { path: { title_id: id }, query: candidate === null ? {} : { candidate } } })),
+      params: { path: { title_id: id }, query } })),
     enabled,
     placeholderData: (previous) => previous,
     staleTime: 60_000,

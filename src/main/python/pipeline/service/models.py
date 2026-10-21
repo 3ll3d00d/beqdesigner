@@ -17,7 +17,7 @@ from pipeline.service.jobs import MAX_REDESIGN_IDS, redesign_problem
 from pipeline.library.state import NEEDS, FLAG_DUPLICATE, FLAG_GONE, FLAG_IGNORED, FLAG_IN_CATALOGUE, FLAG_SHADOWED
 from pipeline.library.year import YEAR_PATTERN, YearRange, numeric_year
 
-API_VERSION = '1.5.0'
+API_VERSION = '1.6.0'
 
 
 class Needs(str, Enum):
@@ -317,14 +317,18 @@ class Review(BaseModel):
 
 class ChartSeries(BaseModel):
     name: str
-    kind: Literal['average', 'peak']
-    filtered: bool = Field(description='After the chosen design.')
+    kind: Literal['average', 'peak', 'filter'] = Field(description="A measured curve, or (`filter`) a design's own response.")
+    filtered: bool = Field(description='After a design (always true of a `filter`).')
+    candidate: Optional[int] = Field(None, description='The design it is after, or the response of; none for the measured '
+                                                       'curves.')
     x: List[float] = Field(description='Frequency, Hz.')
     y: List[float] = Field(description='Magnitude, dB.')
 
 
 class Chart(BaseModel):
-    candidate: Optional[int]
+    candidate: Optional[int] = Field(description='The one design asked for with `candidate`; none when several or none were.')
+    candidates: List[int] = Field([], description='Every design charted, in the order asked.')
+    smoothing: Optional[str] = Field(None, description='The smoothing applied to the measured and filtered curves.')
     series: List[ChartSeries]
 
 

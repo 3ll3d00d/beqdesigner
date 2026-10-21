@@ -4,7 +4,7 @@
     "title": "BEQDesigner pipeline service",
     "summary": "Scan a library, extract and design BEQ filters for titles chosen by filter, on demand or on a schedule, and follow the jobs that do it.",
     "description": "A person decides a title through the review routes or in the BEQDesigner app. Every /v1 route needs the bearer token (Authorize, above). `GET /health` says which release this is.",
-    "version": "1.5.0"
+    "version": "1.6.0"
   },
   "paths": {
     "/health": {
@@ -832,7 +832,7 @@
         "tags": [
           "review"
         ],
-        "summary": "The measured curves, and the same after one design",
+        "summary": "The measured curves, and the same after one or more designs",
         "operationId": "chart_v1_titles__title_id__chart_get",
         "security": [
           {
@@ -863,10 +863,58 @@
                   "type": "null"
                 }
               ],
-              "description": "A design, by its index; absent: the measured curves only.",
+              "description": "A design, by its index; absent (and no `candidates`): the measured curves only.",
               "title": "Candidate"
             },
-            "description": "A design, by its index; absent: the measured curves only."
+            "description": "A design, by its index; absent (and no `candidates`): the measured curves only."
+          },
+          {
+            "name": "candidates",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Several designs: `all`, or indexes separated by commas. Not with `candidate`.",
+              "title": "Candidates"
+            },
+            "description": "Several designs: `all`, or indexes separated by commas. Not with `candidate`."
+          },
+          {
+            "name": "smoothing",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "`none` (the default), `1`, `2`, `3`, `6`, `12` or `24` (1/N octave), or `sg` (Savitzky-Golay).",
+              "title": "Smoothing"
+            },
+            "description": "`none` (the default), `1`, `2`, `3`, `6`, `12` or `24` (1/N octave), or `sg` (Savitzky-Golay)."
+          },
+          {
+            "name": "responses",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Also each design's own magnitude response (`kind` filter).",
+              "default": false,
+              "title": "Responses"
+            },
+            "description": "Also each design's own magnitude response (`kind` filter)."
           }
         ],
         "responses": {
@@ -2573,7 +2621,29 @@
                 "type": "null"
               }
             ],
-            "title": "Candidate"
+            "title": "Candidate",
+            "description": "The one design asked for with `candidate`; none when several or none were."
+          },
+          "candidates": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Candidates",
+            "description": "Every design charted, in the order asked.",
+            "default": []
+          },
+          "smoothing": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Smoothing",
+            "description": "The smoothing applied to the measured and filtered curves."
           },
           "series": {
             "items": {
@@ -2600,14 +2670,28 @@
             "type": "string",
             "enum": [
               "average",
-              "peak"
+              "peak",
+              "filter"
             ],
-            "title": "Kind"
+            "title": "Kind",
+            "description": "A measured curve, or (`filter`) a design's own response."
           },
           "filtered": {
             "type": "boolean",
             "title": "Filtered",
-            "description": "After the chosen design."
+            "description": "After a design (always true of a `filter`)."
+          },
+          "candidate": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate",
+            "description": "The design it is after, or the response of; none for the measured curves."
           },
           "x": {
             "items": {

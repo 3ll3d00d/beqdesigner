@@ -114,7 +114,7 @@ Stopping it (Ctrl-C, or `SIGTERM`) lets the title in hand finish, then stops.
 | `POST /v1/notify/test` | send a sample of each configured event to one notification target |
 | `POST /v1/jobs/accept` | bulk accept (see below) |
 | `GET /v1/titles/{id}/review` | what a person decides a title on: its designs, metadata problems, and whether Accept and Reject are offered |
-| `GET /v1/titles/{id}/chart` | the title's measured curves, and the same after one design (`?candidate=`) |
+| `GET /v1/titles/{id}/chart` | the title's measured curves, and the same after one design (`?candidate=`) or several (`?candidates=all` or `0,2`); `smoothing` (`1`-`24` for 1/N octave, `sg`) and `responses=true` (each design's own response) |
 | `POST /v1/titles/{id}/decision` | accept a design, or reject the title (see "Deciding a title" below) |
 | `GET /v1/review/next` | the next title waiting for a decision after one (`?after=`), in a filtered list |
 | `GET /health`, `/ready` | is it up; is it able to work |
@@ -235,7 +235,12 @@ otherwise it lasts until the tab is closed. The token is checked with the servic
   or shared. *Review next waiting* opens the first title waiting for a decision. *Publish accepted…* and *Commit
   published…* say how many titles they would take and ask before starting.
 * **Review:** a title's designs (the ones the designer rejected listed apart, with its reasons), the chart of the one
-  highlighted, its commentary and metadata. *Accept*, *Reject* and *Skip*, or the keys **A**, **R** and **S**; **1**–**9**
+  highlighted, its commentary and metadata. Above the chart: *Bass*, *Sub* and *Full* ranges, frequency and level limits
+  (blank levels fit what is drawn), a log frequency axis, smoothing as the main window offers it, which curves to show,
+  each design's filter response on a second axis, *All designs* at once, and *Relative to* any curve. Drag across the
+  chart to zoom (up and down too, for the levels), use the wheel to zoom about the cursor, double-click to go back to
+  the preset range; *Reset view* restores the defaults. The view is kept in your browser from title to title.
+  *Accept*, *Reject* and *Skip*, or the keys **A**, **R** and **S**; **1**–**9**
   highlight a design. Accepting a rejected design asks first, and is recorded as your override. After a decision the next
   title waiting in the same list opens. The rules are the app's title page's ("Deciding a title", above), and a decision
   that is not offered says why.

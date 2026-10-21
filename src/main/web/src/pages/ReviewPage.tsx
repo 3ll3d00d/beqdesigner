@@ -6,6 +6,8 @@ import { Link, useNavigate, useParams } from 'react-router'
 
 import type { Schemas } from '../api/client'
 import { useChart, useDecide, useNextTitle, useReview, useStatus, useSubmitRun } from '../api/hooks'
+import { DEFAULT_VIEW, loadView, saveView, type ChartView } from '../chart/view'
+import { ChartControls } from '../components/ChartControls'
 import { MagnitudeChart } from '../components/MagnitudeChart'
 import { metadataText, NEEDS_WORDS, type NeedsWord } from '../format'
 import { useListParams } from './TitlesPage'
@@ -106,7 +108,13 @@ export function ReviewPage() {
   const offered = data ? [...data.candidates, ...data.rejected] : []
   const picked = data && pick?.digest === data.digest ? pick.index : (data?.chosen_index ?? 0)
   const candidate = offered[picked]
-  const chart = useChart(titleId, offered.length ? picked : null, !!data)
+  const [view, setView] = useState<ChartView>(loadView)
+  const chart = useChart(titleId, { candidate: offered.length ? picked : null, all: view.allDesigns && offered.length > 1,
+                                    smoothing: view.smoothing, responses: view.responses }, !!data)
+  const changeView = (next: ChartView) => {
+    setView(next)
+    saveView(next)
+  }
   const list = query ? `/titles?${query}` : '/titles'
   const link = (id: string) => `/titles/${encodeURIComponent(id)}${query ? `?${query}` : ''}`
 
@@ -270,8 +278,11 @@ export function ReviewPage() {
         </section>
         <section className="card chart-card" aria-labelledby="chart">
           <h2 id="chart">Chart</h2>
+          <ChartControls view={view} series={chart.data?.series ?? []} onChange={changeView} />
           {chart.isError ? <p role="alert" className="problem">{chart.error.message}</p>
-            : <MagnitudeChart series={chart.data?.series ?? []} />}
+            : <MagnitudeChart series={chart.data?.series ?? []} view={view} highlighted={picked}
+                              onZoom={(x, y) => changeView({ ...view, x, y })}
+                              onReset={() => changeView({ ...view, x: DEFAULT_VIEW.x, y: null })} />}
         </section>
         <Commentary candidate={candidate} review={data!} />
       </div>

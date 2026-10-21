@@ -147,6 +147,12 @@ ol.log .event-state { font-weight: 600; }
 @media (max-width: 900px) { .review-grid { grid-template-columns: 1fr; } }
 .chart { width: 100%; min-height: 200px; }
 .chart .u-legend { font-size: 0.8rem; color: var(--fg); }
+.chart-controls { display: grid; gap: 0.25rem; margin-bottom: 0.5rem; font-size: 0.9rem; }
+.chart-controls .row { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; align-items: center; }
+.chart-controls label.inline { margin: 0; }
+.chart-controls .limits { display: inline-flex; gap: 0.3rem; align-items: center; flex-wrap: wrap; }
+.chart-controls .limits input { width: 5.5rem; }
+button.small { padding: 0.15rem 0.6rem; font-size: 0.85rem; margin-right: 0.25rem; }
 ul.candidates { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.3rem; }
 ul.candidates label { display: grid; grid-template-columns: auto 1fr; column-gap: 0.5rem; align-items: baseline;
                       padding: 0.35rem 0.5rem; border-radius: 6px; border: 1px solid transparent; cursor: pointer; }
