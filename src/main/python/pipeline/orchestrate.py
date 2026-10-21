@@ -59,8 +59,8 @@ from model.signal import AutoWavLoader, SingleChannelSignalData
 from model.xy import MagnitudeData
 
 from pipeline.config import AnalysisConfig
-from pipeline.designer.contract import FIT_FIELDS, IDENTITY_FIELDS, ChannelScope, Coverage, build_request
-from pipeline.designer.convert import alternative_filters, rejected_filters, to_complete_filter
+from pipeline.designer.contract import FIT_FIELDS, IDENTITY_FIELDS, ChannelScope, Coverage, DesignAdjustment, build_request
+from pipeline.designer.convert import alternative_filters, rejected_filters, to_complete_filter, validate_outcomes
 from pipeline.designer.registry import get_designer, takes_sources
 from pipeline.designer.manual import MANUAL_DESIGNER, manual_response
 from pipeline.designer.sources import AudioSources
@@ -148,6 +148,8 @@ class Applied:
     design_version: Optional[int] = None
     design_settings: Optional[str] = None
     designer_build: Optional[str] = None
+    # 1.5: what the designer did with each adjustment asked for (contract.AdjustmentOutcome); () when none were asked
+    adjustment_outcomes: tuple = ()
 
 
 @dataclass(frozen=True)
@@ -160,11 +162,14 @@ class Declined:
     design_version: Optional[int] = None
     design_settings: Optional[str] = None
     designer_build: Optional[str] = None
+    # 1.5: what the designer did with each adjustment asked for (contract.AdjustmentOutcome); () when none were asked
+    adjustment_outcomes: tuple = ()
 
 
 def identity_of(response) -> dict:
-    ''' A response's 1.4 identity fields (contract.IDENTITY_FIELDS), to pass on with its outcome. '''
-    return {name: getattr(response, name, None) for name in IDENTITY_FIELDS}
+    ''' A response's 1.4 identity fields (contract.IDENTITY_FIELDS) and 1.5 adjustment outcomes, to pass on with its outcome. '''
+    return {**{name: getattr(response, name, None) for name in IDENTITY_FIELDS},
+            'adjustment_outcomes': tuple(getattr(response, 'adjustment_outcomes', None) or ())}
 
 
 DesignOutcome = Union[Applied, Declined]
@@ -424,7 +429,8 @@ class Session:
 
     def design(self, sig: SingleChannelSignalData, designer: str, coverage: Coverage = 'complete_programme',
               bass_management: Optional[dict] = None, channels: Optional[dict] = None,
-              sources: Optional[AudioSources] = None) -> DesignOutcome:
+              sources: Optional[AudioSources] = None,
+              adjustments: Optional[Sequence[DesignAdjustment]] = None) -> DesignOutcome:
         '''
         Invokes a registered designer (pipeline.designer.registry) with a
         DesignRequest built from sig, validates and converts its response
@@ -449,15 +455,18 @@ class Session:
         :param sources: the WAV columns mono_mix and channels were loaded from (pipeline.designer.sources), if known --
             passed on only to a designer registered as taking them, which may then send the arrays by reference
             (design/designer-interface.md §7.1, 1.2). Every other designer gets the request alone.
+        :param adjustments: changes asked for (design/designer-interface.md §2, 1.5); the designer's answer to each comes
+            back as the outcome's `adjustment_outcomes` (checked: contract.validate_outcomes).
         '''
         request = build_request(mono_mix=sig.signal.samples, fs=sig.signal.fs, coverage=coverage,
-                                channels=channels, bass_management=bass_management)
+                                channels=channels, bass_management=bass_management, adjustments=adjustments)
         if designer == MANUAL_DESIGNER:
             response = manual_response()
         elif sources is not None and takes_sources(designer):
             response = get_designer(designer)(request, sources=sources)
         else:
             response = get_designer(designer)(request)
+        validate_outcomes([a.id for a in request.adjustments or ()], response)
         fs = sig.signal.fs
         rejected = tuple(_design_of(candidate, rejected_filter)
                          for candidate, rejected_filter in zip(response.rejected or [], rejected_filters(response, fs)))

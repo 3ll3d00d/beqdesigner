@@ -13,7 +13,7 @@ contract paths used by schemas, source comments and external implementers.
 |---|---|
 | [Implemented design](implemented.md) | Architecture reference: delivered headless pipeline, review, library discovery, runs and desktop work list |
 | [Pipeline service](pipeline-service.md) | Architecture reference: HTTP control plane, jobs, lease, scheduling, notifications, Docker image and Qt-free boundary |
-| [Designer interface](designer-interface.md) | Normative external design contract, v1.5 (1.5's adjustments agreed, not built) |
+| [Designer interface](designer-interface.md) | Normative external design contract, v1.5 (1.5's adjustments built on the caller's side, not yet beqforge's) |
 | [Device profiles](device-profiles.md) | The filter on a device's rate and coefficient precision, and optimising it for devices |
 | [Designer conformance specification](designer-conformance-tests.md) | Reference test specification for contract implementers, not pending tasks |
 | [Review over HTTP](review-over-http.md) | Architecture reference: the service's review routes, their rules and the in-flight check |

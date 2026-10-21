@@ -13,7 +13,7 @@ below using a fake in-process designer, not a real one.
 import math
 from typing import List
 
-from pipeline.designer.contract import BiquadSpec, DesignCandidate, DesignResponse
+from pipeline.designer.contract import OUTCOMES, AdjustmentOutcome, BiquadSpec, DesignCandidate, DesignResponse
 from pipeline.filters import FilterSpec, create_filter
 
 ALLOWED_BIQUAD_TYPES = {'peaking_eq', 'low_shelf', 'high_shelf'}
@@ -69,6 +69,41 @@ def validate_response(response: DesignResponse) -> None:
                 f"candidates[{i}].confidence ({candidate.confidence}) exceeds candidates[{i - 1}]'s "
                 f"({previous_confidence}) -- candidates must be ordered best (most preferred) first")
         previous_confidence = candidate.confidence
+
+
+def validate_outcomes(request_ids, response: DesignResponse) -> None:
+    '''
+    1.5 (§3, "Adjustment outcomes"): each outcome is one of OUTCOMES, names an adjustment the request sent and names it
+    once; `adapted` says what was applied and why, `declined` and `not_understood` why. An adjustment with no outcome is
+    not a violation (a designer before 1.5 answers none): it is shown as not acknowledged.
+    :param request_ids: the ids of the request's adjustments.
+    :raises ContractViolation: otherwise.
+    '''
+    outcomes = response.adjustment_outcomes
+    if outcomes is None:
+        return
+    if not isinstance(outcomes, list):
+        raise ContractViolation("adjustment_outcomes must be a list")
+    sent, seen = set(request_ids), set()
+    for i, o in enumerate(outcomes):
+        name = f"adjustment_outcomes[{i}]"
+        if not isinstance(o, AdjustmentOutcome):
+            raise ContractViolation(f"{name} is not an AdjustmentOutcome")
+        if o.id not in sent:
+            raise ContractViolation(f"{name} answers {o.id!r}, which the request did not send")
+        if o.id in seen:
+            raise ContractViolation(f"{name} answers {o.id!r} a second time")
+        seen.add(o.id)
+        if o.outcome not in OUTCOMES:
+            raise ContractViolation(f"{name}.outcome must be one of {', '.join(OUTCOMES)}, got {o.outcome!r}")
+        if o.outcome != 'honoured' and (not isinstance(o.reason, str) or not o.reason.strip()):
+            raise ContractViolation(f"{name} is {o.outcome}, so it must say why (reason)")
+        if o.outcome == 'adapted' and not isinstance(o.applied, dict):
+            raise ContractViolation(f"{name} is adapted, so it must say what was applied (applied)")
+        if o.outcome in ('declined', 'not_understood') and o.applied is not None:
+            raise ContractViolation(f"{name} is {o.outcome}, so nothing was applied")
+        if o.applied is not None and not isinstance(o.applied, dict):
+            raise ContractViolation(f"{name}.applied must be an object")
 
 
 def _validate_identity(response: DesignResponse) -> None:

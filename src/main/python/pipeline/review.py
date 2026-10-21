@@ -115,6 +115,11 @@ class QueueEntry:
     rejected: List[CandidateSummary] = field(default_factory=list)  # designs the designer judged unfit to publish
                                                # (contract 1.1), each with rejection_reasons: for a person to review.
                                                # Nothing picks one but a person, and picking one overrides the designer
+    adjustments: List[dict] = field(default_factory=list)   # 1.5: what a person asked the designer to change (each
+                                               # {id, kind, params, text, by, at, reason}); sent with every design of
+                                               # the title until changed, so a redesign asks the same again
+    adjustment_outcomes: List[dict] = field(default_factory=list)   # 1.5: the designer's answer to each, from the
+                                               # design that is here ({id, outcome, applied, reason}); [] when none
 
     @property
     def design_identity(self):
@@ -365,9 +370,21 @@ def _outcome_to_entry(entry_id: str, fs: int, meta: dict, curve: dict, outcome: 
 
 
 def _identity_of(outcome: DesignOutcome) -> dict:
-    ''' The 1.4 identity the designer said (a version that breaks the contract never gets this far: convert refuses it). '''
+    '''
+    The 1.4 identity the designer said (a version that breaks the contract never gets this far: convert refuses it), and its
+    1.5 answers to the adjustments asked for.
+    '''
     return {'design_version': outcome.design_version, 'design_settings': outcome.design_settings,
-            'designer_build': outcome.designer_build}
+            'designer_build': outcome.designer_build,
+            'adjustment_outcomes': [{'id': o.id, 'outcome': o.outcome, 'applied': o.applied, 'reason': o.reason}
+                                    for o in outcome.adjustment_outcomes]}
+
+
+def adjustments_of(entry_adjustments) -> list:
+    ''' A queue entry's adjustments as the contract sends them (`DesignAdjustment`): the person's bookkeeping left out. '''
+    from pipeline.designer.contract import DesignAdjustment
+    return [DesignAdjustment(id=str(a['id']), kind=str(a['kind']), params=dict(a.get('params') or {}), text=a.get('text'))
+            for a in entry_adjustments or ()]
 
 
 def design_and_queue(session: Session, entry_id: str, wav_path: str, designer: str, queue_dir: str,
@@ -376,7 +393,8 @@ def design_and_queue(session: Session, entry_id: str, wav_path: str, designer: s
                      audio_stream: Optional[int] = None,
                      multichannel_wav_path: Optional[str] = None, channel_layout_name: str = 'unknown',
                      project_dir: Optional[str] = None,
-                     on_projects: Optional[Callable[[dict], None]] = None) -> QueueEntry:
+                     on_projects: Optional[Callable[[dict], None]] = None,
+                     adjustments: Optional[Sequence[dict]] = None) -> QueueEntry:
     '''
     Loads an *already-extracted* wav file, designs it, and writes one
     QueueEntry to queue_dir -- the load+design+curve+write half of
@@ -405,6 +423,8 @@ def design_and_queue(session: Session, entry_id: str, wav_path: str, designer: s
         A Declined outcome's are flat (its candidate). Omitted (the default), no project files are written.
     :param on_projects: called with write_title_projects_if_safe()'s result ({'mono': bool, 'multichannel':
         bool|None}; False = an existing human-edited project was left alone) whenever projects were attempted.
+    :param adjustments: what a person asked the designer to change (QueueEntry.adjustments), sent with the request (1.5)
+        and kept on the entry with the designer's answers.
     :return: the written QueueEntry.
     '''
     from model.codec import xydata_to_json
@@ -414,13 +434,14 @@ def design_and_queue(session: Session, entry_id: str, wav_path: str, designer: s
     # where the arrays came from, for a designer that takes them by reference (design/designer-interface.md §7.1)
     sources = sources_for(wav_path, multichannel_wav_path, channels)
     outcome = session.design(sig, designer, coverage=coverage, bass_management=bass_management, channels=channels,
-                             sources=sources)
+                             sources=sources, adjustments=adjustments_of(adjustments))
     curve = xydata_to_json(session.curves(sig, kind='avg', filtered=False))
     peak_curve = xydata_to_json(session.curves(sig, kind='peak', filtered=False))
     entry = _outcome_to_entry(entry_id, sig.signal.fs, meta or {}, curve, outcome, peak_curve=peak_curve)
     entry.audio_stream = audio_stream
     entry.bass_management = dict(bass_management) if bass_management else None
     entry.designer = designer
+    entry.adjustments = [dict(a) for a in adjustments or ()]
     entry.designer_build = entry.designer_build or designer_build(entry)   # 1.4 says it; before, its commentary did
     write_queue_entry(queue_dir, entry)
     if project_dir is not None:

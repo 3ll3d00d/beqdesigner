@@ -121,12 +121,14 @@ def redesign_entry(queue_dir: str, entry_id: str, reason: str = '', *, xml_repo:
 def revise_entry(queue_dir: str, entry_id: str, to: str, reason: str = '', *, work_dir: Optional[str] = None,
                  xml_repo: Optional[RepoTarget] = None, images_repo: Optional[RepoTarget] = None, xml_dir: str = '',
                  image_dir: str = '', category_folders: bool = False,
-                 meta_defaults: Optional[dict] = None) -> ReviseResult:
+                 meta_defaults: Optional[dict] = None, adjustments: Optional[List[dict]] = None) -> ReviseResult:
     '''
     :param to: how far back to send it -- one of REVISE_TARGETS.
     :param work_dir: the run's work directory; required for `extract`, whose recorded extraction lives there. (A TV
         season's member episodes are extracted into their own directories and are not forgotten; the joined
         season track is.)
+    :param adjustments: with `design` or `extract`, what the designer is asked to change from now on (QueueEntry.
+        adjustments, designer-interface.md §2, 1.5): replaces the entry's, and [] asks for none. None keeps the entry's.
     '''
     if to not in REVISE_TARGETS:
         raise ValueError(f"to must be one of {REVISE_TARGETS}, got {to!r}")
@@ -135,10 +137,14 @@ def revise_entry(queue_dir: str, entry_id: str, to: str, reason: str = '', *, wo
     where = dict(xml_repo=xml_repo, images_repo=images_repo, xml_dir=xml_dir, image_dir=image_dir,
                  category_folders=category_folders, meta_defaults=meta_defaults)
     if to == 'review':
+        if adjustments is not None:
+            raise ValueError('adjustments are for a design: send it back to design or extract')
         return reopen_entry(queue_dir, entry_id, reason, **where)
+    asked = {} if adjustments is None else {'adjustments': [dict(a) for a in adjustments]}
     if to == 'design':
-        return redesign_entry(queue_dir, entry_id, reason, **where)
-    result = _send_back(queue_dir, entry_id, 'extract', reason, design_fingerprint=None, **where)  # raises before we forget anything
+        return _send_back(queue_dir, entry_id, 'design', reason, design_fingerprint=None, **where, **asked)
+    result = _send_back(queue_dir, entry_id, 'extract', reason, design_fingerprint=None, **where,
+                        **asked)  # raises before we forget anything
     item_dir = entry_directory(work_dir, entry_id)
     invalidated = invalidate_extract(item_dir) | invalidate_season_track(item_dir)
     return ReviseResult(result.entry, result.reverted, extract_invalidated=invalidated)

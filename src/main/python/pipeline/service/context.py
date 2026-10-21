@@ -20,7 +20,7 @@ import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Mapping, Optional, Tuple
 
-from pipeline.designer.http_binding import DesignerUnavailable, check_designer, reported_parallel
+from pipeline.designer.http_binding import DesignerUnavailable, check_designer, reported_adjustment_kinds, reported_parallel
 from pipeline.designer.identity import CurrentIdentity, EndpointIdentity, current_identity, identity_from_health
 from pipeline.library.index import index_path
 from pipeline.library.profile import Profile, read_config_file
@@ -101,10 +101,12 @@ class JobContext:
         ''' The run's designer's HTTP endpoints, or None for one that has none (the manual designer). '''
         return designer_endpoints(self.values, self.config)
 
-    def designer_endpoint_states(self, timeout: float = 10.0) -> List[Tuple[str, int, str, Optional[EndpointIdentity]]]:
+    def designer_endpoint_states(self, timeout: float = 10.0
+                                 ) -> List[Tuple[str, int, str, Optional[EndpointIdentity], dict]]:
         '''
         Each endpoint of the run's designer asked now: (url, how many designs it takes at once, why it cannot be used, or
-        '' if it can, the design identity its /health reports or None: design/design-version.md).
+        '' if it can, the design identity its /health reports or None: design/design-version.md, the adjustment kinds it
+        lists: designer-interface.md §7.1, 1.5).
         :raises ValueError: for a designer the file declares in a form that cannot be used.
         '''
         declared = self.designer_endpoints()
@@ -118,7 +120,7 @@ class JobContext:
                 body, reason = None, str(error)
             # the profile's parallel, else what the designer reports (§7.2), else 1: what the pool sends it at once
             states.append((endpoint.url, endpoint.parallel or reported_parallel(body) or 1, reason,
-                           identity_from_health(endpoint.url, body)))
+                           identity_from_health(endpoint.url, body), reported_adjustment_kinds(body)))
         return states
 
     def designer_identity(self, timeout: float = 10.0) -> Optional[CurrentIdentity]:
@@ -130,7 +132,7 @@ class JobContext:
             states = self.designer_endpoint_states(timeout)
         except ValueError:
             return None
-        return current_identity(identity for _, _, reason, identity in states if not reason)
+        return current_identity(identity for _, _, reason, identity, _ in states if not reason)
 
     def designer_unavailable(self, timeout: float = 10.0) -> str:
         '''
@@ -141,9 +143,9 @@ class JobContext:
             states = self.designer_endpoint_states(timeout)
         except ValueError as error:
             return str(error)
-        if not states or any(not reason for _, _, reason, _ in states):
+        if not states or any(not reason for _, _, reason, _, _ in states):
             return ''
-        return '; '.join(reason for _, _, reason, _ in states)
+        return '; '.join(reason for _, _, reason, _, _ in states)
 
 
 def load_context(profile_path: str, env: Optional[Mapping[str, str]] = None) -> JobContext:

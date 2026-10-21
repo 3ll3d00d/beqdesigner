@@ -286,3 +286,39 @@ def test_choosing_a_stream_is_a_run_job_and_one_not_listed_is_refused(streams, s
     assert (request['audio_stream'], request['revise_to'], request['filter']['ids']) == (0, 'extract', ['a'])
     refused = client.put('/v1/titles/a/stream', json={'audio_stream': 5}, headers=AUTH)
     assert (refused.status_code, refused.json()['title']) == (422, 'No such stream')
+
+
+# --- adjustments (WP6) ----------------------------------------------------------------------------------------------------
+
+ASKS = [{'kind': 'exclude_band', 'params': {'low_hz': 28, 'high_hz': 34}}, {'kind': 'note', 'text': 'the logo is not the film'}]
+
+
+def test_sending_back_to_design_keeps_what_the_designer_is_asked_to_change(service):
+    client, _, queue, _ = service
+    body = _revise(client, ids=['a'], to='design', reason='hum at 30 Hz', adjustments=ASKS).json()
+    assert [r['id'] for r in body['revised']] == ['a']
+    kept = read_entry(queue, 'a').adjustments
+    assert [(a['id'], a['kind'], a['params'], a['text'], a['reason']) for a in kept] == [
+        ('a1', 'exclude_band', {'low_hz': 28, 'high_hz': 34}, None, 'hum at 30 Hz'),
+        ('a2', 'note', {}, 'the logo is not the film', 'hum at 30 Hz')]
+    assert all(a['by'] == 'service' and a['at'] for a in kept)
+    assert _review(client)['adjustments'] == kept and _review(client)['adjustment_outcomes'] == []
+    _revise(client, ids=['a'], to='design', adjustments=[])
+    assert read_entry(queue, 'a').adjustments == []                       # [] asks for none
+    _revise(client, ids=['a'], to='design', adjustments=ASKS)
+    _revise(client, ids=['a'], to='design')
+    assert len(read_entry(queue, 'a').adjustments) == 2                   # absent: kept
+
+
+def test_with_a_run_they_are_kept_before_the_job_sends_the_titles_back(service):
+    client, _, queue, _ = service
+    body = _revise(client, ids=['a', 'zz'], to='extract', run=True, adjustments=ASKS[:1]).json()
+    assert body['job']['request']['filter']['ids'] == ['a'] and body['failed'] == [{'id': 'zz', 'reason': 'no such title'}]
+    assert read_entry(queue, 'a').adjustments[0]['kind'] == 'exclude_band'
+
+
+@pytest.mark.parametrize('body', [dict(to='review', adjustments=ASKS), dict(to='design', adjustments=[{'kind': ''}]),
+                                  dict(to='design', adjustments=[{'params': {}}])])
+def test_adjustments_that_cannot_be_asked_are_a_422(service, body):
+    client, *_ = service
+    assert _revise(client, ids=['a'], **body).status_code == 422

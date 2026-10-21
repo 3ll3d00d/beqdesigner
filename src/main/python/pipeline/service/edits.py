@@ -9,6 +9,7 @@ written: no repository. The index learns of an edit by reading the outputs again
 import base64
 import binascii
 import os
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from typing import Annotated, Callable
 
@@ -23,7 +24,7 @@ from pipeline.library.selection import Selection
 from pipeline.library.streams import describe_streams, preferred_stream
 from pipeline.metadata import BeqMetadata
 from pipeline.publish.git import RepoTarget
-from pipeline.review import entry_art_path, read_entry
+from pipeline.review import entry_art_path, read_entry, update_entry
 from pipeline.service import models
 from pipeline.service.jobs import RunRequest
 
@@ -162,7 +163,13 @@ def register(v1: APIRouter, deps: EditRoutes) -> None:
         set_artwork(settings.queue_dir, title_id, None)
         return written(ctx, settings, row, title_id)
 
-    # --- revise and the audio stream (WP5) ----------------------------------------------------------------------------
+    # --- revise and the audio stream (WP5), with adjustments (WP6) ---------------------------------------------------
+
+    def stored_adjustments(asks, reason: str) -> list:
+        ''' What a person asked, as the entry keeps it: an id each, when, and why (the service knows no one by name). '''
+        at = datetime.now(timezone.utc).isoformat(timespec='seconds')
+        return [{'id': f'a{i + 1}', 'kind': a.kind, 'params': dict(a.params), 'text': a.text, 'by': 'service', 'at': at,
+                 'reason': reason or None} for i, a in enumerate(asks)]
 
     def repositories(ctx) -> dict:
         settings, _ = ctx.stage_settings('design')
@@ -177,15 +184,13 @@ def register(v1: APIRouter, deps: EditRoutes) -> None:
     def revise(body: models.ReviseRequest) -> models.ReviseOutcome:
         ctx = deps.context()
         settings = ctx.scan_settings()
-        if body.run:
-            if body.to == 'review':
-                raise Problem(422, 'Nothing to run', 'a title sent back to review waits for a person, not a run')
-            job = deps.submit(RunRequest(Selection(ids=tuple(body.ids)), 'design', scan_first=False, retry_failed=True,
-                                         redesign=True, revise_to=body.to))
-            return models.ReviseOutcome(revised=[], failed=[], job=models.job_model(job))
+        if body.to == 'review' and (body.run or body.adjustments is not None):
+            raise Problem(422, 'Nothing to run' if body.run else 'Not for review',
+                          'a title sent back to review waits for a person: no run, and no adjustments to ask for')
+        asked = None if body.adjustments is None else stored_adjustments(body.adjustments, body.reason)
         with deps.read_index(ctx) as index:
             rows = {row.id: row for row in index.titles(ids=list(body.ids))}
-        revised, failed = [], []
+        revised, failed, ready = [], [], []
         where = None
         for title_id in body.ids:
             row = rows.get(title_id)
@@ -197,9 +202,14 @@ def register(v1: APIRouter, deps: EditRoutes) -> None:
                 entry = read_entry(settings.queue_dir, title_id)
                 if entry.status == 'published' and not deps.repository_writes:
                     raise ValueError('it is published: sending it back needs allow_repository_writes in service config')
+                if body.run:   # the job sends it back; what it is asked to change is kept on it first
+                    if asked is not None:
+                        update_entry(settings.queue_dir, title_id, adjustments=asked)
+                    ready.append(title_id)
+                    continue
                 where = where if where is not None else repositories(ctx)
                 result = revise_entry(settings.queue_dir, title_id, body.to, body.reason, work_dir=settings.work_dir,
-                                      **where)
+                                      adjustments=asked, **where)
             except FileNotFoundError:
                 failed.append(models.ReviseFailure(id=title_id, reason='not designed yet: nothing to send back'))
             except (ValueError, OSError) as error:
@@ -207,6 +217,10 @@ def register(v1: APIRouter, deps: EditRoutes) -> None:
             else:
                 revised.append(models.RevisedTitle(id=title_id, reverted=result.reverted,
                                                    extract_invalidated=result.extract_invalidated))
+        if body.run:
+            job = deps.submit(RunRequest(Selection(ids=tuple(ready)), 'design', scan_first=False, retry_failed=True,
+                                         redesign=True, revise_to=body.to)) if ready else None
+            return models.ReviseOutcome(revised=[], failed=failed, job=models.job_model(job) if job else None)
         if revised:
             deps.refresh()
         return models.ReviseOutcome(revised=revised, failed=failed)

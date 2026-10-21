@@ -1,7 +1,8 @@
 # BEQ filter designer interface — v1.5
 
 **Status:** CONTRACT. 1.5's adjustments (§2, §3) are agreed, written into the
-schemas, and **not yet built on either side** (TODO WP, chunk WP6). Up to 1.4 it
+schemas and built on this repo's side (2026-10-21: `pipeline/designer`, the queue entry, the
+service); **not yet on beqforge's** (TODO WP, chunk WP6). Up to 1.4 it
 is fully implemented on this repo's side, 1.1's `rejected`
 included (reviewed, and overridable by a person, on the title page) — both bindings
 (in-process callable and HTTP, `§7.1`) exist; see

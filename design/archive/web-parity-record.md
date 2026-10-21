@@ -92,3 +92,20 @@ Evidence: `test_pipeline_service_visuals.py` (6), `test_pipeline_library_spectru
 
 Evidence: `test_pipeline_library_catalogue_remote.py` (7, over `catalogue_fixture.FakeCatalogue`),
 `test_pipeline_service_catalogue.py` (4); web `src/pages/published.test.tsx` (4).
+
+## WP6 (caller side)
+
+**2026-10-21.** Contract 1.5 on beqdesigner's side.
+
+- `pipeline/designer/contract.py`: `DesignAdjustment`, `AdjustmentOutcome`, `DesignRequest.adjustments` (the request
+  says 1.5 only with some), `DesignResponse.adjustment_outcomes`; `convert.validate_outcomes()`.
+- `http_binding`: adjustments in the body; `check_takes_adjustments()` once before the first request with any (refused
+  below 1.5); outcomes parsed; `reported_adjustment_kinds()`.
+- `orchestrate.Session.design(adjustments=)`, outcomes on `Applied`/`Declined`; `QueueEntry.adjustments` and
+  `adjustment_outcomes`; `design_and_queue(adjustments=)`; `design_cache`: part of the fingerprint (only when there are
+  some), replayed by every redesign; `EntryFacts.adjustments` so the index judges them alike.
+- Service (API 1.11.0): `ReviseRequest.adjustments`, `Review.adjustments`/`adjustment_outcomes`,
+  `DesignerStatus.adjustment_kinds` (the kinds every endpoint up lists).
+
+Evidence: `test_pipeline_designer_adjustments.py` (17), adjustment tests in `test_pipeline_service_edit.py`; the full
+suite, 3349 passed, 1 skipped.

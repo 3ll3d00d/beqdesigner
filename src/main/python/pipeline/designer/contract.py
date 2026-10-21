@@ -1,6 +1,6 @@
 '''
 DesignRequest / DesignResponse / BiquadSpec, transcribed field-for-field from
-design/designer-interface.md v1.3 §2/§3 -- the formal, standalone contract
+design/designer-interface.md v1.5 §2/§3 -- the formal, standalone contract
 for a pluggable filter designer. Any deviation from that document here is a
 bug in this file, not a design decision made here; design/pipeline-
 implementation-plan.md phase 2 (item 12).
@@ -9,11 +9,16 @@ design/designer-interface.md is the source of truth for what these fields
 mean and why -- this module only defines their shapes.
 '''
 from dataclasses import dataclass
-from typing import Literal, Optional
+from typing import Literal, Optional, Sequence
 
 from numpy import ndarray
 
 CONTRACT_VERSION = '1.1'
+ADJUSTMENTS_VERSION = '1.5'   # what a request carrying adjustments says it is (§7)
+
+# 1.5: the adjustment kinds §2 defines, and the outcomes a designer answers each with (§3)
+ADJUSTMENT_KINDS = ('exclude_band', 'floor', 'max_boost', 'goal_tilt', 'note')
+OUTCOMES = ('honoured', 'adapted', 'declined', 'not_understood')
 
 BiquadType = Literal['peaking_eq', 'low_shelf', 'high_shelf']
 DesignMethod = Literal['exact', 'fitted', 'non_parametric']
@@ -39,6 +44,25 @@ class DesignRequest:
     # {'lpf_fs': float, 'lpf_position': 'Before'|'After'|'Off',
     #  'headroom_type': 'WCS' | numeric-string-dB, 'clip_before': bool, 'clip_after': bool}
     bass_management: Optional[dict] = None
+    adjustments: Optional[tuple] = None   # 1.5: tuple[DesignAdjustment], None or empty for none
+
+
+@dataclass(frozen=True)
+class DesignAdjustment:
+    ''' 1.5 (§2, "Adjustments"): a change the caller asks for; the designer answers it in an AdjustmentOutcome. '''
+    id: str
+    kind: str
+    params: dict
+    text: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class AdjustmentOutcome:
+    ''' 1.5 (§3, "Adjustment outcomes"): what the designer did with one adjustment. '''
+    id: str
+    outcome: str        # one of OUTCOMES
+    applied: Optional[dict] = None
+    reason: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -115,14 +139,26 @@ class DesignResponse:
     design_version: Optional[int] = None   # bumped by any change that can alter an answer to the same request
     design_settings: Optional[str] = None  # digest of the designer's own settings that can alter an answer
     designer_build: Optional[str] = None   # the build, for people
+    adjustment_outcomes: Optional[list] = None   # 1.5: list[AdjustmentOutcome], one per request adjustment
 
 
 IDENTITY_FIELDS = ('design_version', 'design_settings', 'designer_build')
 
 
 def build_request(mono_mix: ndarray, fs: int, coverage: Coverage = 'complete_programme',
-                  channels: Optional[dict] = None, bass_management: Optional[dict] = None) -> DesignRequest:
-    '''Convenience constructor that enforces the sample-array part of the designer contract.'''
+                  channels: Optional[dict] = None, bass_management: Optional[dict] = None,
+                  adjustments: Optional[Sequence[DesignAdjustment]] = None) -> DesignRequest:
+    '''
+    Convenience constructor that enforces the sample-array part of the designer contract, and that adjustments (1.5) have
+    an id and a kind each, ids unique. With adjustments, the request says 1.5.
+    '''
+    adjustments = tuple(adjustments or ())
+    ids = [a.id for a in adjustments]
+    if any(not isinstance(a.id, str) or not a.id or not isinstance(a.kind, str) or not a.kind
+           or not isinstance(a.params, dict) for a in adjustments):
+        raise ValueError('each adjustment needs an id, a kind and params (a dict)')
+    if len(set(ids)) != len(ids):
+        raise ValueError(f'adjustment ids must be unique: {ids}')
     if getattr(mono_mix, 'ndim', None) != 1:
         raise ValueError('mono_mix must be a one-dimensional sample array')
     if channels is not None:
@@ -136,5 +172,6 @@ def build_request(mono_mix: ndarray, fs: int, coverage: Coverage = 'complete_pro
                 invalid.append(f'{name}: {len(samples):,} samples (mono_mix has {expected:,})')
         if invalid:
             raise ValueError('channels must be one-dimensional and match mono_mix length: ' + '; '.join(invalid))
-    return DesignRequest(contract_version=CONTRACT_VERSION, fs=fs, mono_mix=mono_mix, coverage=coverage,
-                         channels=channels, bass_management=bass_management)
+    return DesignRequest(contract_version=ADJUSTMENTS_VERSION if adjustments else CONTRACT_VERSION, fs=fs,
+                         mono_mix=mono_mix, coverage=coverage, channels=channels, bass_management=bass_management,
+                         adjustments=adjustments or None)

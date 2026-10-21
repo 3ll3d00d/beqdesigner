@@ -17,7 +17,7 @@ from pipeline.service.jobs import MAX_REDESIGN_IDS, redesign_problem
 from pipeline.library.state import NEEDS, FLAG_DUPLICATE, FLAG_GONE, FLAG_IGNORED, FLAG_IN_CATALOGUE, FLAG_SHADOWED
 from pipeline.library.year import YEAR_PATTERN, YearRange, numeric_year
 
-API_VERSION = '1.10.0'
+API_VERSION = '1.11.0'
 
 
 class Needs(str, Enum):
@@ -315,6 +315,11 @@ class Review(BaseModel):
     metadata_digest: str = Field('', description='What the metadata and artwork were read at: send it back with an edit, '
                                                  'which is refused if they have changed since.')
     metadata_texts: Dict[str, str] = Field({}, description='Each editable field as text, by key (`GET /v1/metadata/fields`).')
+    adjustments: List[Dict[str, Any]] = Field([], description='What the designer was asked to change (contract 1.5): '
+                                                             '{id, kind, params, text, by, at, reason}.')
+    adjustment_outcomes: List[Dict[str, Any]] = Field([], description="The designer's answer to each: {id, outcome, "
+                                                                     "applied, reason}; none for one it did not answer "
+                                                                     "(a designer before 1.5).")
     artwork: Optional['ArtworkState'] = None
 
 
@@ -436,6 +441,14 @@ class RunJobRequest(Input):
         return self
 
 
+class AdjustmentAsk(Input):
+    ''' A change asked of the designer (contract 1.5, design/designer-interface.md §2): a kind it lists, or any other. '''
+    kind: str = Field(min_length=1, description='exclude_band, floor, max_boost, goal_tilt, note, or one the designer '
+                                                'lists on /v1/status (designer.adjustment_kinds).')
+    params: Dict[str, Any] = Field({}, description="The kind's parameters, by name.")
+    text: Optional[str] = Field(None, description='What the person said, in their words (a note is only this).')
+
+
 class ReviseRequest(Input):
     ''' Send titles back: to review (decide again), design (designed again) or extract (extracted and designed again). '''
     ids: List[str] = Field(min_length=1, max_length=MAX_REDESIGN_IDS)
@@ -443,6 +456,9 @@ class ReviseRequest(Input):
     reason: str = Field('', description='Kept in the reviewer note.')
     run: bool = Field(False, description='With design or extract: do it now, in one run job (refused for review). '
                                          'Without: the titles wait for the next run.')
+    adjustments: Optional[List[AdjustmentAsk]] = Field(
+        None, description='With design or extract: what the designer is asked to change, from now on, for every title '
+                          'sent (replacing what they had; [] asks for none). Absent: each keeps its own.')
 
 
 class RevisedTitle(BaseModel):
@@ -895,6 +911,10 @@ class DesignerStatus(BaseModel):
     design_disagreement: List[str] = Field(
         default_factory=list, description='The endpoints that are up but would design differently, each in words; empty '
                                           'when they agree. A redesign then answers differently by endpoint.')
+    adjustment_kinds: Dict[str, Any] = Field(
+        default_factory=dict, description="The adjustments (contract 1.5) every endpoint up lists on its /health, by kind: "
+                                          "{description, params: {name: {type, unit, minimum, maximum, default, "
+                                          "description}}}. Empty when it takes none (a designer before 1.5).")
 
 
 class ScheduleUpdate(Input):

@@ -82,7 +82,7 @@ export function review(overrides: Partial<Schemas['Review']> = {}): Schemas['Rev
     playback: 'none sent: the designer assumed its own playback chain', designer: 'rolloff', designer_build: 'beqforge 0.2.0',
     needs: 'review', detail: 'designed', reviewer_note: null,
     metadata_digest: 'm1', metadata_texts: { title: 'Alien', year: '1979', audio_types: 'DTS-HD MA 5.1' },
-    artwork: { present: false, overridden: false, name: null },
+    artwork: { present: false, overridden: false, name: null }, adjustments: [], adjustment_outcomes: [],
     ...overrides,
   }
 }

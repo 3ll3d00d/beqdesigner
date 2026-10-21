@@ -27,8 +27,9 @@ import numpy as np
 import requests
 
 from pipeline.designer.registry import register_designer
-from pipeline.designer.contract import BiquadSpec, CONTRACT_VERSION, DesignCandidate, DesignRequest, DesignResponse, \
-    IDENTITY_FIELDS
+from pipeline.designer.contract import ADJUSTMENTS_VERSION, AdjustmentOutcome, BiquadSpec, CONTRACT_VERSION, DesignCandidate, \
+    DesignRequest, DesignResponse, IDENTITY_FIELDS
+
 from pipeline.designer.sources import ArraySource, AudioSources
 
 logger = logging.getLogger('pipeline.designer.http_binding')
@@ -151,6 +152,10 @@ def _request_to_json(request: DesignRequest, sources: Optional[AudioSources] = N
     }
     if has_reference(payload):
         payload['contract_version'] = BY_REFERENCE_VERSION
+    if request.adjustments:   # 1.5: sent only when there are some, and then the body says 1.5 whatever else it holds
+        payload['adjustments'] = [{'id': a.id, 'kind': a.kind, 'params': a.params, 'text': a.text}
+                                  for a in request.adjustments]
+        payload['contract_version'] = ADJUSTMENTS_VERSION
     return payload
 
 
@@ -165,6 +170,11 @@ def _response_from_json(body: dict) -> DesignResponse:
         rejected = [_candidate_from_json(c) for c in body['rejected']] if body.get('rejected') is not None else None
         # 1.4: either shape may say the designer's identity; validate_response() checks the values
         identity = {name: body.get(name) for name in IDENTITY_FIELDS}
+        # 1.5: either shape may answer the request's adjustments; validate_outcomes() checks them against the request
+        if body.get('adjustment_outcomes') is not None:
+            identity['adjustment_outcomes'] = [
+                AdjustmentOutcome(id=o['id'], outcome=o['outcome'], applied=o.get('applied'), reason=o.get('reason'))
+                for o in body['adjustment_outcomes']]
         if body.get('candidates') is not None:
             candidates = [_candidate_from_json(c) for c in body['candidates']]
             return DesignResponse(contract_version=body.get('contract_version', CONTRACT_VERSION),
@@ -227,6 +237,43 @@ def check_takes_references(url: str, timeout: float = 10.0, headers: Optional[di
     return body
 
 
+def contract_at_least(body: Any, wanted: tuple) -> bool:
+    ''' Whether a /health answer says a contract version of at least `wanted` (major, minor). '''
+    version = str(body.get('contract_version', '')) if isinstance(body, Mapping) else ''
+    try:
+        return tuple(int(p) for p in version.split('.')[:2]) >= wanted
+    except ValueError:
+        return False
+
+
+def check_takes_adjustments(url: str, timeout: float = 10.0, headers: Optional[dict] = None) -> dict:
+    '''
+    Asks the designer's `/health` whether it takes adjustments (§7.1, 1.5): a caller sends them only to one that says
+    1.5 or later. :return: what it answered (its `adjustment_kinds`, if any).
+    :raises DesignerUnavailable: if it did not answer, or answered an older contract.
+    '''
+    target = health_url(url)
+    try:
+        response = requests.get(target, headers=headers, timeout=timeout)
+        response.raise_for_status()
+        body = response.json()
+    except (requests.RequestException, ValueError) as e:
+        raise DesignerUnavailable(f"GET {target} failed, so it is sent no adjustments: {e}") from e
+    if not contract_at_least(body, (1, 5)):
+        version = body.get('contract_version') if isinstance(body, Mapping) else None
+        raise DesignerUnavailable(f"{target} says contract {version or 'unknown'}: it does not take adjustments (1.5), "
+                                  f"so a design asked to make some is not sent to it")
+    return body
+
+
+def reported_adjustment_kinds(body: Any) -> dict:
+    ''' The adjustment kinds a designer's /health lists (§7.1, 1.5), by kind; {} when it lists none or is older. '''
+    kinds = body.get('adjustment_kinds') if isinstance(body, Mapping) and contract_at_least(body, (1, 5)) else None
+    if not isinstance(kinds, Mapping):
+        return {}
+    return {str(k): dict(v) for k, v in kinds.items() if isinstance(v, Mapping) and isinstance(v.get('description'), str)}
+
+
 def check_designer(url: str, *, by_reference: bool = False, timeout: float = 10.0,
                    headers: Optional[dict] = None) -> dict:
     '''
@@ -278,16 +325,20 @@ def http_designer(url: str, timeout: float = DESIGN_TIMEOUT, headers: Optional[d
     :param shared_root: the caller's end of the root it shares with the designer (§7.1, 1.2) -- its work directory. When
         given, the callable also takes `sources=` (register it with takes_sources=True), and each array whose source WAV
         is under this root is sent by reference; the designer's `/health` is checked once, before the first such
-        request. None (the default): every array goes inline, as in 1.1.
+        request. None (the default): every array goes inline, as in 1.1. Likewise its `/health` is checked once before
+        the first request carrying adjustments (1.5).
     :return: a DesignerCallable -- register it with
         pipeline.designer.registry.register_designer() like any other.
     '''
-    checked = []
+    checked, adjusts = [], []
 
     def _post(payload: dict) -> DesignResponse:
         if has_reference(payload) and not checked:
             check_takes_references(url, headers=headers)
             checked.append(True)
+        if payload.get('adjustments') and not adjusts:   # 1.5: only to a designer that says it takes them
+            check_takes_adjustments(url, headers=headers)
+            adjusts.append(True)
         try:
             response = requests.post(url, json=payload, headers=headers, timeout=timeout)
         except requests.RequestException as e:

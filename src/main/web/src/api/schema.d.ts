@@ -652,6 +652,30 @@ export interface components {
             /** Not For Review */
             not_for_review: number;
         };
+        /**
+         * AdjustmentAsk
+         * @description A change asked of the designer (contract 1.5, design/designer-interface.md §2): a kind it lists, or any other.
+         */
+        AdjustmentAsk: {
+            /**
+             * Kind
+             * @description exclude_band, floor, max_boost, goal_tilt, note, or one the designer lists on /v1/status (designer.adjustment_kinds).
+             */
+            kind: string;
+            /**
+             * Params
+             * @description The kind's parameters, by name.
+             * @default {}
+             */
+            params: {
+                [key: string]: unknown;
+            };
+            /**
+             * Text
+             * @description What the person said, in their words (a note is only this).
+             */
+            text?: string | null;
+        };
         /** ArtworkChoice */
         ArtworkChoice: {
             /**
@@ -974,6 +998,13 @@ export interface components {
              * @description The endpoints that are up but would design differently, each in words; empty when they agree. A redesign then answers differently by endpoint.
              */
             design_disagreement?: string[];
+            /**
+             * Adjustment Kinds
+             * @description The adjustments (contract 1.5) every endpoint up lists on its /health, by kind: {description, params: {name: {type, unit, minimum, maximum, default, description}}}. Empty when it takes none (a designer before 1.5).
+             */
+            adjustment_kinds?: {
+                [key: string]: unknown;
+            };
         };
         /**
          * ExtractProgressEvent
@@ -1484,6 +1515,22 @@ export interface components {
             metadata_texts: {
                 [key: string]: string;
             };
+            /**
+             * Adjustments
+             * @description What the designer was asked to change (contract 1.5): {id, kind, params, text, by, at, reason}.
+             * @default []
+             */
+            adjustments: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Adjustment Outcomes
+             * @description The designer's answer to each: {id, outcome, applied, reason}; none for one it did not answer (a designer before 1.5).
+             * @default []
+             */
+            adjustment_outcomes: {
+                [key: string]: unknown;
+            }[];
             artwork?: components["schemas"]["ArtworkState"] | null;
         };
         /** ReviseFailure */
@@ -1529,6 +1576,11 @@ export interface components {
              * @default false
              */
             run: boolean;
+            /**
+             * Adjustments
+             * @description With design or extract: what the designer is asked to change, from now on, for every title sent (replacing what they had; [] asks for none). Absent: each keeps its own.
+             */
+            adjustments?: components["schemas"]["AdjustmentAsk"][] | null;
         };
         /** RevisedTitle */
         RevisedTitle: {

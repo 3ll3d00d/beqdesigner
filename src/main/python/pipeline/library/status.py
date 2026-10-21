@@ -220,7 +220,7 @@ class EntryFacts:
     '''
     The parts of a QueueEntry discovery needs -- everything but the curve and the candidates' filters -- plus the
     file's mtime and size, which is what tells the index its cached copy is still good. Quacks like a QueueEntry for
-    design_status() (`status`, `design_fingerprint`).
+    design_status() (`status`, `design_fingerprint`, `adjustments`).
     '''
     status: str
     chosen: Optional[int]
@@ -242,6 +242,10 @@ class EntryFacts:
     inode: int = 0      # with the change time, so an entry rewritten in place with a same-length value, within a
     ctime_ns: int = 0   # coarse filesystem's one mtime tick, is still noticed (write_queue_entry replaces the file)
     published_stem: Optional[str] = None   # the file name it was published under (None: its id)
+    adjustments: tuple = ()   # what a person asked the designer to change (1.5): part of the design's fingerprint
+
+    def __post_init__(self):
+        object.__setattr__(self, 'adjustments', tuple(self.adjustments or ()))   # a list, read back from JSON
 
     @classmethod
     def of(cls, entry: QueueEntry, mtime_ns: int, size: int, inode: int = 0, ctime_ns: int = 0) -> 'EntryFacts':
@@ -250,7 +254,7 @@ class EntryFacts:
                    (entry.decline_message or entry.decline_reason or '') if entry.declined else '',
                    entry.design_fingerprint, entry.source_fingerprint, entry.published_digest, entry.art_path,
                    dict(entry.meta), mtime_ns, size, entry.design_version, entry.design_settings, entry.designer_build,
-                   inode, ctime_ns, entry.published_stem)
+                   inode, ctime_ns, entry.published_stem, tuple(entry.adjustments))
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), sort_keys=True)

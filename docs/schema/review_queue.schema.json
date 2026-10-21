@@ -86,6 +86,39 @@
     "design_settings": {
       "type": "string",
       "description": "the designer's design_settings when it designed this entry (contract 1.4); absent when it did not say."
+    },
+    "adjustments": {
+      "type": "array",
+      "description": "contract 1.5: what a person asked the designer to change, sent with every design of the title until changed (QueueEntry.adjustments)",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "kind": { "type": "string" },
+          "params": { "type": "object" },
+          "text": { "type": ["string", "null"] },
+          "by": { "type": ["string", "null"] },
+          "at": { "type": ["string", "null"] },
+          "reason": { "type": ["string", "null"] }
+        },
+        "required": ["id", "kind", "params"],
+        "additionalProperties": true
+      }
+    },
+    "adjustment_outcomes": {
+      "type": "array",
+      "description": "contract 1.5: the designer's answer to each adjustment, from the design that is here; empty when it answered none",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "outcome": { "enum": ["honoured", "adapted", "declined", "not_understood"] },
+          "applied": { "type": ["object", "null"] },
+          "reason": { "type": ["string", "null"] }
+        },
+        "required": ["id", "outcome"],
+        "additionalProperties": false
+      }
     }
   },
   "required": ["id", "fs", "meta", "curve", "candidates", "status"],

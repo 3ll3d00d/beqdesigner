@@ -36,7 +36,8 @@ class DesignCacheResult:
 
 
 def design_fingerprint(item: LibraryItem, designer: str, config: AnalysisConfig, coverage: Coverage,
-                       multichannel: bool = False, *, source: Optional[str] = None) -> str:
+                       multichannel: bool = False, *, source: Optional[str] = None,
+                       adjustments: Optional[list] = None) -> str:
     '''
     Stable hash of every library-run input that can change a design result.
 
@@ -46,6 +47,9 @@ def design_fingerprint(item: LibraryItem, designer: str, config: AnalysisConfig,
 
     :param multichannel: True when a multichannel extraction feeds this design (DesignRequest.channels and the
         multichannel project), as opposed to a mono-only design.
+    :param adjustments: what a person asked the designer to change (QueueEntry.adjustments, 1.5): part of the request, so
+        an answer to other adjustments, or to none, is not this one. Only what is sent counts (kind, params, text), in no
+        particular order.
     '''
     payload = {
         'source_fingerprint': source_fingerprint(item) if source is None else source,
@@ -59,6 +63,9 @@ def design_fingerprint(item: LibraryItem, designer: str, config: AnalysisConfig,
         payload['playlist_name'] = item.playlist_name
     if multichannel:
         payload['multichannel'] = True
+    if adjustments:
+        payload['adjustments'] = sorted(json.dumps([a.get('kind'), a.get('params') or {}, a.get('text')], sort_keys=True)
+                                        for a in adjustments)
     return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(',', ':')).encode('utf-8')).hexdigest()
 
 
@@ -100,9 +107,11 @@ def design_status(item: LibraryItem, existing: Optional[QueueEntry], designer: s
         if recorded:
             source = recorded
         else:
-            fingerprint = design_fingerprint(item, designer, config, coverage, multichannel=multichannel, source='')
+            fingerprint = design_fingerprint(item, designer, config, coverage, multichannel=multichannel, source='',
+                                             adjustments=existing.adjustments)
             return DesignStatus('current' if existing.design_fingerprint else 'stale', fingerprint, existing)
-    fingerprint = design_fingerprint(item, designer, config, coverage, multichannel=multichannel, source=source)
+    fingerprint = design_fingerprint(item, designer, config, coverage, multichannel=multichannel, source=source,
+                                     adjustments=existing.adjustments if existing is not None else None)
     if existing is None:
         return DesignStatus('none', fingerprint)
     if existing.status in PROTECTED_STATUSES:
@@ -159,6 +168,7 @@ def design_if_needed(session: Session, item: LibraryItem, wav_path: str, designe
         bass_management=bass_management, channels=channels, audio_stream=item.audio_stream,
         multichannel_wav_path=multichannel_wav_path,
         channel_layout_name=channel_layout_name, project_dir=project_dir, on_projects=projects.update,
+        adjustments=existing.adjustments if existing is not None else None,   # asked again by every redesign
     )
     art_path = existing.art_path if existing is not None else None
     art_overridden = existing.art_overridden if existing is not None else False

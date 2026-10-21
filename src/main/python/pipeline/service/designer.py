@@ -20,6 +20,7 @@ class EndpointState:
     reachable: bool
     detail: str   # the URL when it answered, else why not
     identity: Optional[EndpointIdentity] = None   # what its /health says it designs with (1.4); None: it does not say
+    adjustment_kinds: Optional[dict] = None       # the adjustment kinds its /health lists (1.5); None or {}: none
 
 
 @dataclass(frozen=True)
@@ -32,6 +33,16 @@ class DesignerState:
     # what a redesign now would be made with: the endpoints up, highest design version (design/design-version.md); None
     # when none of them says one, and then no title can be judged out of date
     identity: Optional[CurrentIdentity] = None
+    # the adjustment kinds (1.5) every endpoint up lists -- a design may go to any of them -- by kind; {} when none
+    adjustment_kinds: Optional[dict] = None
+
+
+def shared_kinds(endpoints) -> dict:
+    ''' The adjustment kinds every one of `endpoints` lists, as the first lists them; {} when any lists none. '''
+    listed = [e.adjustment_kinds or {} for e in endpoints]
+    if not listed:
+        return {}
+    return {kind: spec for kind, spec in listed[0].items() if all(kind in other for other in listed[1:])}
 
 
 class DesignerProbe:
@@ -56,14 +67,14 @@ class DesignerProbe:
                 name = str(ctx.values.get('designer') or '')
                 state = DesignerState(name, None, 'not an HTTP designer: nothing to ask', self.clock())
             else:
-                endpoints = tuple(EndpointState(url, parallel, not reason, reason or url, identity)
-                                  for url, parallel, reason, identity in asked)
+                endpoints = tuple(EndpointState(url, parallel, not reason, reason or url, identity, kinds)
+                                  for url, parallel, reason, identity, kinds in asked)
                 up = [e for e in endpoints if e.reachable]
                 detail = ', '.join(e.url for e in up) if up else '; '.join(e.detail for e in endpoints)
                 if up and len(up) < len(endpoints):
                     detail += f' ({len(endpoints) - len(up)} of {len(endpoints)} endpoints down)'
                 state = DesignerState(declared.name, bool(up), detail, self.clock(), endpoints,
-                                      current_identity(e.identity for e in up))
+                                      current_identity(e.identity for e in up), shared_kinds(up))
         with self.lock:
             self.last = state
         return state

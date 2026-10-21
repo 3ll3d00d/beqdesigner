@@ -357,7 +357,8 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
                 is not None else None,
                 designer_build=e.identity.build if e.identity else None) for e in state.endpoints],
             design_version=state.identity.version if state.identity else None,
-            design_disagreement=list(state.identity.disagreement) if state.identity else [])
+            design_disagreement=list(state.identity.disagreement) if state.identity else [],
+            adjustment_kinds=dict(state.adjustment_kinds or {}))
 
     @v1.post('/notify/test', response_model=models.NotifyOutcome, tags=['notifications'],
              summary='Send samples of a target’s configured events', responses=_responses(404))
@@ -464,7 +465,8 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
             blocked=models.Blocked(accept=blocked('accept'), reject=blocked('reject')), in_flight=running,
             playback=describe_bass_management(entry.bass_management), designer=entry.designer,
             designer_build=entry.designer_build, needs=row.needs, detail=row.detail, reviewer_note=entry.reviewer_note,
-            metadata_digest=metadata_digest(entry), metadata_texts=field_texts(entry.meta), artwork=artwork_state(settings, entry))
+            metadata_digest=metadata_digest(entry), metadata_texts=field_texts(entry.meta), artwork=artwork_state(settings, entry),
+            adjustments=list(entry.adjustments), adjustment_outcomes=list(entry.adjustment_outcomes))
 
     def artwork_state(settings, entry) -> models.ArtworkState:
         path = entry_art_path(entry, settings.work_dir or None)

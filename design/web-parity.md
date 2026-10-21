@@ -99,7 +99,14 @@ selection is per page, up to 100 at a time), and reading a title's streams from 
 (the desktop's probe; the browser says to use the app). Retry is *Revise* to design or extract, or New job's *retry
 failed*.
 
-### WP6 — Contract 1.5: design adjustments (both sides)
+### WP6 — Contract 1.5: design adjustments (both sides) — caller side done
+
+**Caller side built 2026-10-21** (record in [archive/web-parity-record.md](archive/web-parity-record.md#wp6-caller-side)):
+the contract types and checks, the HTTP binding (sent only to a designer whose `/health` says 1.5), the queue entry's
+`adjustments` and `adjustment_outcomes`, the design fingerprint, `POST /v1/revise`'s `adjustments`, and the kinds every
+endpoint lists on `/v1/status`. **Left: beqforge** implements the kinds it can and lists them on `/health` (a handoff
+in its own repo). Until it does, the browser has no kinds to offer and a design asked for adjustments is refused by
+the binding with the designer's version.
 
 **Contract agreed 2026-10-21** and written into [designer-interface.md](designer-interface.md) (§2 "Adjustments",
 §3 "Adjustment outcomes", §7), the three `docs/schema/http_designer_*.schema.json` and the conformance spec's "1.5".
