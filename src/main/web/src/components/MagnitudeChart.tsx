@@ -9,6 +9,7 @@ import 'uplot/dist/uPlot.min.css'
 
 import { chartData, drawnRange, logTicks, normalise, type ChartView, type Range, type Series, visibleSeries, zoomRange }
   from '../chart/view'
+import { useColourScheme } from '../theme'
 
 export { chartData, FREQUENCY_RANGE, resample } from '../chart/view'
 
@@ -70,6 +71,7 @@ export function MagnitudeChart({ series, view, highlighted = null, onZoom, onRes
     reset.current = onReset
   }, [onZoom, onReset])
   const shown = normalise(visibleSeries(series, view), view.reference)
+  const scheme = useColourScheme()   // the axes take the stylesheet's colours when drawn: draw again when they change
   useEffect(() => {
     const element = holder.current
     const shown = normalise(visibleSeries(series, view), view.reference)
@@ -149,7 +151,7 @@ export function MagnitudeChart({ series, view, highlighted = null, onZoom, onRes
       resize.disconnect()
       plot.destroy()
     }
-  }, [series, view, highlighted, height, bands])
+  }, [series, view, highlighted, height, bands, scheme])
   if (!series.length) return <p className="muted">No measured curve for this title.</p>
   if (!shown.length) return <p className="muted">Nothing to draw: every curve is hidden.</p>
   return <div ref={holder} className="chart" role="img" aria-label={`Chart: ${shown.map((s) => s.name).join('; ')}`} />
