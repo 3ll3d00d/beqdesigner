@@ -1,6 +1,8 @@
 // The spectrogram grid (design/web-parity.md WP2): decoding the service's bytes and painting them.
 import { encodeGrid } from '../test/grid'
-import { clock, decodeGrid, differenceColour, gridTimes, level, levelColour, loudestByFrequency, paint } from './grid'
+import { byLevel } from '../components/HeatmapView'
+import { clock, decodeGrid, differenceColour, gridTimes, level, levelAt, levelColour, loudestByFrequency, paint,
+  scaleGradient } from './grid'
 
 // 3 times x 4 frequencies (0, 10, 20, 30 Hz); 0 is below the floor
 const grid = () => decodeGrid(encodeGrid({ times: 3, freqs: 4, cells: [0, 50, 100, 1, 0, 200, 0, 1, 255, 0, 0, 0] }))
@@ -42,3 +44,26 @@ describe('the grid', () => {
     expect(clock(3725)).toBe('1:02:05')
   })
 })
+
+describe('reading the grid for a readout and a colour bar', () => {
+  it('reads the level at a time and frequency, null outside or below the floor', () => {
+    const g = grid()
+    expect(levelAt(g, 0, 20)).toBe(-1)
+    expect(levelAt(g, 0.4, 21)).toBe(-1)      // the nearest cell
+    expect(levelAt(g, 0, 0)).toBeNull()
+    expect(levelAt(g, 9, 0)).toBeNull()
+  })
+
+  it('spells the scale as a gradient, quietest first', () => {
+    expect(scaleGradient()).toMatch(/^linear-gradient\(to right, rgb\(0,0,4\) 0%, .* rgb\(252,255,164\) 100%\)$/)
+  })
+
+  it("groups a heatmap's cells by level, leaving out what is below the floor", () => {
+    const groups = byLevel(grid())
+    expect(groups[0]!.length).toBe(0)
+    expect(Array.from(groups[1]!)).toEqual([3, 7])
+    expect(Array.from(groups[255]!)).toEqual([8])
+    expect(groups.reduce((n, g) => n + g.length, 0)).toBe(6)
+  })
+})
+

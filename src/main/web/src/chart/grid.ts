@@ -47,6 +47,17 @@ function ramp(stops: number[][], at: number): [number, number, number] {
   return [0, 1, 2].map((k) => Math.round(a[k]! + (b[k]! - a[k]!) * u)) as [number, number, number]
 }
 
+/** The level scale as a CSS gradient, quietest on the left, for a colour bar. */
+export const scaleGradient = (stops: number[][] = SCALE): string =>
+  `linear-gradient(to right, ${stops.map(([r, g, b], i) => `rgb(${r},${g},${b}) ${(100 * i) / (stops.length - 1)}%`).join(', ')})`
+export const differenceGradient = (): string => scaleGradient(DIVERGING)
+
+/** The level at `seconds` and `hz`, dB; null outside the grid or below its floor. */
+export function levelAt(grid: Grid, seconds: number, hz: number): number | null {
+  const row = Math.round((seconds - grid.t0) / grid.dt), col = Math.round((hz - grid.f0) / grid.df)
+  return row < 0 || row >= grid.times || col < 0 || col >= grid.freqs ? null : level(grid, row, col)
+}
+
 /** The colour of a level within `range` dB (quieter is darker), or of a difference within ±`span` dB. */
 export const levelColour = (db: number, [low, high]: Range) => ramp(SCALE, (db - low) / (high - low))
 export const differenceColour = (db: number, span: number) => ramp(DIVERGING, (db + span) / (2 * span))

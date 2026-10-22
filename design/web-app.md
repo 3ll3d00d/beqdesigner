@@ -167,9 +167,25 @@ drawings are rendered by the service off the request, so `renderedQuery()` reads
 every 2 s. `Spectrogram` decodes the grid (`src/chart/grid.ts`, `decodeGrid()`) and paints it pixel by pixel
 (`paint()`: frequency across on the chart's range and log setting, time down; a perceptual scale over the 60 dB below the
 loudest cell; *Difference* blue-white-red over ±20 dB from the grids before and after the design) into a canvas, with
-`loudestByFrequency()` in a strip under it. A horizontal drag zooms the frequencies (the shared `ChartView`, so the
-magnitude chart follows), a vertical one the times (kept on the page), a double click resets both. *Heatmap* shows the
-PNG as an object URL.
+`loudestByFrequency()` in a strip under it, and a colour bar of the scale (`scaleGradient()`).
+
+*Heatmap* is drawn here too, from the same two grids (no extra render): the published image's panes, after the design on
+the left and as measured on the right, 1-40 Hz across and time down, each cell within 60 dB of the loudest as a dot a cell
+wide (at least 5 px) in the spectrogram's colours, quietest first (`byLevel()` groups the cells by level so each colour is
+set once), on the page's background. *Published image…* fetches the PNG publish writes and links it.
+
+Both are navigated the same way (`PlaneControls`, `usePlaneGestures`, `src/chart/plane.ts`): the frequency and time ranges
+are typed (Hz; h:mm:ss, m:ss or seconds) and applied on Enter or leaving the box, a box that does not read is marked;
+*＋*/*－* zoom about the middle, *Back* returns to the view before (a stack of 50), *Whole title* (or a double click)
+resets; the line under them says how far in the view is. On the canvas a drag selects a box -- drawn as it is dragged,
+labelled with the ranges it would zoom to, Escape drops it -- and zooms both axes to it (a side thinner than 4 px keeps
+that axis); the wheel zooms both about the pointer; the pointer's frequency, time and level are read out under it. The
+spectrogram's frequencies are the shared `ChartView`'s, so the magnitude chart follows; its times, and all of the
+heatmap's view, are kept on the page.
+
+The page follows the system's light or dark setting live: the colours are CSS variables under `prefers-color-scheme`,
+and the canvases and the uPlot chart, which read them when they draw, draw again when it changes (`useColourScheme()`,
+`src/theme.ts`).
 
 ### 4.5 Published BEQs
 
