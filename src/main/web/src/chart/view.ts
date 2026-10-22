@@ -34,10 +34,9 @@ export interface ChartView {
 /** 1 to 160 Hz, linear: BEQ is about the bass, and the desktop's charts default to the same range. */
 export const FREQUENCY_RANGE: Range = [1, 160]
 
-export const PRESETS: { id: string; label: string; x: Range | 'full' }[] = [
+export const PRESETS: { id: string; label: string; x: Range }[] = [
   { id: 'bass', label: 'Bass', x: FREQUENCY_RANGE },
   { id: 'sub', label: 'Sub', x: [1, 40] },
-  { id: 'full', label: 'Full', x: 'full' },
 ]
 
 export const DEFAULT_VIEW: ChartView = {
@@ -142,11 +141,6 @@ export function chartData(series: Series[], range: Range = FREQUENCY_RANGE): uPl
     if (candidate.length > x.length) x = candidate
   }
   return [x, ...series.map((s) => resample(s.x, s.y, x))]
-}
-
-/** The widest frequency any curve reaches: the *Full* preset's top. */
-export function highestFrequency(series: Series[]): number {
-  return series.reduce((most, s) => Math.max(most, ...s.x), FREQUENCY_RANGE[1])
 }
 
 /** `range` zoomed about `at` by `factor` (< 1 zooms in), on a log scale when `log`. */

@@ -133,8 +133,8 @@ after every design at once (`candidates=all`), one colour per design, the highli
 (`src/chart/view.ts`, a `ChartView`) is kept per browser in `localStorage` (`beq.chartView`, each setting checked when
 read, defaults when storage refuses) and changed by `ChartControls`:
 
-- **Range:** *Bass* (1-160 Hz, `FREQUENCY_RANGE`, the desktop charts' default and the default view), *Sub* (1-40 Hz)
-  and *Full* (to the highest frequency of any curve); frequency and level limits typed (blank levels: fitted to what is
+- **Range:** *Bass* (1-160 Hz, `FREQUENCY_RANGE`, the desktop charts' default and the default view) and *Sub* (1-40 Hz);
+  no *Full*, since the curves stop at 500 Hz; frequency and level limits typed (blank levels: fitted to what is
   drawn); *Log frequency* (uPlot's log distribution, labelled at 1, 2 and 5 of each decade or finer when zoomed into one, `logTicks()`; a range starting at or below 0 Hz starts at 1 Hz).
 - **Zoom:** a drag selects a frequency range (and the levels, when dragged vertically too); the wheel zooms about the
   cursor (on the log scale when the axis is); a double click goes back to the preset frequencies and fitted levels.

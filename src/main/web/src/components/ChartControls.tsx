@@ -3,7 +3,7 @@
 // `ChartView`, which the page keeps in this browser.
 import { useState } from 'react'
 
-import { DEFAULT_VIEW, highestFrequency, PRESETS, type ChartView, type Range, type Series, SMOOTHINGS, smoothingLabel,
+import { DEFAULT_VIEW, PRESETS, type ChartView, type Range, type Series, SMOOTHINGS, smoothingLabel,
   visibleSeries } from '../chart/view'
 
 interface Props {
@@ -70,7 +70,7 @@ export function ChartControls({ view, series, onChange }: Props) {
         <span role="group" aria-label="Range">
           {PRESETS.map((p) => (
             <button key={p.id} type="button" className="secondary small"
-                    onClick={() => set({ x: p.x === 'full' ? [1, highestFrequency(series)] : p.x, y: null })}>
+                    onClick={() => set({ x: p.x, y: null })}>
               {p.label}
             </button>
           ))}

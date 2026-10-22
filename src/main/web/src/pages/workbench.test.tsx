@@ -1,7 +1,7 @@
 // The review chart's workbench (design/web-parity.md WP1) against a mocked service: limits, presets, a log axis, smoothing,
 // every design at once, filter responses, normalising, zooming by drag, and the view kept in this browser. uPlot draws on a
 // canvas jsdom does not have, so it is replaced by a recorder of what it was given.
-import { act, screen, waitFor } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw/http'
 
@@ -96,6 +96,9 @@ describe('the chart workbench', () => {
 
   it('changes the frequencies by preset, by typed limits and to a log axis', async () => {
     await open()
+    // the curves stop at 500 Hz, so there is no *Full* preset: Bass and Sub only
+    expect(within(screen.getByRole('group', { name: 'Range' })).getAllByRole('button').map((b) => b.textContent))
+      .toEqual(['Bass', 'Sub'])
     await userEvent.click(screen.getByRole('button', { name: 'Sub' }))
     await waitFor(() => expect(last().scales.x!.range).toEqual([1, 40]))
     const from = screen.getByLabelText('Frequency from'), to = screen.getByLabelText('Frequency to')
