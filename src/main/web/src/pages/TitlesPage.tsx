@@ -348,8 +348,6 @@ export function TitlesPage() {
                   yes="Asked for some" no="None asked" />
         <Tristate label="Answers" value={filter.unmet} onChange={(unmet) => update((f) => ({ ...f, unmet }))}
                   yes="Some not honoured" no="All honoured" />
-        <Tristate label="Design runs" value={filter.several_runs}
-                  onChange={(several_runs) => update((f) => ({ ...f, several_runs }))} yes="Several" no="One" />
       </div>
       {filter.out_of_date === true && page && page.total > 0 && <RedesignOutOfDate filter={filter} total={page.total} />}
       <Repositories filter={filter} />
@@ -393,15 +391,14 @@ export function TitlesPage() {
                            onChange={(e) => select([t.id], e.target.checked)} /></td>
                 <td><Link to={link(t.id)}>{t.title || t.display_name || t.id}</Link>{t.is_new && <span className="badge">new</span>}
                   {t.adjusted && <span className={`badge${t.unmet_adjustments ? ' warn' : ''}`}>
-                    adjusted{t.unmet_adjustments ? `, ${t.unmet_adjustments} not honoured` : ''}</span>}
-                  {t.design_runs > 1 && <span className="badge">{t.design_runs} runs</span>}</td>
+                    adjusted{t.unmet_adjustments ? `, ${t.unmet_adjustments} not honoured` : ''}</span>}</td>
                 <td>{t.year}</td>
                 <td>{t.kind === 'tv' ? 'TV' : 'Movie'}</td>
                 <td>{t.source}</td>
                 <td>{NEEDS_WORDS[t.needs as NeedsWord] ?? t.needs}</td>
                 <td className="detail">{t.detail}</td>
                 <td className="num">{t.confidence === null ? '—' : t.confidence.toFixed(2)}</td>
-                <td className="num">{t.candidate_count || '—'}</td>
+                <td className="num">{(t.design_choices || t.candidate_count) || '—'}</td>
                 <td>{t.flags.join(', ')}</td>
               </tr>
             ))}

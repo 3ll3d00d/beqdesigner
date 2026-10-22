@@ -8,7 +8,7 @@ import { http, HttpResponse } from 'msw/http'
 import { saveToken } from '../api/token'
 import { askProblem, blankAsk, describeAsk } from '../components/AdjustmentsEditor'
 import { outcomeText } from '../components/VariantsPanel'
-import { chart, index, METADATA_FIELDS, review, runJob } from '../test/fixtures'
+import { candidate, chart, index, METADATA_FIELDS, review, runJob } from '../test/fixtures'
 import { renderApp } from '../test/render'
 import { server, status, statusRoute, TOKEN } from '../test/server'
 
@@ -40,7 +40,9 @@ const KINDS = {
 }
 const ASKED = [{ id: 'a1', kind: 'max_boost', params: { db: 10 }, text: null }]
 const V1 = { variant_id: 'v1', designed_at: '2026-10-01T10:00:00Z', designer: 'rolloff', designer_build: 'beqforge 0.2.8',
-             design_version: 4, designs: 2, declined: false, adjusted_with: [], adjustment_outcomes: [] }
+             design_version: 4, designs: 2, declined: false, adjusted_with: [], adjustment_outcomes: [],
+             candidates: [candidate(0, { method: 'parametric' })],
+             rejected: [candidate(1, { rejected: true, rejection_reasons: ['tilts too far'] })] }
 
 function routes(over: Parameters<typeof review>[0] = {}, kinds: Record<string, unknown> = KINDS) {
   const sent: Record<string, unknown>[] = []
@@ -72,6 +74,12 @@ function routes(over: Parameters<typeof review>[0] = {}, kinds: Record<string, u
       used.push(['discard', params.v])
       return json(review({ ...over, variants: [] }))
     }),
+    http.post('/v1/titles/a/decision', async ({ request }) => {
+      const body = await request.json() as Record<string, unknown>
+      used.push(['decision', body])
+      return json(review({ ...over, status: 'accepted', variant_id: String(body.variant ?? 'v2'), variants: [] }))
+    }),
+    http.get('/v1/review/next', () => new HttpResponse(null, { status: 204 })),
   )
   return { sent, charts, used }
 }
@@ -159,19 +167,49 @@ describe('the design runs', () => {
   it('show what the current one was asked and how the designer answered', async () => {
     routes(answered)
     renderApp('/titles/a')
-    const panel = await screen.findByRole('region', { name: 'Design runs' })
+    const panel = await screen.findByRole('region', { name: /^Design runs/ })
+    expect(panel).toHaveTextContent('Design runs (2)')
     expect(panel).toHaveTextContent('boost at most 10 dB — declined: it would cut the rolloff')
     expect(panel).toHaveTextContent('v1')
     expect(panel).toHaveTextContent('asked nothing')
   })
 
-  it('draw an earlier one dashed on the chart, use it, and discard one after asking', async () => {
+  it("list an earlier run's designs with the current ones, numbered on, to pick, draw and accept", async () => {
     const { charts, used } = routes(answered)
     renderApp('/titles/a')
-    const panel = await screen.findByRole('region', { name: 'Design runs' })
-    await userEvent.click(within(panel).getByRole('checkbox', { name: /v1/ }))
+    const current = await screen.findByRole('radiogroup', { name: 'Designs' })
+    const earlier = screen.getByRole('radiogroup', { name: 'Designs of v1' })
+    expect(screen.getByRole('heading', { name: /^v2 \(current\)/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /^v1 · .*beqforge 0\.8|^v1 · .*beqforge 0\.2\.8/ })).toBeInTheDocument()
+    expect(within(current).getAllByRole('radio')).toHaveLength(2)                     // designs 1 and 2
+    expect(within(screen.getByRole('list', { name: 'Rejected designs of v1' })).getByText('5.')).toBeInTheDocument()
+    await userEvent.click(within(earlier).getByRole('radio'))                          // design 4: v1's first
+    await waitFor(() => expect(charts.some((q) => q.get('variant') === 'v1' && q.get('candidate') === '0')).toBe(true))
+    const accept = screen.getByRole('button', { name: 'Accept design 4 (v1)' })
+    await userEvent.click(accept)
+    await waitFor(() => expect(used).toContainEqual(['decision', expect.objectContaining(
+      { decision: 'accept', candidate: 0, variant: 'v1', digest: 'd1' })]))
+  })
+
+  it('draw every run with All designs, and the keys pick across runs', async () => {
+    const { charts } = routes(answered)
+    renderApp('/titles/a')
+    await screen.findByRole('radiogroup', { name: 'Designs of v1' })
+    await userEvent.click(screen.getByLabelText('All designs'))
     await waitFor(() => expect(charts.some((q) => q.get('variant') === 'v1' && q.get('candidates') === 'all')).toBe(true))
-    await waitFor(() => expect(drawn.at(-1)!.series.some((s) => s.label?.endsWith('(v1)') && !!s.dash)).toBe(true))
+    await waitFor(() => expect(drawn.at(-1)!.series.some((s) => s.label?.endsWith('(v1)'))).toBe(true))
+    await userEvent.keyboard('4')
+    expect(screen.getByRole('button', { name: 'Accept design 4 (v1)' })).toBeInTheDocument()
+    // the current run is now the other one: drawn too, by its own name
+    await waitFor(() => expect(charts.some((q) => q.get('variant') === 'v2' && q.get('candidates') === 'all')).toBe(true))
+    expect(screen.getByRole('button', { name: 'Edit filters…' })).toBeDisabled()     // only the current run's are edited
+  })
+
+  it('use an earlier run again, and discard one after asking', async () => {
+    const { used } = routes(answered)
+    renderApp('/titles/a')
+    const panel = await screen.findByRole('region', { name: /^Design runs/ })
+    expect(within(panel).queryByRole('checkbox')).not.toBeInTheDocument()   // compared in the list of designs, not here
     await userEvent.click(within(panel).getByRole('button', { name: 'Discard…' }))
     await userEvent.click(within(panel).getByRole('button', { name: 'Keep it' }))
     await userEvent.click(within(panel).getByRole('button', { name: 'Use this one' }))
@@ -181,7 +219,7 @@ describe('the design runs', () => {
   it('are not used again on a decided title', async () => {
     routes({ ...answered, status: 'accepted', chosen_index: 0 })
     renderApp('/titles/a')
-    const panel = await screen.findByRole('region', { name: 'Design runs' })
+    const panel = await screen.findByRole('region', { name: /^Design runs/ })
     expect(within(panel).getByRole('button', { name: 'Use this one' })).toBeDisabled()
   })
 })

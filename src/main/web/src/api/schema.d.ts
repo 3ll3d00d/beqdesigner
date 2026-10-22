@@ -990,6 +990,11 @@ export interface components {
              * @default false
              */
             override_rejection: boolean;
+            /**
+             * Variant
+             * @description Accept a design of this earlier design run (Review.variants): the run is made current first, the current one kept as a variant, and `candidate` indexes its designs. Absent: the current run's.
+             */
+            variant?: string | null;
         };
         /**
          * DecisionKind
@@ -2274,6 +2279,12 @@ export interface components {
              * @default 0
              */
             design_runs: number;
+            /**
+             * Design Choices
+             * @description The designs to choose from in every design run it keeps (candidates; the designer's rejected ones are not counted).
+             * @default 0
+             */
+            design_choices: number;
         };
         /**
          * TitleEvent
@@ -2521,6 +2532,16 @@ export interface components {
             adjustment_outcomes: {
                 [key: string]: unknown;
             }[];
+            /**
+             * Candidates
+             * @description Its designs, as the Review's own: an index is into this run's offered designs.
+             */
+            candidates?: components["schemas"]["CandidateView"][];
+            /**
+             * Rejected
+             * @description The designs the designer rejected in it.
+             */
+            rejected?: components["schemas"]["CandidateView"][];
         };
     };
     responses: never;
@@ -4034,6 +4055,8 @@ export interface operations {
             query?: {
                 /** @description A design; default the chosen one, else the first. */
                 candidate?: number | null;
+                /** @description Another of the title's design runs (Review.variants), whose design `candidate` is; absent: the current run's. */
+                variant?: string | null;
             };
             header?: never;
             path: {
@@ -4115,6 +4138,8 @@ export interface operations {
                 filtered?: boolean;
                 /** @description The highest frequency kept. */
                 max_hz?: number;
+                /** @description Another of the title's design runs (Review.variants), whose design `candidate` is; absent: the current run's. */
+                variant?: string | null;
             };
             header?: never;
             path: {

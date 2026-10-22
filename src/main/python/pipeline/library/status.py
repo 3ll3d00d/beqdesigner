@@ -246,6 +246,7 @@ class EntryFacts:
     adjusted: bool = False    # the design here was asked to change something (QueueEntry.adjusted_with)
     unmet: int = 0            # how many of those the designer did not honour (adapted, declined, not understood, unanswered)
     runs: int = 1             # how many design runs the title keeps (the current one and its variants)
+    choices: int = 0          # the designs to choose from in all of them (candidates; 0: read before it was kept)
 
     def __post_init__(self):
         object.__setattr__(self, 'adjustments', tuple(self.adjustments or ()))   # a list, read back from JSON
@@ -258,7 +259,8 @@ class EntryFacts:
                    entry.design_fingerprint, entry.source_fingerprint, entry.published_digest, entry.art_path,
                    dict(entry.meta), mtime_ns, size, entry.design_version, entry.design_settings, entry.designer_build,
                    inode, ctime_ns, entry.published_stem, tuple(entry.adjustments), bool(entry.adjusted_with),
-                   unmet_adjustments(entry), 1 + len(entry.variants))
+                   unmet_adjustments(entry), 1 + len(entry.variants),
+                   len(entry.candidates) + sum(len(v.get('candidates') or []) for v in entry.variants))
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), sort_keys=True)

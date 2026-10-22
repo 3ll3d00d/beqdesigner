@@ -1,6 +1,8 @@
-// Deciding one title (design/web-app.md §4, design/review-over-http.md): its designs, the chart of the one highlighted,
-// commentary, the metadata (one line under the heading) and its problems, and Accept / Reject / Skip (A, R, S; 1-9 highlight a design). Accepting a design the
-// designer rejected asks first. After a decision, or Skip, the next title waiting in the same filtered list opens.
+// Deciding one title (design/web-app.md §4, design/review-over-http.md): its designs -- every kept design run's, in one
+// list to pick from, the current run's first -- the chart of the one highlighted, commentary, the metadata (one line under
+// the heading) and its problems, and Accept / Reject / Skip (A, R, S; 1-9 highlight a design). Accepting a design the
+// designer rejected asks first; accepting one of an earlier run makes that run current. After a decision, or Skip, the
+// next title waiting in the same filtered list opens.
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 
@@ -27,14 +29,51 @@ type Review = Schemas['Review']
 
 const reasons = (candidate: Candidate): string[] => candidate.rejection_reasons ?? []
 
+/** One design run's designs to pick from: the current run (`run` null) or an earlier one kept. */
+interface Run {
+  run: string | null
+  label: string
+  detail: string
+  candidates: Candidate[]
+  rejected: Candidate[]
+}
+
+/** A design in the one list: its run, its index in that run, and its number in the list (what 1-9 and Accept say). */
+interface Offer {
+  run: string | null
+  candidate: Candidate
+  number: number
+}
+
+const designedWhen = (at?: string | null) => (at ? new Date(at).toLocaleString() : 'when not recorded')
+
+/** The title's design runs, the current one first and then the earlier ones newest first. */
+export function runsOf(review: Review): Run[] {
+  const describe = (at: string | null | undefined, build: string | null | undefined, declined: boolean) =>
+    [designedWhen(at), build, declined ? 'declined' : ''].filter(Boolean).join(' · ')
+  return [
+    { run: null, label: `${review.variant_id ?? 'This run'} (current)`, candidates: review.candidates, rejected: review.rejected,
+      detail: describe(review.designed_at, review.designer_build, !!review.declined) },
+    ...[...review.variants].reverse().map((v) => ({
+      run: v.variant_id, label: v.variant_id, candidates: v.candidates ?? [], rejected: v.rejected ?? [],
+      detail: describe(v.designed_at, v.designer_build, v.declined) })),
+  ]
+}
+
+/** Every run's designs as one list, numbered: each run's candidates, then the ones its designer rejected. */
+export function offersOf(runs: Run[]): Offer[] {
+  let number = 0
+  return runs.flatMap((r) => [...r.candidates, ...r.rejected].map((candidate) => ({ run: r.run, candidate, number: ++number })))
+}
+
 function number(value: number | null | undefined, unit: string, digits = 1): string {
   return value === null || value === undefined ? '—' : `${value.toFixed(digits)}${unit}`
 }
 
-function CandidateLine({ candidate }: { candidate: Candidate }) {
+function CandidateLine({ candidate, position }: { candidate: Candidate; position: number }) {
   return (
     <span>
-      <strong>{candidate.index + 1}.</strong> {candidate.method}
+      <strong>{position}.</strong> {candidate.method}
       {candidate.confidence !== null && <> · confidence {candidate.confidence.toFixed(2)}</>}
       {' '}· MV +{number(candidate.mv_adjust_db, ' dB')}
       {candidate.gain_reduction_db !== null && candidate.gain_reduction_db !== undefined &&
@@ -116,13 +155,18 @@ export function ReviewPage() {
   const status = useStatus()
   const [revising, setRevising] = useState(false)
   const [editing, setEditing] = useState<{ title: string; source: number } | null>(null)
-  const [pick, setPick] = useState<{ digest: string; index: number } | null>(null)
+  const [pick, setPick] = useState<{ digest: string; number: number } | null>(null)
   const [overriding, setOverriding] = useState(false)
   const [notice, setNotice] = useState('')
   const data = review.data
-  const offered = data ? [...data.candidates, ...data.rejected] : []
-  const picked = data && pick?.digest === data.digest ? pick.index : (data?.chosen_index ?? 0)
-  const candidate = offered[picked]
+  const runs = data ? runsOf(data) : []
+  const offers = offersOf(runs)
+  const chosen = offers.find((o) => o.run === null && o.candidate.index === (data?.chosen_index ?? 0)) ?? offers[0]
+  const offer = (data && pick?.digest === data.digest ? offers.find((o) => o.number === pick.number) : undefined) ?? chosen
+  const candidate = offer?.candidate
+  const picked = candidate?.index ?? 0   // into its own run's designs
+  const pickedRun = offer?.run ?? null
+  const runOffers = offers.filter((o) => o.run === pickedRun).length
   const [view, setView] = useState<ChartView>(loadView)
   const [visual, setVisual] = useState<Visual>('magnitude')
   const projects = useProjects(titleId, data?.digest)
@@ -133,12 +177,13 @@ export function ReviewPage() {
     setPickBand(take ? { take } : null)
     if (take) setVisual('magnitude')
   }
-  const [overlaid, setOverlaid] = useState<{ title: string; variants: string[] }>({ title: titleId, variants: [] })
-  const shownVariants = overlaid.title === titleId ? overlaid.variants : []
-  const variantCharts = useVariantCharts(titleId, shownVariants, view.smoothing)
-  const chart = useChart(titleId, { candidate: offered.length ? picked : null, all: view.allDesigns && offered.length > 1,
-                                    smoothing: view.smoothing, responses: view.responses }, !!data)
-  // the other design runs shown: their curves after each of their designs, drawn dashed under the current one's
+  // with *Every design*, the other runs' designs are drawn too (thin, under the highlighted run's)
+  const otherRuns = view.allDesigns
+    ? runs.filter((r) => r.run !== pickedRun && r.candidates.length + r.rejected.length > 0)
+      .map((r) => r.run ?? data?.variant_id ?? 'v1') : []
+  const variantCharts = useVariantCharts(titleId, otherRuns, view.smoothing)
+  const chart = useChart(titleId, { candidate: offers.length ? picked : null, all: view.allDesigns && runOffers > 1,
+                                    smoothing: view.smoothing, responses: view.responses, variant: pickedRun }, !!data)
   const magnitude = [...(chart.data?.series ?? []),
                      ...variantCharts.flatMap((q) => (q.data?.series ?? []).filter((s) => s.filtered && s.kind !== 'filter'))]
   const changeView = (next: ChartView) => {
@@ -158,9 +203,9 @@ export function ReviewPage() {
     }
   }
 
-  function choose(index: number) {
-    if (data && index >= 0 && index < offered.length) {
-      setPick({ digest: data.digest, index })
+  function choose(number: number) {
+    if (data && offers.some((o) => o.number === number)) {
+      setPick({ digest: data.digest, number })
       setOverriding(false)
     }
   }
@@ -172,7 +217,8 @@ export function ReviewPage() {
       return
     }
     setOverriding(false)
-    decide.mutate({ decision: 'accept', candidate: picked, digest: data.digest, override_rejection: override },
+    decide.mutate({ decision: 'accept', candidate: picked, digest: data.digest, override_rejection: override,
+                    ...(pickedRun ? { variant: pickedRun } : {}) },
                   { onSuccess: () => void goNext('Accepted. ') })
   }
 
@@ -192,7 +238,7 @@ export function ReviewPage() {
       if (key === 'a' && !data.blocked.accept) accept()
       else if (key === 'r' && !data.blocked.reject) reject()
       else if (key === 's') void goNext('')
-      else if (/^[1-9]$/.test(key)) choose(Number(key) - 1)
+      else if (/^[1-9]$/.test(key)) choose(Number(key))
       else return
       event.preventDefault()
     }
@@ -231,8 +277,10 @@ export function ReviewPage() {
       <div className="actions">
         <button type="button" className="secondary" disabled={!!reviseBlocked || decide.isPending}
                 title={reviseBlocked || undefined} onClick={() => setRevising(true)}>Revise…</button>
-        <button type="button" className="secondary" disabled={!candidate || settled || data!.in_flight}
-                title={settled ? 'Reopen the title for review before editing a design' : undefined}
+        <button type="button" className="secondary" disabled={!candidate || settled || data!.in_flight || pickedRun !== null}
+                title={settled ? 'Reopen the title for review before editing a design'
+                  : pickedRun !== null ? 'Edit a design of the current run (use this run first to edit one of its designs)'
+                    : undefined}
                 onClick={() => setEditing({ title: titleId, source: picked })}>Edit filters…</button>
         <StreamPicker titleId={titleId} blocked={data!.in_flight ? 'A run is working on this title.' : reviseBlocked} />
       </div>
@@ -253,7 +301,8 @@ export function ReviewPage() {
       <div className="decide">
         <div className="actions">
           <button type="button" disabled={!!data!.blocked.accept || !candidate || decide.isPending}
-                  title={data!.blocked.accept || 'A'} onClick={() => accept()}>Accept design {picked + 1}</button>
+                  title={data!.blocked.accept || (pickedRun ? `A — makes ${pickedRun} the current run` : 'A')}
+                  onClick={() => accept()}>Accept design {offer?.number ?? 1}{pickedRun ? ` (${pickedRun})` : ''}</button>
           <button type="button" className="secondary" disabled={!!data!.blocked.reject || decide.isPending}
                   title={data!.blocked.reject || 'R'} onClick={reject}>Reject</button>
           <button type="button" className="secondary" title="S" onClick={() => void goNext('')}>Skip</button>
@@ -262,7 +311,7 @@ export function ReviewPage() {
         {!decided && data!.blocked.reject && <p className="muted">Reject: {data!.blocked.reject}</p>}
         {overriding && candidate && (
           <div className="confirm problem" role="group" aria-label="Override">
-            <p>The designer rejected design {picked + 1} as unfit to publish:</p>
+            <p>The designer rejected design {offer?.number ?? 1} as unfit to publish:</p>
             <ul>{reasons(candidate).map((r) => <li key={r}>{r}</li>)}</ul>
             <p>Accept it anyway, as your override of the designer?</p>
             <div className="actions">
@@ -276,33 +325,41 @@ export function ReviewPage() {
       <div className="review-grid">
         <section className="card" aria-labelledby="designs">
           <h2 id="designs">Designs</h2>
-          <ul className="candidates" role="radiogroup" aria-label="Designs">
-            {data!.candidates.map((c) => (
-              <li key={c.index}>
-                <label className={c.index === picked ? 'on' : ''}>
-                  <input type="radio" name="design" checked={c.index === picked} onChange={() => choose(c.index)} />
-                  <CandidateLine candidate={c} />
-                  {c.index === data!.chosen_index && <span className="badge status-accepted">chosen</span>}
-                </label>
-              </li>
-            ))}
-          </ul>
-          {data!.rejected.length > 0 && (
-            <>
-              <h3>Rejected by the designer</h3>
-              <ul className="candidates" aria-label="Rejected designs">
-                {data!.rejected.map((c) => (
-                  <li key={c.index}>
-                    <label className={c.index === picked ? 'on' : ''}>
-                      <input type="radio" name="design" checked={c.index === picked} onChange={() => choose(c.index)} />
-                      <CandidateLine candidate={c} />
-                      <span className="muted"> — {reasons(c).length} reason{reasons(c).length === 1 ? '' : 's'}</span>
-                    </label>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
+          {runs.map((r) => {
+            const of = (c: Candidate) => offers.find((o) => o.run === r.run && o.candidate.index === c.index)!
+            const named = r.run === null ? '' : ` of ${r.run}`
+            const line = (c: Candidate, rejected: boolean) => {
+              const o = of(c)
+              return (
+                <li key={c.index}>
+                  <label className={o.number === offer?.number ? 'on' : ''}>
+                    <input type="radio" name="design" checked={o.number === offer?.number} onChange={() => choose(o.number)} />
+                    <CandidateLine candidate={c} position={o.number} />
+                    {rejected && <span className="muted"> — {reasons(c).length} reason{reasons(c).length === 1 ? '' : 's'}</span>}
+                    {!rejected && r.run === null && c.index === data!.chosen_index &&
+                      <span className="badge status-accepted">chosen</span>}
+                  </label>
+                </li>
+              )
+            }
+            return (
+              <div key={r.run ?? 'current'} className="run">
+                {runs.length > 1 && <h3>{r.label} <span className="muted">· {r.detail}</span></h3>}
+                {r.candidates.length > 0 && (
+                  <ul className="candidates" role="radiogroup" aria-label={`Designs${named}`}>
+                    {r.candidates.map((c) => line(c, false))}
+                  </ul>
+                )}
+                {r.rejected.length > 0 && (
+                  <>
+                    <h4>Rejected by the designer</h4>
+                    <ul className="candidates" aria-label={`Rejected designs${named}`}>{r.rejected.map((c) => line(c, true))}</ul>
+                  </>
+                )}
+                {!r.candidates.length && !r.rejected.length && <p className="muted">No designs in this run.</p>}
+              </div>
+            )
+          })}
         </section>
         <section className="card chart-card" aria-labelledby="chart">
           <h2 id="chart" className="visually-hidden">Chart</h2>
@@ -330,15 +387,16 @@ export function ReviewPage() {
                                   onReset={() => changeView({ ...view, x: DEFAULT_VIEW.x, y: null })} />}
             </>
           )}
-          {visual === 'spectrogram' && (offered.length
-            ? <Spectrogram titleId={titleId} candidate={picked} view={view} onZoom={(x) => changeView({ ...view, x })}
+          {visual === 'spectrogram' && (offers.length
+            ? <Spectrogram titleId={titleId} candidate={picked} variant={pickedRun} view={view}
+                           onZoom={(x) => changeView({ ...view, x })}
                            onReset={() => changeView({ ...view, x: DEFAULT_VIEW.x })} />
             : <p className="muted">No design yet: nothing to draw.</p>)}
           {visual === 'published' && (
             <PublishedBeqs titleId={titleId} ours={chart.data?.series ?? []} picked={picked} view={view} onView={changeView} />
           )}
-          {visual === 'heatmap' && (offered.length
-            ? <HeatmapView titleId={titleId} candidate={picked} title={data!.title} />
+          {visual === 'heatmap' && (offers.length
+            ? <HeatmapView titleId={titleId} candidate={picked} variant={pickedRun} title={data!.title} />
             : <p className="muted">No design yet: nothing to draw.</p>)}
         </section>
         <Commentary candidate={candidate} review={data!} />
@@ -348,8 +406,7 @@ export function ReviewPage() {
                       projectEdited={!!projects.data?.projects.some((p) => p.edited)}
                       series={chart.data?.series ?? []} view={view} onView={changeView} onClose={() => setEditing(null)} />
       )}
-      <VariantsPanel review={data!} shown={shownVariants}
-                     onShow={(variants) => setOverlaid({ title: titleId, variants })} />
+      <VariantsPanel review={data!} />
       <MetadataPanel review={data!} />
     </section>
   )

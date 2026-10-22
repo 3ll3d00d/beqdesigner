@@ -2366,6 +2366,24 @@
               "title": "Candidate"
             },
             "description": "A design; default the chosen one, else the first."
+          },
+          {
+            "name": "variant",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Another of the title's design runs (Review.variants), whose design `candidate` is; absent: the current run's.",
+              "title": "Variant"
+            },
+            "description": "Another of the title's design runs (Review.variants), whose design `candidate` is; absent: the current run's."
           }
         ],
         "responses": {
@@ -2497,6 +2515,24 @@
               "title": "Max Hz"
             },
             "description": "The highest frequency kept."
+          },
+          {
+            "name": "variant",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Another of the title's design runs (Review.variants), whose design `candidate` is; absent: the current run's.",
+              "title": "Variant"
+            },
+            "description": "Another of the title's design runs (Review.variants), whose design `candidate` is; absent: the current run's."
           }
         ],
         "responses": {
@@ -4681,6 +4717,18 @@
             "title": "Override Rejection",
             "description": "Accept a design the designer rejected (otherwise a 409).",
             "default": false
+          },
+          "variant": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Variant",
+            "description": "Accept a design of this earlier design run (Review.variants): the run is made current first, the current one kept as a variant, and `candidate` indexes its designs. Absent: the current run's."
           }
         },
         "additionalProperties": false,
@@ -7680,6 +7728,12 @@
             "title": "Design Runs",
             "description": "How many design runs it keeps (0: not designed).",
             "default": 0
+          },
+          "design_choices": {
+            "type": "integer",
+            "title": "Design Choices",
+            "description": "The designs to choose from in every design run it keeps (candidates; the designer's rejected ones are not counted).",
+            "default": 0
           }
         },
         "type": "object",
@@ -8235,6 +8289,22 @@
             },
             "type": "array",
             "title": "Adjustment Outcomes"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/CandidateView"
+            },
+            "type": "array",
+            "title": "Candidates",
+            "description": "Its designs, as the Review's own: an index is into this run's offered designs."
+          },
+          "rejected": {
+            "items": {
+              "$ref": "#/components/schemas/CandidateView"
+            },
+            "type": "array",
+            "title": "Rejected",
+            "description": "The designs the designer rejected in it."
           }
         },
         "type": "object",

@@ -391,6 +391,12 @@ class TitleRow:
     adjusted: bool = False
     unmet_adjustments: int = 0
     design_runs: int = 0
+    design_choices: int = 0   # the designs to choose from in every run kept; 0: not known (see choices())
+
+    @property
+    def choices(self) -> int:
+        ''' The designs to choose from in every design run kept: the current run's alone when that is not known. '''
+        return self.design_choices or self.candidate_count
 
     @property
     def flags(self) -> List[str]:
@@ -426,7 +432,7 @@ def _adjustment_facts(summary: str) -> dict:
     if not isinstance(facts, dict):
         return {}
     return {'adjusted': bool(facts.get('adjusted')), 'unmet_adjustments': int(facts.get('unmet') or 0),
-            'design_runs': int(facts.get('runs') or 1)}
+            'design_runs': int(facts.get('runs') or 1), 'design_choices': int(facts.get('choices') or 0)}
 
 
 def _design_identity(summary: str) -> Optional[DesignIdentity]:

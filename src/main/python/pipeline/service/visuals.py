@@ -22,6 +22,7 @@ from fastapi.responses import Response
 
 from pipeline.config import AnalysisConfig
 from pipeline.library.spectrum import comparison_request, render_comparison, spectrogram_grid
+from pipeline.library.variants import variant_view
 from pipeline.library.workdir import entry_directory
 from pipeline.publish.heatmap import HeatmapSpec
 
@@ -91,16 +92,24 @@ def _key(request, *extra) -> str:
     return hashlib.sha256(seen.encode('utf-8')).hexdigest()[:24]
 
 
+VARIANT = "Another of the title's design runs (Review.variants), whose design `candidate` is; absent: the current run's."
+
+
 def register(v1: APIRouter, deps: VisualRoutes) -> None:
     Problem = deps.problem
     pending = {202: {'description': 'Being rendered: ask again after `Retry-After` seconds.'}}
 
-    def comparison(title_id: str, candidate: Optional[int]):
+    def comparison(title_id: str, candidate: Optional[int], variant: Optional[str] = None):
         ctx = deps.context()
         settings = ctx.scan_settings()
         with deps.read_index(ctx) as index:
             row = deps.review_row(index, title_id)
         entry = deps.review_entry(settings, title_id)
+        if variant is not None:
+            try:
+                entry = variant_view(entry, variant)
+            except KeyError as error:
+                raise Problem(404, 'No such variant', str(error).strip("'"))
         picked = entry.chosen_candidate_index if candidate is None else candidate
         picked = 0 if picked is None else picked
         try:
@@ -123,8 +132,9 @@ def register(v1: APIRouter, deps: VisualRoutes) -> None:
             summary="The publication heatmap of a design: filtered on the left, as it would be published",
             responses={200: {'content': {'image/png': {}}}, **pending, **deps.responses(404, 409, 422, 503)})
     def heatmap(title_id: str, candidate: Annotated[Optional[int], Query(ge=0, description='A design; default the '
-                                                                                         'chosen one, else the first.')] = None):
-        settings, request = comparison(title_id, candidate)
+                                                                                         'chosen one, else the first.')] = None,
+                variant: Annotated[Optional[str], Query(description=VARIANT)] = None):
+        settings, request = comparison(title_id, candidate, variant)
         path = os.path.join(entry_directory(settings.work_dir, title_id), 'web', f'heatmap-{_key(request)}.png')
         return served(path, lambda: render_comparison(request)[0], 'image/png')
 
@@ -141,8 +151,9 @@ def register(v1: APIRouter, deps: VisualRoutes) -> None:
                     candidate: Annotated[Optional[int], Query(ge=0, description='The design applied when filtered; '
                                                                                 'default the chosen one, else the first.')] = None,
                     filtered: Annotated[bool, Query(description='After the design (else as measured).')] = False,
-                    max_hz: Annotated[float, Query(gt=0, le=500, description='The highest frequency kept.')] = 160.0):
-        settings, request = comparison(title_id, candidate)
+                    max_hz: Annotated[float, Query(gt=0, le=500, description='The highest frequency kept.')] = 160.0,
+                    variant: Annotated[Optional[str], Query(description=VARIANT)] = None):
+        settings, request = comparison(title_id, candidate, variant)
         name = f'spectrogram-{_key(request, filtered if filtered else None, max_hz)}.bin'
         path = os.path.join(entry_directory(settings.work_dir, title_id), 'web', name)
         return served(path, lambda: spectrogram_grid(request, filtered, max_hz).encode(), 'application/octet-stream')

@@ -352,6 +352,58 @@ def test_a_review_lists_the_other_design_runs_and_what_each_was_asked(two_runs):
     assert [(v['variant_id'], v['designs'], v['adjusted_with']) for v in review['variants']] == [('v1', 2, [])]   # a candidate and a rejected design
 
 
+def test_a_review_gives_each_earlier_runs_designs_in_full(two_runs):
+    client, _ = two_runs
+    [v1] = _review(client)['variants']
+    assert [(c['index'], c['rejected']) for c in v1['candidates'] + v1['rejected']] == [(0, False), (1, True)]
+    assert v1['candidates'][0]['filters'] and v1['candidates'][0]['fit'] is not None
+
+
+def test_a_design_of_an_earlier_run_is_accepted_by_making_that_run_current(two_runs):
+    client, queue = two_runs
+    digest = _review(client)['digest']
+    answer = client.post('/v1/titles/a/decision', headers=AUTH,
+                         json={'decision': 'accept', 'candidate': 0, 'digest': digest, 'variant': 'v1'})
+    assert answer.status_code == 200, answer.text
+    body = answer.json()
+    assert (body['status'], body['variant_id'], body['chosen_index']) == ('accepted', 'v1', 0)
+    assert [v['variant_id'] for v in body['variants']] == ['v2']   # the run that was current is kept
+    assert read_entry(queue, 'a').status == 'accepted'
+
+
+def test_an_earlier_runs_design_is_refused_against_a_stale_view_and_nothing_moves(two_runs):
+    client, queue = two_runs
+    answer = client.post('/v1/titles/a/decision', headers=AUTH,
+                         json={'decision': 'accept', 'candidate': 0, 'digest': 'stale', 'variant': 'v1'})
+    assert (answer.status_code, answer.json()['title']) == (409, 'Changed since it was read')
+    assert read_entry(queue, 'a').variant_id == 'v2'
+
+
+def test_a_refused_accept_of_an_earlier_runs_design_puts_the_current_run_back(two_runs):
+    client, queue = two_runs
+    digest = _review(client)['digest']
+    # v1's second design is one the designer rejected: without an override it is refused, after v1 was made current
+    answer = client.post('/v1/titles/a/decision', headers=AUTH,
+                         json={'decision': 'accept', 'candidate': 1, 'digest': digest, 'variant': 'v1'})
+    assert (answer.status_code, answer.json()['title']) == (409, 'The designer rejected this design')
+    entry = read_entry(queue, 'a')
+    assert (entry.variant_id, entry.status, [v['variant_id'] for v in entry.variants]) == ('v2', 'pending', ['v1'])
+
+
+def test_only_an_accept_names_a_design_run(two_runs):
+    client, _ = two_runs
+    digest = _review(client)['digest']
+    answer = client.post('/v1/titles/a/decision', headers=AUTH, json={'decision': 'reject', 'digest': digest, 'variant': 'v1'})
+    assert answer.status_code == 422
+
+
+def test_an_unknown_run_is_not_drawn(two_runs):
+    client, _ = two_runs
+    for path in ('/v1/titles/a/spectrogram', '/v1/titles/a/heatmap.png'):
+        answer = client.get(path, params={'variant': 'v9'}, headers=AUTH)
+        assert (answer.status_code, answer.json()['title']) == (404, 'No such variant'), path
+
+
 def test_another_run_is_charted_by_name(two_runs):
     client, _ = two_runs
     chart = client.get('/v1/titles/a/chart', params={'variant': 'v1', 'candidates': 'all'}, headers=AUTH).json()

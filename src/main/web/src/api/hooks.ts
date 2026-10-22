@@ -194,10 +194,13 @@ export interface ChartAsk {
   all?: boolean
   smoothing?: string
   responses?: boolean
+  /** An earlier design run (Review.variants) whose designs these are; absent or null: the current run's. */
+  variant?: string | null
 }
 
 export function chartQuery(ask: ChartAsk) {
   return {
+    ...(ask.variant ? { variant: ask.variant } : {}),
     ...(ask.all ? { candidates: 'all' } : ask.candidate === null ? {} : { candidate: ask.candidate }),
     ...(ask.smoothing && ask.smoothing !== 'none' ? { smoothing: ask.smoothing } : {}),
     ...(ask.responses ? { responses: true } : {}),
@@ -377,19 +380,21 @@ function renderedQuery<T>(key: unknown[], fetchIt: () => Promise<{ response: Res
 }
 
 /** A title's spectrogram grid, as measured or after a design (`decodeGrid()` reads it). */
-export function useSpectrogram(id: string, candidate: number, filtered: boolean, maxHz: number, enabled: boolean) {
+export function useSpectrogram(id: string, candidate: number, filtered: boolean, maxHz: number, enabled: boolean,
+                               variant: string | null = null) {
   const { client } = useAuth()
-  return useQuery(renderedQuery<ArrayBuffer>(['spectrogram', id, candidate, filtered, maxHz], () =>
+  return useQuery(renderedQuery<ArrayBuffer>(['spectrogram', id, variant, candidate, filtered, maxHz], () =>
     client.GET('/v1/titles/{title_id}/spectrogram', {
-      params: { path: { title_id: id }, query: { candidate, filtered, max_hz: maxHz } }, parseAs: 'arrayBuffer' }), enabled))
+      params: { path: { title_id: id }, query: { candidate, filtered, max_hz: maxHz, ...(variant ? { variant } : {}) } },
+      parseAs: 'arrayBuffer' }), enabled))
 }
 
 /** The publication heatmap of a design, as an object URL (revoked when replaced or the page goes). */
-export function useHeatmapUrl(id: string, candidate: number, enabled: boolean) {
+export function useHeatmapUrl(id: string, candidate: number, enabled: boolean, variant: string | null = null) {
   const { client } = useAuth()
-  const query = useQuery(renderedQuery<Blob>(['heatmap', id, candidate], () =>
+  const query = useQuery(renderedQuery<Blob>(['heatmap', id, variant, candidate], () =>
     client.GET('/v1/titles/{title_id}/heatmap.png', {
-      params: { path: { title_id: id }, query: { candidate } }, parseAs: 'blob' }), enabled))
+      params: { path: { title_id: id }, query: { candidate, ...(variant ? { variant } : {}) } }, parseAs: 'blob' }), enabled))
   const blob = query.data && !query.data.pending ? query.data.data : null
   const url = useMemo(() => (blob ? URL.createObjectURL(blob) : null), [blob])
   useEffect(() => () => { if (url) URL.revokeObjectURL(url) }, [url])

@@ -61,18 +61,20 @@ function drawDots(context: CanvasRenderingContext2D, grid: Grid, groups: Uint32A
 }
 
 /** The published image, opened on request: the PNG publish writes for this design. */
-function PublishedImage({ titleId, candidate }: { titleId: string; candidate: number }) {
+function PublishedImage({ titleId, candidate, variant }: { titleId: string; candidate: number; variant: string | null }) {
   const [asked, setAsked] = useState(false)
-  const heatmap = useHeatmapUrl(titleId, candidate, asked)
+  const heatmap = useHeatmapUrl(titleId, candidate, asked, variant)
   if (!asked) return <button type="button" className="secondary small" onClick={() => setAsked(true)}>Published image…</button>
   if (heatmap.error) return <span role="alert" className="problem">{heatmap.error.message}</span>
   if (!heatmap.url) return <span className="muted" role="status">Drawing the published image…</span>
   return <a href={heatmap.url} target="_blank" rel="noreferrer">Open the published image</a>
 }
 
-export function HeatmapView({ titleId, candidate, title }: { titleId: string; candidate: number; title: string }) {
-  const before = useSpectrogram(titleId, candidate, false, MAX_HZ, true)
-  const after = useSpectrogram(titleId, candidate, true, MAX_HZ, true)
+export function HeatmapView({ titleId, candidate, variant = null, title }: {
+  titleId: string; candidate: number; variant?: string | null; title: string
+}) {
+  const before = useSpectrogram(titleId, candidate, false, MAX_HZ, true, variant)
+  const after = useSpectrogram(titleId, candidate, true, MAX_HZ, true, variant)
   const canvas = useRef<HTMLCanvasElement>(null)
   const holder = useRef<HTMLDivElement>(null)
   const width = useWidth(holder)
@@ -148,7 +150,7 @@ export function HeatmapView({ titleId, candidate, title }: { titleId: string; ca
       <div className="row">
         <ColourBar low={`${Math.round(levels[0])} dB`} high={`${Math.round(levels[1])} dB`}
                    label={`${Math.round(levels[0])} to ${Math.round(levels[1])} dB`} />
-        <PublishedImage titleId={titleId} candidate={candidate} />
+        <PublishedImage titleId={titleId} candidate={candidate} variant={variant} />
       </div>
       {grids && <PlaneControls label="Heatmap view" plane={shown} full={{ x: fullX, t: fullT }} logX={false}
                                canBack={history.canBack} onChange={history.go} onBack={history.back} onReset={reset} />}

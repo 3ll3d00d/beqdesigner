@@ -64,16 +64,18 @@ export function ColourBar({ low, high, label, gradient = scaleGradient() }: { lo
 interface Props {
   titleId: string
   candidate: number
+  /** The design run `candidate` is of; null: the current one. */
+  variant?: string | null
   view: ChartView
   onZoom: (x: Range) => void
   onReset: () => void
 }
 
-export function Spectrogram({ titleId, candidate, view, onZoom, onReset }: Props) {
+export function Spectrogram({ titleId, candidate, variant = null, view, onZoom, onReset }: Props) {
   const [mode, setMode] = useState<GridMode>('before')
   const [times, setTimes] = useState<Range | null>(null)
-  const before = useSpectrogram(titleId, candidate, false, MAX_HZ, true)
-  const after = useSpectrogram(titleId, candidate, true, MAX_HZ, mode !== 'before')
+  const before = useSpectrogram(titleId, candidate, false, MAX_HZ, true, variant)
+  const after = useSpectrogram(titleId, candidate, true, MAX_HZ, mode !== 'before', variant)
   const canvas = useRef<HTMLCanvasElement>(null)
   const strip = useRef<HTMLCanvasElement>(null)
   const holder = useRef<HTMLDivElement>(null)

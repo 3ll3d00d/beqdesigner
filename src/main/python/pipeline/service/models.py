@@ -192,7 +192,7 @@ _SORT_KEYS = {
     TitleSort.needs: lambda r: NEEDS.index(r.needs) if r.needs in NEEDS else len(NEEDS),
     TitleSort.detail: lambda r: r.detail.casefold() or None,
     TitleSort.confidence: lambda r: r.confidence,
-    TitleSort.candidate_count: lambda r: r.candidate_count,
+    TitleSort.candidate_count: lambda r: r.choices,
     TitleSort.flags: lambda r: ', '.join(r.flags) or None,
 }
 
@@ -230,6 +230,8 @@ class Title(BaseModel):
     adjusted: bool = Field(False, description='Its current design was asked to change something (contract 1.5).')
     unmet_adjustments: int = Field(0, description='How many of those the designer did not simply honour.')
     design_runs: int = Field(0, description='How many design runs it keeps (0: not designed).')
+    design_choices: int = Field(0, description='The designs to choose from in every design run it keeps (candidates; the '
+                                               'designer\'s rejected ones are not counted).')
 
     @classmethod
     def of(cls, row) -> 'Title':
@@ -241,7 +243,8 @@ class Title(BaseModel):
                    confidence=row.confidence, candidate_count=row.candidate_count, failure=row.failure,
                    is_new=row.is_new, state_since=timestamp(row.state_since), last_seen=timestamp(row.last_seen),
                    design_version=row.design_identity.version if row.design_identity else None,
-                   adjusted=row.adjusted, unmet_adjustments=row.unmet_adjustments, design_runs=row.design_runs)
+                   adjusted=row.adjusted, unmet_adjustments=row.unmet_adjustments, design_runs=row.design_runs,
+                   design_choices=row.choices)
 
 
 class TitlePage(BaseModel):
@@ -352,6 +355,9 @@ class VariantSummary(BaseModel):
     declined: bool
     adjusted_with: List[Dict[str, Any]]
     adjustment_outcomes: List[Dict[str, Any]]
+    candidates: List[CandidateView] = Field(default_factory=list, description="Its designs, as the Review's own: an index "
+                                                                              "is into this run's offered designs.")
+    rejected: List[CandidateView] = Field(default_factory=list, description='The designs the designer rejected in it.')
 
 
 class EditedFilter(Input):
@@ -444,6 +450,9 @@ class Decision(Input):
     candidate: Optional[int] = Field(None, ge=0, description='Required to accept: the index of a design in the Review.')
     digest: str = Field(description="The Review's digest: what was looked at.")
     override_rejection: bool = Field(False, description='Accept a design the designer rejected (otherwise a 409).')
+    variant: Optional[str] = Field(None, description="Accept a design of this earlier design run (Review.variants): the run "
+                                                     "is made current first, the current one kept as a variant, and "
+                                                     "`candidate` indexes its designs. Absent: the current run's.")
 
 
 class NextQuery(TitleFilter):

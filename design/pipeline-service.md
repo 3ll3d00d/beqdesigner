@@ -244,7 +244,7 @@ Every request and response body is a named pydantic model in
 | `POST /v1/notify/test` | `NotifyTest` → `NotifyOutcome` | sample events to one target (§9) |
 | `GET /v1/titles/{id}/review` | → `Review` | §6.8; 404 unknown title, 409 no queue entry |
 | `GET /v1/titles/{id}/chart` | query `candidate` or `candidates` (`all`, or indexes), `smoothing`, `responses`, `variant` (another design run, `variants.variant_view()`; its series carry `variant`) → `Chart` | measured curves, and after each design asked for (`ChartSeries.candidate`), with each one's response (`kind` filter) when asked; the main window's smoothing (`review_chart.SMOOTHING`) of all but the responses; 422 no such design, both `candidate` and `candidates`, an unknown smoothing or one a curve is too sparse for |
-| `POST /v1/titles/{id}/decision` | `Decision` → `Review` | §6.8; 409 refused (why in `title`/`detail`), 422 invalid |
+| `POST /v1/titles/{id}/decision` | `Decision` → `Review` | §6.8; 409 refused (why in `title`/`detail`), 422 invalid. An accept may name an earlier design run (`variant`): the digest is checked, the run made current, then accepted, and the current run put back if the accept is refused |
 | `GET /v1/review/next` | query `after` + `TitleFilter` → `NextTitle` | 204 when no other title in the list waits |
 | `GET /v1/metadata/fields` | → `MetadataField[]` | `metadata_edit.FIELD_SPECS`: the title page's fields, labels, tips and choices |
 | `PATCH /v1/titles/{id}/metadata` | `MetadataEdit` → `Review` | `metadata_edit.changes_from_texts()` then `save_meta_changes()` (only the fields sent, merged into the entry on disk); 409 `In flight` or `Changed since it was read` (the `metadata_digest` differs), 422 not an edit; the index refreshed after |

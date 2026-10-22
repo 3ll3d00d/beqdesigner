@@ -64,3 +64,28 @@ def test_a_row_says_the_facts_and_a_title_with_no_entry_has_no_runs(index):
     assert rows['bare'].design_runs == 0
     assert Selection(adjusted=True, unmet=False, several_runs=True).describe() == \
         'asked to change something, with every adjustment honoured, with earlier design runs'
+
+
+def test_the_designs_to_choose_from_count_every_kept_run(tmp_path):
+    ''' The Titles list's Designs column: every run's candidates, not how many runs (the designer's rejected ones aside). '''
+    one = EntryFacts.of(_entry(tmp_path, 'one'), 1, 2)
+    assert one.choices == one.candidates
+    earlier = _entry(tmp_path, 'earlier', variants=[{'variant_id': 'v1', 'candidates': [{}, {}], 'rejected': [{}]},
+                                                    {'variant_id': 'v2', 'candidates': [{}]}])
+    facts = EntryFacts.of(earlier, 1, 2)
+    assert facts.choices == len(earlier.candidates) + 3
+
+
+def test_a_row_counts_the_designs_of_every_run_and_falls_back_to_the_current_runs(tmp_path):
+    def summary(entry_id, **fields):
+        return EntryFacts.of(_entry(tmp_path / 'q', entry_id, **fields), 1, 2).to_json()
+    old = EntryFacts.of(_entry(tmp_path / 'q', 'old'), 1, 2)
+    old_summary = old.to_json().replace('"choices": %d' % old.choices, '"choices": 0')   # written before it was kept
+    rows = [dict(title_row('two', 'Two', needs='review', candidate_count=1),
+                 entry_summary=summary('two', variants=[{'variant_id': 'v1', 'candidates': [{}, {}]}])),
+            dict(title_row('old', 'Old', needs='review', candidate_count=4), entry_summary=old_summary)]
+    make_index(tmp_path, rows)
+    with LibraryIndex(index_path(str(tmp_path)), readonly=True) as opened:
+        found = {r.id: r for r in opened.titles()}
+    assert found['two'].choices == found['two'].design_choices == 2 + len(read_entry(str(tmp_path / 'q'), 'two').candidates)
+    assert (found['old'].design_choices, found['old'].choices) == (0, 4)

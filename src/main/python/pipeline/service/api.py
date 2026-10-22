@@ -24,7 +24,7 @@ from pipeline.library.decide import DECISION_FROM, STATUS_WORDS, DecisionRefused
     next_waiting_id, offered_digest
 from pipeline.library.index import IndexFileError, LibraryIndex
 from pipeline.library.metadata_edit import field_texts, metadata_digest
-from pipeline.library.variants import variant_view
+from pipeline.library.variants import VariantRefused, use_variant, variant_offered, variant_view
 from pipeline.library.review_chart import SMOOTHING, workbench_curves
 from pipeline.library.selection import plan_stages
 from pipeline.library.status import metadata_problems
@@ -446,17 +446,7 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
             return decision_blocked(decision, entry, row, running, problems, run_hint=RUN_FROM_JOBS,
                                     metadata_hint=METADATA_IN_APP)
 
-        def view(index: int, candidate, rejected: bool) -> models.CandidateView:
-            return models.CandidateView(
-                index=index, rejected=rejected, method=candidate.method, confidence=candidate.confidence,
-                mv_adjust_db=candidate.mv_adjust_db, gain_reduction_db=candidate.gain_reduction_db,
-                residual_db=candidate.residual_db,
-                residual_band_hz=list(candidate.residual_band_hz) if candidate.residual_band_hz else None,
-                residual_at_hz=candidate.residual_at_hz, residual_direction=candidate.residual_direction,
-                residual_rms_db=candidate.residual_rms_db, residual_within_tolerance=candidate.residual_within_tolerance,
-                residual_tolerance_db=candidate.residual_tolerance_db, fit=fit_text(candidate),
-                commentary=_without_repeated_fit(candidate), rejection_reasons=list(candidate.rejection_reasons or []),
-                filters=candidate.filters)
+        view = candidate_view
         count = len(entry.candidates)
         return models.Review(
             id=row.id, title=entry_title(entry, row), year=entry_year(entry, row), status=entry.status,
@@ -475,12 +465,27 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
             adjustment_outcomes=list(entry.adjustment_outcomes), variant_id=entry.variant_id,
             designed_at=entry.designed_at, variants=[variant_summary(v) for v in entry.variants])
 
+    def candidate_view(index: int, candidate, rejected: bool) -> models.CandidateView:
+        return models.CandidateView(
+            index=index, rejected=rejected, method=candidate.method, confidence=candidate.confidence,
+            mv_adjust_db=candidate.mv_adjust_db, gain_reduction_db=candidate.gain_reduction_db,
+            residual_db=candidate.residual_db,
+            residual_band_hz=list(candidate.residual_band_hz) if candidate.residual_band_hz else None,
+            residual_at_hz=candidate.residual_at_hz, residual_direction=candidate.residual_direction,
+            residual_rms_db=candidate.residual_rms_db, residual_within_tolerance=candidate.residual_within_tolerance,
+            residual_tolerance_db=candidate.residual_tolerance_db, fit=fit_text(candidate),
+            commentary=_without_repeated_fit(candidate), rejection_reasons=list(candidate.rejection_reasons or []),
+            filters=candidate.filters)
+
     def variant_summary(v: dict) -> models.VariantSummary:
+        candidates, rejected = variant_offered(v)
         return models.VariantSummary(
             variant_id=v.get('variant_id') or '', designed_at=v.get('designed_at'), designer=v.get('designer'),
             designer_build=v.get('designer_build'), design_version=v.get('design_version'),
             designs=len(v.get('candidates') or []) + len(v.get('rejected') or []), declined=bool(v.get('decline_reason')),
-            adjusted_with=list(v.get('adjusted_with') or []), adjustment_outcomes=list(v.get('adjustment_outcomes') or []))
+            adjusted_with=list(v.get('adjusted_with') or []), adjustment_outcomes=list(v.get('adjustment_outcomes') or []),
+            candidates=[candidate_view(i, c, False) for i, c in enumerate(candidates)],
+            rejected=[candidate_view(len(candidates) + i, c, True) for i, c in enumerate(rejected)])
 
     def artwork_state(settings, entry) -> models.ArtworkState:
         path = entry_art_path(entry, settings.work_dir or None)
@@ -547,16 +552,31 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
         settings = ctx.scan_settings()
         with read_index(ctx) as index:
             row = review_row(index, title_id)
-        review_entry(settings, title_id)   # a 409 for a title with nothing to decide
+        entry = review_entry(settings, title_id)   # a 409 for a title with nothing to decide
+        current = entry.variant_id or 'v1'
+        swapped = body.decision.value == 'accept' and body.variant is not None and body.variant != current
+        if body.variant is not None and body.decision.value != 'accept':
+            raise ServiceProblem(422, 'Invalid decision', 'only an accept names a design run')
+        seen = body.digest
+        if swapped:
+            # what was looked at is the current run with the earlier one beside it: check it, then make that run current
+            if body.digest != offered_digest(entry):
+                raise ServiceProblem(409, DECISION_REFUSED['changed'], f'{title_id} was designed again since it was opened')
+            try:
+                seen = offered_digest(use_variant(settings.queue_dir, title_id, body.variant))
+            except VariantRefused as refused:
+                raise ServiceProblem(409 if 'no variant' not in str(refused) else 404, 'Not used', str(refused))
         try:
-            written = decide(settings.queue_dir, title_id, body.decision.value, seen_digest=body.digest,
+            written = decide(settings.queue_dir, title_id, body.decision.value, seen_digest=seen,
                              picked=body.candidate, row=row, running=in_flight(ctx, row), run_hint=RUN_FROM_JOBS,
                              meta_defaults=settings.meta_defaults, override_rejection=body.override_rejection)
-        except DecisionRefused as refused:
-            status, title = (422, 'Invalid decision') if refused.kind == 'invalid' else (409, DECISION_REFUSED[refused.kind])
-            raise ServiceProblem(status, title, refused.reason)
-        except OSError as error:
-            raise ServiceProblem(503, 'Not saved', f'{title_id}: {type(error).__name__}: {error}')
+        except (DecisionRefused, OSError) as error:
+            if swapped:   # the decision did not happen: put the run that was current back
+                use_variant(settings.queue_dir, title_id, current)
+            if isinstance(error, OSError):
+                raise ServiceProblem(503, 'Not saved', f'{title_id}: {type(error).__name__}: {error}')
+            status, title = (422, 'Invalid decision') if error.kind == 'invalid' else (409, DECISION_REFUSED[error.kind])
+            raise ServiceProblem(status, title, error.reason)
         refresher.request()   # the index learns of it by reading the outputs again (pipeline/service/refresh.py)
         return review_model(ctx, settings, row, written)
 

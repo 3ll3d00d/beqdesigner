@@ -81,6 +81,12 @@ def _known(candidate: dict) -> dict:
     return {k: v for k, v in candidate.items() if k in _CANDIDATE_FIELDS}
 
 
+def variant_offered(variant: dict):
+    ''' A kept design run's candidates and rejected designs, as the entry's own (CandidateSummary). '''
+    return ([CandidateSummary(**_known(c)) for c in variant.get('candidates') or []],
+            [CandidateSummary(**_known(c)) for c in variant.get('rejected') or []])
+
+
 def variant_view(entry: QueueEntry, variant_id: str) -> QueueEntry:
     '''
     The entry as it would be with variant `variant_id` current -- for charting an earlier design run beside this one.

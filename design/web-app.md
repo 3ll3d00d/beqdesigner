@@ -104,9 +104,10 @@ message. Tests: `test_pipeline_library_decide.py`.
     text is sent once typing pauses); both are the service's (`sort`/`descending`, the filter), so they hold across pages,
     and both live in the address bar (`filterToQuery`/`sortToQuery`, so a list can be linked to). *New since the last
     scan*, *Include titles that need nothing*, *Designer* (any, declined, not declined), *Design version* (any, out of
-    date, not out of date), *Adjustments*, *Answers* and *Design runs* (contract 1.5's asks and the
-    kept runs: `adjusted`, `unmet`, `several_runs`, read from the index's entry summary; badges mark titles adjusted, with
-    how many asks were not honoured, or keeping several runs) sit above it, *Review next waiting*, *Redesign out of date…* (shown with *Out of date*: one
+    date, not out of date), *Adjustments* and *Answers* (contract 1.5's asks: `adjusted`,
+    `unmet`, read from the index's entry summary; a badge marks a title adjusted, with how many asks were not honoured) sit
+    above it; how many design runs a title keeps is the review page's to show, and the *Designs* column counts the designs
+    to choose from in all of them (`design_choices`), *Review next waiting*, *Redesign out of date…* (shown with *Out of date*: one
     redesign job by version after an inline confirmation), and *Publish accepted…* / *Commit published…*:
     a plan of the filter with `needs` publish (or commit) says how many, an inline confirmation names the repositories,
     and a run job through publish (or commit) is submitted and followed. Disabled with the reason as on New job.
@@ -209,11 +210,20 @@ below 10 Hz), and *Pick a band on the chart*: the page then takes the magnitude 
 (`MagnitudeChart`'s `bands`, drawn in uPlot's `draw` hook). For one title it starts from the review's `adjustments`. The list goes as `ReviseRequest.adjustments`
 (`[]` asks for none; unticked, each title keeps its own).
 
-`VariantsPanel` lists the current design run (`variant_id`, `designed_at`, `adjusted_with` and each ask's outcome,
-`outcomeText()`; what the next design is asked when it differs) and the earlier ones newest first. Ticking one fetches
-`/chart?variant=…&candidates=all` (`useVariantCharts`) and adds its filtered curves to the magnitude chart, thin and
-dashed (`seriesStyle()` for a series with `variant`). *Use this one* (disabled on an accepted or published title) and
-*Discard…* (asks first) send the review's `digest`.
+Every kept design run's designs are in the review's one list of designs (`runsOf()`, `offersOf()`): the current run
+first, then the earlier ones newest first, each under a heading (its id, when, the build, declined) when there is more
+than one, its candidates and then the ones its designer rejected, numbered on through the whole list -- the number is
+what 1-9 and *Accept design N* say. The review carries each earlier run's designs in full (`VariantSummary.candidates`
+and `rejected`, as the current run's). Highlighting one of an earlier run charts it from that run (`/chart?variant=…`),
+and the spectrogram and heatmap draw it the same way (`variant` on both); with *All designs* the other runs' designs are
+drawn too (`useVariantCharts`, thin and dashed: `seriesStyle()` for a series with `variant`). Accepting it sends
+`Decision.variant`: the service checks the digest, makes that run current (the current one kept) and accepts, and puts
+the current run back if the accept is refused. *Edit filters…* edits a design of the current run only.
+
+`VariantsPanel` (*Design runs (N)*) lists the current design run (`variant_id`, `designed_at`, `adjusted_with` and each
+ask's outcome, `outcomeText()`; what the next design is asked when it differs) and the earlier ones newest first, with
+*Use this one* (disabled on an accepted or published title) and *Discard…* (asks first), which send the review's
+`digest`.
 
 ### 4.7 Editing a design
 
