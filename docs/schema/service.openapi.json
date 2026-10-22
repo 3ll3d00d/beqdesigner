@@ -4738,6 +4738,27 @@
             "title": "Detail",
             "description": "Its URL when it answered, else why not."
           },
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At",
+            "description": "When its /health was last asked."
+          },
+          "designing": {
+            "items": {
+              "$ref": "#/components/schemas/EndpointDesign"
+            },
+            "type": "array",
+            "title": "Designing",
+            "description": "What a run has out on it now, oldest first; empty when nothing is."
+          },
           "design_version": {
             "anyOf": [
               {
@@ -4937,6 +4958,33 @@
           "q"
         ],
         "title": "EditedFilter"
+      },
+      "EndpointDesign": {
+        "properties": {
+          "title_id": {
+            "type": "string",
+            "title": "Title Id",
+            "description": "The title the design is for."
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "description": "Its name, as the run knew it; empty when it had none."
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At",
+            "description": "When the design was sent."
+          }
+        },
+        "type": "object",
+        "required": [
+          "title_id",
+          "title",
+          "started_at"
+        ],
+        "title": "EndpointDesign"
       },
       "ExtractProgressEvent": {
         "properties": {

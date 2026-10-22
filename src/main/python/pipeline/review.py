@@ -439,12 +439,14 @@ def design_and_queue(session: Session, entry_id: str, wav_path: str, designer: s
     '''
     from model.codec import xydata_to_json
 
+    from pipeline.designer.pool import designing
     from pipeline.designer.sources import sources_for
     sig = session.load(wav_path, name=entry_id)
     # where the arrays came from, for a designer that takes them by reference (design/designer-interface.md §7.1)
     sources = sources_for(wav_path, multichannel_wav_path, channels)
-    outcome = session.design(sig, designer, coverage=coverage, bass_management=bass_management, channels=channels,
-                             sources=sources, adjustments=adjustments_of(adjustments))
+    with designing(entry_id, str((meta or {}).get('title') or '')):   # what a pooled designer's endpoints are on now
+        outcome = session.design(sig, designer, coverage=coverage, bass_management=bass_management, channels=channels,
+                                 sources=sources, adjustments=adjustments_of(adjustments))
     curve = xydata_to_json(session.curves(sig, kind='avg', filtered=False))
     peak_curve = xydata_to_json(session.curves(sig, kind='peak', filtered=False))
     entry = _outcome_to_entry(entry_id, sig.signal.fs, meta or {}, curve, outcome, peak_curve=peak_curve)

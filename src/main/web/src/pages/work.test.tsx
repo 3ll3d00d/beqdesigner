@@ -5,6 +5,7 @@ import { http, HttpResponse } from 'msw/http'
 
 import { filterFromQuery, filterToQuery, sortFromQuery, sortToQuery } from '../api/filter'
 import { saveToken } from '../api/token'
+import { when } from '../format'
 import { event, eventStream, index, runJob, runResult, scanJob, schedule } from '../test/fixtures'
 import { renderApp } from '../test/render'
 import { server, status, statusRoute, TOKEN } from '../test/server'
@@ -86,23 +87,44 @@ describe('status', () => {
     expect(router.state.location.search).toBe('?needs=attention')
   })
 
-  it('lists a designer\'s endpoints, up and down, when it has more than one', async () => {
+  it('lists each designer endpoint in a table: url, version, status with the last ping, parallel and activity', async () => {
     const designer = {
-      name: 'beqforge', reachable: true, detail: 'http://a/design (1 of 2 endpoints down)', checked_at: null,
-      endpoints: [{ url: 'http://a/design', parallel: 1, reachable: true, detail: 'http://a/design' },
-                  { url: 'http://b/design', parallel: 3, reachable: false, detail: 'GET http://b/health failed: refused' }],
+      name: 'beqforge', reachable: true, detail: 'http://a/design (1 of 2 endpoints down)', checked_at: '2026-10-22T08:00:00Z',
+      endpoints: [{ url: 'http://a/design', parallel: 1, reachable: true, detail: 'http://a/design', design_version: 5,
+                    designer_build: 'src:2628', checked_at: '2026-10-22T08:00:00Z',
+                    designing: [{ title_id: 't1', title: 'Alien', started_at: '2026-10-22T07:58:00Z' }] },
+                  { url: 'http://b/design', parallel: 3, reachable: false, detail: 'GET http://b/health failed: refused',
+                    checked_at: '2026-10-22T08:00:00Z', designing: [] }],
     }
     server.use(statusRoute(status({ index: index(), designer })), http.get('/v1/schedule', () => json(schedule())))
     renderApp('/')
 
-    const list = await screen.findByRole('list', { name: 'Endpoints' })
-    const [a, b] = within(list).getAllByRole('listitem')
-    expect(a).toHaveTextContent(/^up http:\/\/a\/design · 1 at once$/)
-    expect(b).toHaveTextContent(/^down http:\/\/b\/design · 3 at once · GET http:\/\/b\/health failed: refused$/)
-    expect(screen.getByText('answering')).toBeInTheDocument()
+    const table = await screen.findByRole('table', { name: 'Designers' })
+    expect(within(table).getAllByRole('columnheader').map((th) => th.textContent))
+      .toEqual(['URL', 'Version', 'Status', 'Parallel', 'Activity'])
+    const [, a, b] = within(table).getAllByRole('row')
+    const cells = (row: HTMLElement) => within(row).getAllByRole('cell').map((td) => td.textContent)
+    const at = when('2026-10-22T08:00:00Z')
+    expect(cells(a!)).toEqual(['http://a/design', 'design 5src:2628', `up · ${at}`, '1', `Alien since ${when('2026-10-22T07:58:00Z')}`])
+    expect(cells(b!)).toEqual(['http://b/design', '—', `down · ${at}GET http://b/health failed: refused`, '3', '—'])
+    expect(within(a!).getByRole('link', { name: 'Alien' })).toHaveAttribute('href', '/titles/t1')
+    expect(screen.getByRole('heading', { name: 'Designer: beqforge' })).toBeInTheDocument()
   })
 
-  it('says the design version a redesign would use, each endpoint\'s, and warns when the endpoints differ', async () => {
+  it('says an endpoint with nothing out is idle, and lists a designer with one endpoint too', async () => {
+    const designer = { name: 'beqforge', reachable: true, detail: 'http://a/design', checked_at: null,
+                       endpoints: [{ url: 'http://a/design', parallel: 2, reachable: true, detail: 'http://a/design' }],
+                       design_version: null, design_disagreement: [] }
+    server.use(statusRoute(status({ index: index(), designer })), http.get('/v1/schedule', () => json(schedule())))
+    renderApp('/')
+
+    const table = await screen.findByRole('table', { name: 'Designers' })
+    const [, a] = within(table).getAllByRole('row')
+    expect(within(a!).getAllByRole('cell').map((td) => td.textContent)).toEqual(['http://a/design', '—', 'up · —', '2', 'idle'])
+    expect(screen.queryByRole('alert', { name: 'Designers disagree' })).not.toBeInTheDocument()
+  })
+
+  it('warns when the endpoints up would design differently', async () => {
     const designer = {
       name: 'beqforge', reachable: true, detail: 'http://a/design, http://b/design', checked_at: null,
       endpoints: [{ url: 'http://a/design', parallel: 1, reachable: true, detail: 'http://a/design', design_version: 4 },
@@ -114,33 +136,20 @@ describe('status', () => {
     server.use(statusRoute(status({ index: index(), designer })), http.get('/v1/schedule', () => json(schedule())))
     renderApp('/')
 
-    expect(await screen.findByText(/Designs with design version 5/)).toBeInTheDocument()
-    const [a] = within(screen.getByRole('list', { name: 'Endpoints' })).getAllByRole('listitem')
-    expect(a).toHaveTextContent(/^up http:\/\/a\/design · 1 at once · design version 4$/)
-    const warning = screen.getByRole('alert', { name: 'Designers disagree' })
+    const warning = await screen.findByRole('alert', { name: 'Designers disagree' })
     expect(within(warning).getAllByRole('listitem').map((li) => li.textContent)).toEqual(designer.design_disagreement)
+    const rows = within(screen.getByRole('table', { name: 'Designers' })).getAllByRole('row')
+    expect(rows.slice(1).map((r) => within(r).getAllByRole('cell')[1]!.textContent)).toEqual(['design 4', 'design 5'])
   })
 
-  it('says no design version, and warns of nothing, for designers from before it', async () => {
-    const designer = { name: 'beqforge', reachable: true, detail: 'http://a/design', checked_at: null,
-                       endpoints: [{ url: 'http://a/design', parallel: 1, reachable: true, detail: 'http://a/design' }],
-                       design_version: null, design_disagreement: [] }
+  it('says why a designer with no endpoints has nothing to show', async () => {
+    const designer = { name: 'manual', reachable: null, detail: 'not an HTTP designer: nothing to ask', checked_at: null,
+                       endpoints: [] }
     server.use(statusRoute(status({ index: index(), designer })), http.get('/v1/schedule', () => json(schedule())))
     renderApp('/')
 
-    expect(await screen.findByText('answering')).toBeInTheDocument()
-    expect(screen.queryByText(/design version/)).not.toBeInTheDocument()
-    expect(screen.queryByRole('alert', { name: 'Designers disagree' })).not.toBeInTheDocument()
-  })
-
-  it('shows no endpoint list for a designer with one', async () => {
-    const designer = { name: 'beqforge', reachable: true, detail: 'http://a/design', checked_at: null,
-                       endpoints: [{ url: 'http://a/design', parallel: 1, reachable: true, detail: 'http://a/design' }] }
-    server.use(statusRoute(status({ index: index(), designer })), http.get('/v1/schedule', () => json(schedule())))
-    renderApp('/')
-
-    expect(await screen.findByText('answering')).toBeInTheDocument()
-    expect(screen.queryByRole('list', { name: 'Endpoints' })).not.toBeInTheDocument()
+    expect(await screen.findByText('not an HTTP designer: nothing to ask')).toBeInTheDocument()
+    expect(screen.queryByRole('table', { name: 'Designers' })).not.toBeInTheDocument()
   })
 
   it('follows the job running now', async () => {
@@ -156,9 +165,36 @@ describe('status', () => {
 
     expect(await screen.findByText(/Run through design: needing extract or design, movies/)).toBeInTheDocument()
     expect(screen.getByRole('progressbar', { name: 'Progress' })).toHaveAttribute('value', '1')
+    const facts = screen.getByText('Estimated end').closest('dl')!
+    const rows = Object.fromEntries(within(facts).getAllByRole('term').map((dt) => [dt.textContent, dt.nextElementSibling!.textContent]))
+    expect(Object.keys(rows)).toEqual(['Job', 'Started', 'Estimated end', 'Progress', 'Activity'])
+    expect(rows['Started']).toBe(when(running.started_at))
+    expect(rows['Estimated end']).toBe('— (about 10 min 0 s to go)')
+    expect(rows['Progress']).toBe('1 of 4')
     expect(await screen.findByText(/42% extracted/)).toBeInTheDocument()
-    expect(screen.getByText(/About 10 min 0 s to go/)).toBeInTheDocument()
+    expect(within(facts).getByText('Alien')).toBeInTheDocument()
     expect(screen.getByText(/2 jobs waiting/)).toBeInTheDocument()
+  })
+
+  it('says when the job should end and lists the designs out on the designer as its activity', async () => {
+    const running = runJob({ state: 'running', finished_at: null, result: null,
+                             progress: { done: 10, total: 100, title: 'Brazil', stage: 'design', id: 'b', remaining_seconds: 3600,
+                                         per_hour: 40, estimated_finish: '2026-10-23T07:00:00Z' } })
+    const designer = { name: 'beqforge', reachable: true, detail: '', checked_at: null,
+                       endpoints: [{ url: 'http://a/design', parallel: 2, reachable: true, detail: 'http://a/design',
+                                     designing: [{ title_id: 'a', title: 'Alien', started_at: '2026-10-22T08:00:00Z' },
+                                                 { title_id: 'b', title: 'Brazil', started_at: '2026-10-22T08:01:00Z' }] }] }
+    server.use(statusRoute(status({ index: index(), current_job: running, designer })),
+               http.get('/v1/schedule', () => json(schedule())),
+               http.get('/v1/jobs/job-1/events', () => new HttpResponse(eventStream([]),
+                                                                        { headers: { 'Content-Type': 'text/event-stream' } })))
+    renderApp('/')
+
+    const facts = (await screen.findByText('Estimated end')).closest('dl')!
+    const rows = Object.fromEntries(within(facts).getAllByRole('term').map((dt) => [dt.textContent, dt.nextElementSibling!.textContent]))
+    expect(rows['Estimated end']).toBe(`${when('2026-10-23T07:00:00Z')} (about 1 h 0 min to go)`)
+    expect(rows['Progress']).toBe('10 of 100, 40 an hour')
+    expect(rows['Activity']).toBe('designing Alien, Brazil')
   })
 
   it('pauses and runs the schedule, and says why a tick was refused', async () => {

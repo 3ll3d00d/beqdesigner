@@ -176,6 +176,64 @@ def test_the_status_lists_each_endpoint(tmp_path, designer):
     assert [(e['parallel'], e['reachable']) for e in status['endpoints']] == [(1, True), (2, False)]
 
 
+def test_the_status_says_when_each_endpoint_was_asked_and_what_a_run_has_out_on_it(tmp_path, designer):
+    from pipeline.designer.pool import DesignerPool, PoolEndpoint, designing
+    from pipeline.designer.registry import register_designer, unregister_designer
+    (tmp_path / 'work').mkdir()
+    down = _nothing_listening()
+    profile = _pool_profile(tmp_path, [designer.url, down])
+    release, sent = threading.Event(), threading.Event()
+
+    def call(request):
+        sent.set()
+        assert release.wait(5)
+
+    # what a run registers under the profile's designer name, with a design out on the endpoint that is up
+    def refused():
+        raise DesignerUnavailable('refused')
+
+    def design():
+        with designing('t1', 'Alien'):
+            pool(object())
+
+    pool = DesignerPool('rolloff', [PoolEndpoint(designer.url, call, lambda: {'status': 'ok'}, parallel=1),
+                                    PoolEndpoint(down, call, refused, parallel=2)],
+                        wall_clock=lambda: 1_700_000_000.0)
+    register_designer('rolloff', pool)
+    worker = threading.Thread(target=design)
+    manager = JobManager(lambda job, control: None)
+    app = create_app(manager, ServiceConfig(profile_path=profile, token=TOKEN), env={},
+                     designer=DesignerProbe(profile, {}, timeout=2))
+    try:
+        worker.start()
+        assert sent.wait(5)
+        status = TestClient(app).get('/v1/status', headers={'Authorization': f'Bearer {TOKEN}'}).json()['designer']
+    finally:
+        release.set()
+        worker.join(5)
+        manager.stop(5)
+        unregister_designer('rolloff')
+
+    up, gone = status['endpoints']
+    assert up['checked_at'] is not None and up['checked_at'] == gone['checked_at'] == status['checked_at']
+    assert up['designing'] == [{'title_id': 't1', 'title': 'Alien', 'started_at': '2023-11-14T22:13:20Z'}]
+    assert gone['designing'] == []
+
+
+def test_nothing_is_out_when_no_run_has_registered_the_designer(tmp_path, designer):
+    (tmp_path / 'work').mkdir()
+    profile = _pool_profile(tmp_path, [designer.url])
+    manager = JobManager(lambda job, control: None)
+    app = create_app(manager, ServiceConfig(profile_path=profile, token=TOKEN), env={},
+                     designer=DesignerProbe(profile, {}, timeout=2))
+    try:
+        status = TestClient(app).get('/v1/status', headers={'Authorization': f'Bearer {TOKEN}'}).json()['designer']
+    finally:
+        manager.stop(5)
+
+    assert [e['designing'] for e in status['endpoints']] == [[]]
+
+
 def test_the_status_says_what_a_redesign_would_be_made_with_and_where_the_endpoints_differ(tmp_path):
     """ design/design-version.md: each endpoint's identity from its /health, and the highest of those up is current. """
     old, new = StubDesigner(), StubDesigner()

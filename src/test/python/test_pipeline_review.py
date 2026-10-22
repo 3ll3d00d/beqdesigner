@@ -284,6 +284,34 @@ def test_design_and_queue_threads_channels_to_the_request(tmp_path):
     assert seen_requests[0].channels is channels
 
 
+def test_design_and_queue_names_the_title_a_pooled_designer_is_designing(tmp_path):
+    ''' What a pool's endpoint is on, while it is out, is the entry's id and its metadata title (/v1/status). '''
+    from pipeline.config import AnalysisConfig
+    from pipeline.designer.pool import Activity, DesignerPool, PoolEndpoint
+    from pipeline.orchestrate import Session
+    from pipeline.review import design_and_queue
+
+    seen = []
+
+    def call(request):
+        seen.extend(pool.states()[0].active)
+        return DesignResponse(contract_version='1.0', decline_reason='no_rolloff_detected')
+
+    pool = DesignerPool('test.pooled', [PoolEndpoint('http://one', call, lambda: {'status': 'ok'}, parallel=1)],
+                        wall_clock=lambda: 9.0)
+    register_designer('test.pooled', pool)
+    try:
+        wav_path = str(tmp_path / 'mono.wav')
+        _write_synthetic_wav(wav_path, channel_values=(1000,))
+        design_and_queue(Session(AnalysisConfig()), 'title-one', wav_path, 'test.pooled', str(tmp_path / 'queue'),
+                         meta={'title': 'Alien'})
+    finally:
+        unregister_designer('test.pooled')
+
+    assert seen == [Activity('title-one', 'Alien', 9.0)]
+    assert pool.states()[0].active == ()
+
+
 # --- design_and_queue: output 1's .beq project files ------------------------
 
 def test_design_and_queue_writes_a_mono_project_when_project_dir_given(tmp_path):

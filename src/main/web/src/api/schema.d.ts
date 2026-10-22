@@ -1023,6 +1023,16 @@ export interface components {
              */
             detail: string;
             /**
+             * Checked At
+             * @description When its /health was last asked.
+             */
+            checked_at?: string | null;
+            /**
+             * Designing
+             * @description What a run has out on it now, oldest first; empty when nothing is.
+             */
+            designing?: components["schemas"]["EndpointDesign"][];
+            /**
              * Design Version
              * @description The design version its /health reports (contract 1.4); null when it reports none or did not answer.
              */
@@ -1113,6 +1123,25 @@ export interface components {
              * @default 1
              */
             count: number;
+        };
+        /** EndpointDesign */
+        EndpointDesign: {
+            /**
+             * Title Id
+             * @description The title the design is for.
+             */
+            title_id: string;
+            /**
+             * Title
+             * @description Its name, as the run knew it; empty when it had none.
+             */
+            title: string;
+            /**
+             * Started At
+             * Format: date-time
+             * @description When the design was sent.
+             */
+            started_at: string;
         };
         /**
          * ExtractProgressEvent

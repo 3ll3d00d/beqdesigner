@@ -20,7 +20,7 @@ export function StateBadge({ state }: { state: string }) {
 }
 
 /** The newest ffmpeg report in the events, if its title is the one the run is on. */
-function extraction(events: JobEvent[], titleId: string | undefined) {
+export function extraction(events: JobEvent[], titleId: string | undefined) {
   for (let i = events.length - 1; i >= 0; i--) {
     const event = events[i]!
     if (event.type === 'extract_progress') return event.title_id === titleId || !titleId ? event : null

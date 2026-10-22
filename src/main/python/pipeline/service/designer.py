@@ -5,9 +5,11 @@ starting a run whose every design would fail), and `/ready` and `/v1/status` rep
 import threading
 import time
 from dataclasses import dataclass
-from typing import Callable, Mapping, Optional, Tuple
+from typing import Callable, Dict, Mapping, Optional, Tuple
 
 from pipeline.designer.identity import CurrentIdentity, EndpointIdentity, current_identity
+from pipeline.designer.pool import Activity, DesignerPool
+from pipeline.designer.registry import registered_designer
 from pipeline.service.context import JobContext, load_context
 
 MAX_AGE_SECONDS = 30.0   # how long /ready and /v1/status reuse an answer, so polling them does not poll the designer
@@ -43,6 +45,17 @@ def shared_kinds(endpoints) -> dict:
     if not listed:
         return {}
     return {kind: spec for kind, spec in listed[0].items() if all(kind in other for other in listed[1:])}
+
+
+def designs_out(name: str) -> Dict[str, Tuple[Activity, ...]]:
+    '''
+    What the designer registered as `name` has out now, by endpoint URL: a run registers its pool in this process, so
+    this is what that run is designing. {} for a designer not registered (no run yet) or one that is not a pool.
+    '''
+    pool = registered_designer(name) if name else None
+    if not isinstance(pool, DesignerPool):
+        return {}
+    return {e.url: e.active for e in pool.states()}
 
 
 class DesignerProbe:

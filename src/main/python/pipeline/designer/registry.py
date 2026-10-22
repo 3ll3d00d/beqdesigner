@@ -43,6 +43,11 @@ def get_designer(name: str) -> DesignerCallable:
     return _registry[name]
 
 
+def registered_designer(name: str) -> Optional[DesignerCallable]:
+    ''' The designer registered as `name`, or None: get_designer() without the error, for a caller only looking. '''
+    return _registry.get(name)
+
+
 def takes_sources(name: str) -> bool:
     ''' Whether the designer registered as `name` is called with `sources=` as well as the request. '''
     return name in _takes_sources

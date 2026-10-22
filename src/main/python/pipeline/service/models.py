@@ -954,11 +954,20 @@ class ServiceStatus(BaseModel):
                                                              'and commit write to.')
 
 
+class EndpointDesign(BaseModel):
+    title_id: str = Field(description='The title the design is for.')
+    title: str = Field(description='Its name, as the run knew it; empty when it had none.')
+    started_at: datetime = Field(description='When the design was sent.')
+
+
 class DesignerEndpointStatus(BaseModel):
     url: str
     parallel: int = Field(description='How many designs it is sent at once.')
     reachable: bool = Field(description='Whether its /health answered (and it can take what it is declared to).')
     detail: str = Field(description='Its URL when it answered, else why not.')
+    checked_at: Optional[datetime] = Field(None, description='When its /health was last asked.')
+    designing: List[EndpointDesign] = Field(
+        default_factory=list, description='What a run has out on it now, oldest first; empty when nothing is.')
     design_version: Optional[int] = Field(None, description="The design version its /health reports (contract 1.4); "
                                                             "null when it reports none or did not answer.")
     design_settings_detail: Optional[Dict[str, Any]] = Field(

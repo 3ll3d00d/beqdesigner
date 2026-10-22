@@ -226,7 +226,7 @@ Every request and response body is a named pydantic model in
 |---|---|---|
 | `GET /health` | → `Health` | liveness and release; no auth |
 | `GET /ready` | → `Readiness` | profile loads, work dir writable, ffmpeg/ffprobe found, profile's designer registered; 503 otherwise; no auth. Also `designer_reachable` (`required: false`: reported, never unready) |
-| `GET /v1/status` | → `ServiceStatus` | index counts (the `status --json` content), current job, queue length, schedule state, notification outcomes, `designer` (`DesignerStatus`: reachable, detail, checked_at) |
+| `GET /v1/status` | → `ServiceStatus` | index counts (the `status --json` content), current job, queue length, schedule state, notification outcomes, `designer` (`DesignerStatus`: reachable, detail, checked_at, and each endpoint with its own `checked_at` and `designing`: the titles a run has out on it now, read from the run's `DesignerPool`, which `design_and_queue` tells through `pool.designing()`) |
 | `GET /v1/titles` | query `TitleFilter` + `sort`/`descending` + `limit`/`offset` → `TitlePage` | the work list's table; sorted by a column (else work-list order; a missing year or confidence last), then paged |
 | `GET /v1/titles/{id}` | → `Title` | 404 if unknown |
 | `POST /v1/plan` | `RunRequest` → `PlanPreview` | dry run: what would run and what would be skipped and why |

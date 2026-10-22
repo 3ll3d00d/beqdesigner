@@ -11,7 +11,7 @@ import requests
 from pipeline.designer.contract import DesignResponse
 from pipeline.designer.http_binding import DesignerUnavailable, HttpDesignerError, declared_endpoints, \
     register_declared_designers
-from pipeline.designer.pool import DesignerPool, PoolEndpoint, cannot_reach
+from pipeline.designer.pool import Activity, DesignerPool, PoolEndpoint, cannot_reach, designing
 from pipeline.designer.registry import designer_capacity, get_designer, takes_sources, unregister_designer
 from pipeline.library.failure import unavailable_reason
 
@@ -220,6 +220,60 @@ def test_no_endpoint_is_sent_more_than_its_parallel_at_once():
 
     assert one.most_at_once == 1 and three.most_at_once == 3
     assert len(one.designed) + len(three.designed) == 6
+
+
+def test_states_say_what_each_endpoint_is_designing_while_it_is_out():
+    release = threading.Event()
+    one, two = FakeEndpoint('http://one', hold=release), FakeEndpoint('http://two', hold=release)
+    pool = DesignerPool('d', [one.endpoint(parallel=1), two.endpoint(parallel=1)], clock=Clock(), wall_clock=lambda: 5.0)
+
+    def design(title_id, title):
+        with designing(title_id, title):
+            pool(_request())
+
+    workers = [threading.Thread(target=design, args=(f'id{i}', f'Title {i}')) for i in range(2)]
+    for w in workers:
+        w.start()
+    time.sleep(0.3)
+    out = {s.url: s.active for s in pool.states()}
+    assert sorted((a for v in out.values() for a in v), key=lambda a: a.title_id) == [Activity('id0', 'Title 0', 5.0), Activity('id1', 'Title 1', 5.0)]
+    assert all(len(v) == 1 for v in out.values())   # one each: each endpoint takes one at once
+    release.set()
+    for w in workers:
+        w.join(5)
+
+    assert all(s.active == () for s in pool.states())   # nothing is out once the designs come back
+
+
+def test_a_design_not_named_is_out_but_not_listed():
+    release = threading.Event()
+    one = FakeEndpoint('http://one', hold=release)
+    pool = DesignerPool('d', [one.endpoint(parallel=1)], clock=Clock())
+    worker = threading.Thread(target=pool, args=(_request(),))
+    worker.start()
+    time.sleep(0.3)
+    [state] = pool.states()
+    assert (state.in_use, state.active) == (1, ())
+    release.set()
+    worker.join(5)
+
+
+def test_a_design_moved_to_another_endpoint_is_listed_only_where_it_is():
+    down = FakeEndpoint('http://down', fails_with=_unreachable('http://down'))
+    seen = {}
+    pool = None
+
+    class Watching(FakeEndpoint):
+        def call(self, request, sources=None):
+            seen.update({s.url: s.active for s in pool.states()})
+            return super().call(request, sources)
+
+    up = Watching('http://up')
+    pool = DesignerPool('d', [down.endpoint(parallel=5), up.endpoint(parallel=1)], clock=Clock(), wall_clock=lambda: 7.0)
+    with designing('id', 'Alien'):
+        pool(_request())
+
+    assert seen == {'http://down': (), 'http://up': (Activity('id', 'Alien', 7.0),)}
 
 
 def test_sources_go_only_to_an_endpoint_that_takes_references():

@@ -20,12 +20,17 @@ DesignerUnavailable, which a run counts towards `stop_after_unavailable` as befo
 How many designs an endpoint is sent at once is its `parallel` in the profile, or else what its /health reports
 (`parallel`, beqforge 0.2.4 on), or else 1. It is read again at every check, so a designer restarted with more workers is
 used to the full within a minute, and `capacity` (what a run keeps in hand) counts only the endpoints that are up.
+
+What each endpoint is designing now is in `states()`: a caller names the title it designs with `designing()` around the
+call, and the pool keeps it against the endpoint for as long as the design is out.
 '''
 import logging
 import threading
 import time
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
-from typing import Callable, List, Optional, Sequence
+from typing import Callable, Dict, Iterator, List, Optional, Sequence, Tuple
 
 import requests
 
@@ -36,6 +41,27 @@ logger = logging.getLogger('pipeline.designer.pool')
 
 # how long an answer from an endpoint's /health is trusted, and how long one that did not answer is left alone
 RECHECK_SECONDS = 60.0
+
+
+@dataclass(frozen=True)
+class Activity:
+    ''' A design out on an endpoint: the title it is for (as the caller named it) and when it was sent (epoch seconds). '''
+    title_id: str
+    title: str
+    started_at: float
+
+
+_designing: ContextVar[Optional[Tuple[str, str]]] = ContextVar('pipeline.designer.pool.designing', default=None)
+
+
+@contextmanager
+def designing(title_id: str, title: str = '') -> Iterator[None]:
+    ''' Names the title the designs made inside this block are for, so `DesignerPool.states()` can say what is out. '''
+    token = _designing.set((title_id, title))
+    try:
+        yield
+    finally:
+        _designing.reset(token)
 
 
 @dataclass
@@ -51,6 +77,7 @@ class PoolEndpoint:
     checked_at: Optional[float] = None
     checking: bool = False
     reason: str = 'not checked yet'
+    active: Dict[int, Activity] = field(default_factory=dict)   # the designs out on it now, by call
 
     @property
     def limit(self) -> int:
@@ -65,6 +92,7 @@ class EndpointState:
     in_use: int
     up: Optional[bool]   # None: not asked yet
     detail: str
+    active: Tuple[Activity, ...] = ()   # what it is designing now, oldest first
 
 
 def cannot_reach(error: BaseException) -> bool:
@@ -93,6 +121,7 @@ class DesignerPool:
     endpoints: Sequence[PoolEndpoint]
     clock: Callable[[], float] = time.monotonic
     recheck_seconds: float = RECHECK_SECONDS
+    wall_clock: Callable[[], float] = time.time   # when a design was sent, as states() reports it
     _condition: threading.Condition = field(default_factory=threading.Condition, init=False, repr=False)
 
     @property
@@ -111,12 +140,18 @@ class DesignerPool:
     def states(self) -> List[EndpointState]:
         with self._condition:
             return [EndpointState(e.url, e.limit, e.in_use, None if e.checked_at is None else e.up,
-                                  e.url if e.up else e.reason) for e in self.endpoints]
+                                  e.url if e.up else e.reason,
+                                  tuple(sorted(e.active.values(), key=lambda a: a.started_at))) for e in self.endpoints]
 
     def __call__(self, request: DesignRequest, sources=None) -> DesignResponse:
         tried: set = set()
+        named = _designing.get()
         while True:
             endpoint = self._acquire(tried)
+            call = object()
+            if named is not None:
+                with self._condition:
+                    endpoint.active[id(call)] = Activity(named[0], named[1], self.wall_clock())
             try:
                 logger.info('%s: designing on %s', self.name, endpoint.url)
                 return endpoint.call(request, sources) if endpoint.takes_sources else endpoint.call(request)
@@ -129,7 +164,7 @@ class DesignerPool:
                 if len(tried) == len(self.endpoints):
                     raise
             finally:
-                self._release(endpoint)
+                self._release(endpoint, id(call))
 
     def _acquire(self, tried: set) -> PoolEndpoint:
         '''
@@ -179,7 +214,8 @@ class DesignerPool:
         with self._condition:
             endpoint.up, endpoint.checked_at, endpoint.reason = False, self.clock(), reason
 
-    def _release(self, endpoint: PoolEndpoint) -> None:
+    def _release(self, endpoint: PoolEndpoint, call: int) -> None:
         with self._condition:
             endpoint.in_use -= 1
+            endpoint.active.pop(call, None)
             self._condition.notify_all()

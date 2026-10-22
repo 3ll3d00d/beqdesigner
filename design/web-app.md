@@ -82,8 +82,11 @@ message. Tests: `test_pipeline_library_decide.py`.
   status and titles queries when the job ends.
 - **Screens** (`src/pages/`):
   - *Status*: the pipeline strip (titles per `needs`, each linked to the Titles list filtered to it), the job running
-    now with live progress (title-stages, the stage and title in hand, ffmpeg's percent, time to go), how many wait, the
-    designer and whether it answers, the schedule (Pause/Resume over `PUT /v1/schedule`, Run now, the last run and skip),
+    now as facts (job, started, estimated end with time to go, progress with the rate an hour, and activity: the stage
+    and title in hand with ffmpeg's percent, or the titles out on the designer), a progress bar, how many wait, the
+    designer as a table of its endpoints (URL, design version and build, up/down with when `/health` was last asked and
+    why it is down, parallel, and what each is designing now from `designing`, linked to its review; *idle* when
+    nothing is out) with the warning when the endpoints up would design differently, the schedule (Pause/Resume over `PUT /v1/schedule`, Run now, the last run and skip),
     the sources and their last error. *Scan sources* (or *Rescan sources* after the first scan) queues a scan
     of every configured source and opens its job page. The same action is available on Titles. Polls `/v1/status` every 10 s.
   - *Jobs*: history newest first, by state. A job's page: its state and times, the result (counts; failures,

@@ -31,7 +31,7 @@ from pipeline.library.status import metadata_problems
 from pipeline.service import models
 from pipeline.service.config import ServiceConfig
 from pipeline.service.context import JobContext, load_context
-from pipeline.service.designer import DesignerProbe
+from pipeline.service.designer import DesignerProbe, designs_out
 from pipeline.service.jobs import FINISHED, AcceptRequest, JobFinished, JobManager, JobNotFound, RepositoryWritesRefused, \
     RunRequest, ScanRequest
 from pipeline.service.scheduler import AutoScheduler
@@ -349,10 +349,14 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
 
     def designer_status() -> models.DesignerStatus:
         state = designer.current()
+        out = designs_out(state.name)
         return models.DesignerStatus(
             name=state.name, reachable=state.reachable, detail=state.detail, checked_at=models.timestamp(state.checked_at),
             endpoints=[models.DesignerEndpointStatus(
                 url=e.url, parallel=e.parallel, reachable=e.reachable, detail=e.detail,
+                checked_at=models.timestamp(state.checked_at),
+                designing=[models.EndpointDesign(title_id=a.title_id, title=a.title,
+                                                 started_at=models.timestamp(a.started_at)) for a in out.get(e.url, ())],
                 design_version=e.identity.version if e.identity else None,
                 design_settings_detail=dict(e.identity.settings_detail) if e.identity and e.identity.settings_detail
                 is not None else None,

@@ -5,9 +5,10 @@ import { Link } from 'react-router'
 import type { Schemas } from '../api/client'
 import { filterToQuery } from '../api/filter'
 import { useJobEvents, useSaveSchedule, useSchedule, useStatus, useTriggerSchedule, type Job } from '../api/hooks'
-import { describeJob, JobProgress, StateBadge } from '../components/JobBits'
+import type { JobEvent } from '../api/events'
+import { describeJob, extraction, StateBadge } from '../components/JobBits'
 import { ScanSources } from '../components/ScanSources'
-import { count, NEEDS_ORDER, STRIP_WORDS, when } from '../format'
+import { count, duration, NEEDS_ORDER, STRIP_WORDS, when } from '../format'
 
 function Strip({ counts }: { counts: Record<string, number> }) {
   return (
@@ -24,17 +25,46 @@ function Strip({ counts }: { counts: Record<string, number> }) {
   )
 }
 
-function CurrentJob({ job, queued }: { job: Job | null; queued: number }) {
+type Designs = Schemas['EndpointDesign'][]
+
+/** What the job is doing now: the title in hand (with ffmpeg's progress on it), and the designs out on the designer. */
+function Activity({ job, events, designing }: { job: Job; events: JobEvent[]; designing: Designs }) {
+  const progress = job.progress
+  const ffmpeg = extraction(events, progress?.id || undefined)
+  const inHand = progress?.stage && progress.title && !(progress.stage === 'design' && designing.length)
+  if (!inHand && !designing.length) return <>—</>
+  return (
+    <>
+      {inHand && <>{progress!.stage} <strong>{progress!.title}</strong>
+        {ffmpeg?.percent !== undefined && ffmpeg.percent !== null && <> ({ffmpeg.percent}% extracted)</>}</>}
+      {inHand && designing.length > 0 && '; '}
+      {designing.length > 0 && <>designing {designing.map((d, i) => (
+        <span key={d.title_id}>{i ? ', ' : ''}<Link to={`/titles/${d.title_id}`}>{d.title || d.title_id}</Link></span>
+      ))}</>}
+    </>
+  )
+}
+
+function CurrentJob({ job, queued, designing }: { job: Job | null; queued: number; designing: Designs }) {
   const { events } = useJobEvents(job?.state === 'running' ? job.id : null)
+  const progress = job?.state === 'running' ? job.progress : null
   return (
     <section className="card" aria-labelledby="current-job">
       <h2 id="current-job">Job</h2>
       {job ? (
-        <>
-          <p><StateBadge state={job.state} /> <Link to={`/jobs/${job.id}`}>{describeJob(job)}</Link></p>
-          <JobProgress job={job} events={events} />
-        </>
+        <dl className="facts" aria-label="Current job">
+          <dt>Job</dt><dd><StateBadge state={job.state} /> <Link to={`/jobs/${job.id}`}>{describeJob(job)}</Link></dd>
+          <dt>Started</dt><dd>{when(job.started_at)}</dd>
+          <dt>Estimated end</dt>
+          <dd>{progress?.estimated_finish ? when(progress.estimated_finish) : '—'}
+            {progress?.remaining_seconds != null && <span className="muted"> (about {duration(progress.remaining_seconds)} to go)</span>}</dd>
+          <dt>Progress</dt>
+          <dd>{progress ? <>{progress.done.toLocaleString()} of {progress.total.toLocaleString()}
+            {progress.per_hour ? <span className="muted">, {progress.per_hour} an hour</span> : null}</> : '—'}</dd>
+          <dt>Activity</dt><dd><Activity job={job} events={events} designing={job.state === 'running' ? designing : []} /></dd>
+        </dl>
       ) : <p className="muted">None running.</p>}
+      {progress && <progress value={progress.done} max={Math.max(progress.total, 1)} aria-label="Progress" />}
       <p className="muted">{queued ? `${count(queued, 'job')} waiting.` : 'Nothing waiting.'}{' '}
         <Link to="/jobs/new">New job…</Link></p>
     </section>
@@ -43,31 +73,38 @@ function CurrentJob({ job, queued }: { job: Job | null; queued: number }) {
 
 function Designer({ designer }: { designer: Schemas['DesignerStatus'] | null | undefined }) {
   if (!designer) return null
-  const state = designer.reachable === null ? 'not asked' : designer.reachable ? 'answering' : 'not answering'
+  const endpoints = designer.endpoints ?? []
   return (
-    <section className="card" aria-labelledby="designer">
-      <h2 id="designer">Designer</h2>
-      <p><strong>{designer.name || '—'}</strong>: <span className={designer.reachable === false ? 'problem' : ''}>{state}</span></p>
-      {designer.detail && <p className="muted">{designer.detail}</p>}
-      {designer.design_version != null && (
-        <p className="muted">Designs with design version {designer.design_version}: a title designed with another is out of date.</p>
-      )}
+    <section className="card wide" aria-labelledby="designer">
+      <h2 id="designer">Designer{designer.name ? `: ${designer.name}` : ''}</h2>
       {(designer.design_disagreement?.length ?? 0) > 0 && (
         <div className="problem" role="alert" aria-label="Designers disagree">
           <p>The designers that are up would not design alike, so a redesign answers differently by endpoint:</p>
           <ul>{designer.design_disagreement!.map((d) => <li key={d}>{d}</li>)}</ul>
         </div>
       )}
-      {(designer.endpoints?.length ?? 0) > 1 && (
-        <ul className="endpoints" aria-label="Endpoints">
-          {designer.endpoints!.map((e) => (
-            <li key={e.url}>
-              <span className={e.reachable ? '' : 'problem'}>{e.reachable ? 'up' : 'down'}</span> {e.url}
-              <span className="muted"> · {e.parallel} at once{e.design_version != null ? ` · design version ${e.design_version}` : ''}{e.reachable ? '' : ` · ${e.detail}`}</span>
-            </li>
-          ))}
-        </ul>
-      )}
+      {endpoints.length ? (
+        <table aria-label="Designers">
+          <thead><tr><th>URL</th><th>Version</th><th>Status</th><th className="num">Parallel</th><th>Activity</th></tr></thead>
+          <tbody>
+            {endpoints.map((e) => (
+              <tr key={e.url}>
+                <td>{e.url}</td>
+                <td>{e.design_version != null ? `design ${e.design_version}` : '—'}
+                  {e.designer_build && <div className="muted">{e.designer_build}</div>}</td>
+                <td><span className={e.reachable ? '' : 'problem'}>{e.reachable ? 'up' : 'down'}</span>
+                  <span className="muted"> · {when(e.checked_at)}</span>
+                  {!e.reachable && <div className="muted">{e.detail}</div>}</td>
+                <td className="num">{e.parallel}</td>
+                <td>{e.designing?.length ? e.designing.map((d) => (
+                  <div key={d.title_id}><Link to={`/titles/${d.title_id}`}>{d.title || d.title_id}</Link>
+                    <span className="muted"> since {when(d.started_at)}</span></div>
+                )) : <span className="muted">{e.reachable ? 'idle' : '—'}</span>}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : <p className={designer.reachable === false ? 'problem' : 'muted'}>{designer.detail}</p>}
     </section>
   )
 }
@@ -147,7 +184,8 @@ export function StatusPage() {
           ) : <p>Not scanned yet. <Link to="/jobs/new?kind=scan">Scan the sources…</Link></p>}
           <p className="muted">Service <span>{status.data.version}</span>.</p>
           <div className="cards">
-            <CurrentJob job={status.data.current_job as Job | null} queued={status.data.queued} />
+            <CurrentJob job={status.data.current_job as Job | null} queued={status.data.queued}
+                        designing={(status.data.designer?.endpoints ?? []).flatMap((e) => e.designing ?? [])} />
             <Designer designer={status.data.designer} />
             <ScheduleCard />
             {status.data.index && <Sources sources={status.data.index.sources} />}
