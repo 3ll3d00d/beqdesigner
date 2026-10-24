@@ -114,6 +114,16 @@ shared to a desktop with its own profile, reviewing through Review Folder while
 a run goes; a queue entry's poster is found in the title's folder whatever the
 root (`review.entry_art_path`).
 
+**Redesign scope (contract 1.6, [redesign-scope.md](redesign-scope.md)).** Each design keeps its designer's
+`run_record` (relative to the shared root, validated, kept with the design into its earlier runs, none after a person's
+edit). A person may keep an out-of-date design: `reviewed_at` stamps the current identity on it
+(`pipeline.library.reviewed`), and `is_out_of_date` is false against any identity a design was reviewed at; a redesign
+or an edit starts with none. `pipeline.designer.impact` asks a designer that answers `/impact` at the current identity
+(builds never compared) in requests of 500, checking each answer against the contract. The service checks the
+out-of-date designs in the background (`POST`/`GET /v1/impact`, not a job; kept in `<state_dir>/impact.json`) and keeps
+the titles a person chooses (`POST /v1/reviewed`); the Titles page shows the answer by tier. Built against a fake 1.6
+designer; beqforge's `/impact` is its TODO 34.
+
 ## Design and review
 
 `pipeline/review.py` stores one JSON `QueueEntry` per title. Rerunning a batch

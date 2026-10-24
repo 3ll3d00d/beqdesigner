@@ -10,6 +10,7 @@ import {
 } from '../api/filter'
 import type { Schemas } from '../api/client'
 import { MAX_REVISED, PAGE_SIZE, useMatchingIds, useNextTitle, usePlan, useStatus, useSubmitRun, useTitles } from '../api/hooks'
+import { ImpactPanel } from '../components/ImpactPanel'
 import { ReviseDialog, reviseSummary } from '../components/ReviseDialog'
 import { ScanSources } from '../components/ScanSources'
 import { count, NEEDS_ORDER, NEEDS_WORDS, type NeedsWord } from '../format'
@@ -349,7 +350,10 @@ export function TitlesPage() {
         <Tristate label="Answers" value={filter.unmet} onChange={(unmet) => update((f) => ({ ...f, unmet }))}
                   yes="Some not honoured" no="All honoured" />
       </div>
-      {filter.out_of_date === true && page && page.total > 0 && <RedesignOutOfDate filter={filter} total={page.total} />}
+      {filter.out_of_date === true && page && page.total > 0 && <>
+        <RedesignOutOfDate filter={filter} total={page.total} />
+        <ImpactPanel link={link} />
+      </>}
       <Repositories filter={filter} />
       {selected.size > 0 && (
         <div className="actions" role="group" aria-label="Selected titles">

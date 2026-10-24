@@ -22,6 +22,7 @@ export const keys = {
   titles: (query: string) => ['titles', query] as const,
   review: (id: string) => ['review', id] as const,
   chart: (id: string, query: Record<string, unknown>) => ['chart', id, query] as const,
+  impact: ['impact'] as const,
 }
 
 export function useStatus(refetchInterval = 10_000) {
@@ -337,6 +338,42 @@ export function useRevise() {
       refresh()
       void queries.invalidateQueries({ queryKey: ['titles'] })
       for (const id of body.ids) void queries.invalidateQueries({ queryKey: keys.review(id) })
+    },
+  })
+}
+
+// --- redesign scope (contract 1.6, design/redesign-scope.md) ------------------------------------------------------------
+
+/** The last check of what a redesign now would move, followed every two seconds while it runs. */
+export function useImpact() {
+  const { client } = useAuth()
+  return useQuery({
+    queryKey: keys.impact,
+    queryFn: async () => unwrap(await client.GET('/v1/impact')),
+    refetchInterval: (query) => (query.state.data?.state === 'running' ? 2_000 : false),
+  })
+}
+
+/** Ask the designer about the out-of-date designs (or `ids`); the check runs in the background. */
+export function useStartImpact() {
+  const { client } = useAuth()
+  const queries = useQueryClient()
+  return useMutation({
+    mutationFn: async (ids: string[] = []) => unwrap(await client.POST('/v1/impact', { body: { ids } })),
+    onSuccess: (check) => queries.setQueryData(keys.impact, check),
+  })
+}
+
+/** Keep these titles' designs at the identity a redesign now would use: they stop showing as out of date. */
+export function useKeepReviewed() {
+  const { client } = useAuth()
+  const queries = useQueryClient()
+  const refresh = useRefreshWork()
+  return useMutation({
+    mutationFn: async (ids: string[]) => unwrap(await client.POST('/v1/reviewed', { body: { ids } })),
+    onSuccess: () => {
+      refresh()
+      void queries.invalidateQueries({ queryKey: ['titles'] })
     },
   })
 }

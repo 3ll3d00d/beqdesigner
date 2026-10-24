@@ -59,7 +59,7 @@ outside it. A beqforge version bump invalidates its bundled optimiser seed
 | 20 | T2 | | -- | Watch; seen twice | Recurrence with its failure message |
 | 20a | T3 | | -- | Watch; seen once | Recurrence |
 | 20b | T4 | | -- | Watch; seen once | Recurrence with its failure message |
-| 21 | RS | | [redesign scope](redesign-scope.md), contract 1.6 | Contract and schemas written 2026-10-24; caller side steps 1-4 of 5 built (run record, reviewed at, /impact client, the service routes); the web app is left | beqforge 0.2.11 (`run_record`); beqforge `/impact` (its TODO 34, after design version 7) for live use only |
+| 21 | RS | | [redesign scope](redesign-scope.md), contract 1.6 | Caller side built 2026-10-25 against a fake designer (all 5 steps). Left: a live check once beqforge answers `/impact`, then archiving this row | beqforge `/impact` (its TODO 34, after design version 7) |
 | 22 | D2 | | by-reference §5 | Planned; optional, not started | beqforge loader coordination |
 | 23 | D3 | | by-reference §5 | Planned; optional, not started | Contract addition; beqforge coordination |
 | 24 | O2 | | former §9 reviewer questions | Behavior exists; acceptance decision missing | Real reviewer feedback |
@@ -203,10 +203,10 @@ title-page work that stays in the desktop app.
 
 ### RS — Redesign scope
 
-Build the caller side of contract 1.6 as [`redesign-scope.md`](redesign-scope.md) lists it: keep `run_record`, the
-*reviewed at* stamp and the out-of-date rule that uses it, an `/impact` client, the impact job and `/v1/reviewed`, and
-the Titles page's tiers. Done when each step is built and tested against a fake designer, and the plan is folded into
-`implemented.md`, `pipeline-service.md` and `web-app.md`.
+The caller side of contract 1.6 is built ([`redesign-scope.md`](redesign-scope.md); `implemented.md`, `web-app.md`):
+the run record kept, *reviewed at*, the `/impact` client, `/v1/impact` and `/v1/reviewed`, and the Titles page's
+tiers. Done when a live check against beqforge's `/impact` (its TODO 34) answers on this library's records, after one
+design pass on a build that writes record identities; then archive this row.
 
 ### D2 — Export a reusable request file
 

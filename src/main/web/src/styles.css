@@ -165,6 +165,11 @@ ul.candidates label.on { border-color: var(--accent); background: color-mix(in s
 h3 { font-size: 0.95rem; margin: 0.9rem 0 0.4rem; color: var(--muted); }
 .confirm { border: 1px solid var(--line); border-radius: 8px; padding: 0.6rem 0.9rem; margin: 0.5rem 0; }
 .confirm.problem { border-color: var(--problem); }
+.impact { border: 1px solid var(--line); border-radius: 8px; padding: 0.6rem 0.9rem; margin: 0.5rem 0; }
+.impact-tier h3 { font-size: 1rem; margin: 0.8rem 0 0.3rem; }
+.impact-tier > ul { list-style: none; padding-left: 0; margin: 0; }
+.impact-tier > ul > li { padding: 0.15rem 0; }
+.impact .reasons { margin: 0.1rem 0 0.2rem 1.6rem; padding-left: 1rem; font-size: 0.9em; }
 .decide .actions { margin-top: 0.25rem; }
 td.detail { color: var(--muted); max-width: 32rem; }
 tr.tier-attention td:first-child { box-shadow: inset 3px 0 var(--problem); }

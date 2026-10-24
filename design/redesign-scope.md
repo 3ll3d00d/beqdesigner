@@ -1,6 +1,6 @@
 # Redesign scope: which out-of-date designs to redesign (caller side)
 
-**Status:** design, partly built (TODO row RS): steps 1-4 are built. The contract is
+**Status:** built on this side (TODO row RS), against a fake designer; live use waits for beqforge's `/impact`. The contract is
 [`designer-interface.md`](designer-interface.md) 1.6 (§3 "The run record" and "Reviewed designs", §7.1 "Impact"),
 agreed with beqforge on 2026-10-24. beqforge returns `run_record` from 0.2.11; its `/impact` is its TODO 34 and lands
 after design version 7, so this side is built and tested against a fake designer first.
@@ -35,9 +35,10 @@ are then stamped *reviewed at* the new identity and stop showing as out of date.
    reviewed at the current identity, each refused with its reason (not out of date, in a run's hands, the designers
    disagree). Redesigning goes through the existing `/v1/revise` with the chosen ids. `Title.reviewed_at` shows a
    title's reviews.
-5. **The web app.** On Titles, when designs are out of date: *Check what would move*, then the out-of-date titles
-   grouped by tier (unknown with will_move), highest score first, each with its reasons; select and *Redesign* or
-   *Keep* (stamp reviewed). The title page shows a design's reviewed-at identities.
+5. **The web app** (built; `components/ImpactPanel.tsx`). On Titles, with *Out of date*: *Check what a redesign would
+   move*, then the titles grouped by tier (unknown with will move), highest score first, each with its reasons; select
+   and *Redesign selected* or *Keep selected*. An answer for another design version than the designer's now is marked
+   stale. A title's reviews are on `/v1/titles` (`reviewed_at`); the review page does not show them yet.
 
 ## What it does not do
 

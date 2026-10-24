@@ -112,7 +112,11 @@ message. Tests: `test_pipeline_library_decide.py`.
     `unmet`, read from the index's entry summary; a badge marks a title adjusted, with how many asks were not honoured) sit
     above it; how many design runs a title keeps is the review page's to show, and the *Designs* column counts the designs
     to choose from in all of them (`design_choices`), *Review next waiting*, *Redesign out of date…* (shown with *Out of date*: one
-    redesign job by version after an inline confirmation), and *Publish accepted…* / *Commit published…*:
+    redesign job by version after an inline confirmation) with, under it, *Check what a redesign would move*
+    (`components/ImpactPanel.tsx`, contract 1.6, [redesign scope](redesign-scope.md)): the designer's answer by tier --
+    will move, unknown (read as will move), likely, might, unaffected -- each title with its score and reasons, an answer
+    for another design version than the designer's now marked stale; *Select those likely to move* / *the rest*, then
+    *Redesign selected* (`/v1/revise` to design, in one run) or *Keep selected* (`/v1/reviewed`, each refusal named), and *Publish accepted…* / *Commit published…*:
     a plan of the filter with `needs` publish (or commit) says how many, an inline confirmation names the repositories,
     and a run job through publish (or commit) is submitted and followed. Disabled with the reason as on New job.
   - *Review*: the title, its status, what it needs; the designs (rejected ones listed apart, with how many reasons),
