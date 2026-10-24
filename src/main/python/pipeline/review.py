@@ -124,6 +124,9 @@ class QueueEntry:
                                                # design that is here ({id, outcome, applied, reason}); [] when none
     variant_id: Optional[str] = None          # which design run the fields above are ('v1', 'v2'...); None before kept
     designed_at: Optional[str] = None         # UTC ISO-8601, when that design was made; None before it was recorded
+    run_record: Optional[str] = None          # 1.6: the designer's record of that design, relative to its shared root;
+                                               # sent back to its /impact unchanged. None: it named none (before 1.6,
+                                               # without a shared root, or a design a person edited)
     variants: List[dict] = field(default_factory=list)   # the title's earlier design runs, kept until a person discards
                                                # one (pipeline.library.variants): each the design fields of a QueueEntry
 
@@ -260,7 +263,7 @@ def _summary_from_dict(c: dict) -> CandidateSummary:
 
 
 # written only when known, so a reader from before them (which refuses a field it does not know) meets them only then
-_WRITTEN_WHEN_KNOWN = ('design_version', 'design_settings', 'variant_id', 'designed_at')
+_WRITTEN_WHEN_KNOWN = ('design_version', 'design_settings', 'variant_id', 'designed_at', 'run_record')
 _WRITTEN_WHEN_ANY = ('adjustments', 'adjusted_with', 'adjustment_outcomes', 'variants')
 
 
@@ -385,7 +388,7 @@ def _identity_of(outcome: DesignOutcome) -> dict:
     1.5 answers to the adjustments asked for.
     '''
     return {'design_version': outcome.design_version, 'design_settings': outcome.design_settings,
-            'designer_build': outcome.designer_build,
+            'designer_build': outcome.designer_build, 'run_record': outcome.run_record,
             'adjustment_outcomes': [{'id': o.id, 'outcome': o.outcome, 'applied': o.applied, 'reason': o.reason}
                                     for o in outcome.adjustment_outcomes]}
 

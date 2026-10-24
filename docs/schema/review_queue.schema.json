@@ -112,6 +112,7 @@
     },
     "variant_id": { "type": "string", "description": "which design run the design here is (v1, v2...)" },
     "designed_at": { "type": "string", "description": "UTC ISO-8601, when the design here was made" },
+    "run_record": { "type": "string", "description": "contract 1.6: the designer's record of the design here, relative to its shared root; sent back unchanged to its POST /impact. Absent when it named none." },
     "variants": {
       "type": "array",
       "description": "the title's earlier design runs, kept until a person discards one (pipeline.library.variants): each the design fields of an entry",

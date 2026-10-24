@@ -19,7 +19,7 @@ from pipeline.review import CandidateSummary, QueueEntry, read_entry, write_queu
 VARIANT_FIELDS = ('variant_id', 'designed_at', 'fs', 'curve', 'peak_curve', 'audio_stream', 'candidates', 'rejected',
                   'decline_reason', 'decline_message', 'design_fingerprint', 'source_fingerprint', 'bass_management',
                   'designer', 'designer_build', 'design_version', 'design_settings', 'adjusted_with',
-                  'adjustment_outcomes')
+                  'adjustment_outcomes', 'run_record')
 DECIDED = ('accepted', 'published')
 
 
@@ -162,7 +162,7 @@ def save_edited(queue_dir: str, entry_id: str, source: int, specs) -> QueueEntry
                               mv_adjust_db=picked.mv_adjust_db, gain_reduction_db=picked.gain_reduction_db,
                               commentary={'edited_from': f'{entry.variant_id or "v1"} design {source + 1}'})
     updated = replace(entry, candidates=[edited], rejected=[], decline_reason=None, decline_message=None,
-                      adjustment_outcomes=[], variant_id=next_variant_id(entry), status='pending',
+                      adjustment_outcomes=[], run_record=None, variant_id=next_variant_id(entry), status='pending',
                       chosen_candidate_index=None, designed_at=datetime.now(timezone.utc).isoformat(timespec='seconds'),
                       variants=kept_variants(entry))
     write_queue_entry(queue_dir, updated)

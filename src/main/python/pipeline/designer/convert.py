@@ -11,6 +11,7 @@ test_pipeline_designer_contract.py, which exercises every rejection path
 below using a fake in-process designer, not a real one.
 '''
 import math
+import re
 from typing import List
 
 from pipeline.designer.contract import OUTCOMES, AdjustmentOutcome, BiquadSpec, DesignCandidate, DesignResponse
@@ -115,6 +116,21 @@ def _validate_identity(response: DesignResponse) -> None:
         value = getattr(response, name)
         if value is not None and (not isinstance(value, str) or not value.strip()):
             raise ContractViolation(f"{name} must be a non-empty string when given, got {value!r}")
+    _validate_run_record(response.run_record)
+
+
+def _validate_run_record(path) -> None:
+    '''
+    1.6 (§3, "The run record"): a path relative to the designer's shared root -- POSIX-style, never absolute, no backslash,
+    no `..` segment, not empty. Optional.
+    '''
+    if path is None:
+        return
+    if not isinstance(path, str) or not path.strip():
+        raise ContractViolation(f"run_record must be a non-empty string when given, got {path!r}")
+    if path.startswith('/') or re.match(r'^[A-Za-z]:', path) or '\\' in path or '..' in path.split('/'):
+        raise ContractViolation(f"run_record must be a path relative to the shared root (POSIX-style, no backslash, "
+                                f"no '..'), got {path!r}")
 
 
 def _validate_candidate(candidate: DesignCandidate, index: int, where: str = 'candidates') -> None:

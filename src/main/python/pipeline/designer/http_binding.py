@@ -170,6 +170,8 @@ def _response_from_json(body: dict) -> DesignResponse:
         rejected = [_candidate_from_json(c) for c in body['rejected']] if body.get('rejected') is not None else None
         # 1.4: either shape may say the designer's identity; validate_response() checks the values
         identity = {name: body.get(name) for name in IDENTITY_FIELDS}
+        # 1.6: either shape may name its run record; validate_response() checks the path
+        identity['run_record'] = body.get('run_record')
         # 1.5: either shape may answer the request's adjustments; validate_outcomes() checks them against the request
         if body.get('adjustment_outcomes') is not None:
             identity['adjustment_outcomes'] = [

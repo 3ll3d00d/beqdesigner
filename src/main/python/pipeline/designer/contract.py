@@ -140,6 +140,9 @@ class DesignResponse:
     design_settings: Optional[str] = None  # digest of the designer's own settings that can alter an answer
     designer_build: Optional[str] = None   # the build, for people
     adjustment_outcomes: Optional[list] = None   # 1.5: list[AdjustmentOutcome], one per request adjustment
+    # 1.6, with either shape: the designer's record of this run, relative to its shared root (§3, "The run record"); the
+    # caller keeps it and sends it back to /impact unchanged. None when the designer has no shared root or said none
+    run_record: Optional[str] = None
 
 
 IDENTITY_FIELDS = ('design_version', 'design_settings', 'designer_build')

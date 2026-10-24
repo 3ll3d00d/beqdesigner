@@ -1,6 +1,6 @@
 # Redesign scope: which out-of-date designs to redesign (caller side)
 
-**Status:** design, not built (TODO row RS). The contract is
+**Status:** design, partly built (TODO row RS): step 1 is built. The contract is
 [`designer-interface.md`](designer-interface.md) 1.6 (§3 "The run record" and "Reviewed designs", §7.1 "Impact"),
 agreed with beqforge on 2026-10-24. beqforge returns `run_record` from 0.2.11; its `/impact` is its TODO 34 and lands
 after design version 7, so this side is built and tested against a fake designer first.
@@ -14,7 +14,7 @@ are then stamped *reviewed at* the new identity and stop showing as out of date.
 
 ## What gets built, in order
 
-1. **The run record is kept.** `DesignResponse.run_record` (1.6) is decoded and validated (relative POSIX path, no
+1. **The run record is kept** (built).  `DesignResponse.run_record` (1.6) is decoded and validated (relative POSIX path, no
    backslash, no `..`), carried on `Applied`/`Declined`, and stored on the queue entry as `run_record` (written only
    when known, so an older reader never meets it) and with it into `variants` when the design becomes an earlier run.
 2. **Reviewed at.** The queue entry gains `reviewed_at`: a list of `{design_version, design_settings, at, by}`, written

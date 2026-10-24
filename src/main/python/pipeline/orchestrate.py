@@ -150,6 +150,7 @@ class Applied:
     designer_build: Optional[str] = None
     # 1.5: what the designer did with each adjustment asked for (contract.AdjustmentOutcome); () when none were asked
     adjustment_outcomes: tuple = ()
+    run_record: Optional[str] = None   # 1.6: the designer's record of this run, relative to its shared root
 
 
 @dataclass(frozen=True)
@@ -164,12 +165,17 @@ class Declined:
     designer_build: Optional[str] = None
     # 1.5: what the designer did with each adjustment asked for (contract.AdjustmentOutcome); () when none were asked
     adjustment_outcomes: tuple = ()
+    run_record: Optional[str] = None   # 1.6, as on Applied
 
 
 def identity_of(response) -> dict:
-    ''' A response's 1.4 identity fields (contract.IDENTITY_FIELDS) and 1.5 adjustment outcomes, to pass on with its outcome. '''
+    '''
+    A response's 1.4 identity fields (contract.IDENTITY_FIELDS), 1.5 adjustment outcomes and 1.6 run record, to pass on
+    with its outcome.
+    '''
     return {**{name: getattr(response, name, None) for name in IDENTITY_FIELDS},
-            'adjustment_outcomes': tuple(getattr(response, 'adjustment_outcomes', None) or ())}
+            'adjustment_outcomes': tuple(getattr(response, 'adjustment_outcomes', None) or ()),
+            'run_record': getattr(response, 'run_record', None)}
 
 
 DesignOutcome = Union[Applied, Declined]
