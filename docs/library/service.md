@@ -55,7 +55,7 @@ run:
 A designer can also run on several machines at once. List its endpoints. Each is sent as many designs at a time as its
 designer runs (beqforge 0.2.4 and later report it: `serve-designer --workers N`), or one at a time for an older one; add
 `parallel: N` (1-8) to an endpoint to set it yourself. Designs go to whichever endpoints are up; one that stops answering is left out until it answers
-again, and Status lists each endpoint in a table: its URL, design version, whether it is up and when it was last asked, how many it takes at once, and the titles it is designing now. Use the same beqforge version on every endpoint: a designer that reports its
+again, and Status lists each endpoint in the *Designers* table: the designer, its URL, whether it is up and when it was last asked, its design version (*Protocol*), the beqforge release (*Version*, when its `/health` names one; the build is shown on hover), how many it takes at once (*Max jobs*), and the titles it is designing now. Use the same beqforge version on every endpoint: a designer that reports its
 design version (contract 1.4) has it shown beside each endpoint, and Status warns when the endpoints that are up would not
 design alike. `by_reference: true` only
 suits an endpoint that sees the work directory; give the others none, and they are sent the audio itself.
@@ -243,8 +243,9 @@ Open `http://HOST:PORT/` and sign in with the service token. *Remember on this d
 otherwise it lasts until the tab is closed. The token is checked with the service before it is kept.
 
 * **Status:** how many titles need each stage (each count opens the list of them), the job running now and how far it
-  has got (the title in hand, ffmpeg's percent, the time to go), the designer and whether it answers, the schedule
-  (*Pause*, *Resume*, *Run now*) and the sources.
+  has got (the title in hand, ffmpeg's percent, the time to go), what is waiting, the schedule and the sources it
+  scans before each run, with *Pause*/*Resume*, *Run now*, *Rescan sources* and *New job* together under *Jobs*; and
+  the *Designers* table.
 * **Jobs:** what has run and is running, each job's result (its failures link to the titles) and its log, live while it
   runs, with *Cancel*. *New job* scans the sources, or runs the titles a filter selects through extract, design,
   publish or commit; *Preview* says what would run and what would be skipped, and why, before anything is started.

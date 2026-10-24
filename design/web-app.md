@@ -81,14 +81,18 @@ message. Tests: `test_pipeline_library_decide.py`.
   each event on as it comes. `useJobEvents()` keeps the last 500 and refreshes the job, jobs,
   status and titles queries when the job ends.
 - **Screens** (`src/pages/`):
-  - *Status*: the pipeline strip (titles per `needs`, each linked to the Titles list filtered to it), the job running
-    now as facts (job, started, estimated end with time to go, progress with the rate an hour, and activity: the stage
-    and title in hand with ffmpeg's percent, or the titles out on the designer), a progress bar, how many wait, the
-    designer as a table of its endpoints (URL, design version and build, up/down with when `/health` was last asked and
-    why it is down, parallel, and what each is designing now from `designing`, linked to its review; *idle* when
-    nothing is out) with the warning when the endpoints up would design differently, the schedule (Pause/Resume over `PUT /v1/schedule`, Run now, the last run and skip),
-    the sources and their last error. *Scan sources* (or *Rescan sources* after the first scan) queues a scan
-    of every configured source and opens its job page. The same action is available on Titles. Polls `/v1/status` every 10 s.
+  - *Status*: the pipeline strip (titles per `needs`, each linked to the Titles list filtered to it), then two
+    sections. *Jobs* is the work from both ends, as facts: the job running now (job, started, estimated end with time
+    to go, progress with the rate an hour, and activity: the stage and title in hand with ffmpeg's percent, or the
+    titles out on the designer) and a progress bar, how many wait, the schedule (what each tick does -- it scans the
+    sources first, then runs what its filter selects -- the next run, the last run and skip, why it ended), with its
+    buttons (Pause/Resume over `PUT /v1/schedule`, Run now, *Scan sources* -- *Rescan sources* after the first scan --
+    which queues a scan of every source and opens its job page, and New job) and the sources with their last error.
+    *Designers* is one table with a row per endpoint of the configured designer (designer, URL, up/down with when
+    `/health` was last asked and why it is down, protocol -- the design version --, version -- the release its
+    `/health` names, the build on hover --, max jobs, and what each is designing now from `designing`, linked to its
+    review; *idle* when nothing is out; a designer with no endpoints is one row saying why) with the warning when the
+    endpoints up would design differently. The scan action is also on Titles. Polls `/v1/status` every 10 s.
   - *Jobs*: history newest first, by state. A job's page: its state and times, the result (counts; failures,
     unavailable, failed earlier, not published, designed and skipped titles, each linked to its review), why the job
     itself failed, its log (live while it runs) and Cancel (Drop for a queued job; "Stopping after the title in hand" for

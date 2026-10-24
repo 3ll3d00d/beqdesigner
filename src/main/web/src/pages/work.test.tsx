@@ -87,11 +87,11 @@ describe('status', () => {
     expect(router.state.location.search).toBe('?needs=attention')
   })
 
-  it('lists each designer endpoint in a table: url, version, status with the last ping, parallel and activity', async () => {
+  it('lists every endpoint of the designer in one table: designer, url, status, protocol, release, max jobs, activity', async () => {
     const designer = {
       name: 'beqforge', reachable: true, detail: 'http://a/design (1 of 2 endpoints down)', checked_at: '2026-10-22T08:00:00Z',
       endpoints: [{ url: 'http://a/design', parallel: 1, reachable: true, detail: 'http://a/design', design_version: 5,
-                    designer_build: 'src:2628', checked_at: '2026-10-22T08:00:00Z',
+                    designer_build: '517cc6930fd6+src:2628', designer_release: '0.2.10', checked_at: '2026-10-22T08:00:00Z',
                     designing: [{ title_id: 't1', title: 'Alien', started_at: '2026-10-22T07:58:00Z' }] },
                   { url: 'http://b/design', parallel: 3, reachable: false, detail: 'GET http://b/health failed: refused',
                     checked_at: '2026-10-22T08:00:00Z', designing: [] }],
@@ -101,14 +101,18 @@ describe('status', () => {
 
     const table = await screen.findByRole('table', { name: 'Designers' })
     expect(within(table).getAllByRole('columnheader').map((th) => th.textContent))
-      .toEqual(['URL', 'Version', 'Status', 'Parallel', 'Activity'])
+      .toEqual(['Designer', 'URL', 'Status', 'Protocol', 'Version', 'Max jobs', 'Activity'])
     const [, a, b] = within(table).getAllByRole('row')
     const cells = (row: HTMLElement) => within(row).getAllByRole('cell').map((td) => td.textContent)
     const at = when('2026-10-22T08:00:00Z')
-    expect(cells(a!)).toEqual(['http://a/design', 'design 5src:2628', `up · ${at}`, '1', `Alien since ${when('2026-10-22T07:58:00Z')}`])
-    expect(cells(b!)).toEqual(['http://b/design', '—', `down · ${at}GET http://b/health failed: refused`, '3', '—'])
+    expect(cells(a!)).toEqual(['beqforge', 'http://a/design', `up · ${at}`, '5', '0.2.10', '1',
+                               `Alien since ${when('2026-10-22T07:58:00Z')}`])
+    expect(cells(b!)).toEqual(['beqforge', 'http://b/design', `down · ${at}GET http://b/health failed: refused`, '—', '—', '3', '—'])
+    // the build is a revision, not a release: it is there on hover, not in the cell
+    expect(within(a!).getByText('0.2.10')).toHaveAttribute('title', '517cc6930fd6+src:2628')
     expect(within(a!).getByRole('link', { name: 'Alien' })).toHaveAttribute('href', '/titles/t1')
-    expect(screen.getByRole('heading', { name: 'Designer: beqforge' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Designers' })).toBeInTheDocument()
+    expect(screen.getAllByRole('table', { name: 'Designers' })).toHaveLength(1)
   })
 
   it('says an endpoint with nothing out is idle, and lists a designer with one endpoint too', async () => {
@@ -120,7 +124,8 @@ describe('status', () => {
 
     const table = await screen.findByRole('table', { name: 'Designers' })
     const [, a] = within(table).getAllByRole('row')
-    expect(within(a!).getAllByRole('cell').map((td) => td.textContent)).toEqual(['http://a/design', '—', 'up · —', '2', 'idle'])
+    expect(within(a!).getAllByRole('cell').map((td) => td.textContent))
+      .toEqual(['beqforge', 'http://a/design', 'up · —', '—', '—', '2', 'idle'])
     expect(screen.queryByRole('alert', { name: 'Designers disagree' })).not.toBeInTheDocument()
   })
 
@@ -139,17 +144,18 @@ describe('status', () => {
     const warning = await screen.findByRole('alert', { name: 'Designers disagree' })
     expect(within(warning).getAllByRole('listitem').map((li) => li.textContent)).toEqual(designer.design_disagreement)
     const rows = within(screen.getByRole('table', { name: 'Designers' })).getAllByRole('row')
-    expect(rows.slice(1).map((r) => within(r).getAllByRole('cell')[1]!.textContent)).toEqual(['design 4', 'design 5'])
+    expect(rows.slice(1).map((r) => within(r).getAllByRole('cell')[3]!.textContent)).toEqual(['4', '5'])
   })
 
-  it('says why a designer with no endpoints has nothing to show', async () => {
+  it('lists a designer with no endpoints as one row saying why', async () => {
     const designer = { name: 'manual', reachable: null, detail: 'not an HTTP designer: nothing to ask', checked_at: null,
                        endpoints: [] }
     server.use(statusRoute(status({ index: index(), designer })), http.get('/v1/schedule', () => json(schedule())))
     renderApp('/')
 
-    expect(await screen.findByText('not an HTTP designer: nothing to ask')).toBeInTheDocument()
-    expect(screen.queryByRole('table', { name: 'Designers' })).not.toBeInTheDocument()
+    const table = await screen.findByRole('table', { name: 'Designers' })
+    const [, row] = within(table).getAllByRole('row')
+    expect(within(row!).getAllByRole('cell').map((td) => td.textContent)).toEqual(['manual', 'not an HTTP designer: nothing to ask'])
   })
 
   it('follows the job running now', async () => {
@@ -165,15 +171,17 @@ describe('status', () => {
 
     expect(await screen.findByText(/Run through design: needing extract or design, movies/)).toBeInTheDocument()
     expect(screen.getByRole('progressbar', { name: 'Progress' })).toHaveAttribute('value', '1')
+    await screen.findByText('Schedule')
     const facts = screen.getByText('Estimated end').closest('dl')!
     const rows = Object.fromEntries(within(facts).getAllByRole('term').map((dt) => [dt.textContent, dt.nextElementSibling!.textContent]))
-    expect(Object.keys(rows)).toEqual(['Job', 'Started', 'Estimated end', 'Progress', 'Activity'])
+    expect(Object.keys(rows)).toEqual(['Job', 'Started', 'Estimated end', 'Progress', 'Activity', 'Waiting', 'Schedule',
+                                       'Next run'])
     expect(rows['Started']).toBe(when(running.started_at))
     expect(rows['Estimated end']).toBe('— (about 10 min 0 s to go)')
     expect(rows['Progress']).toBe('1 of 4')
     expect(await screen.findByText(/42% extracted/)).toBeInTheDocument()
     expect(within(facts).getByText('Alien')).toBeInTheDocument()
-    expect(screen.getByText(/2 jobs waiting/)).toBeInTheDocument()
+    expect(rows['Waiting']).toBe('2 jobs')
   })
 
   it('says when the job should end and lists the designs out on the designer as its activity', async () => {
@@ -218,6 +226,33 @@ describe('status', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Service busy: a job is queued or running')
   })
 
+  it('shows the job, the schedule and the sources it scans as one section, with every way to start one', async () => {
+    server.use(statusRoute(status({ index: index() })),
+               http.get('/v1/schedule', () => json(schedule({
+                 last_run: { job_id: 'job-0', state: 'failed', finished_at: '2026-10-22T07:00:00Z' },
+                 last_skip: 'the designer is down' }))))
+    renderApp('/')
+
+    const section = (await screen.findByRole('heading', { name: 'Jobs' })).closest('section')!
+    await within(section).findByText('Schedule')
+    const facts = section.querySelector('dl')!
+    const rows = Object.fromEntries(within(facts).getAllByRole('term').map((dt) => [dt.textContent, dt.nextElementSibling!.textContent]))
+    expect(rows).toEqual({
+      Job: 'None running', Waiting: 'Nothing',
+      Schedule: 'Every 60 min: scan the sources, then run movies through design.',
+      'Next run': when(schedule().next_run_at), 'Last run': `Failed ${when('2026-10-22T07:00:00Z')}`,
+      'Last skipped': 'the designer is down',
+    })
+    expect(within(facts).getByRole('link', { name: when('2026-10-22T07:00:00Z') })).toHaveAttribute('href', '/jobs/job-0')
+    expect(within(section).getAllByRole('button').map((b) => b.textContent)).toEqual(['Pause', 'Run now', 'Rescan sources'])
+    expect(within(section).getByRole('link', { name: 'New job…' })).toHaveAttribute('href', '/jobs/new')
+    const sources = within(section).getByRole('table', { name: 'Sources' })
+    expect(within(sources).getAllByRole('row').slice(1).map((r) => within(r).getAllByRole('cell')[0]!.textContent))
+      .toEqual(['films', 'tv'])
+    expect(screen.queryByRole('heading', { name: 'Schedule' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Sources' })).not.toBeInTheDocument()
+  })
+
   it('says when the library has not been scanned', async () => {
     server.use(statusRoute(status()), http.get('/v1/schedule', () => json(schedule({ enabled: false }))))
     renderApp('/')
@@ -229,7 +264,7 @@ describe('status', () => {
     server.use(statusRoute(status({ index: index() })),
                http.get('/v1/schedule', () => json(schedule({ enabled: false, ended: 'all 2 listed titles are done' }))))
     renderApp('/')
-    expect(await screen.findByText('Ended: all 2 listed titles are done')).toBeInTheDocument()
+    expect((await screen.findByText('Ended')).nextElementSibling).toHaveTextContent('all 2 listed titles are done')
   })
 })
 
