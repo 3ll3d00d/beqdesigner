@@ -982,6 +982,9 @@ class DesignerEndpointStatus(BaseModel):
     design_settings_detail: Optional[Dict[str, Any]] = Field(
         None, description='Its settings that differ from the defaults, as its /health lists them; null when it does not.')
     designer_build: Optional[str] = Field(None, description='The build its /health names, for people.')
+    designer_release: Optional[str] = Field(
+        None, description='The release it is (e.g. 0.2.10), as its /health names it or its build starts with; null when '
+                          'neither says.')
 
 
 class DesignerStatus(BaseModel):

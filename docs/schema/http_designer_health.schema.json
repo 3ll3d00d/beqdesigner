@@ -34,6 +34,11 @@
       "minLength": 1,
       "description": "1.4, optional: the designer's build, for people; a caller keys nothing on it."
     },
+    "designer_release": {
+      "type": "string",
+      "minLength": 1,
+      "description": "1.5, optional: the release the designer is, as its version (e.g. 0.2.10), for people; a caller keys nothing on it."
+    },
     "design_settings_detail": {
       "type": "object",
       "description": "1.4, optional: the settings design_settings digests, by name, for a person to see why two designers disagree; never a key."

@@ -12,7 +12,7 @@ from pipeline.designer.contract import BiquadSpec, DesignCandidate, DesignRespon
 from pipeline.designer.convert import ContractViolation, validate_response
 from pipeline.designer.http_binding import _response_from_json
 from pipeline.designer.identity import CurrentIdentity, DesignIdentity, EndpointIdentity, backfill_version, \
-    current_identity, identity_from_health, is_out_of_date, out_of_date_reasons
+    current_identity, identity_from_health, is_out_of_date, out_of_date_reasons, release_of
 from pipeline.review import QueueEntry, _entry_from_dict, _entry_to_dict
 
 CANDIDATE = {'filters': [{'type': 'low_shelf', 'freq_hz': 20.0, 'gain_db': 6.0, 'q': 0.7}], 'confidence': 0.9,
@@ -83,6 +83,23 @@ def test_health_reports_an_identity_only_with_a_valid_version():
     assert identity_from_health('u', {'design_version': '4'}) is None
     assert identity_from_health('u', {'design_version': -1}) is None
     assert identity_from_health('u', None) is None
+
+
+@pytest.mark.parametrize('release, build, expected', [
+    ('0.2.11', '517cc6930fd6+src:b5356b22f9fa (frozen build)', '0.2.11'),   # it says, whatever its build names
+    (None, '517cc6930fd6+src:b5356b22f9fa (frozen build)', None),          # a revision, not a release
+    (None, 'unknown+src:77edc1b4dc54', None),
+    (None, '0.2.10+src:77edc1b4dc54', '0.2.10'),
+    (None, 'v0.2.10+src:77edc1b4dc54', '0.2.10'),
+    (None, '0.2.6 (frozen build)', '0.2.6'),
+    (None, 'v0.2.10-3-g517cc6930fd6+src:1', None),                          # past a release: not that release
+    ('  ', None, None),
+    (7, '0.2.6', '0.2.6'),
+])
+def test_the_release_is_what_health_names_else_what_the_build_starts_with(release, build, expected):
+    assert release_of(release, build) == expected
+    assert identity_from_health('u', {'design_version': 6, 'designer_release': release, 'designer_build': build}) \
+        .release == expected
 
 
 def test_the_current_identity_is_the_highest_version_up_and_a_disagreement_is_said():

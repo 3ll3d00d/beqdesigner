@@ -1054,6 +1054,11 @@ export interface components {
              * @description The build its /health names, for people.
              */
             designer_build?: string | null;
+            /**
+             * Designer Release
+             * @description The release it is (e.g. 0.2.10), as its /health names it or its build starts with; null when neither says.
+             */
+            designer_release?: string | null;
         };
         /** DesignerStatus */
         DesignerStatus: {

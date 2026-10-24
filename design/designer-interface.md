@@ -1016,6 +1016,8 @@ carried, and nothing after decoding may tell the two apart. The rules:
   `designer_build` as on a response (§3, "Design identity"), and
   `design_settings_detail`, the non-default settings as an object, so a person
   can see why two designers disagree; a caller shows it and keys nothing on it.
+  It may also report `designer_release`, the release it is as its version
+  (`"0.2.10"`), for people: a build names a revision, not a release.
   From 1.5 it may list `adjustment_kinds`: each kind it knows (§2's and its
   own `x-` kinds), as `{kind: {"description": str, "params": {name: {"type":
   "number" | "integer" | "string" | "boolean", "unit": str, "minimum":

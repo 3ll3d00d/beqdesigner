@@ -242,7 +242,7 @@ def test_the_status_says_what_a_redesign_would_be_made_with_and_where_the_endpoi
     old.health = {'status': 'ok', 'design_version': 4, 'design_settings': 'd0', 'design_settings_detail': {},
                   'designer_build': '0.2.5 (frozen build)'}
     new.health = {'status': 'ok', 'design_version': 5, 'design_settings': 'd1',
-                  'design_settings_detail': {'strategy': ['flatten']}}
+                  'design_settings_detail': {'strategy': ['flatten']}, 'designer_release': '0.2.10'}
     manager = JobManager(lambda job, control: None)
     app = create_app(manager, ServiceConfig(profile_path=profile, token=TOKEN), env={},
                      designer=DesignerProbe(profile, {}, timeout=2))
@@ -255,8 +255,10 @@ def test_the_status_says_what_a_redesign_would_be_made_with_and_where_the_endpoi
         old.stop()
         new.stop()
 
-    assert [(e['design_version'], e['design_settings_detail'], e['designer_build']) for e in status['endpoints']] == \
-        [(4, {}, '0.2.5 (frozen build)'), (5, {'strategy': ['flatten']}, None), (None, None, None)]
+    assert [(e['design_version'], e['design_settings_detail'], e['designer_build'], e['designer_release'])
+            for e in status['endpoints']] == \
+        [(4, {}, '0.2.5 (frozen build)', '0.2.5'), (5, {'strategy': ['flatten']}, None, '0.2.10'),
+         (None, None, None, None)]
     assert status['design_version'] == 5
     assert status['design_disagreement'] == [f'{old.url} designs with version 4, default settings',
                                              f"{new.url} designs with version 5, settings {{'strategy': ['flatten']}}"]

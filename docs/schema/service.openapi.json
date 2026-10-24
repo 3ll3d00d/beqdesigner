@@ -4843,6 +4843,18 @@
             ],
             "title": "Designer Build",
             "description": "The build its /health names, for people."
+          },
+          "designer_release": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Designer Release",
+            "description": "The release it is (e.g. 0.2.10), as its /health names it or its build starts with; null when neither says."
           }
         },
         "type": "object",

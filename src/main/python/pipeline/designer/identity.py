@@ -7,6 +7,7 @@ A designer reports its identity on each response and on `/health`. A queue entry
 designer named; `backfill_version()` maps the builds this library has seen to the versions beqforge declared for its past
 releases. A designer that reports no version leaves every entry's state unknown, and nothing else changes.
 '''
+import re
 from dataclasses import dataclass
 from typing import Any, Iterable, List, Mapping, Optional, Tuple
 
@@ -74,12 +75,28 @@ class DesignIdentity:
 
 @dataclass(frozen=True)
 class EndpointIdentity:
-    ''' What one endpoint's `/health` says it designs with. `settings_detail`: its non-default settings, if it says. '''
+    '''
+    What one endpoint's `/health` says it designs with. `settings_detail`: its non-default settings, if it says.
+    `release`: the release it is (e.g. 0.2.10), for people; None when neither it nor its build says.
+    '''
     url: str
     version: int
     settings: Optional[str] = None
     settings_detail: Optional[Mapping[str, Any]] = None
     build: Optional[str] = None
+    release: Optional[str] = None
+
+
+# a build that starts with a release (`0.2.10+src:…`, `v0.2.10 (frozen build)`), not a revision
+_RELEASE_BUILD = re.compile(r'^v?(\d+\.\d+\.\d+)(?=$|[+ ])')
+
+
+def release_of(release: Any, build: Optional[str]) -> Optional[str]:
+    ''' The release a `/health` names: its `designer_release`, else the one its build starts with; None when neither. '''
+    if valid_text(release):
+        return release.strip()
+    match = _RELEASE_BUILD.match(build or '')
+    return match.group(1) if match else None
 
 
 def identity_from_health(url: str, body: Any) -> Optional[EndpointIdentity]:
@@ -90,8 +107,10 @@ def identity_from_health(url: str, body: Any) -> Optional[EndpointIdentity]:
     if version is None:
         return None
     detail = body.get('design_settings_detail')
+    build = valid_text(body.get('designer_build'))
     return EndpointIdentity(url, version, valid_text(body.get('design_settings')),
-                            dict(detail) if isinstance(detail, Mapping) else None, valid_text(body.get('designer_build')))
+                            dict(detail) if isinstance(detail, Mapping) else None, build,
+                            release_of(body.get('designer_release'), build))
 
 
 @dataclass(frozen=True)
