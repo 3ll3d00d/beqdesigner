@@ -132,6 +132,8 @@ Stopping it (Ctrl-C, or `SIGTERM`) lets the title in hand finish, then stops.
 | `PUT /v1/titles/{id}/edited` | save your edit of one of the title's designs as a new design run (the current one is kept) |
 | `GET /v1/titles/{id}/projects` | the title's `.beq` projects and whether you edited them since the design (what is saved in one is what gets published) |
 | `POST /v1/revise` | send titles back to review, design or extract (`ids`, `to`, `reason`): now, or with `run` in one run job |
+| `POST /v1/impact`, `GET /v1/impact` | ask the designer which out-of-date designs a redesign now could move (all of them, or `ids`), in the background; then the answer: each title's tier (will move, likely, possible, unaffected, unknown) and why. Needs a designer that answers it (contract 1.6) |
+| `POST /v1/reviewed` | keep these titles' designs (`ids`) at the design version a redesign now would use: they stop showing as out of date. Nothing about the design changes |
 | `GET /v1/titles/{id}/streams` | the title's audio streams and the one extracted |
 | `PUT /v1/titles/{id}/stream` | extract and design the title from another audio stream: a run job |
 | `GET /health`, `/ready` | is it up; is it able to work |

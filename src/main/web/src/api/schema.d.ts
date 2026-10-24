@@ -381,6 +381,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/impact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The last check of what a redesign now would move (or the one running) */
+        get: operations["get_impact_v1_impact_get"];
+        put?: never;
+        /** Ask the designer which out-of-date designs a redesign now could move (in the background; GET /v1/impact follows it) */
+        post: operations["post_impact_v1_impact_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reviewed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Keep titles' designs at the identity a redesign now would use, rather than redesign them */
+        post: operations["reviewed_v1_reviewed_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/titles/{title_id}/heatmap.png": {
         parameters: {
             query?: never;
@@ -1008,6 +1043,16 @@ export interface components {
             /** Message */
             message: string;
         };
+        /**
+         * DesignIdentityView
+         * @description A design identity (contract 1.4): what a designer answers with.
+         */
+        DesignIdentityView: {
+            /** Design Version */
+            design_version: number;
+            /** Design Settings */
+            design_settings?: string | null;
+        };
         /** DesignerEndpointStatus */
         DesignerEndpointStatus: {
             /** Url */
@@ -1213,6 +1258,125 @@ export interface components {
             status: "ok";
             /** Version */
             version: string;
+        };
+        /**
+         * ImpactAsk
+         * @description Ask the designer which designs a redesign now could move.
+         */
+        ImpactAsk: {
+            /**
+             * Ids
+             * @description The titles to ask about; empty: every title whose design is out of date.
+             * @default []
+             */
+            ids: string[];
+        };
+        /** ImpactChangeView */
+        ImpactChangeView: {
+            /** Design Version */
+            design_version: number;
+            /** Id */
+            id: string;
+            /** Summary */
+            summary: string;
+        };
+        /**
+         * ImpactCheck
+         * @description The last check of what a redesign now would move, or the one running.
+         */
+        ImpactCheck: {
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "idle" | "running" | "succeeded" | "failed";
+            /** Started At */
+            started_at?: string | null;
+            /** Finished At */
+            finished_at?: string | null;
+            /**
+             * Done
+             * @description Titles answered so far.
+             * @default 0
+             */
+            done: number;
+            /**
+             * Total
+             * @description Titles asked about.
+             * @default 0
+             */
+            total: number;
+            /**
+             * Error
+             * @default
+             */
+            error: string;
+            /**
+             * Designer Url
+             * @description The designer endpoint asked.
+             * @default
+             */
+            designer_url: string;
+            /**
+             * Design Version
+             * @description The identity the answer is for: a check made at another identity than the designers report now is stale.
+             */
+            design_version?: number | null;
+            /** Design Settings */
+            design_settings?: string | null;
+            /**
+             * Changes
+             * @default []
+             */
+            changes: components["schemas"]["ImpactChangeView"][];
+            /**
+             * Titles
+             * @description As a person reads them: will move and unknown first, then likely, possible, unaffected; highest score first within each.
+             * @default []
+             */
+            titles: components["schemas"]["ImpactTitle"][];
+        };
+        /** ImpactReasonView */
+        ImpactReasonView: {
+            /**
+             * Change
+             * @description The change it names (an id in the check's changes), or null.
+             */
+            change: string | null;
+            /**
+             * Feature
+             * @description The part of the design it reached, in the designer's words.
+             */
+            feature: string | null;
+            /**
+             * Detail
+             * @description For a person.
+             */
+            detail: string;
+        };
+        /** ImpactTitle */
+        ImpactTitle: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /** Year */
+            year: string;
+            /**
+             * Tier
+             * @description unknown is read as will_move unless a person decides otherwise.
+             * @enum {string}
+             */
+            tier: "will_move" | "likely" | "possible" | "unaffected" | "unknown";
+            /**
+             * Score
+             * @description Orders titles within a tier, highest first; null for unknown.
+             */
+            score: number | null;
+            /** From Design Version */
+            from_design_version: number | null;
+            /** Reasons */
+            reasons: components["schemas"]["ImpactReasonView"][];
         };
         /** IndexStatus */
         IndexStatus: {
@@ -1733,6 +1897,36 @@ export interface components {
                 [key: string]: unknown;
             }[];
             artwork?: components["schemas"]["ArtworkState"] | null;
+        };
+        /**
+         * ReviewedAsk
+         * @description Keep these titles' designs at the identity a redesign now would use, rather than redesign them.
+         */
+        ReviewedAsk: {
+            /** Ids */
+            ids: string[];
+        };
+        /** ReviewedOutcome */
+        ReviewedOutcome: {
+            /** Design Version */
+            design_version: number;
+            /** Design Settings */
+            design_settings: string | null;
+            /** Titles */
+            titles: components["schemas"]["ReviewedTitle"][];
+        };
+        /** ReviewedTitle */
+        ReviewedTitle: {
+            /** Id */
+            id: string;
+            /** Reviewed */
+            reviewed: boolean;
+            /**
+             * Reason
+             * @description Why it was not kept, when it was not.
+             * @default
+             */
+            reason: string;
         };
         /** ReviseFailure */
         ReviseFailure: {
@@ -2290,6 +2484,12 @@ export interface components {
              * @default 0
              */
             design_choices: number;
+            /**
+             * Reviewed At
+             * @description The identities a person kept its design at rather than redesign it (contract 1.6): it is not out of date against them.
+             * @default []
+             */
+            reviewed_at: components["schemas"]["DesignIdentityView"][];
         };
         /**
          * TitleEvent
@@ -4019,6 +4219,155 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_impact_v1_impact_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImpactCheck"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    post_impact_v1_impact_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImpactAsk"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImpactCheck"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    reviewed_v1_reviewed_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewedAsk"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewedOutcome"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };

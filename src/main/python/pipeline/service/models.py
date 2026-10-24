@@ -17,7 +17,7 @@ from pipeline.service.jobs import MAX_REDESIGN_IDS, redesign_problem
 from pipeline.library.state import NEEDS, FLAG_DUPLICATE, FLAG_GONE, FLAG_IGNORED, FLAG_IN_CATALOGUE, FLAG_SHADOWED
 from pipeline.library.year import YEAR_PATTERN, YearRange, numeric_year
 
-API_VERSION = '1.16.0'
+API_VERSION = '1.17.0'
 
 
 class Needs(str, Enum):
@@ -232,6 +232,9 @@ class Title(BaseModel):
     design_runs: int = Field(0, description='How many design runs it keeps (0: not designed).')
     design_choices: int = Field(0, description='The designs to choose from in every design run it keeps (candidates; the '
                                                'designer\'s rejected ones are not counted).')
+    reviewed_at: List['DesignIdentityView'] = Field([], description='The identities a person kept its design at rather '
+                                                                    'than redesign it (contract 1.6): it is not out of '
+                                                                    'date against them.')
 
     @classmethod
     def of(cls, row) -> 'Title':
@@ -244,7 +247,18 @@ class Title(BaseModel):
                    is_new=row.is_new, state_since=timestamp(row.state_since), last_seen=timestamp(row.last_seen),
                    design_version=row.design_identity.version if row.design_identity else None,
                    adjusted=row.adjusted, unmet_adjustments=row.unmet_adjustments, design_runs=row.design_runs,
-                   design_choices=row.choices)
+                   design_choices=row.choices,
+                   reviewed_at=[DesignIdentityView(design_version=v, design_settings=s)
+                                for v, s in (row.design_identity.reviewed if row.design_identity else ())])
+
+
+class DesignIdentityView(BaseModel):
+    ''' A design identity (contract 1.4): what a designer answers with. '''
+    design_version: int
+    design_settings: Optional[str] = None
+
+
+Title.model_rebuild()
 
 
 class TitlePage(BaseModel):
@@ -817,6 +831,71 @@ def _request_data(request: Any) -> Dict[str, Any]:
 
 
 ReviseOutcome.model_rebuild()
+
+
+# --- redesign scope (contract 1.6, design/redesign-scope.md) ------------------------------------------------------------
+
+class ImpactAsk(Input):
+    ''' Ask the designer which designs a redesign now could move. '''
+    ids: List[str] = Field([], max_length=5000, description='The titles to ask about; empty: every title whose design is '
+                                                           'out of date.')
+
+
+class ImpactReasonView(BaseModel):
+    change: Optional[str] = Field(description="The change it names (an id in the check's changes), or null.")
+    feature: Optional[str] = Field(description="The part of the design it reached, in the designer's words.")
+    detail: str = Field(description='For a person.')
+
+
+class ImpactTitle(BaseModel):
+    id: str
+    title: str
+    year: str
+    tier: Literal['will_move', 'likely', 'possible', 'unaffected', 'unknown'] = Field(
+        description='unknown is read as will_move unless a person decides otherwise.')
+    score: Optional[float] = Field(description='Orders titles within a tier, highest first; null for unknown.')
+    from_design_version: Optional[int]
+    reasons: List[ImpactReasonView]
+
+
+class ImpactChangeView(BaseModel):
+    design_version: int
+    id: str
+    summary: str
+
+
+class ImpactCheck(BaseModel):
+    ''' The last check of what a redesign now would move, or the one running. '''
+    state: Literal['idle', 'running', 'succeeded', 'failed']
+    started_at: Optional[datetime] = None
+    finished_at: Optional[datetime] = None
+    done: int = Field(0, description='Titles answered so far.')
+    total: int = Field(0, description='Titles asked about.')
+    error: str = ''
+    designer_url: str = Field('', description='The designer endpoint asked.')
+    design_version: Optional[int] = Field(None, description='The identity the answer is for: a check made at another '
+                                                            'identity than the designers report now is stale.')
+    design_settings: Optional[str] = None
+    changes: List[ImpactChangeView] = []
+    titles: List[ImpactTitle] = Field([], description='As a person reads them: will move and unknown first, then likely, '
+                                                      'possible, unaffected; highest score first within each.')
+
+
+class ReviewedAsk(Input):
+    ''' Keep these titles' designs at the identity a redesign now would use, rather than redesign them. '''
+    ids: List[str] = Field(min_length=1, max_length=MAX_REDESIGN_IDS)
+
+
+class ReviewedTitle(BaseModel):
+    id: str
+    reviewed: bool
+    reason: str = Field('', description='Why it was not kept, when it was not.')
+
+
+class ReviewedOutcome(BaseModel):
+    design_version: int
+    design_settings: Optional[str]
+    titles: List[ReviewedTitle]
 
 
 def job_model(job, now: Optional[float] = None) -> Union[ScanJob, RunJob, AcceptJob]:

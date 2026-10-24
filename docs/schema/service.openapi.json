@@ -4,7 +4,7 @@
     "title": "BEQDesigner pipeline service",
     "summary": "Scan a library, extract and design BEQ filters for titles chosen by filter, on demand or on a schedule, and follow the jobs that do it.",
     "description": "A person decides a title through the review routes or in the BEQDesigner app. Every /v1 route needs the bearer token (Authorize, above). `GET /health` says which release this is.",
-    "version": "1.16.0"
+    "version": "1.17.0"
   },
   "paths": {
     "/health": {
@@ -2324,6 +2324,192 @@
             }
           }
         }
+      }
+    },
+    "/v1/impact": {
+      "get": {
+        "tags": [
+          "redesign"
+        ],
+        "summary": "The last check of what a redesign now would move (or the one running)",
+        "operationId": "get_impact_v1_impact_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImpactCheck"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "redesign"
+        ],
+        "summary": "Ask the designer which out-of-date designs a redesign now could move (in the background; GET /v1/impact follows it)",
+        "operationId": "post_impact_v1_impact_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImpactAsk"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImpactCheck"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/reviewed": {
+      "post": {
+        "tags": [
+          "redesign"
+        ],
+        "summary": "Keep titles' designs at the identity a redesign now would use, rather than redesign them",
+        "operationId": "reviewed_v1_reviewed_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewedAsk"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewedOutcome"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/v1/titles/{title_id}/heatmap.png": {
@@ -4765,6 +4951,31 @@
         ],
         "title": "Decline"
       },
+      "DesignIdentityView": {
+        "properties": {
+          "design_version": {
+            "type": "integer",
+            "title": "Design Version"
+          },
+          "design_settings": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Design Settings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "design_version"
+        ],
+        "title": "DesignIdentityView",
+        "description": "A design identity (contract 1.4): what a designer answers with. "
+      },
       "DesignerEndpointStatus": {
         "properties": {
           "url": {
@@ -5148,6 +5359,263 @@
           "version"
         ],
         "title": "Health"
+      },
+      "ImpactAsk": {
+        "properties": {
+          "ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 5000,
+            "title": "Ids",
+            "description": "The titles to ask about; empty: every title whose design is out of date.",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ImpactAsk",
+        "description": "Ask the designer which designs a redesign now could move. "
+      },
+      "ImpactChangeView": {
+        "properties": {
+          "design_version": {
+            "type": "integer",
+            "title": "Design Version"
+          },
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "design_version",
+          "id",
+          "summary"
+        ],
+        "title": "ImpactChangeView"
+      },
+      "ImpactCheck": {
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "idle",
+              "running",
+              "succeeded",
+              "failed"
+            ],
+            "title": "State"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "done": {
+            "type": "integer",
+            "title": "Done",
+            "description": "Titles answered so far.",
+            "default": 0
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "Titles asked about.",
+            "default": 0
+          },
+          "error": {
+            "type": "string",
+            "title": "Error",
+            "default": ""
+          },
+          "designer_url": {
+            "type": "string",
+            "title": "Designer Url",
+            "description": "The designer endpoint asked.",
+            "default": ""
+          },
+          "design_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Design Version",
+            "description": "The identity the answer is for: a check made at another identity than the designers report now is stale."
+          },
+          "design_settings": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Design Settings"
+          },
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/ImpactChangeView"
+            },
+            "type": "array",
+            "title": "Changes",
+            "default": []
+          },
+          "titles": {
+            "items": {
+              "$ref": "#/components/schemas/ImpactTitle"
+            },
+            "type": "array",
+            "title": "Titles",
+            "description": "As a person reads them: will move and unknown first, then likely, possible, unaffected; highest score first within each.",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "state"
+        ],
+        "title": "ImpactCheck",
+        "description": "The last check of what a redesign now would move, or the one running. "
+      },
+      "ImpactReasonView": {
+        "properties": {
+          "change": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change",
+            "description": "The change it names (an id in the check's changes), or null."
+          },
+          "feature": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Feature",
+            "description": "The part of the design it reached, in the designer's words."
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail",
+            "description": "For a person."
+          }
+        },
+        "type": "object",
+        "required": [
+          "change",
+          "feature",
+          "detail"
+        ],
+        "title": "ImpactReasonView"
+      },
+      "ImpactTitle": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "year": {
+            "type": "string",
+            "title": "Year"
+          },
+          "tier": {
+            "type": "string",
+            "enum": [
+              "will_move",
+              "likely",
+              "possible",
+              "unaffected",
+              "unknown"
+            ],
+            "title": "Tier",
+            "description": "unknown is read as will_move unless a person decides otherwise."
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score",
+            "description": "Orders titles within a tier, highest first; null for unknown."
+          },
+          "from_design_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Design Version"
+          },
+          "reasons": {
+            "items": {
+              "$ref": "#/components/schemas/ImpactReasonView"
+            },
+            "type": "array",
+            "title": "Reasons"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "year",
+          "tier",
+          "score",
+          "from_design_version",
+          "reasons"
+        ],
+        "title": "ImpactTitle"
       },
       "IndexStatus": {
         "properties": {
@@ -6417,6 +6885,83 @@
         ],
         "title": "Review",
         "description": "What a person decides a title on, and whether they can. "
+      },
+      "ReviewedAsk": {
+        "properties": {
+          "ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Ids"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "ids"
+        ],
+        "title": "ReviewedAsk",
+        "description": "Keep these titles' designs at the identity a redesign now would use, rather than redesign them. "
+      },
+      "ReviewedOutcome": {
+        "properties": {
+          "design_version": {
+            "type": "integer",
+            "title": "Design Version"
+          },
+          "design_settings": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Design Settings"
+          },
+          "titles": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewedTitle"
+            },
+            "type": "array",
+            "title": "Titles"
+          }
+        },
+        "type": "object",
+        "required": [
+          "design_version",
+          "design_settings",
+          "titles"
+        ],
+        "title": "ReviewedOutcome"
+      },
+      "ReviewedTitle": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "reviewed": {
+            "type": "boolean",
+            "title": "Reviewed"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason",
+            "description": "Why it was not kept, when it was not.",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "reviewed"
+        ],
+        "title": "ReviewedTitle"
       },
       "ReviseFailure": {
         "properties": {
@@ -7746,6 +8291,15 @@
             "title": "Design Choices",
             "description": "The designs to choose from in every design run it keeps (candidates; the designer's rejected ones are not counted).",
             "default": 0
+          },
+          "reviewed_at": {
+            "items": {
+              "$ref": "#/components/schemas/DesignIdentityView"
+            },
+            "type": "array",
+            "title": "Reviewed At",
+            "description": "The identities a person kept its design at rather than redesign it (contract 1.6): it is not out of date against them.",
+            "default": []
           }
         },
         "type": "object",

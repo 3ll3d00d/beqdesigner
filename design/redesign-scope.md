@@ -1,6 +1,6 @@
 # Redesign scope: which out-of-date designs to redesign (caller side)
 
-**Status:** design, partly built (TODO row RS): steps 1-3 are built. The contract is
+**Status:** design, partly built (TODO row RS): steps 1-4 are built. The contract is
 [`designer-interface.md`](designer-interface.md) 1.6 (§3 "The run record" and "Reviewed designs", §7.1 "Impact"),
 agreed with beqforge on 2026-10-24. beqforge returns `run_record` from 0.2.11; its `/impact` is its TODO 34 and lands
 after design version 7, so this side is built and tested against a fake designer first.
@@ -27,10 +27,14 @@ are then stamped *reviewed at* the new identity and stop showing as out of date.
    Records go in requests of at most 500, one after another, with a 120 s timeout each; a design without a
    `run_record` is not sent and is `unknown`. The response is checked (one result per record, in order; tiers and
    scores in shape) and an answer out of shape is an error, not a guess.
-4. **The service.** An *impact* job kind over the out-of-date designs (or given ids), whose result is kept: per title
-   its tier, score, reasons and the changes listed. `GET /v1/impact` serves the latest; `POST /v1/reviewed` stamps the
-   given titles reviewed at the current identity (refused for a title that is not out of date, or when the designers
-   disagree). Redesigning goes through the existing `/v1/revise` with the chosen ids.
+4. **The service** (built; `pipeline.service.impact`). `POST /v1/impact` checks the out-of-date designs (or given ids)
+   in the background -- not as a job, which would wait behind a run for hours and touches nothing -- one check at a
+   time, its answer kept in `<state_dir>/impact.json` across restarts (one cut short by a restart says so): per title
+   its tier, score, reasons and the changes listed, read most likely to move first. `GET /v1/impact` serves it. An
+   answer for another identity than a redesign would use fails the check. `POST /v1/reviewed` stamps the given titles
+   reviewed at the current identity, each refused with its reason (not out of date, in a run's hands, the designers
+   disagree). Redesigning goes through the existing `/v1/revise` with the chosen ids. `Title.reviewed_at` shows a
+   title's reviews.
 5. **The web app.** On Titles, when designs are out of date: *Check what would move*, then the out-of-date titles
    grouped by tier (unknown with will_move), highest score first, each with its reasons; select and *Redesign* or
    *Keep* (stamp reviewed). The title page shows a design's reviewed-at identities.
