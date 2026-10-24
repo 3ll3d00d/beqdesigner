@@ -50,7 +50,8 @@ function routes() {
       const query = new URL(request.url).searchParams
       asked.push(query)
       const one = query.get('candidate')
-      const designs = query.get('candidates') === 'all' ? [0, 1, 2] : one === null ? [] : [Number(one)]
+      const several = query.get('candidates')
+      const designs = several === 'all' ? [0, 1, 2] : several ? several.split(',').map(Number) : one === null ? [] : [Number(one)]
       return json(chart(one === null ? null : Number(one), designs, query.get('responses') === 'true'))
     }),
   )
@@ -83,6 +84,27 @@ describe('the chart workbench', () => {
     const after = last().series.slice(3)
     expect(after.map((s) => s.width)).toEqual([2.5, 1.25, 1.25])
     expect(new Set(after.map((s) => (s as { stroke?: string }).stroke)).size).toBe(3)
+  })
+
+  it('draws the designs ticked to compare with the highlighted one, and no others', async () => {
+    const asked = await open()
+    expect(screen.getByLabelText('Compare design 1')).toBeChecked()                 // the highlighted: always drawn
+    expect(screen.getByLabelText('Compare design 1')).toBeDisabled()
+    await userEvent.click(screen.getByLabelText('Compare design 3'))
+    await waitFor(() => expect(asked.at(-1)!.get('candidates')).toBe('0,2'))
+    await waitFor(() => expect(labels()).toEqual(expect.arrayContaining(
+      [expect.stringMatching(/\(design 1\)$/), expect.stringMatching(/\(design 3\)$/)])))
+    expect(labels()).toHaveLength(4)
+    const after = last().series.slice(3)
+    expect(after.map((s) => s.width)).toEqual([2.5, 1.25])
+    expect(new Set(after.map((s) => (s as { stroke?: string }).stroke)).size).toBe(2)
+    expect(screen.getByText(/Comparing 2 designs/)).toBeInTheDocument()
+    await userEvent.keyboard('3')                                                   // highlight the compared one: widest
+    await waitFor(() => expect(last().series.slice(3).map((s) => s.width)).toEqual([2.5, 1.25]))
+    expect(last().series[3]!.label).toMatch(/\(design 3\)$/)
+    await userEvent.click(screen.getByRole('button', { name: 'Stop comparing' }))
+    await waitFor(() => expect(asked.at(-1)!.get('candidate')).toBe('2'))
+    await waitFor(() => expect(labels()).toHaveLength(3))
   })
 
   it('puts each design\'s response on a second axis', async () => {

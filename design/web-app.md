@@ -134,7 +134,11 @@ message. Tests: `test_pipeline_library_decide.py`.
 
 `MagnitudeChart` draws `GET /v1/titles/{id}/chart`: the measured average and peak curves, dashed when a design is applied,
 and the same after the design highlighted, solid -- as the desktop title page draws them -- or, with *All designs*,
-after every design at once (`candidates=all`), one colour per design, the highlighted widest and peaks dotted. The view
+after every design at once (`candidates=all`), one colour per design, the highlighted widest and peaks dotted. Each
+design in the list also has a *compare* tick: the ones ticked, from any run, are drawn with the highlighted one
+(`candidates=0,2`, and `/chart?variant=…&candidates=…` per other run), coloured by their number in the one list
+(`numbered()`), so the same index in two runs is two colours; moving the highlight while comparing keeps the design
+highlighted until then on the chart, and *Stop comparing* goes back to the one. Ticks are per title and digest, not kept. The view
 (`src/chart/view.ts`, a `ChartView`) is kept per browser in `localStorage` (`beq.chartView`, each setting checked when
 read, defaults when storage refuses) and changed by `ChartControls`:
 
@@ -219,8 +223,8 @@ first, then the earlier ones newest first, each under a heading (its id, when, t
 than one, its candidates and then the ones its designer rejected, numbered on through the whole list -- the number is
 what 1-9 and *Accept design N* say. The review carries each earlier run's designs in full (`VariantSummary.candidates`
 and `rejected`, as the current run's). Highlighting one of an earlier run charts it from that run (`/chart?variant=…`),
-and the spectrogram and heatmap draw it the same way (`variant` on both); with *All designs* the other runs' designs are
-drawn too (`useVariantCharts`, thin and dashed: `seriesStyle()` for a series with `variant`). Accepting it sends
+and the spectrogram and heatmap draw it the same way (`variant` on both); with *All designs* (or a design of
+theirs ticked to compare) the other runs' designs are drawn too (`useVariantCharts`), in the colour of their number. Accepting it sends
 `Decision.variant`: the service checks the digest, makes that run current (the current one kept) and accepts, and puts
 the current run back if the accept is refused. *Edit filters…* edits a design of the current run only.
 

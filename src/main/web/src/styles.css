@@ -158,6 +158,9 @@ ul.candidates { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.3
 ul.candidates label { display: grid; grid-template-columns: auto 1fr; column-gap: 0.5rem; align-items: baseline;
                       padding: 0.35rem 0.5rem; border-radius: 6px; border: 1px solid transparent; cursor: pointer; }
 ul.candidates label > :nth-child(n + 3) { grid-column: 2; }
+ul.candidates li { display: flex; gap: 0.5rem; align-items: baseline; }
+ul.candidates li > label:first-child { flex: 1; }
+ul.candidates label.compare { display: inline-flex; gap: 0.25rem; padding: 0.35rem 0; font-size: 0.85rem; white-space: nowrap; }
 ul.candidates label.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
 h3 { font-size: 0.95rem; margin: 0.9rem 0 0.4rem; color: var(--muted); }
 .confirm { border: 1px solid var(--line); border-radius: 8px; padding: 0.6rem 0.9rem; margin: 0.5rem 0; }

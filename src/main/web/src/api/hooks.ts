@@ -192,6 +192,8 @@ export function useReview(id: string) {
 export interface ChartAsk {
   candidate: number | null
   all?: boolean
+  /** Several designs by index (more than one: sent as `candidates`, else as `candidate`). */
+  candidates?: number[]
   smoothing?: string
   responses?: boolean
   /** An earlier design run (Review.variants) whose designs these are; absent or null: the current run's. */
@@ -201,7 +203,8 @@ export interface ChartAsk {
 export function chartQuery(ask: ChartAsk) {
   return {
     ...(ask.variant ? { variant: ask.variant } : {}),
-    ...(ask.all ? { candidates: 'all' } : ask.candidate === null ? {} : { candidate: ask.candidate }),
+    ...(ask.all ? { candidates: 'all' } : ask.candidates && ask.candidates.length > 1 ? { candidates: ask.candidates.join(',') }
+      : ask.candidate === null ? {} : { candidate: ask.candidate }),
     ...(ask.smoothing && ask.smoothing !== 'none' ? { smoothing: ask.smoothing } : {}),
     ...(ask.responses ? { responses: true } : {}),
   }
@@ -429,17 +432,22 @@ export function usePublishedCharts(id: string, indexes: number[], smoothing: str
 
 // --- design variants (design/web-parity.md WP7) ------------------------------------------------------------------------------
 
-/** Every design of each of the title's other design runs, after it: for drawing them beside the current one. */
-export function useVariantCharts(id: string, variants: string[], smoothing: string) {
+/** Designs of the title's other design runs (`all`, or by index), after it: for drawing them beside the highlighted one. */
+export function useVariantCharts(id: string, runs: { variant: string; candidates: number[] | 'all' }[], smoothing: string,
+                                 responses = false) {
   const { client } = useAuth()
   return useQueries({
-    queries: variants.map((variant) => ({
-      queryKey: ['variant-chart', id, variant, smoothing],
-      queryFn: async () => unwrap(await client.GET('/v1/titles/{title_id}/chart', {
-        params: { path: { title_id: id },
-                  query: { variant, candidates: 'all', ...(smoothing === 'none' ? {} : { smoothing }) } } })),
-      staleTime: 60_000,
-    })),
+    queries: runs.map(({ variant, candidates }) => {
+      const designs = candidates === 'all' ? 'all' : candidates.join(',')
+      return {
+        queryKey: ['variant-chart', id, variant, designs, smoothing, responses],
+        queryFn: async () => unwrap(await client.GET('/v1/titles/{title_id}/chart', {
+          params: { path: { title_id: id },
+                    query: { variant, candidates: designs, ...(smoothing === 'none' ? {} : { smoothing }),
+                             ...(responses ? { responses: true } : {}) } } })),
+        staleTime: 60_000,
+      }
+    }),
   })
 }
 

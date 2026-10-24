@@ -205,6 +205,20 @@ describe('the design runs', () => {
     expect(screen.getByRole('button', { name: 'Edit filters…' })).toBeDisabled()     // only the current run's are edited
   })
 
+  it("compare an earlier run's design with the current run's on one chart, each in its own colour", async () => {
+    const { charts } = routes(answered)
+    renderApp('/titles/a')
+    await screen.findByRole('radiogroup', { name: 'Designs of v1' })
+    await userEvent.click(screen.getByLabelText('Compare design 4'))                // v1's first
+    await waitFor(() => expect(charts.some((q) => q.get('variant') === 'v1' && q.get('candidates') === '0')).toBe(true))
+    await waitFor(() => expect(drawn.at(-1)!.series.some((s) => s.label?.endsWith('(v1)'))).toBe(true))
+    const after = (drawn.at(-1)!.series as { label?: string; stroke?: string; width?: number }[])
+      .filter((s) => s.label?.startsWith('Filtered'))
+    expect(after.map((s) => s.width)).toEqual([2.5, 1.25])                         // the highlighted current one widest
+    expect(new Set(after.map((s) => s.stroke)).size).toBe(2)                       // same index, different runs: two colours
+    expect(screen.getByRole('button', { name: 'Accept design 1' })).toBeInTheDocument()   // comparing is not picking
+  })
+
   it('use an earlier run again, and discard one after asking', async () => {
     const { used } = routes(answered)
     renderApp('/titles/a')

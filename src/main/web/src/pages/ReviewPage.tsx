@@ -1,5 +1,6 @@
 // Deciding one title (design/web-app.md §4, design/review-over-http.md): its designs -- every kept design run's, in one
-// list to pick from, the current run's first -- the chart of the one highlighted, commentary, the metadata (one line under
+// list to pick from, the current run's first -- the chart of the one highlighted (and of any others ticked to compare with
+// it, from any run), commentary, the metadata (one line under
 // the heading) and its problems, and Accept / Reject / Skip (A, R, S; 1-9 highlight a design). Accepting a design the
 // designer rejected asks first; accepting one of an earlier run makes that run current. After a decision, or Skip, the
 // next title waiting in the same filtered list opens.
@@ -8,7 +9,7 @@ import { Link, useNavigate, useParams } from 'react-router'
 
 import type { Schemas } from '../api/client'
 import { useChart, useDecide, useNextTitle, useProjects, useReview, useStatus, useVariantCharts } from '../api/hooks'
-import { DEFAULT_VIEW, loadView, saveView, type ChartView, type Range } from '../chart/view'
+import { DEFAULT_VIEW, loadView, saveView, type ChartView, type Range, type Series } from '../chart/view'
 import { ChartControls } from '../components/ChartControls'
 import { HeatmapView } from '../components/HeatmapView'
 import { MagnitudeChart } from '../components/MagnitudeChart'
@@ -58,6 +59,18 @@ export function runsOf(review: Review): Run[] {
       run: v.variant_id, label: v.variant_id, candidates: v.candidates ?? [], rejected: v.rejected ?? [],
       detail: describe(v.designed_at, v.designer_build, v.declined) })),
   ]
+}
+
+/**
+ * The series of one run's chart with each design's `candidate` its number in the one list less one, so designs of different
+ * runs drawn together take colours of their own (and the highlighted one is found by its number).
+ */
+export function numbered(series: Series[], run: string | null, offers: Offer[]): Series[] {
+  return series.map((s) => {
+    if (s.candidate === null || s.candidate === undefined) return s
+    const o = offers.find((f) => f.run === run && f.candidate.index === s.candidate)
+    return o ? { ...s, candidate: o.number - 1 } : s
+  })
 }
 
 /** Every run's designs as one list, numbered: each run's candidates, then the ones its designer rejected. */
@@ -156,6 +169,8 @@ export function ReviewPage() {
   const [revising, setRevising] = useState(false)
   const [editing, setEditing] = useState<{ title: string; source: number } | null>(null)
   const [pick, setPick] = useState<{ digest: string; number: number } | null>(null)
+  // the designs ticked to draw beside the highlighted one, by number, for what was read
+  const [compare, setCompare] = useState<{ digest: string; numbers: number[] } | null>(null)
   const [overriding, setOverriding] = useState(false)
   const [notice, setNotice] = useState('')
   const data = review.data
@@ -177,15 +192,20 @@ export function ReviewPage() {
     setPickBand(take ? { take } : null)
     if (take) setVisual('magnitude')
   }
-  // with *Every design*, the other runs' designs are drawn too (thin, under the highlighted run's)
-  const otherRuns = view.allDesigns
-    ? runs.filter((r) => r.run !== pickedRun && r.candidates.length + r.rejected.length > 0)
-      .map((r) => r.run ?? data?.variant_id ?? 'v1') : []
-  const variantCharts = useVariantCharts(titleId, otherRuns, view.smoothing)
+  // drawn: the highlighted design and those ticked to compare with it, or, with *All designs*, every one of every run
+  const compared = data && compare?.digest === data.digest ? compare.numbers : []
+  const drawnOffers = view.allDesigns ? offers : offers.filter((o) => o === offer || compared.includes(o.number))
+  const designsOf = (run: string | null) => drawnOffers.filter((o) => o.run === run).map((o) => o.candidate.index)
+  const otherRuns = runs.filter((r) => r.run !== pickedRun && designsOf(r.run).length > 0)
+    .map((r) => ({ run: r.run, variant: r.run ?? data?.variant_id ?? 'v1', candidates: designsOf(r.run) }))
+  const variantCharts = useVariantCharts(titleId, otherRuns.map((r) => (
+    { variant: r.variant, candidates: view.allDesigns ? 'all' as const : r.candidates })), view.smoothing, view.responses)
   const chart = useChart(titleId, { candidate: offers.length ? picked : null, all: view.allDesigns && runOffers > 1,
+                                    candidates: [picked, ...designsOf(pickedRun).filter((i) => i !== picked)],
                                     smoothing: view.smoothing, responses: view.responses, variant: pickedRun }, !!data)
-  const magnitude = [...(chart.data?.series ?? []),
-                     ...variantCharts.flatMap((q) => (q.data?.series ?? []).filter((s) => s.filtered && s.kind !== 'filter'))]
+  const magnitude = [...numbered(chart.data?.series ?? [], pickedRun, offers),
+                     ...variantCharts.flatMap((q, i) => numbered((q.data?.series ?? []).filter((s) => s.filtered),
+                                                                 otherRuns[i]!.run, offers))]
   const changeView = (next: ChartView) => {
     setView(next)
     saveView(next)
@@ -205,9 +225,20 @@ export function ReviewPage() {
 
   function choose(number: number) {
     if (data && offers.some((o) => o.number === number)) {
+      // while comparing, the design highlighted until now stays on the chart
+      if (offer && number !== offer.number && compared.some((n) => n !== offer.number) && !compared.includes(offer.number)) {
+        setCompare({ digest: data.digest, numbers: [...compared, offer.number] })
+      }
       setPick({ digest: data.digest, number })
       setOverriding(false)
     }
+  }
+
+  function toggleCompare(number: number) {
+    if (!data) return
+    setCompare({ digest: data.digest,
+                 numbers: compared.includes(number) ? compared.filter((n) => n !== number) : [...compared, number] })
+    setVisual('magnitude')   // the only view that draws several
   }
 
   function accept(override = false) {
@@ -325,6 +356,10 @@ export function ReviewPage() {
       <div className="review-grid">
         <section className="card" aria-labelledby="designs">
           <h2 id="designs">Designs</h2>
+          {!view.allDesigns && compared.some((n) => n !== offer?.number) && (
+            <p className="muted">Comparing {drawnOffers.length} designs on the chart.{' '}
+              <button type="button" className="secondary small" onClick={() => setCompare(null)}>Stop comparing</button></p>
+          )}
           {runs.map((r) => {
             const of = (c: Candidate) => offers.find((o) => o.run === r.run && o.candidate.index === c.index)!
             const named = r.run === null ? '' : ` of ${r.run}`
@@ -339,6 +374,15 @@ export function ReviewPage() {
                     {!rejected && r.run === null && c.index === data!.chosen_index &&
                       <span className="badge status-accepted">chosen</span>}
                   </label>
+                  {offers.length > 1 && (
+                    <label className="compare muted"
+                           title={view.allDesigns ? 'All designs are drawn' : o.number === offer?.number
+                             ? 'The highlighted design is always drawn' : 'Draw it on the chart with the highlighted design'}>
+                      <input type="checkbox" aria-label={`Compare design ${o.number}`}
+                             checked={drawnOffers.includes(o)} disabled={view.allDesigns || o.number === offer?.number}
+                             onChange={() => toggleCompare(o.number)} /> compare
+                    </label>
+                  )}
                 </li>
               )
             }
@@ -375,7 +419,7 @@ export function ReviewPage() {
               {pickBand && <p className="notice" role="status">Drag across the chart to choose the band the redesign
                 ignores.</p>}
               {chart.isError ? <p role="alert" className="problem">{chart.error.message}</p>
-                : <MagnitudeChart series={magnitude} view={view} highlighted={picked} bands={bands}
+                : <MagnitudeChart series={magnitude} view={view} highlighted={offer ? offer.number - 1 : null} bands={bands}
                                   onZoom={(x, y) => {
                                     if (pickBand) {
                                       pickBand.take(x)
