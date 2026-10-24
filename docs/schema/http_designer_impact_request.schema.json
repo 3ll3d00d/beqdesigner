@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/3ll3d00d/beqdesigner/main/docs/schema/http_designer_impact_request.schema.json",
+  "title": "HTTP designer impact request (1.6)",
+  "description": "The JSON body POSTed to /impact on an HTTP-bound designer's origin -- design/designer-interface.md §7.1, 'Impact'. Sent only to a designer whose /health reports \"impact\": true and the design identity the caller would redesign with. Unique ids are required but not expressible here: two records with one id are a 400.",
+  "type": "object",
+  "properties": {
+    "contract_version": {
+      "const": "1.6"
+    },
+    "records": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 500,
+      "description": "at most 500; a library is sent in several requests, one after another",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "the caller's own key, unique within the request, echoed back"
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!(.*/)?\\.\\.(/|$)).+$",
+            "description": "a design's run_record, sent back unchanged: POSIX-style, relative to the designer's shared root, never absolute, no backslash, no '..' segment. A path that is missing, unreadable or escapes the root is that record's unknown, never an error."
+          }
+        },
+        "required": [
+          "id",
+          "path"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "contract_version",
+    "records"
+  ],
+  "additionalProperties": false
+}

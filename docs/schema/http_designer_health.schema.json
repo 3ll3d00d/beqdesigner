@@ -19,6 +19,10 @@
       "maximum": 8,
       "description": "optional: how many designs the designer runs at once; a caller sends it no more than this (\u00a77.2). Absent means 1."
     },
+    "impact": {
+      "type": "boolean",
+      "description": "1.6, optional: true when the designer answers POST /impact (design/designer-interface.md \u00a77.1, 'Impact'). Absent means it does not."
+    },
     "design_version": {
       "type": "integer",
       "minimum": 0,

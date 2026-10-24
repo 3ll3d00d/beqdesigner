@@ -1,4 +1,4 @@
-# Designer conformance test spec — v1.5
+# Designer conformance test spec — v1.6
 
 **Document type:** Reference test specification — not a backlog.
 
@@ -352,3 +352,30 @@ Designer side:
   `exclude_band` leaves the band uncorrected; `goal_tilt` raises the low end of the goal), and is declined or adapted,
   with a reason, on one where it does not.
 - An adjustment never makes a design that fails the designer's own checks a candidate (§4).
+
+
+## 1.6: the run record and impact
+
+Caller side:
+- A response's `run_record` is kept with the design (and with it when the design becomes an earlier run), on a design
+  and a decline alike; one that is absolute, has a backslash or a `..` segment, or is empty is refused as a contract
+  violation. A response without it is unchanged.
+- `/impact` is sent only to a designer whose `/health` reports `"impact": true` and the `design_version` and
+  `design_settings` the caller would redesign with; `designer_build` is never compared.
+- Records go in requests of at most 500, one after another to one endpoint, ids unique within a request; a design
+  without a `run_record` is not sent, and is shown as `unknown`.
+- A response is refused when its results are not one per request record, in request order, or a result's tier or score
+  is out of shape (`score` null exactly for `unknown`, `reasons` empty only for `unaffected`).
+- `unknown` is shown as `will_move` unless a person decides otherwise; scores order records within a tier across every
+  response from one identity.
+- A design reviewed at an identity is not out of date against it, nor against the one it was designed at; reviewing
+  changes nothing else about the design.
+
+Designer side:
+- The same records to the same build give the same answer.
+- A missing, unreadable, escaping or other designer's record is that record's `unknown`, never a `422`; a body that
+  does not parse, more than 500 records or two with one `id` is a `400`; no shared root is a `422`.
+- A record of this designer at this identity is `unaffected`, with no reasons.
+- `changes` lists every change between the oldest `from_design_version` and the designer's own, oldest first, and every
+  `reasons[].change` names one of them (or is null).
+- A redesign at a new version writes a new record rather than replacing the old one.

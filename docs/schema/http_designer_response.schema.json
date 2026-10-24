@@ -58,6 +58,12 @@
     "decline_message": {
       "oneOf": [{ "type": "string" }, { "type": "null" }]
     },
+    "run_record": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!(.*/)?\\.\\.(/|$)).+$",
+      "description": "1.6, optional, with either shape: the path of the designer's record of this run, relative to its shared root (POSIX-style, never absolute, no backslash, no '..' segment). Absent when it has no shared root or keeps the record outside it. A caller stores it and sends it back unchanged to POST /impact (design/designer-interface.md \u00a73, 'The run record')."
+    },
     "design_version": {
       "type": ["integer", "null"],
       "minimum": 0,

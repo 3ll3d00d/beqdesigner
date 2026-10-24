@@ -1,6 +1,8 @@
-# BEQ filter designer interface — v1.5
+# BEQ filter designer interface — v1.6
 
-**Status:** CONTRACT. 1.5's adjustments (§2, §3) are agreed, written into the
+**Status:** CONTRACT. 1.6's run record path and `/impact` (§3, §7.1) are agreed
+(2026-10-24) and written into the schemas; beqforge returns `run_record` from 0.2.11, and its
+`/impact` is not built yet (its TODO 34). 1.5's adjustments (§2, §3) are agreed, written into the
 schemas and built on this repo's side (2026-10-21: `pipeline/designer`, the queue entry, the
 service), and on beqforge's from 0.2.9 (TODO WP, chunk WP6). Up to 1.4 it
 is fully implemented on this repo's side, 1.1's `rejected`
@@ -76,6 +78,13 @@ each; the caller always learns what was done. `GET /health` may list the
 `adjustment_kinds` a designer knows. §2's "What is deliberately absent" is
 restated: a designer acts on no *unstated* preference. A request without
 adjustments is unchanged and must be answered exactly as under 1.4.*
+
+*v1.6, additive (§3, "Design identity"; §7.1, "Impact"): a response may name its run record
+(`run_record`, a path relative to the designer's shared root), and a designer may answer
+`POST /impact` with, for a batch of those records, how likely a design of the same request now
+is to differ, and why. A caller uses it to show a person which out-of-date designs to redesign,
+and records the ones they keep as *reviewed at* the new identity (§3). `GET /health` says
+whether a designer answers it. Nothing about `/design`'s request changes.*
 
 *A test checklist for whoever implements this contract, extracted from two
 independent implementations' test suites (this repo's caller side and
@@ -637,6 +646,23 @@ caller keeps it with each design and selects as *out of date* those whose
 identity differs from what the designers it can use now report on `/health`
 (§7.1); it never redesigns on that alone.
 
+**The run record (1.6).** Optional, on a design and a decline alike:
+
+- **`run_record`**, the path of the record the designer kept of this run, relative to its
+  shared root (§7.1, "Arrays by reference"): POSIX-style, no backslash, no `..` segment, never
+  absolute. Absent when the designer has no shared root or keeps the record outside it. A
+  caller stores it with the design and sends it back unchanged to `/impact` (§7.1); it never
+  builds one, and never reads one out of `commentary`, which may name the same file as a path
+  on the machine that wrote it.
+
+**Reviewed designs (1.6).** A person may decide that a design out of date against an identity
+should be kept rather than redesigned, usually after reading `/impact`'s answer for it (§7.1).
+The caller then records that identity beside the design as *reviewed at*; a design may be
+reviewed at several identities over time. A design counts as out of date only against an
+identity that is neither the one it was designed at nor one it was reviewed at. Reviewing
+changes nothing about the design itself: its filters, its `rejected` list and the identity it
+was designed at stay as they were, and are what get published.
+
 **Adjustment outcomes (1.5).** A 1.5 designer returns exactly one
 `AdjustmentOutcome` per entry of the request's `adjustments`, on a design
 and a decline alike, and `None` (or omits the field) when the request had
@@ -897,7 +923,10 @@ adds `adjustments` to the request: a caller sends `"1.5"` exactly when the
 request carries at least one adjustment (and then whatever else the body
 holds, arrays by reference included), and the version it sent before
 otherwise, so a request without adjustments is unchanged. A designer may
-return `adjustment_outcomes` to a `"1.5"` request only. Changes within `1.x`
+return `adjustment_outcomes` to a `"1.5"` request only. 1.6 adds the optional response field
+`run_record` (§3, "The run record"), returned whatever version the request names, and
+`POST /impact` (§7.1, "Impact"), which a caller sends only to a designer that reports it on
+`/health`; `/design`'s request is unchanged. Changes within `1.x`
 will be additive-only (new optional fields, defaulting to `None`/absent);
 you can ignore fields you don't recognise on the request side, and the
 caller does the same for the response. A breaking change bumps to `2.0` and
@@ -1027,10 +1056,100 @@ carried, and nothing after decoding may tell the two apart. The rules:
   `not_understood`. A caller sends adjustments only to a designer whose
   `/health` reports `contract_version` 1.5 or later, or that it was
   configured to send them to.
+  From 1.6 it may report `"impact": true` when the designer answers `POST /impact` (below).
   The caller reads it
   once, before its first request by reference to that designer, and sends
   none — failing the design with the answer in its message — when the
   version is below 1.2 or `shared_root` is not `true`.
+
+**Impact (1.6).** `POST /impact`, on the same origin as the design endpoint, takes run records
+that designer builds wrote and answers, for each one, how likely a design of the same request
+by *this* designer is to differ from the one the record holds. It is advisory: a person
+decides what to redesign, and the caller never redesigns or marks a design reviewed (§3) on
+this answer alone.
+
+Request:
+
+```json
+{
+  "contract_version": "1.6",
+  "records": [
+    {"id": "jriver-18bd9f7c1e48-2015688", "path": "records/designer-0123456789abcdef-89abcdef-v6.run.json.gz"}
+  ]
+}
+```
+
+- **`id`** is the caller's own key, unique within the request, and is echoed back. The
+  designer attaches no meaning to it.
+- **`path`** is a design's `run_record` (§3), sent back unchanged: relative to the shared root,
+  under "Arrays by reference"'s rules (POSIX-style, no backslash, no `..` segment, refused if its
+  real path lies outside the root's). It is never an absolute path or a path from `commentary`.
+- **At most 500 records per request.** A caller sends a library in several requests, one after
+  another to one endpoint; `/impact` reads records, it does not design, so `parallel` (§7.2)
+  does not apply. A request of 500 takes tens of seconds.
+
+Response, `200`:
+
+```json
+{
+  "contract_version": "1.6",
+  "design_version": 7,
+  "design_settings": "9cf04c30b0f0",
+  "designer_build": "…",
+  "changes": [
+    {"design_version": 7, "id": "fit-choice", "summary": "the fitter chooses among near-equal fits by the judge's checks"}
+  ],
+  "results": [
+    {"id": "jriver-18bd9f7c1e48-2015688", "tier": "likely", "score": 0.72, "from_design_version": 6,
+     "reasons": [{"change": "fit-choice", "feature": "fit.choice",
+                  "detail": "the fit has near-equal alternatives; its slot check failed by 0.08 dB"}]},
+    {"id": "…", "tier": "unknown", "score": null, "from_design_version": null,
+     "reasons": [{"change": null, "feature": null, "detail": "record not found"}]}
+  ]
+}
+```
+
+- **`results`** holds one entry per request record, in request order.
+- **`tier`** is one of:
+  - `will_move`: certain, e.g. a recorded figure lies between a threshold's old and new values;
+  - `likely`;
+  - `possible`;
+  - `unaffected`: no change since the record's version touches anything this design relied on;
+  - `unknown`: the designer cannot say. That covers a record that is missing, unreadable,
+    escaping the root or from another designer, one older than the designer's impact data,
+    one written under different `design_settings`, or one that lacks what a change needs to
+    be scored.
+
+  `unknown` is a result, never left out, and a caller treats it as `will_move` unless a person
+  decides otherwise.
+- **`score`**, in `[0, 1]`, orders records within a tier, highest first. It is ordinal, like
+  `confidence`, and depends only on the record and the designer's build, so it is comparable
+  across every response from one design identity. It is `null` for `unknown`.
+- **`from_design_version`** is the version the record was designed at, read from the record.
+  It is `null` when unknown.
+- **`reasons`** is non-empty for every tier but `unaffected`. Each entry names the change (an
+  `id` from `changes`, or `null`), the part of the design it reached (`feature`, the
+  designer's own name, for display), and `detail` for a person. All of it is free text for
+  display: never machine-parsed, like `commentary`.
+- **`changes`** lists every change between the oldest `from_design_version` in the response
+  and this designer's `design_version`, oldest first, so a person can read what moved. A
+  change that can reach every design (a "redesign everything" change) is listed like any
+  other; every record it reaches is then at least `likely`.
+- The identity fields are this designer's, as on `/health` (§3, "Design identity").
+
+Rules:
+
+- **Same records, same build, same answer** (§1, determinism).
+- **A record from this designer at this identity** is `unaffected`, with no reasons. It is not
+  out of date.
+- **Errors.** `400` for a body that does not parse or fails the schema, more than 500 records
+  or two with one `id`. `422` when **no shared root is configured** on this designer, naming
+  that as the reason. A bad individual record is never a `422`: it is that record's `unknown`,
+  so one stale path cannot sink a batch. Both errors are implementation failures, as for
+  `/design`.
+- **Which designer to ask.** A caller sends `/impact` only to a designer whose `/health`
+  reports `"impact": true` and the `design_version` and `design_settings` of the identity it
+  would redesign with (§3). It keys nothing on `designer_build`.
 
 **Errors are not declines.** A non-2xx status, a connection failure or
 timeout, or a body that doesn't parse into a `DesignResponse` are all
@@ -1041,7 +1160,8 @@ that check happens after either binding hands back a `DesignResponse`, not
 as part of decoding one.
 
 **Formal spec:** `docs/schema/http_designer_request.schema.json`,
-`http_designer_response.schema.json` and (1.2) `http_designer_health.schema.json` (with 1.5's adjustments in all three) — the machine-checkable version of the
+`http_designer_response.schema.json` and (1.2) `http_designer_health.schema.json` (with 1.5's adjustments in all three), and (1.6)
+`http_designer_impact_request.schema.json` and `http_designer_impact_response.schema.json` — the machine-checkable version of the
 shapes above, meant for implementers in any language (unlike the rest of
 this document, which only needs to match this repo's own Python).
 

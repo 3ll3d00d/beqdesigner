@@ -202,3 +202,91 @@ def test_health_may_list_the_adjustment_kinds_it_knows(health_schema):
     assert not health_schema.is_valid({'contract_version': '1.5', 'shared_root': True,
                                        'adjustment_kinds': {'floor': {'description': 'x',
                                                                       'params': {'hz': {'type': 'float'}}}}})
+
+
+_RECORD = 'records/designer-0123456789abcdef-89abcdef-v6.run.json.gz'
+
+
+def test_a_1_6_response_may_name_its_run_record(response_schema):
+    assert not list(response_schema.iter_errors({**_response(), 'run_record': _RECORD}))
+    assert not list(response_schema.iter_errors({**_response(), 'run_record': None}))
+    decline = {'contract_version': '1.5', 'decline_reason': 'no_usable_plateau', 'decline_message': 'x',
+               'run_record': _RECORD}
+    assert not list(response_schema.iter_errors(decline))
+
+
+@pytest.mark.parametrize('path', ['/work/records/x.run.json.gz', '\\\\ZALAGA-UNRAID\\beq\\work\\records\\x.run.json.gz',
+                                  'records\\x.run.json.gz', '../records/x.run.json.gz', 'C:/records/x.gz', ''])
+def test_a_run_record_that_is_absolute_or_could_leave_the_root_is_refused(response_schema, path):
+    assert list(response_schema.iter_errors({**_response(), 'run_record': path}))
+
+
+def test_health_may_say_it_answers_impact(health_schema):
+    health_schema.validate({'contract_version': '1.6', 'shared_root': True, 'impact': True, **_IDENTITY})
+    assert not health_schema.is_valid({'contract_version': '1.6', 'shared_root': True, 'impact': 'yes'})
+
+
+@pytest.fixture(scope='module')
+def impact_request_schema():
+    return _validator('http_designer_impact_request.schema.json')
+
+
+@pytest.fixture(scope='module')
+def impact_response_schema():
+    return _validator('http_designer_impact_response.schema.json')
+
+
+def _impact_request(records):
+    return {'contract_version': '1.6', 'records': records}
+
+
+def test_an_impact_request_names_records_by_id_and_relative_path(impact_request_schema):
+    impact_request_schema.validate(_impact_request([{'id': 'jriver-1', 'path': _RECORD}]))
+    impact_request_schema.validate(_impact_request([{'id': f't{i}', 'path': _RECORD} for i in range(500)]))
+
+
+@pytest.mark.parametrize('body', [
+    _impact_request([]),
+    _impact_request([{'id': f't{i}', 'path': _RECORD} for i in range(501)]),
+    _impact_request([{'id': 'a'}]),
+    _impact_request([{'id': '', 'path': _RECORD}]),
+    _impact_request([{'id': 'a', 'path': '/work/records/x.gz'}]),
+    _impact_request([{'id': 'a', 'path': 'records/../../etc/passwd'}]),
+    _impact_request([{'id': 'a', 'path': _RECORD, 'extra': 1}]),
+    {'contract_version': '1.5', 'records': [{'id': 'a', 'path': _RECORD}]},
+])
+def test_an_impact_request_out_of_shape_is_refused(impact_request_schema, body):
+    assert not impact_request_schema.is_valid(body)
+
+
+def _impact_response(*results, changes=()):
+    return {'contract_version': '1.6', 'design_version': 7, 'design_settings': '9cf04c30b0f0', 'designer_build': 'x',
+            'changes': list(changes), 'results': list(results)}
+
+
+_CHANGE = {'design_version': 7, 'id': 'fit-choice', 'summary': 'the fitter chooses among near-equal fits'}
+_REASON = {'change': 'fit-choice', 'feature': 'fit.choice', 'detail': 'near-equal alternatives'}
+
+
+def test_an_impact_response_with_every_tier_is_valid(impact_response_schema):
+    impact_response_schema.validate(_impact_response(
+        {'id': 'a', 'tier': 'will_move', 'score': 1.0, 'from_design_version': 6, 'reasons': [_REASON]},
+        {'id': 'b', 'tier': 'likely', 'score': 0.72, 'from_design_version': 6, 'reasons': [_REASON]},
+        {'id': 'c', 'tier': 'possible', 'score': 0.1, 'from_design_version': 6, 'reasons': [_REASON]},
+        {'id': 'd', 'tier': 'unaffected', 'score': 0.0, 'from_design_version': 6, 'reasons': []},
+        {'id': 'e', 'tier': 'unknown', 'score': None, 'from_design_version': None,
+         'reasons': [{'change': None, 'feature': None, 'detail': 'record not found'}]},
+        changes=[_CHANGE]))
+
+
+@pytest.mark.parametrize('result', [
+    {'id': 'a', 'tier': 'unknown', 'score': 0.5, 'from_design_version': None, 'reasons': [_REASON]},
+    {'id': 'a', 'tier': 'likely', 'score': None, 'from_design_version': 6, 'reasons': [_REASON]},
+    {'id': 'a', 'tier': 'likely', 'score': 0.5, 'from_design_version': 6, 'reasons': []},
+    {'id': 'a', 'tier': 'likely', 'score': 1.5, 'from_design_version': 6, 'reasons': [_REASON]},
+    {'id': 'a', 'tier': 'maybe', 'score': 0.5, 'from_design_version': 6, 'reasons': [_REASON]},
+    {'id': 'a', 'tier': 'likely', 'score': 0.5, 'from_design_version': 6, 'reasons': [{'detail': 'x'}]},
+    {'id': 'a', 'tier': 'likely', 'score': 0.5, 'reasons': [_REASON]},
+])
+def test_an_impact_result_out_of_shape_is_refused(impact_response_schema, result):
+    assert not impact_response_schema.is_valid(_impact_response(result))

@@ -1,0 +1,201 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/3ll3d00d/beqdesigner/main/docs/schema/http_designer_impact_response.schema.json",
+  "title": "HTTP designer impact response (1.6)",
+  "description": "The 200 body of POST /impact -- design/designer-interface.md §7.1, 'Impact'. One result per request record, in request order (not expressible here: the caller checks it). Advisory: a person decides what to redesign.",
+  "type": "object",
+  "properties": {
+    "contract_version": {
+      "const": "1.6"
+    },
+    "design_version": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "this designer's, as on /health"
+    },
+    "design_settings": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "designer_build": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "description": "for people; a caller keys nothing on it"
+    },
+    "changes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/change"
+      },
+      "description": "every change between the oldest from_design_version in the response and design_version, oldest first"
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/result"
+      }
+    }
+  },
+  "required": [
+    "contract_version",
+    "design_version",
+    "changes",
+    "results"
+  ],
+  "additionalProperties": true,
+  "$defs": {
+    "result": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tier": {
+          "enum": [
+            "will_move",
+            "likely",
+            "possible",
+            "unaffected",
+            "unknown"
+          ],
+          "description": "unknown is treated as will_move unless a person decides otherwise"
+        },
+        "score": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1,
+          "description": "orders records within a tier, highest first; comparable across every response from one design identity; null exactly for unknown"
+        },
+        "from_design_version": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "the version the record was designed at, read from the record; null when unknown"
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reason"
+          },
+          "description": "non-empty for every tier but unaffected"
+        }
+      },
+      "required": [
+        "id",
+        "tier",
+        "score",
+        "from_design_version",
+        "reasons"
+      ],
+      "additionalProperties": true,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "tier": {
+                "const": "unknown"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "score": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "score": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "tier": {
+                "const": "unaffected"
+              }
+            }
+          },
+          "then": {},
+          "else": {
+            "properties": {
+              "reasons": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "reason": {
+      "type": "object",
+      "properties": {
+        "change": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "an id from changes, or null"
+        },
+        "feature": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "the part of the design the change reached, in the designer's own words, for display"
+        },
+        "detail": {
+          "type": "string",
+          "minLength": 1,
+          "description": "for a person; never machine-parsed"
+        }
+      },
+      "required": [
+        "change",
+        "feature",
+        "detail"
+      ],
+      "additionalProperties": true
+    },
+    "change": {
+      "type": "object",
+      "properties": {
+        "design_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "description": "for a person"
+        }
+      },
+      "required": [
+        "design_version",
+        "id",
+        "summary"
+      ],
+      "additionalProperties": true
+    }
+  }
+}
