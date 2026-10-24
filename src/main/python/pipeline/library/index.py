@@ -443,8 +443,8 @@ def _design_identity(summary: str) -> Optional[DesignIdentity]:
         facts = json.loads(summary)
     except ValueError:
         return None
-    return DesignIdentity.of(facts.get('design_version'), facts.get('design_settings'), facts.get('designer_build')) \
-        if isinstance(facts, dict) else None
+    return DesignIdentity.of(facts.get('design_version'), facts.get('design_settings'), facts.get('designer_build'),
+                             facts.get('reviewed')) if isinstance(facts, dict) else None
 
 
 @dataclass(frozen=True)

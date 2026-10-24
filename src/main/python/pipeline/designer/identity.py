@@ -56,15 +56,22 @@ class DesignIdentity:
     settings: Optional[str] = None
     build: Optional[str] = None
     backfilled: bool = False
+    reviewed: Tuple[Tuple[int, Optional[str]], ...] = ()   # 1.6: the identities a person kept it at (version, settings)
 
     @classmethod
-    def of(cls, version: Any = None, settings: Any = None, build: Any = None) -> 'DesignIdentity':
-        ''' From what an entry holds: its own version if it has one, else the build's backfilled one. '''
+    def of(cls, version: Any = None, settings: Any = None, build: Any = None,
+           reviewed: Any = None) -> 'DesignIdentity':
+        '''
+        From what an entry holds: its own version if it has one, else the build's backfilled one.
+        :param reviewed: the entry's `reviewed_at` stamps (dicts) or (version, settings) pairs; any not of that shape
+            are left out.
+        '''
         version, settings, build = valid_version(version), valid_text(settings), valid_text(build)
+        kept = reviewed_identities(reviewed)
         if version is not None:
-            return cls(version, settings, build)
+            return cls(version, settings, build, reviewed=kept)
         backfilled = backfill_version(build)
-        return cls(backfilled, None, build, backfilled is not None)
+        return cls(backfilled, None, build, backfilled is not None, kept)
 
     def describe(self) -> str:
         if self.version is None:
@@ -154,12 +161,35 @@ def _says(endpoint: EndpointIdentity) -> str:
     return said + (f', settings {endpoint.settings}' if endpoint.settings else '')
 
 
+def reviewed_identities(stamps: Any) -> Tuple[Tuple[int, Optional[str]], ...]:
+    ''' (version, settings) for each `reviewed_at` stamp (a dict, or a pair) that names a valid version; others dropped. '''
+    out = []
+    for stamp in stamps or ():
+        if isinstance(stamp, Mapping):
+            version, settings = stamp.get('design_version'), stamp.get('design_settings')
+        elif isinstance(stamp, (list, tuple)) and len(stamp) == 2:
+            version, settings = stamp
+        else:
+            continue
+        if valid_version(version) is not None:
+            out.append((version, valid_text(settings)))
+    return tuple(out)
+
+
+def reviewed_stamp(current: CurrentIdentity, by: Optional[str], at: str) -> dict:
+    ''' The `reviewed_at` stamp that keeps a design at `current` (contract 1.6, §3 "Reviewed designs"). '''
+    return {'design_version': current.version, 'design_settings': current.settings, 'at': at, 'by': by}
+
+
 def is_out_of_date(identity: DesignIdentity, current: CurrentIdentity) -> bool:
     '''
     True if a design made with `identity` could come out differently if made now with `current`: its version is unknown or
     lower, or its settings differ. A design from before 1.4 never said its settings: it is current only when the current
-    designer runs with every setting at its default (it says so with an empty `design_settings_detail`).
+    designer runs with every setting at its default (it says so with an empty `design_settings_detail`). A design a
+    person kept at `current` (reviewed at it, 1.6) is not out of date against it.
     '''
+    if (current.version, current.settings) in identity.reviewed:
+        return False
     if identity.version is None or identity.version < current.version:
         return True
     if identity.version > current.version:

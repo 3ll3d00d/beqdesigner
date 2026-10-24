@@ -127,6 +127,9 @@ class QueueEntry:
     run_record: Optional[str] = None          # 1.6: the designer's record of that design, relative to its shared root;
                                                # sent back to its /impact unchanged. None: it named none (before 1.6,
                                                # without a shared root, or a design a person edited)
+    reviewed_at: List[dict] = field(default_factory=list)   # 1.6: identities a person kept that design at, rather than
+                                               # redesign it ({design_version, design_settings, at, by}); it is not out
+                                               # of date against them. A redesign or an edit starts with none
     variants: List[dict] = field(default_factory=list)   # the title's earlier design runs, kept until a person discards
                                                # one (pipeline.library.variants): each the design fields of a QueueEntry
 
@@ -134,7 +137,7 @@ class QueueEntry:
     def design_identity(self):
         ''' What it was designed with (pipeline.designer.identity.DesignIdentity), backfilled from its build before 1.4. '''
         from pipeline.designer.identity import DesignIdentity
-        return DesignIdentity.of(self.design_version, self.design_settings, self.designer_build)
+        return DesignIdentity.of(self.design_version, self.design_settings, self.designer_build, self.reviewed_at)
 
     def __post_init__(self):
         if self.decline_reason and not self.candidates:   # a decline, including one written before it had a candidate
@@ -264,7 +267,7 @@ def _summary_from_dict(c: dict) -> CandidateSummary:
 
 # written only when known, so a reader from before them (which refuses a field it does not know) meets them only then
 _WRITTEN_WHEN_KNOWN = ('design_version', 'design_settings', 'variant_id', 'designed_at', 'run_record')
-_WRITTEN_WHEN_ANY = ('adjustments', 'adjusted_with', 'adjustment_outcomes', 'variants')
+_WRITTEN_WHEN_ANY = ('adjustments', 'adjusted_with', 'adjustment_outcomes', 'variants', 'reviewed_at')
 
 
 def _entry_to_dict(entry: QueueEntry) -> dict:

@@ -111,3 +111,12 @@ def test_an_earlier_variant_can_be_viewed_without_changing_anything(title):
 def test_an_entry_designed_before_variants_were_kept_becomes_v1(tmp_path):
     entry = write_entry(str(tmp_path), 'old')
     assert entry.variant_id is None and next_variant_id(entry) == 'v2' and next_variant_id(None) == 'v1'
+
+
+def test_a_redesign_starts_with_no_review_and_the_run_it_replaces_keeps_its_own(title):
+    ''' contract 1.6 (§3, "Reviewed designs"): a new design was made at the new identity, so nothing about it was kept '''
+    queue, redesign = title
+    redesign()
+    update_entry(queue, 'heat', reviewed_at=[{'design_version': 7, 'design_settings': None, 'at': 'x', 'by': None}])
+    second = redesign()
+    assert second.reviewed_at == [] and second.variants[0]['reviewed_at'][0]['design_version'] == 7

@@ -25,6 +25,7 @@ from typing import Any, Dict, FrozenSet, List, Mapping, Optional, Set, Tuple, Un
 
 from pipeline.config import AnalysisConfig
 from pipeline.designer.contract import Coverage
+from pipeline.designer.identity import reviewed_identities
 from pipeline.library.design_cache import design_status
 from pipeline.library.extract_cache import extract_params_hash, extract_status, read_manifest, \
     source_fingerprint
@@ -247,9 +248,14 @@ class EntryFacts:
     unmet: int = 0            # how many of those the designer did not honour (adapted, declined, not understood, unanswered)
     runs: int = 1             # how many design runs the title keeps (the current one and its variants)
     choices: int = 0          # the designs to choose from in all of them (candidates; 0: read before it was kept)
+    # 1.6: the design's run record and the identities a person kept it at, as (version, settings) pairs. Defaults are
+    # right for a summary cached before them: neither was written before they were kept
+    run_record: Optional[str] = None
+    reviewed: tuple = ()
 
     def __post_init__(self):
         object.__setattr__(self, 'adjustments', tuple(self.adjustments or ()))   # a list, read back from JSON
+        object.__setattr__(self, 'reviewed', reviewed_identities(self.reviewed))
 
     @classmethod
     def of(cls, entry: QueueEntry, mtime_ns: int, size: int, inode: int = 0, ctime_ns: int = 0) -> 'EntryFacts':
@@ -260,7 +266,8 @@ class EntryFacts:
                    dict(entry.meta), mtime_ns, size, entry.design_version, entry.design_settings, entry.designer_build,
                    inode, ctime_ns, entry.published_stem, tuple(entry.adjustments), bool(entry.adjusted_with),
                    unmet_adjustments(entry), 1 + len(entry.variants),
-                   len(entry.candidates) + sum(len(v.get('candidates') or []) for v in entry.variants))
+                   len(entry.candidates) + sum(len(v.get('candidates') or []) for v in entry.variants),
+                   entry.run_record, reviewed_identities(entry.reviewed_at))
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), sort_keys=True)

@@ -112,6 +112,21 @@
     },
     "variant_id": { "type": "string", "description": "which design run the design here is (v1, v2...)" },
     "designed_at": { "type": "string", "description": "UTC ISO-8601, when the design here was made" },
+    "reviewed_at": {
+      "type": "array",
+      "description": "contract 1.6: the identities a person kept the design here at rather than redesign it; it is not out of date against them. Absent when none.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "design_version": { "type": "integer", "minimum": 0 },
+          "design_settings": { "type": ["string", "null"] },
+          "at": { "type": ["string", "null"], "description": "UTC ISO-8601" },
+          "by": { "type": ["string", "null"] }
+        },
+        "required": ["design_version"],
+        "additionalProperties": true
+      }
+    },
     "run_record": { "type": "string", "description": "contract 1.6: the designer's record of the design here, relative to its shared root; sent back unchanged to its POST /impact. Absent when it named none." },
     "variants": {
       "type": "array",
