@@ -1,6 +1,6 @@
 # Redesign scope: which out-of-date designs to redesign (caller side)
 
-**Status:** design, partly built (TODO row RS): steps 1 and 2 are built. The contract is
+**Status:** design, partly built (TODO row RS): steps 1-3 are built. The contract is
 [`designer-interface.md`](designer-interface.md) 1.6 (§3 "The run record" and "Reviewed designs", §7.1 "Impact"),
 agreed with beqforge on 2026-10-24. beqforge returns `run_record` from 0.2.11; its `/impact` is its TODO 34 and lands
 after design version 7, so this side is built and tested against a fake designer first.
@@ -21,7 +21,8 @@ are then stamped *reviewed at* the new identity and stop showing as out of date.
    only when non-empty. `DesignIdentity` carries the reviewed identities, and `is_out_of_date` is false against any of
    them as against the one it was designed at (§3). A redesign or an edit starts with none, and each design run keeps its
    own, so using an earlier run brings its reviews back. The index summary carries it, so the out-of-date filter, the drift banner and `/v1/status` follow it.
-3. **An `/impact` client** (`pipeline.designer.impact`): `/health`'s `impact` read into `EndpointIdentity`; the endpoint
+3. **An `/impact` client** (built; `pipeline.designer.impact`, tested against `fake_impact_designer`, a real HTTP
+   server checking each request against the schema): `/health`'s `impact` read into `EndpointIdentity`; the endpoint
    to ask is one that is up, reports `impact: true` and the current identity (version and settings, never the build).
    Records go in requests of at most 500, one after another, with a 120 s timeout each; a design without a
    `run_record` is not sent and is `unknown`. The response is checked (one result per record, in order; tiers and

@@ -85,6 +85,7 @@ class EndpointIdentity:
     '''
     What one endpoint's `/health` says it designs with. `settings_detail`: its non-default settings, if it says.
     `release`: the release it is (e.g. 0.2.10), for people; None when neither it nor its build says.
+    `impact`: it answers `POST /impact` (1.6).
     '''
     url: str
     version: int
@@ -92,6 +93,7 @@ class EndpointIdentity:
     settings_detail: Optional[Mapping[str, Any]] = None
     build: Optional[str] = None
     release: Optional[str] = None
+    impact: bool = False
 
 
 # a build that starts with a release (`0.2.10+src:…`, `v0.2.10 (frozen build)`), not a revision
@@ -117,7 +119,7 @@ def identity_from_health(url: str, body: Any) -> Optional[EndpointIdentity]:
     build = valid_text(body.get('designer_build'))
     return EndpointIdentity(url, version, valid_text(body.get('design_settings')),
                             dict(detail) if isinstance(detail, Mapping) else None, build,
-                            release_of(body.get('designer_release'), build))
+                            release_of(body.get('designer_release'), build), body.get('impact') is True)
 
 
 @dataclass(frozen=True)
