@@ -30,6 +30,7 @@ def _load_smoke():
 
 _smoke = _load_smoke()
 Designer, fixture, by_reference = _smoke.Designer, _smoke.fixture, _smoke.by_reference
+designer_command, names_a_shared_record = _smoke.designer_command, _smoke.names_a_shared_record
 
 
 def test_service_lock_closure_has_no_qt(tmp_path):
@@ -79,6 +80,25 @@ def test_by_reference_is_read_from_the_designers_own_request_log():
     assert by_reference(log('0.0', '0.0'))
     assert not by_reference(log('0.0', '2.4'))   # one request carried its audio
     assert not by_reference('beqforge designer server: listening')   # no request reached it
+
+
+def test_the_real_designer_runs_as_the_pipelines_user_keeping_its_records_under_the_shared_work_directory(tmp_path):
+    # the image's own /records volume is writable only by its own user: run as another, the designer refuses to start
+    command = designer_command('beqforge-designer:smoke', 'd', 'n', '1001:1001', tmp_path)
+    assert command[command.index('--user') + 1] == '1001:1001'
+    assert 'BEQFORGE_RECORD_DIR=/work/records' in command
+    assert f'{tmp_path / "work"}:/work' in command and f'{tmp_path / "cache"}:/cache' in command
+    assert not any(arg.endswith(':/records') for arg in command)
+
+
+@pytest.mark.parametrize('record, named', [
+    ('records/designer-0123456789abcdef-01234567-v7.run.json.gz', True),
+    (None, False),   # the designer kept no record, or the service dropped it
+    ('/work/records/designer-x-v7.run.json.gz', False),   # absolute: not relative to the shared root
+    ('records/designer-x-v7.json', False),
+])
+def test_the_smoke_reads_whether_a_design_names_its_run_record_under_the_shared_root(record, named):
+    assert names_a_shared_record(record) is named
 
 
 def test_the_compose_example_runs_a_pinned_designer_sharing_the_pipelines_work_directory():

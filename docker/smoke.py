@@ -23,6 +23,8 @@ import urllib.request
 import wave
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+RECORD_DIR = '/work/records'   # the designer's run records, under the shared root it names them relative to
+
 
 class Designer(BaseHTTPRequestHandler):
     def do_POST(self):
@@ -106,6 +108,22 @@ def by_reference(designer_log: str) -> bool:
     return bool(bodies) and all(float(size) < 0.1 for size in bodies)
 
 
+def designer_command(image: str, name: str, network: str, user: str, root: pathlib.Path) -> list:
+    '''
+    `docker run` for the designer as the pipeline's user, as Unraid runs it: its records under the shared work directory
+    (/work/records), so each response names its run record (contract 1.6), and not in the image's /records volume, which
+    only the image's own user can write.
+    '''
+    return ['docker', 'run', '--detach', '--rm', '--name', name, '--network', network, '--user', user,
+            '--env', f'BEQFORGE_RECORD_DIR={RECORD_DIR}',
+            '--volume', f'{root / "work"}:/work', '--volume', f'{root / "cache"}:/cache', image]
+
+
+def names_a_shared_record(record) -> bool:
+    ''' Whether a queue entry's run record is a path under the shared root, in the designer's records. '''
+    return isinstance(record, str) and record.startswith('records/') and record.endswith('.run.json.gz')
+
+
 def smoke(image: str, port: int, designer_image: str = '') -> None:
     server = thread = None
     if not designer_image:
@@ -124,9 +142,7 @@ def smoke(image: str, port: int, designer_image: str = '') -> None:
                 fixture(root, designer_url=f'http://{designer}:8420/design', seconds=30)
                 subprocess.run(['docker', 'network', 'create', network], check=True, capture_output=True)
                 (root / 'cache').mkdir()
-                subprocess.run(['docker', 'run', '--detach', '--rm', '--name', designer, '--network', network,
-                                '--user', user, '--volume', f'{root / "work"}:/work',
-                                '--volume', f'{root / "cache"}:/cache', designer_image], check=True)
+                subprocess.run(designer_command(designer_image, designer, network, user, root), check=True)
                 started_designer = True
             else:
                 fixture(root, server.server_port)
@@ -155,6 +171,8 @@ def smoke(image: str, port: int, designer_image: str = '') -> None:
                 log = logged.stdout + logged.stderr
                 assert by_reference(log), f'the audio did not reach the designer by reference:\n{log}'
                 assert 'beqforge' in entries[0].read_text(), 'the queue entry does not name the designer build'
+                record = json.loads(entries[0].read_text()).get('run_record')
+                assert names_a_shared_record(record), f'the queue entry names no run record under /work: {record!r}'
             print(f"image smoke passed: {submitted['id']}" + (f' (designed by {designer_image}, by reference)'
                                                               if designer_image else ''))
     finally:
