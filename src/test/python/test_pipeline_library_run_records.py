@@ -4,6 +4,7 @@ pipeline/library/run_records.py -- giving designs made before contract 1.6 the r
 '''
 import json
 import os
+from dataclasses import asdict
 
 import pytest
 
@@ -111,3 +112,16 @@ def test_the_command_says_what_it_would_do(dirs, capsys):
     assert 'a\trecords/designer-d56656b9cf3c6498.run.json.gz\tgiven its run record' in out
     assert 'dry run: nothing written; 1 entries' in out
     assert read_entry(queue, 'a').run_record is None
+
+
+def test_a_scan_reads_the_record_of_an_entry_whose_summary_was_cached_before_run_records_were_kept(dirs):
+    ''' The live case: a version that kept no run record cached the entry, then its file was not touched again. '''
+    from pipeline.library.status import EntryFacts, read_entry_facts
+    queue, work = dirs
+    _record(work, IMAGE)
+    _entry(queue, 'a', IMAGE)
+    backfill(queue, work, apply=True)
+    stale = asdict(read_entry_facts(queue, 'a'))   # the file as the backfill left it: same mtime, size, inode, ctime
+    stale.pop('run_record')                       # as the older version summarised it
+    cached = EntryFacts.from_json(json.dumps(stale))
+    assert read_entry_facts(queue, 'a', cached).run_record == 'records/designer-d56656b9cf3c6498.run.json.gz'

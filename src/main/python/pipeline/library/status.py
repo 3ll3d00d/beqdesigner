@@ -20,7 +20,7 @@ What it reads, and what it does not:
 import hashlib
 import json
 import os
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from typing import Any, Dict, FrozenSet, List, Mapping, Optional, Set, Tuple, Union
 
 from pipeline.config import AnalysisConfig
@@ -248,8 +248,7 @@ class EntryFacts:
     unmet: int = 0            # how many of those the designer did not honour (adapted, declined, not understood, unanswered)
     runs: int = 1             # how many design runs the title keeps (the current one and its variants)
     choices: int = 0          # the designs to choose from in all of them (candidates; 0: read before it was kept)
-    # 1.6: the design's run record and the identities a person kept it at, as (version, settings) pairs. Defaults are
-    # right for a summary cached before them: neither was written before they were kept
+    # 1.6: the design's run record and the identities a person kept it at, as (version, settings) pairs
     run_record: Optional[str] = None
     reviewed: tuple = ()
 
@@ -275,13 +274,21 @@ class EntryFacts:
     @classmethod
     def from_json(cls, text: str) -> Optional['EntryFacts']:
         '''
-        :return: None if the text is not a summary this version wrote (stale, corrupt): a cache miss, so the entry is
-            read again, and never an error that would stop a scan.
+        :return: None if the text is not a summary this version wrote (stale, corrupt, or written before a field was
+            kept): a cache miss, so the entry is read again, and never an error that would stop a scan. A missing field
+            is not read as its default: the entry may carry it though its file has not changed since (a run record
+            given by pipeline.library.run_records, read by a version that did not keep run records).
         '''
         try:
-            return cls(**json.loads(text))
+            data = json.loads(text)
+            if not isinstance(data, dict) or _FACT_FIELDS - data.keys():
+                return None
+            return cls(**data)
         except (TypeError, ValueError, KeyError):
             return None
+
+
+_FACT_FIELDS = frozenset(f.name for f in fields(EntryFacts))
 
 
 def unmet_adjustments(entry: QueueEntry) -> int:

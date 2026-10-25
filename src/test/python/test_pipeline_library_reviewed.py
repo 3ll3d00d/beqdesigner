@@ -123,11 +123,11 @@ def test_the_index_summary_carries_the_reviews_so_the_out_of_date_filter_follows
     assert identity.reviewed == ((7, 's0'),) and not is_out_of_date(identity, V7)
 
 
-def test_a_summary_cached_before_reviews_were_kept_reads_as_none():
+@pytest.mark.parametrize('missing', ['reviewed', 'run_record'])
+def test_a_summary_cached_before_reviews_were_kept_is_a_cache_miss(missing):
+    ''' Not read as the default: the entry may hold one its unchanged file was given since (run_records). '''
     from dataclasses import asdict
     from pipeline.library.status import EntryFacts
     cached = asdict(EntryFacts.of(_entry(), mtime_ns=1, size=2))
-    for name in ('reviewed', 'run_record'):
-        cached.pop(name)
-    facts = EntryFacts.from_json(json.dumps(cached))
-    assert facts.reviewed == () and facts.run_record is None
+    cached.pop(missing)
+    assert EntryFacts.from_json(json.dumps(cached)) is None

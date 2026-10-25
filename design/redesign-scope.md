@@ -52,4 +52,6 @@ are then stamped *reviewed at* the new identity and stop showing as out of date.
   record in the design's commentary (an absolute path on the machine that designed it), so `pipeline.library.run_records`
   gives each current design `records/<that name>`, relative to the work directory (dry run by default, `--apply` to
   write; then rescan). beqforge recognises such a record by the release that wrote it; one from before design versions
-  is `unknown` (`unknown_build`).
+  is `unknown` (`unknown_build`). The rescan has to be by a release that keeps `run_record`, and the index's summary of
+  an entry is read again when it lacks a field this version keeps (`EntryFacts.from_json`): the backfill leaves no
+  other trace an older release's summary would be missed by.
