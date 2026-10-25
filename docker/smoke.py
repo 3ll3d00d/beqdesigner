@@ -119,6 +119,21 @@ def designer_command(image: str, name: str, network: str, user: str, root: pathl
             '--volume', f'{root / "work"}:/work', '--volume', f'{root / "cache"}:/cache', image]
 
 
+def names_its_records(health: dict) -> bool:
+    ''' Whether the designer answers contract 1.6, so each response names its run record: the compose example may pin an older one. '''
+    try:
+        return tuple(int(n) for n in str(health.get('contract_version', '')).split('.')[:2]) >= (1, 6)
+    except ValueError:
+        return False
+
+
+def designer_health(name: str) -> dict:
+    ''' The designer's /health, asked inside its container: it publishes no port. '''
+    return json.loads(subprocess.check_output(['docker', 'exec', name, 'python', '-c',
+                                               "import sys, urllib.request; sys.stdout.write(urllib.request.urlopen("
+                                               "'http://127.0.0.1:8420/health', timeout=10).read().decode())"], text=True))
+
+
 def names_a_shared_record(record) -> bool:
     ''' Whether a queue entry's run record is a path under the shared root, in the designer's records. '''
     return isinstance(record, str) and record.startswith('records/') and record.endswith('.run.json.gz')
@@ -172,7 +187,8 @@ def smoke(image: str, port: int, designer_image: str = '') -> None:
                 assert by_reference(log), f'the audio did not reach the designer by reference:\n{log}'
                 assert 'beqforge' in entries[0].read_text(), 'the queue entry does not name the designer build'
                 record = json.loads(entries[0].read_text()).get('run_record')
-                assert names_a_shared_record(record), f'the queue entry names no run record under /work: {record!r}'
+                if names_its_records(designer_health(designer)):
+                    assert names_a_shared_record(record), f'the queue entry names no run record under /work: {record!r}'
             print(f"image smoke passed: {submitted['id']}" + (f' (designed by {designer_image}, by reference)'
                                                               if designer_image else ''))
     finally:

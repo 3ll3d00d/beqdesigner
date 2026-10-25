@@ -31,6 +31,7 @@ def _load_smoke():
 _smoke = _load_smoke()
 Designer, fixture, by_reference = _smoke.Designer, _smoke.fixture, _smoke.by_reference
 designer_command, names_a_shared_record = _smoke.designer_command, _smoke.names_a_shared_record
+names_its_records = _smoke.names_its_records
 
 
 def test_service_lock_closure_has_no_qt(tmp_path):
@@ -99,6 +100,18 @@ def test_the_real_designer_runs_as_the_pipelines_user_keeping_its_records_under_
 ])
 def test_the_smoke_reads_whether_a_design_names_its_run_record_under_the_shared_root(record, named):
     assert names_a_shared_record(record) is named
+
+
+@pytest.mark.parametrize('health, named', [
+    ({'contract_version': '1.6'}, True),
+    ({'contract_version': '1.10'}, True),
+    ({'contract_version': '1.5'}, False),   # the compose example's pinned 0.2.1: it names no run record
+    ({'contract_version': '1.2'}, False),
+    ({}, False),
+    ({'contract_version': 'x'}, False),
+])
+def test_the_smoke_expects_a_run_record_only_from_a_designer_that_answers_1_6(health, named):
+    assert names_its_records(health) is named
 
 
 def test_the_compose_example_runs_a_pinned_designer_sharing_the_pipelines_work_directory():
