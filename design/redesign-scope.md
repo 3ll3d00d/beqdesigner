@@ -48,5 +48,8 @@ are then stamped *reviewed at* the new identity and stop showing as out of date.
 ## What it does not do
 
 - Nothing is redesigned or stamped without a person choosing it (§7.1: advisory).
-- Records written before beqforge 0.2.11 carry no identity and have no `run_record` on the entry: every current design
-  is `unknown` until it has been designed once on a build that writes them.
+- Records written before beqforge 0.2.11 carry no identity and had no `run_record` on the entry. beqforge names the
+  record in the design's commentary (an absolute path on the machine that designed it), so `pipeline.library.run_records`
+  gives each current design `records/<that name>`, relative to the work directory (dry run by default, `--apply` to
+  write; then rescan). beqforge recognises such a record by the release that wrote it; one from before design versions
+  is `unknown` (`unknown_build`).

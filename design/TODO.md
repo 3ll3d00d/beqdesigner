@@ -59,7 +59,7 @@ outside it. A beqforge version bump invalidates its bundled optimiser seed
 | 20 | T2 | | -- | Watch; seen twice | Recurrence with its failure message |
 | 20a | T3 | | -- | Watch; seen once | Recurrence |
 | 20b | T4 | | -- | Watch; seen once | Recurrence with its failure message |
-| 21 | RS | | [redesign scope](redesign-scope.md), contract 1.6 | Caller side built 2026-10-25 against a fake designer (all 5 steps). Left: a live check once beqforge answers `/impact`, then archiving this row | beqforge `/impact` (its TODO 34, after design version 7) |
+| 21 | RS | | [redesign scope](redesign-scope.md), contract 1.6 | Caller side built 2026-10-25 against a fake designer (all 5 steps; scores as probabilities, 915ff97; `run_records` backfill for pre-1.6 designs). Agreed with beqforge: apply the backfill, live check against its container, 0.2.12 (DV7 + `/impact`), a 2 h sample redesign (3 at once) to check the scores, then the person picks the cut-off; archive this row after the sample | beqforge `/impact` (its TODO 34, after design version 7) |
 | 22 | D2 | | by-reference §5 | Planned; optional, not started | beqforge loader coordination |
 | 23 | D3 | | by-reference §5 | Planned; optional, not started | Contract addition; beqforge coordination |
 | 24 | O2 | | former §9 reviewer questions | Behavior exists; acceptance decision missing | Real reviewer feedback |
