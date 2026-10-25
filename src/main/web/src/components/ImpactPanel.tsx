@@ -19,6 +19,20 @@ export const TIER_WORDS: { tier: Tier; label: string }[] = [
 ]
 const MOVING: Tier[] = ['will_move', 'unknown', 'likely']
 
+/** The designer's estimate of how many of `titles` a redesign moves: a score is a probability, an unknown counts as one. */
+export function expectedMovers(titles: Schemas['ImpactTitle'][]): number {
+  return titles.reduce((sum, t) => sum + (t.score ?? 1), 0)
+}
+
+const about = (n: number) => `about ${Math.round(n).toLocaleString()}`
+
+/** A change as a person reads it: what it is, what counts as moved, and what its scores were measured on. */
+export function describeChange(c: Schemas['ImpactChangeView']): string {
+  const basis = (c.basis ?? []).map((b) => `${b.class.replace(/_/g, ' ')} ${b.moved} of ${b.measured}`).join(', ')
+  return [`v${c.design_version} ${c.summary}`, c.moved ? `moved means ${c.moved}` : '',
+          basis ? `measured: ${basis}` : ''].filter(Boolean).join('; ')
+}
+
 /** What became of a title chosen here. */
 type Done = 'sent back' | 'kept'
 
@@ -76,13 +90,15 @@ export function ImpactPanel({ link }: { link: (id: string) => string }) {
               const n = answer.titles.filter((t) => t.tier === tier).length
               return n ? `${label}: ${n.toLocaleString()}` : null
             }).filter(Boolean).join(' · ')}
-            {answer.changes.length > 0 && <> — changes: {answer.changes.map((c) => `v${c.design_version} ${c.summary}`).join('; ')}</>}
+            {answer.changes.length > 0 && <> — changes: {answer.changes.map(describeChange).join(' · ')}</>}
           </p>
+          <p className="muted">The designer expects {about(expectedMovers(open))} of {count(open.length, 'title')} to
+            move (its scores are estimated probabilities; an unknown counts as one).</p>
           <div className="actions" role="group" aria-label="Choose titles">
             <button type="button" className="link" onClick={() => pick(MOVING)}>Select those likely to move</button>
             <button type="button" className="link" onClick={() => pick(['possible', 'unaffected'])}>Select the rest</button>
             {selected.size > 0 && <>
-              <span>{count(selected.size, 'title')} selected</span>
+              <span>{count(selected.size, 'title')} selected, {about(expectedMovers(open.filter((t) => selected.has(t.id))))} expected to move</span>
               <button type="button" disabled={revise.isPending || tooMany} onClick={() => revise.mutate(
                 { ids, to: 'design', reason: 'a redesign now could move its design', run: true },
                 { onSuccess: () => finish(ids, 'sent back', `Sent ${count(ids.length, 'title')} back to the designer in one run.`) })}>

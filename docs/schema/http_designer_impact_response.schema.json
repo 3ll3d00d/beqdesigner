@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/3ll3d00d/beqdesigner/main/docs/schema/http_designer_impact_response.schema.json",
   "title": "HTTP designer impact response (1.6)",
-  "description": "The 200 body of POST /impact -- design/designer-interface.md §7.1, 'Impact'. One result per request record, in request order (not expressible here: the caller checks it). Advisory: a person decides what to redesign.",
+  "description": "The 200 body of POST /impact -- design/designer-interface.md \u00a77.1, 'Impact'. One result per request record, in request order (not expressible here: the caller checks it). Advisory: a person decides what to redesign.",
   "type": "object",
   "properties": {
     "contract_version": {
@@ -74,7 +74,7 @@
           ],
           "minimum": 0,
           "maximum": 1,
-          "description": "orders records within a tier, highest first; comparable across every response from one design identity; null exactly for unknown"
+          "description": "an estimated probability that a design now differs from the record's, measured by the designer's own regression check, so a sum over records is the expected number that move; several changes combine as 1-prod(1-p); null exactly for unknown"
         },
         "from_design_version": {
           "type": [
@@ -90,6 +90,11 @@
             "$ref": "#/$defs/reason"
           },
           "description": "non-empty for every tier but unaffected"
+        },
+        "unknown_reason": {
+          "type": "string",
+          "minLength": 1,
+          "description": "optional, only with tier unknown: why, as a code -- not_found, unreadable, outside_root, not_a_record, unknown_build, older_than_data, other_settings, newer_version, no_figure; a caller tolerates a code it does not know"
         }
       },
       "required": [
@@ -140,6 +145,24 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "not": {
+              "properties": {
+                "tier": {
+                  "const": "unknown"
+                }
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "required": [
+                "unknown_reason"
+              ]
+            }
+          }
         }
       ]
     },
@@ -188,12 +211,50 @@
           "type": "string",
           "minLength": 1,
           "description": "for a person"
+        },
+        "moved": {
+          "type": "string",
+          "minLength": 1,
+          "description": "optional: what this designer counts as moved when measuring the change, for display"
+        },
+        "basis": {
+          "type": "array",
+          "description": "optional: what the scores were measured on, per outcome class",
+          "items": {
+            "$ref": "#/$defs/basis"
+          }
         }
       },
       "required": [
         "design_version",
         "id",
         "summary"
+      ],
+      "additionalProperties": true
+    },
+    "basis": {
+      "type": "object",
+      "properties": {
+        "class": {
+          "type": "string",
+          "minLength": 1,
+          "description": "the designer's name for the outcome class, e.g. declined_after_fit"
+        },
+        "measured": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "records of the class rerun at both versions"
+        },
+        "moved": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "of those, how many moved (never more than measured)"
+        }
+      },
+      "required": [
+        "class",
+        "measured",
+        "moved"
       ],
       "additionalProperties": true
     }

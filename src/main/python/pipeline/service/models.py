@@ -853,15 +853,31 @@ class ImpactTitle(BaseModel):
     year: str
     tier: Literal['will_move', 'likely', 'possible', 'unaffected', 'unknown'] = Field(
         description='unknown is read as will_move unless a person decides otherwise.')
-    score: Optional[float] = Field(description='Orders titles within a tier, highest first; null for unknown.')
+    score: Optional[float] = Field(description='The estimated probability that a redesign now moves it, so a sum is the '
+                                               'expected number that move; orders titles within a tier, highest first; '
+                                               'null for unknown.')
     from_design_version: Optional[int]
     reasons: List[ImpactReasonView]
+    unknown_reason: Optional[str] = Field(None, description="Unknown only: why, as the designer's code (not_found, "
+                                                            "unknown_build, ...), or no_record when the design names no "
+                                                            "run record.")
+
+
+class ImpactBasisView(BaseModel):
+    ''' What a change's scores were measured on, for one outcome class. '''
+    cls: str = Field(alias='class', description="The designer's name for the outcome class.")
+    measured: int
+    moved: int
+
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
 
 
 class ImpactChangeView(BaseModel):
     design_version: int
     id: str
     summary: str
+    moved: Optional[str] = Field(None, description='What the designer counts as moved, for display.')
+    basis: List[ImpactBasisView] = []
 
 
 class ImpactCheck(BaseModel):

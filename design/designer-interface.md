@@ -1097,13 +1097,15 @@ Response, `200`:
   "design_settings": "9cf04c30b0f0",
   "designer_build": "…",
   "changes": [
-    {"design_version": 7, "id": "fit-choice", "summary": "the fitter chooses among near-equal fits by the judge's checks"}
+    {"design_version": 7, "id": "fit-choice", "summary": "the fitter chooses among near-equal fits by the judge's checks",
+     "moved": "swapped designed/declined, changed strategy, or the cascade moved > 1 dB at 5-50 Hz",
+     "basis": [{"class": "declined_after_fit", "measured": 34, "moved": 18}]}
   ],
   "results": [
     {"id": "jriver-18bd9f7c1e48-2015688", "tier": "likely", "score": 0.72, "from_design_version": 6,
      "reasons": [{"change": "fit-choice", "feature": "fit.choice",
                   "detail": "the fit has near-equal alternatives; its slot check failed by 0.08 dB"}]},
-    {"id": "…", "tier": "unknown", "score": null, "from_design_version": null,
+    {"id": "…", "tier": "unknown", "score": null, "from_design_version": null, "unknown_reason": "not_found",
      "reasons": [{"change": null, "feature": null, "detail": "record not found"}]}
   ]
 }
@@ -1122,9 +1124,18 @@ Response, `200`:
 
   `unknown` is a result, never left out, and a caller treats it as `will_move` unless a person
   decides otherwise.
-- **`score`**, in `[0, 1]`, orders records within a tier, highest first. It is ordinal, like
-  `confidence`, and depends only on the record and the designer's build, so it is comparable
-  across every response from one design identity. It is `null` for `unknown`.
+- **`score`**, in `[0, 1]`, is an estimated probability that a design now differs from the
+  record's, measured by the designer's own regression check (rerunning records at both
+  versions), never invented: a sum over records is the expected number that move. Several
+  changes combine as `1 − ∏(1 − p)`, not their maximum. A threshold change scores `1.0` for a
+  recorded figure between its old and new values; a figure that cannot be scored makes the
+  record `unknown`. It depends only on the record and the designer's build, so it is comparable
+  across every response from one design identity, and orders records within a tier, highest
+  first. It is `null` for `unknown`.
+- **`unknown_reason`** (optional, only with `unknown`) says why as a code: `not_found`,
+  `unreadable`, `outside_root`, `not_a_record`, `unknown_build` (written by a build the
+  designer cannot place), `older_than_data`, `other_settings`, `newer_version`, `no_figure`. A
+  caller tolerates a code it does not know; `reasons` stays the text a person reads.
 - **`from_design_version`** is the version the record was designed at, read from the record.
   It is `null` when unknown.
 - **`reasons`** is non-empty for every tier but `unaffected`. Each entry names the change (an
@@ -1133,6 +1144,10 @@ Response, `200`:
   display: never machine-parsed, like `commentary`.
 - **`changes`** lists every change between the oldest `from_design_version` in the response
   and this designer's `design_version`, oldest first, so a person can read what moved. A
+  designer states what counts as moved in each change's basis: optionally `moved`, its
+  definition as text for display, and `basis`, what the scores were measured on, as
+  `[{"class": "declined_after_fit", "measured": 34, "moved": 18}, ...]` (`class` is the
+  designer's own name for an outcome class; `moved` is never more than `measured`). A
   change that can reach every design (a "redesign everything" change) is listed like any
   other; every record it reaches is then at least `likely`.
 - The identity fields are this designer's, as on `/health` (§3, "Design identity").

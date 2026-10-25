@@ -4,7 +4,7 @@ design/redesign-scope.md step 3), against a fake designer over real HTTP (fake_i
 '''
 import pytest
 
-from fake_impact_designer import CHANGE, FakeImpactDesigner
+from fake_impact_designer import CHANGE, FakeImpactDesigner, response_errors
 from pipeline.designer.identity import CurrentIdentity, EndpointIdentity, identity_from_health
 from pipeline.designer.impact import MAX_RECORDS, ImpactError, ask_impact, impact_endpoint, impact_url, no_record
 
@@ -68,6 +68,39 @@ def test_a_record_the_designer_cannot_read_is_unknown_not_an_error():
         answer = ask_impact(designer.url, _records(2))
     assert [r.tier for r in answer.results] == ['unaffected', 'unknown']
     assert answer.results[1].score is None and answer.results[1].reasons[0].detail == 'record not found'
+    assert (answer.results[0].unknown_reason, answer.results[1].unknown_reason) == (None, 'not_found')
+
+
+def test_the_fakes_answer_is_in_the_contracts_shape():
+    tiers = {'records/r1-v6.run.json.gz': 'likely'}
+    with FakeImpactDesigner(tiers=tiers, held={'records/r0-v6.run.json.gz', 'records/r1-v6.run.json.gz'}) as designer:
+        answer = designer.answer({'records': [{'id': i, 'path': p} for i, p in _records(3)]})
+    assert response_errors(answer) == []
+    assert response_errors({**answer, 'results': [{**answer['results'][1], 'unknown_reason': 'not_found'}]})
+
+
+def test_a_change_says_what_counts_as_moved_and_what_its_scores_were_measured_on():
+    with FakeImpactDesigner() as designer:
+        answer = ask_impact(designer.url, _records(1))
+    change = answer.changes[0]
+    assert change.moved == CHANGE['moved']
+    assert [(b.cls, b.measured, b.moved) for b in change.basis] == [('declined_after_fit', 34, 18),
+                                                                      ('designed_all_passing', 15, 2)]
+
+
+def test_a_change_without_a_basis_is_still_in_shape():
+    with FakeImpactDesigner() as designer:
+        designer.mangle = lambda a: {**a, 'changes': [{k: CHANGE[k] for k in ('design_version', 'id', 'summary')}]}
+        change = ask_impact(designer.url, _records(1)).changes[0]
+    assert (change.moved, change.basis) == (None, ())
+
+
+def test_the_scores_sum_to_the_expected_movers_an_unknown_counting_as_one():
+    tiers = {'records/r0-v6.run.json.gz': 'likely', 'records/r1-v6.run.json.gz': 'possible'}
+    with FakeImpactDesigner(tiers=tiers, held=set(tiers)) as designer:
+        answer = ask_impact(designer.url, _records(3))
+    assert sum(r.expected for r in answer.results) == pytest.approx(0.7 + 0.2 + 1.0)
+    assert no_record('t').expected == 1.0
 
 
 def test_a_person_reads_will_move_and_unknown_first_then_by_score():
@@ -82,7 +115,7 @@ def test_a_person_reads_will_move_and_unknown_first_then_by_score():
 
 def test_a_design_with_no_run_record_is_unknown_without_asking():
     result = no_record('t9')
-    assert (result.tier, result.score, result.rank) == ('unknown', None, 0)
+    assert (result.tier, result.score, result.rank, result.unknown_reason) == ('unknown', None, 0, 'no_record')
 
 
 @pytest.mark.parametrize('mangle, says', [
@@ -100,6 +133,15 @@ def test_a_design_with_no_run_record_is_unknown_without_asking():
     (lambda a: {**a, 'results': [{**r, 'tier': 'likely', 'reasons': [{'change': 'x'}]} for r in a['results']]},
      'reason out of shape'),
     (lambda a: {**a, 'results': [{**r, 'from_design_version': -1} for r in a['results']]}, 'from_design_version'),
+    (lambda a: {**a, 'results': [{**r, 'unknown_reason': 'not_found'} for r in a['results']]}, 'unknown_reason'),
+    (lambda a: {**a, 'results': [{**r, 'tier': 'unknown', 'score': None, 'unknown_reason': '',
+                                  'reasons': [{'change': None, 'feature': None, 'detail': 'x'}]} for r in a['results']]},
+     'unknown_reason'),
+    (lambda a: {**a, 'changes': [{**CHANGE, 'moved': 3}]}, 'has moved'),
+    (lambda a: {**a, 'changes': [{**CHANGE, 'basis': {}}]}, 'has basis'),
+    (lambda a: {**a, 'changes': [{**CHANGE, 'basis': [{'class': 'x', 'measured': 3, 'moved': 4}]}]}, 'basis out of'),
+    (lambda a: {**a, 'changes': [{**CHANGE, 'basis': [{'class': 'x', 'measured': True, 'moved': 0}]}]}, 'basis out of'),
+    (lambda a: {**a, 'changes': [{**CHANGE, 'basis': [{'measured': 3, 'moved': 1}]}]}, 'basis out of'),
 ])
 def test_an_answer_out_of_the_contracts_shape_is_an_error_not_a_guess(mangle, says):
     with FakeImpactDesigner() as designer:

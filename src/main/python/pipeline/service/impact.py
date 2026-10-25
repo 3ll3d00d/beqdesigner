@@ -24,7 +24,7 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
 from pipeline.designer.identity import CurrentIdentity
-from pipeline.designer.impact import ImpactError, ImpactResult, ask_impact, impact_endpoint, no_record
+from pipeline.designer.impact import ImpactChange, ImpactError, ImpactResult, ask_impact, impact_endpoint, no_record
 from pipeline.library.reviewed import ReviewRefused, mark_reviewed
 from pipeline.library.selection import Selection
 from pipeline.service import models
@@ -124,8 +124,7 @@ class ImpactChecker:
             results = list(answer.results if answer else ()) + [no_record(i) for i in unrecorded]
             ranked = sorted(results, key=lambda r: (r.rank, -(r.score or 0.0), r.id))
             self.__finish(state='succeeded', done=len(results),
-                          changes=[{'design_version': c.design_version, 'id': c.id, 'summary': c.summary}
-                                   for c in (answer.changes if answer else ())],
+                          changes=[_change(c) for c in (answer.changes if answer else ())],
                           titles=[_title(r, titles.get(r.id, ('', ''))) for r in ranked])
         self.run(work)
         return started
@@ -136,10 +135,17 @@ class ImpactChecker:
             self.__save()
 
 
+def _change(change: ImpactChange) -> dict:
+    return {'design_version': change.design_version, 'id': change.id, 'summary': change.summary,
+            'moved': change.moved,
+            'basis': [{'class': b.cls, 'measured': b.measured, 'moved': b.moved} for b in change.basis]}
+
+
 def _title(result: ImpactResult, named: Tuple[str, str]) -> dict:
     return {'id': result.id, 'title': named[0], 'year': named[1], 'tier': result.tier, 'score': result.score,
             'from_design_version': result.from_design_version,
-            'reasons': [{'change': x.change, 'feature': x.feature, 'detail': x.detail} for x in result.reasons]}
+            'reasons': [{'change': x.change, 'feature': x.feature, 'detail': x.detail} for x in result.reasons],
+            'unknown_reason': result.unknown_reason}
 
 
 def check_model(state: dict) -> models.ImpactCheck:

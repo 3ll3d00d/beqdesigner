@@ -3,7 +3,8 @@ A fake 1.6 designer for the redesign-scope tests (design/redesign-scope.md): a r
 and `POST /impact` as designer-interface.md §7.1 says, so the caller is tested against the wire, not a mock. beqforge's
 own /impact is not built yet (its TODO 34).
 
-Each request to /impact is checked against docs/schema/http_designer_impact_request.schema.json and kept in `asked`.
+Each request to /impact is checked against docs/schema/http_designer_impact_request.schema.json and kept in `asked`;
+`response_errors` checks an answer against the response schema.
 A record's answer is `tiers[path]` (a tier, or a whole result to send as it is), else `unaffected`; a path the designer
 does not hold is `unknown`, as a missing record is.
 '''
@@ -15,10 +16,19 @@ from typing import Dict, List, Optional
 
 from jsonschema import Draft202012Validator
 
-_SCHEMA = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'docs', 'schema',
-                       'http_designer_impact_request.schema.json')
-CHANGE = {'design_version': 7, 'id': 'fit-choice', 'summary': 'the fitter chooses among near-equal fits'}
+_SCHEMAS = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'docs', 'schema')
+_SCHEMA = os.path.join(_SCHEMAS, 'http_designer_impact_request.schema.json')
+CHANGE = {'design_version': 7, 'id': 'fit-choice', 'summary': 'the fitter chooses among near-equal fits',
+          'moved': 'swapped designed/declined, changed strategy, or moved > 1 dB at 5-50 Hz',
+          'basis': [{'class': 'declined_after_fit', 'measured': 34, 'moved': 18},
+                    {'class': 'designed_all_passing', 'measured': 15, 'moved': 2}]}
 _SCORES = {'will_move': 1.0, 'likely': 0.7, 'possible': 0.2, 'unaffected': 0.0}
+
+
+def response_errors(answer: dict) -> List[str]:
+    ''' What the 1.6 response schema says of `answer`. '''
+    with open(os.path.join(_SCHEMAS, 'http_designer_impact_response.schema.json')) as f:
+        return [e.message for e in Draft202012Validator(json.load(f)).iter_errors(answer)]
 
 
 class FakeImpactDesigner:
@@ -56,7 +66,7 @@ class FakeImpactDesigner:
             path = record['path']
             if self.held is not None and path not in self.held:
                 results.append({'id': record['id'], 'tier': 'unknown', 'score': None, 'from_design_version': None,
-                                'reasons': [{'change': None, 'feature': None, 'detail': 'record not found'}]})
+                                'unknown_reason': 'not_found', 'reasons': [{'change': None, 'feature': None, 'detail': 'record not found'}]})
                 continue
             tier = self.tiers.get(path, 'unaffected')
             if isinstance(tier, dict):

@@ -1271,6 +1271,21 @@ export interface components {
              */
             ids: string[];
         };
+        /**
+         * ImpactBasisView
+         * @description What a change's scores were measured on, for one outcome class.
+         */
+        ImpactBasisView: {
+            /**
+             * Class
+             * @description The designer's name for the outcome class.
+             */
+            class: string;
+            /** Measured */
+            measured: number;
+            /** Moved */
+            moved: number;
+        };
         /** ImpactChangeView */
         ImpactChangeView: {
             /** Design Version */
@@ -1279,6 +1294,16 @@ export interface components {
             id: string;
             /** Summary */
             summary: string;
+            /**
+             * Moved
+             * @description What the designer counts as moved, for display.
+             */
+            moved?: string | null;
+            /**
+             * Basis
+             * @default []
+             */
+            basis: components["schemas"]["ImpactBasisView"][];
         };
         /**
          * ImpactCheck
@@ -1370,13 +1395,18 @@ export interface components {
             tier: "will_move" | "likely" | "possible" | "unaffected" | "unknown";
             /**
              * Score
-             * @description Orders titles within a tier, highest first; null for unknown.
+             * @description The estimated probability that a redesign now moves it, so a sum is the expected number that move; orders titles within a tier, highest first; null for unknown.
              */
             score: number | null;
             /** From Design Version */
             from_design_version: number | null;
             /** Reasons */
             reasons: components["schemas"]["ImpactReasonView"][];
+            /**
+             * Unknown Reason
+             * @description Unknown only: why, as the designer's code (not_found, unknown_build, ...), or no_record when the design names no run record.
+             */
+            unknown_reason?: string | null;
         };
         /** IndexStatus */
         IndexStatus: {

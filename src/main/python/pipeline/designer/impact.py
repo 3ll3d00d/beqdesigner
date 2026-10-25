@@ -1,8 +1,8 @@
 '''
 Asking a designer which designs a redesign now could move (contract 1.6, design/designer-interface.md §7.1 "Impact";
 design/redesign-scope.md step 3). The designer reads its own run records -- each design's `run_record`, sent back as it
-was given -- and answers, per record, a tier (will move, likely, possible, unaffected, unknown), a score that orders
-records within a tier, and the reasons. The answer is advisory: a person chooses what to redesign and what to keep.
+was given -- and answers, per record, a tier (will move, likely, possible, unaffected, unknown), a score (the estimated
+probability that it moves, so a sum is the expected number that move), and the reasons. The answer is advisory: a person chooses what to redesign and what to keep.
 
 Only a designer whose `/health` says `impact: true` and the identity a redesign would use is asked (`impact_endpoint`),
 in requests of at most 500 records, one after another (`ask_impact`). An answer out of the contract's shape is an
@@ -40,9 +40,15 @@ class ImpactReason:
 class ImpactResult:
     id: str
     tier: str
-    score: Optional[float]               # orders records within a tier, highest first; None for unknown
+    score: Optional[float]               # the estimated probability it moves; None for unknown
     from_design_version: Optional[int]
     reasons: Tuple[ImpactReason, ...] = ()
+    unknown_reason: Optional[str] = None   # unknown only: why, as a code (§7.1); a code not known here is kept as is
+
+    @property
+    def expected(self) -> float:
+        ''' Its share of the expected movers: an unknown counts as moving, as a person reads it. '''
+        return 1.0 if self.score is None else self.score
 
     @property
     def rank(self) -> int:
@@ -51,10 +57,20 @@ class ImpactResult:
 
 
 @dataclass(frozen=True)
+class ImpactBasis:
+    ''' What a change's scores were measured on, for one outcome class. '''
+    cls: str
+    measured: int
+    moved: int
+
+
+@dataclass(frozen=True)
 class ImpactChange:
     design_version: int
     id: str
     summary: str
+    moved: Optional[str] = None             # what the designer counts as moved, for display
+    basis: Tuple[ImpactBasis, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -74,7 +90,7 @@ class ImpactAnswer:
 def no_record(record_id: str) -> ImpactResult:
     ''' The answer for a design with no run record: it cannot be asked about, so a person treats it as moving. '''
     return ImpactResult(record_id, 'unknown', None, None,
-                        (ImpactReason(None, None, 'the designer named no run record for this design'),))
+                        (ImpactReason(None, None, 'the designer named no run record for this design'),), 'no_record')
 
 
 def impact_url(design_url: str) -> str:
@@ -173,7 +189,24 @@ def _change(c: Any) -> ImpactChange:
     if not isinstance(c, Mapping) or valid_version(c.get('design_version')) is None or not valid_text(c.get('id')) \
             or not valid_text(c.get('summary')):
         raise ImpactError(f'an impact change is out of shape: {c!r}')
-    return ImpactChange(c['design_version'], c['id'], c['summary'])
+    moved = c.get('moved')
+    if moved is not None and not valid_text(moved):
+        raise ImpactError(f"the impact change {c['id']!r} has moved {moved!r}")
+    basis = c.get('basis', [])
+    if not isinstance(basis, list):
+        raise ImpactError(f"the impact change {c['id']!r} has basis {basis!r}")
+    return ImpactChange(c['design_version'], c['id'], c['summary'], moved, tuple(_basis(c['id'], b) for b in basis))
+
+
+def _count(n: Any) -> bool:
+    return isinstance(n, int) and not isinstance(n, bool) and n >= 0
+
+
+def _basis(change: str, b: Any) -> ImpactBasis:
+    if not isinstance(b, Mapping) or not valid_text(b.get('class')) or not _count(b.get('measured')) \
+            or not _count(b.get('moved')) or b['moved'] > b['measured']:
+        raise ImpactError(f'the impact change {change!r} has a basis out of shape: {b!r}')
+    return ImpactBasis(b['class'], b['measured'], b['moved'])
 
 
 def _result(r: Mapping) -> ImpactResult:
@@ -194,8 +227,11 @@ def _result(r: Mapping) -> ImpactResult:
     reasons = r.get('reasons')
     if not isinstance(reasons, list) or (tier != 'unaffected' and not reasons):
         raise ImpactError(f'{name} gives no reasons')
+    why = r.get('unknown_reason')
+    if why is not None and (tier != 'unknown' or not valid_text(why)):
+        raise ImpactError(f'{name} has unknown_reason {why!r} with tier {tier!r}')
     return ImpactResult(r['id'], tier, None if score is None else float(score), from_version,
-                        tuple(_reason(name, x) for x in reasons))
+                        tuple(_reason(name, x) for x in reasons), why)
 
 
 def _reason(name: str, x: Any) -> ImpactReason:

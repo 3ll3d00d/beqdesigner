@@ -39,6 +39,11 @@ are then stamped *reviewed at* the new identity and stop showing as out of date.
    move*, then the titles grouped by tier (unknown with will move), highest score first, each with its reasons; select
    and *Redesign selected* or *Keep selected*. An answer for another design version than the designer's now is marked
    stale. A title's reviews are on `/v1/titles` (`reviewed_at`); the review page does not show them yet.
+6. **Scores are probabilities** (agreed with beqforge 2026-10-25, still 1.6, additive): a score is the designer's
+   measured estimate that a title moves, so the panel shows the expected movers for the answer and for the titles
+   selected (an unknown counts as one). Each change may say what counts as moved (`moved`) and what its scores were
+   measured on (`basis`, movers of measured per outcome class), shown beside it; an unknown may give
+   `unknown_reason` (a design with no run record is `no_record`).
 
 ## What it does not do
 

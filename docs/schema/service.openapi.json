@@ -5378,6 +5378,31 @@
         "title": "ImpactAsk",
         "description": "Ask the designer which designs a redesign now could move. "
       },
+      "ImpactBasisView": {
+        "properties": {
+          "class": {
+            "type": "string",
+            "title": "Class",
+            "description": "The designer's name for the outcome class."
+          },
+          "measured": {
+            "type": "integer",
+            "title": "Measured"
+          },
+          "moved": {
+            "type": "integer",
+            "title": "Moved"
+          }
+        },
+        "type": "object",
+        "required": [
+          "class",
+          "measured",
+          "moved"
+        ],
+        "title": "ImpactBasisView",
+        "description": "What a change's scores were measured on, for one outcome class. "
+      },
       "ImpactChangeView": {
         "properties": {
           "design_version": {
@@ -5391,6 +5416,26 @@
           "summary": {
             "type": "string",
             "title": "Summary"
+          },
+          "moved": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Moved",
+            "description": "What the designer counts as moved, for display."
+          },
+          "basis": {
+            "items": {
+              "$ref": "#/components/schemas/ImpactBasisView"
+            },
+            "type": "array",
+            "title": "Basis",
+            "default": []
           }
         },
         "type": "object",
@@ -5584,7 +5629,7 @@
               }
             ],
             "title": "Score",
-            "description": "Orders titles within a tier, highest first; null for unknown."
+            "description": "The estimated probability that a redesign now moves it, so a sum is the expected number that move; orders titles within a tier, highest first; null for unknown."
           },
           "from_design_version": {
             "anyOf": [
@@ -5603,6 +5648,18 @@
             },
             "type": "array",
             "title": "Reasons"
+          },
+          "unknown_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unknown Reason",
+            "description": "Unknown only: why, as the designer's code (not_found, unknown_build, ...), or no_record when the design names no run record."
           }
         },
         "type": "object",

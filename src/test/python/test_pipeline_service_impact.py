@@ -9,7 +9,7 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
-from fake_impact_designer import FakeImpactDesigner
+from fake_impact_designer import CHANGE, FakeImpactDesigner
 from pipeline.designer.identity import CurrentIdentity
 from pipeline.service.api import create_app
 from pipeline.service.config import ServiceConfig
@@ -112,6 +112,16 @@ def test_the_out_of_date_designs_are_checked_and_read_most_likely_to_move_first(
     sent = designer.asked[0]['records']   # Heat has no record: not sent
     assert sorted(r['path'] for r in sent) == [RECORD.format('alien'), RECORD.format('dune')]
     assert {r['id'] for r in sent} == {ids['Alien'], ids['Dune']}
+
+
+def test_the_answer_keeps_what_counts_as_moved_its_basis_and_why_a_title_is_unknown(library):
+    client, _, ids, checker = library
+    check = _checked(client)
+    change = check['changes'][0]
+    assert change['moved'] == CHANGE['moved'] and change['basis'] == CHANGE['basis']   # 'class', as on the wire
+    assert [(t['id'], t['unknown_reason']) for t in check['titles']] == [(ids['Heat'], 'no_record'),
+                                                                         (ids['Alien'], None), (ids['Dune'], None)]
+    assert ImpactChecker(checker.state_dir).snapshot()['changes'][0]['basis'] == CHANGE['basis']   # kept across a restart
 
 
 def test_named_titles_alone_are_checked(library, designer):
