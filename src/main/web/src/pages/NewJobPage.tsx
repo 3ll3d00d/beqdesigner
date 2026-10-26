@@ -7,6 +7,7 @@ import type { Schemas } from '../api/client'
 import { cleanFilter, describeFilter, filterFromQuery, type Needs, type TitleFilter } from '../api/filter'
 import { usePlan, useStatus, useSubmitRun, useSubmitScan } from '../api/hooks'
 import { FilterForm } from '../components/FilterForm'
+import { WindowField, type Window } from '../components/WindowField'
 import { count } from '../format'
 
 type Through = Schemas['Through']
@@ -23,10 +24,12 @@ function ScanForm({ sources }: { sources: string[] }) {
   const navigate = useNavigate()
   const scan = useSubmitScan()
   const [chosen, setChosen] = useState<string[]>([])
+  const [jobWindow, setJobWindow] = useState<Window>(null)
   return (
     <form onSubmit={(e) => {
       e.preventDefault()
-      scan.mutate({ sources: chosen, allow_empty: false }, { onSuccess: (job) => navigate(`/jobs/${job.id}`) })
+      scan.mutate({ sources: chosen, allow_empty: false, ...(jobWindow !== null ? { window: jobWindow } : {}) },
+                  { onSuccess: (job) => navigate(`/jobs/${job.id}`) })
     }}>
       <fieldset>
         <legend>Sources</legend>
@@ -39,6 +42,7 @@ function ScanForm({ sources }: { sources: string[] }) {
         )) : null}
         <p className="muted">{chosen.length ? `List ${chosen.join(', ')} again.` : 'Every source is listed again.'}</p>
       </fieldset>
+      <WindowField value={jobWindow} onChange={setJobWindow} />
       {scan.error && <p role="alert" className="problem">{scan.error.message}</p>}
       <button type="submit" disabled={scan.isPending}>Scan</button>
     </form>
@@ -53,6 +57,7 @@ function RunForm({ sources, initial, status }: { sources: string[]; initial: Tit
   const [through, setThrough] = useState<Through>('design')
   const [scanFirst, setScanFirst] = useState(true)
   const [retryFailed, setRetryFailed] = useState(false)
+  const [jobWindow, setJobWindow] = useState<Window>(null)
   const refusal = repositoryRefusal(status)
   const body = (): Schemas['RunJobRequest'] => ({ filter: cleanFilter(filter), through, redesign: false, revise_to: 'design', scan_first: scanFirst,
                                                   retry_failed: retryFailed })
@@ -62,7 +67,7 @@ function RunForm({ sources, initial, status }: { sources: string[]; initial: Tit
   return (
     <form onSubmit={(e) => {
       e.preventDefault()
-      run.mutate(body(), { onSuccess: (job) => navigate(`/jobs/${job.id}`) })
+      run.mutate({ ...body(), ...(jobWindow !== null ? { window: jobWindow } : {}) }, { onSuccess: (job) => navigate(`/jobs/${job.id}`) })
     }}>
       <FilterForm value={filter} onChange={setFilter} sources={sources} needs={RUN_NEEDS} />
       <fieldset>
@@ -88,6 +93,7 @@ function RunForm({ sources, initial, status }: { sources: string[]; initial: Tit
           Retry titles that failed before
         </label>
       </fieldset>
+      <WindowField value={jobWindow} onChange={setJobWindow} />
       <div className="actions">
         <button type="button" className="secondary" disabled={plan.isPending} onClick={() => plan.mutate(body())}>
           Preview

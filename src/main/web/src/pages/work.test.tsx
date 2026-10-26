@@ -174,8 +174,8 @@ describe('status', () => {
     await screen.findByText('Schedule')
     const facts = screen.getByText('Estimated end').closest('dl')!
     const rows = Object.fromEntries(within(facts).getAllByRole('term').map((dt) => [dt.textContent, dt.nextElementSibling!.textContent]))
-    expect(Object.keys(rows)).toEqual(['Job', 'Started', 'Estimated end', 'Progress', 'Activity', 'Waiting', 'Schedule',
-                                       'Next run'])
+    expect(Object.keys(rows)).toEqual(['Job', 'Started', 'Estimated end', 'Progress', 'Activity', 'Waiting', 'Jobs run',
+                                       'Schedule', 'Next run'])
     expect(rows['Started']).toBe(when(running.started_at))
     expect(rows['Estimated end']).toBe('— (about 10 min 0 s to go)')
     expect(rows['Progress']).toBe('1 of 4')
@@ -236,15 +236,17 @@ describe('status', () => {
     const section = (await screen.findByRole('heading', { name: 'Jobs' })).closest('section')!
     await within(section).findByText('Schedule')
     const facts = section.querySelector('dl')!
+    await within(facts).findByText('Any time')   // the default window, asked for apart from the status
     const rows = Object.fromEntries(within(facts).getAllByRole('term').map((dt) => [dt.textContent, dt.nextElementSibling!.textContent]))
     expect(rows).toEqual({
-      Job: 'None running', Waiting: 'Nothing',
+      Job: 'None running', Waiting: 'Nothing', 'Jobs run': 'Any time — open now Change…',
       Schedule: 'Every 60 min: scan the sources, then run movies through design.',
       'Next run': when(schedule().next_run_at), 'Last run': `Failed ${when('2026-10-22T07:00:00Z')}`,
       'Last skipped': 'the designer is down',
     })
     expect(within(facts).getByRole('link', { name: when('2026-10-22T07:00:00Z') })).toHaveAttribute('href', '/jobs/job-0')
-    expect(within(section).getAllByRole('button').map((b) => b.textContent)).toEqual(['Pause', 'Run now', 'Rescan sources'])
+    expect(within(section).getAllByRole('button').map((b) => b.textContent)).toEqual(['Change…', 'Pause', 'Run now',
+                                                                                         'Rescan sources'])
     expect(within(section).getByRole('link', { name: 'New job…' })).toHaveAttribute('href', '/jobs/new')
     const sources = within(section).getByRole('table', { name: 'Sources' })
     expect(within(sources).getAllByRole('row').slice(1).map((r) => within(r).getAllByRole('cell')[0]!.textContent))

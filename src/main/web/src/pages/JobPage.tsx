@@ -1,10 +1,12 @@
 // One job: what was asked, how it went, its log (live while it runs), and Cancel.
+import { useState } from 'react'
 import { Link, useParams } from 'react-router'
 
 import type { Schemas } from '../api/client'
 import type { JobEvent } from '../api/events'
-import { useCancelJob, useJob, useJobEvents, useJobLog, type Job } from '../api/hooks'
+import { useCancelJob, useDefaultWindow, useJob, useJobEvents, useJobLog, useSetJobWindow, type Job } from '../api/hooks'
 import { describeJob, JobProgress, StateBadge } from '../components/JobBits'
+import { describeWindow, WindowField, type Window } from '../components/WindowField'
 import { between, count, FINISHED_STATES, when } from '../format'
 
 function Titles({ heading, items }: { heading: string; items: { id: string; message?: string; reason?: string; title?: string }[] }) {
@@ -96,6 +98,42 @@ function Log({ events }: { events: JobEvent[] }) {
   )
 }
 
+/** When a job may run, when it waits until, and a change to that while it has not finished. */
+function JobWindow({ job, open }: { job: Job; open: boolean }) {
+  const defaults = useDefaultWindow()
+  const save = useSetJobWindow()
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState<Window>(job.window ?? null)
+  return (
+    <>
+      <dt>Runs</dt>
+      <dd>{describeWindow(job.window, defaults.data)}
+        {job.waiting_until && <span className="muted"> — {job.state === 'paused' ? 'paused until' : 'waits for'}{' '}
+          {when(job.waiting_until)}</span>}
+        {open && !editing && <> <button type="button" className="secondary" onClick={() => { setValue(job.window ?? null); setEditing(true) }}>
+          Change…</button></>}
+      </dd>
+      {editing && (
+        <dd>
+          <form onSubmit={(e) => {
+            e.preventDefault()
+            save.mutate({ id: job.id, window: value }, { onSuccess: () => setEditing(false) })
+          }}>
+            <WindowField value={value} onChange={setValue} />
+            <div className="actions">
+              <button type="submit" disabled={save.isPending}>Save</button>
+              <button type="button" className="secondary" onClick={() => setEditing(false)}>Cancel</button>
+            </div>
+            {save.error && <p role="alert" className="problem">{save.error.message}</p>}
+          </form>
+        </dd>
+      )}
+      {job.parts > 1 && <><dt>Parts</dt><dd>Started {job.parts} times; paused {job.paused_at.map((t) => when(t)).join(', ')}</dd></>}
+      {job.parts <= 1 && job.paused_at.length > 0 && <><dt>Paused</dt><dd>{job.paused_at.map((t) => when(t)).join(', ')}</dd></>}
+    </>
+  )
+}
+
 export function JobPage() {
   const { jobId = '' } = useParams()
   const job = useJob(jobId)
@@ -115,7 +153,7 @@ export function JobPage() {
         <h1>{describeJob(data)}</h1>
         {running && (
           <button type="button" className="danger" disabled={cancel.isPending} onClick={() => cancel.mutate(data.id)}>
-            {data.state === 'queued' ? 'Drop' : 'Cancel'}
+            {data.state === 'running' ? 'Cancel' : 'Drop'}
           </button>
         )}
       </div>
@@ -128,6 +166,7 @@ export function JobPage() {
         <dt>Started</dt><dd>{when(data.started_at)}</dd>
         <dt>Took</dt><dd>{data.started_at ? between(data.started_at, data.finished_at) : '—'}</dd>
         {data.joined_to && <><dt>Joined</dt><dd><Link to={`/jobs/${data.joined_to}`}>the run in progress</Link></dd></>}
+        <JobWindow job={data} open={running} />
       </dl>
       <JobProgress job={data} events={live.events} />
       <Outcome job={data} />

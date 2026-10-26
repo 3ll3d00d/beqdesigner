@@ -8,6 +8,7 @@ import { useJobEvents, useSaveSchedule, useSchedule, useStatus, useTriggerSchedu
 import type { JobEvent } from '../api/events'
 import { describeJob, extraction, StateBadge } from '../components/JobBits'
 import { ScanSources } from '../components/ScanSources'
+import { DefaultWindow } from '../components/WindowField'
 import { count, duration, NEEDS_ORDER, STRIP_WORDS, when } from '../format'
 
 function Strip({ counts }: { counts: Record<string, number> }) {
@@ -85,6 +86,7 @@ function Jobs({ job, queued, designing, sources, scanned }:
           <dt>Activity</dt><dd><Activity job={job} events={events} designing={job.state === 'running' ? designing : []} /></dd>
         </>}
         <dt>Waiting</dt><dd>{queued ? count(queued, 'job') : 'Nothing'}</dd>
+        <dt>Jobs run</dt><dd><DefaultWindow /></dd>
         {data && <>
           <dt>Schedule</dt><dd>{describeSchedule(data)}</dd>
           {data.enabled && data.next_run_at && <><dt>Next run</dt><dd>{when(data.next_run_at)}</dd></>}

@@ -23,6 +23,7 @@ export const keys = {
   review: (id: string) => ['review', id] as const,
   chart: (id: string, query: Record<string, unknown>) => ['chart', id, query] as const,
   impact: ['impact'] as const,
+  window: ['job-window'] as const,
 }
 
 export function useStatus(refetchInterval = 10_000) {
@@ -137,6 +138,39 @@ export function useTriggerSchedule() {
   return useMutation({
     mutationFn: async () => unwrap(await client.POST('/v1/schedule/trigger')) as Job,
     onSuccess: refresh,
+  })
+}
+
+export function useDefaultWindow() {
+  const { client } = useAuth()
+  return useQuery({ queryKey: keys.window, queryFn: async () => unwrap(await client.GET('/v1/job-window')),
+                    refetchInterval: 60_000 })
+}
+
+export function useSaveDefaultWindow() {
+  const { client } = useAuth()
+  const queries = useQueryClient()
+  const refresh = useRefreshWork()
+  return useMutation({
+    mutationFn: async (body: Schemas['DefaultWindowUpdate']) => unwrap(await client.PUT('/v1/job-window', { body })),
+    onSuccess: (saved) => {
+      queries.setQueryData(keys.window, saved)
+      refresh()   // a job given no window follows it
+    },
+  })
+}
+
+export function useSetJobWindow() {
+  const { client } = useAuth()
+  const queries = useQueryClient()
+  const refresh = useRefreshWork()
+  return useMutation({
+    mutationFn: async ({ id, window }: { id: string; window: string[] | null }) =>
+      unwrap(await client.PUT('/v1/jobs/{job_id}/window', { params: { path: { job_id: id } }, body: { window } })) as Job,
+    onSuccess: (job) => {
+      queries.setQueryData(keys.job(job.id), job)
+      refresh()
+    },
   })
 }
 

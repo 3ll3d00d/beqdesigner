@@ -101,7 +101,7 @@ legend { color: var(--muted); padding: 0 0.3rem; }
 
 .badge { display: inline-block; padding: 0.05rem 0.5rem; border-radius: 999px; font-size: 0.85rem;
          border: 1px solid var(--line); }
-.badge.state-running, .badge.state-queued { border-color: var(--accent); color: var(--accent); }
+.badge.state-running, .badge.state-queued, .badge.state-paused { border-color: var(--accent); color: var(--accent); }
 .badge.state-succeeded, .badge.status-accepted, .badge.status-published { border-color: var(--ok); color: var(--ok); }
 .badge.state-failed, .badge.state-interrupted, .badge.status-rejected { border-color: var(--problem); color: var(--problem); }
 .badge.state-cancelled { color: var(--muted); }

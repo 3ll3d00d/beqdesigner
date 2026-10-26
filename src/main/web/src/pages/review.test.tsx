@@ -478,6 +478,19 @@ describe('revising one title', () => {
     expect(router.state.location.pathname).toBe('/titles/a')
   })
 
+  it('gives the redesign job the times it may run in', async () => {
+    reviewRoutes()
+    const sent = reviseRoutes()
+    const router = renderApp('/titles/a')
+    await userEvent.click(await screen.findByRole('button', { name: 'Revise…' }))
+    const dialog = screen.getByRole('group', { name: 'Revise' })
+    await userEvent.click(within(dialog).getByRole('radio', { name: 'Only between' }))
+    await userEvent.type(within(dialog).getByRole('textbox', { name: 'Times' }), '01:00-07:00')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Redesign' }))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/jobs/job-1'))
+    expect(sent).toEqual([{ ids: ['a'], to: 'design', reason: '', run: true, window: ['01:00-07:00'] }])
+  })
+
   it.each([
     [{ in_flight: true }, 'A run is working on this title.'],
     [{ status: 'published' as const }, 'Sending a published title back requires repository writes to be enabled.'],

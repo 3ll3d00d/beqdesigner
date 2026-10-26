@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router'
 
 import type { Schemas } from '../api/client'
 import { useRevise, useStatus } from '../api/hooks'
+import { WindowField, type Window } from './WindowField'
 import { FREQUENCY_RANGE, type Range } from '../chart/view'
 import { count } from '../format'
 import { AdjustmentsEditor, askProblem, bandAsk, bandsOf, type Ask, type KindSpec } from './AdjustmentsEditor'
@@ -54,6 +55,7 @@ export function ReviseDialog({ ids, name, published = false, onClose, onDone, as
   const [to, setTo] = useState<To>('design')
   const [now, setNow] = useState(true)
   const [reason, setReason] = useState('')
+  const [jobWindow, setJobWindow] = useState<Window>(null)
   const [adjusting, setAdjusting] = useState(false)
   const [asks, setAsks] = useState<Ask[]>(() => asked.map((a) => ({ kind: a.kind, params: a.params ?? {}, text: a.text ?? null })))
   const kinds = (status.data?.designer?.adjustment_kinds ?? {}) as Record<string, KindSpec>
@@ -74,7 +76,8 @@ export function ReviseDialog({ ids, name, published = false, onClose, onDone, as
     page.current.onPick?.(null)
   }, [])
   function submit() {
-    revise.mutate({ ids, to, reason: reason.trim(), run, ...(sending ? { adjustments: asks } : {}) }, {
+    revise.mutate({ ids, to, reason: reason.trim(), run, ...(sending ? { adjustments: asks } : {}),
+                    ...(run && jobWindow !== null ? { window: jobWindow } : {}) }, {
       onSuccess: (outcome) => {
         if (outcome.job) navigate(`/jobs/${outcome.job.id}`)
         else onDone?.(outcome)
@@ -98,6 +101,7 @@ export function ReviseDialog({ ids, name, published = false, onClose, onDone, as
           Extract &amp; design now, in one job (otherwise the next run does it)
         </label>
       )}
+      {run && <WindowField value={jobWindow} onChange={setJobWindow} legend="The job runs" />}
       <p className="muted">{run
         ? 'Review the new designs when the job finishes; publish and commit remain separate.'
         : 'Nothing is redesigned, extracted or published now: this only changes what each title needs next.'}</p>

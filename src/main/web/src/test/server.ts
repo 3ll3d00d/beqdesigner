@@ -10,6 +10,7 @@ export const TOKEN = 'test-token'
 /** What every test gets unless it says otherwise: a title with no projects (the review page always asks). */
 const DEFAULTS = [
   http.get('/v1/titles/:id/projects', () => HttpResponse.json({ projects: [], summary: '', warn: false, note: '' })),
+  http.get('/v1/job-window', () => HttpResponse.json({ window: [], time_zone: 'Europe/London', open_now: true, next_change: null })),
 ]
 
 export const server = setupServer(...DEFAULTS)

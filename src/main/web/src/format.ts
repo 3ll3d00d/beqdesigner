@@ -30,6 +30,7 @@ export const STRIP_WORDS: Record<NeedsWord, string> = {
 export const STATE_WORDS: Record<string, string> = {
   queued: 'Queued',
   running: 'Running',
+  paused: 'Paused',
   succeeded: 'Succeeded',
   failed: 'Failed',
   cancelled: 'Cancelled',

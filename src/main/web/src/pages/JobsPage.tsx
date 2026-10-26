@@ -31,7 +31,9 @@ export function JobsPage() {
           <tbody>
             {(jobs.data.jobs as Job[]).map((job) => (
               <tr key={job.id}>
-                <td><StateBadge state={job.state} /></td>
+                <td><StateBadge state={job.state} />{job.waiting_until && (
+                  <span className="muted"> {job.state === 'paused' ? 'until' : 'waits for'} {when(job.waiting_until)}</span>
+                )}</td>
                 <td><Link to={`/jobs/${job.id}`}>{describeJob(job)}</Link></td>
                 <td>{job.origin === 'schedule' ? 'schedule' : 'asked'}</td>
                 <td>{when(job.submitted_at)}</td>
