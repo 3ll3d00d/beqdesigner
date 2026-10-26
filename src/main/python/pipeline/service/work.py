@@ -6,7 +6,7 @@ logic of its own.
 import os
 import time
 from dataclasses import dataclass, replace
-from typing import Any, Callable, Mapping, Optional
+from typing import Any, Callable, List, Mapping, Optional
 
 from pipeline.designer.http_binding import DesignerUnavailable
 from pipeline.library.bulk import accept_top_pick, plan_accept
@@ -43,7 +43,61 @@ def job_failed(result: Any) -> bool:
         return result.report.failed or bool(result.scan and result.scan.errors)
     if isinstance(result, ScanResult):
         return bool(result.errors)
+    if isinstance(result, dict) and isinstance(result.get('report'), dict):   # a paused run's parts, merged
+        report, run = result['report'], result['report'].get('run') or {}
+        return bool(run.get('failed') or run.get('unavailable') or report.get('stopped') or report.get('publish_errors')
+                    or report.get('commit_error') or (result.get('scan') or {}).get('errors'))
     return False
+
+
+def remaining_titles(result: Any) -> Optional[tuple]:
+    '''
+    The titles a run part stopped before, so a paused run carries on with them (design/job-windows.md §3): its `not_run`
+    when it was stopped like a cancel; () when there is nothing to carry on with (it finished, or stopped for another
+    reason); None when it stopped before it planned anything (waiting for, or handed to, another process's run).
+    '''
+    if result is None:
+        return None
+    if not isinstance(result, RunOutcome):
+        return ()
+    report = result.report
+    return tuple(report.not_run) if report.cancelled and not report.stopped else ()
+
+
+# a merged report's fields that say how the run ended, or what the index holds after it: the last part's
+_LAST = ('cancelled', 'stopped', 'not_run', 'counts', 'halt')
+_FIRST = ('through', 'selected')   # what was asked: the first part's (a resumed part selects only what was left)
+
+
+def _merge(values: List[Any], key: str = '') -> Any:
+    if key in _LAST:
+        return values[-1]
+    if key in _FIRST:
+        return values[0]
+    if all(isinstance(v, dict) for v in values):
+        keys = list(dict.fromkeys(k for v in values for k in v))
+        return {k: _merge([v[k] for v in values if k in v], k) for k in keys}
+    if all(isinstance(v, list) for v in values):
+        joined = [item for v in values for item in v]
+        return list(dict.fromkeys(joined)) if key == 'attempted' else joined
+    present = [v for v in values if v not in (None, '')]
+    return present[-1] if present else values[-1]
+
+
+def merge_outcomes(parts: List[Any]) -> Any:
+    ''' One run job's result from its parts' (plain data, oldest first): lists joined, how it ended from the last. '''
+    parts = [p for p in parts if p is not None]
+    reports = [p['report'] for p in parts if isinstance(p, dict) and isinstance(p.get('report'), dict)]
+    if not reports:
+        return parts[-1] if parts else None
+    scans = [p.get('scan') for p in parts if isinstance(p, dict) and p.get('scan')]
+    seasons = {}
+    for report in reports:
+        seasons.update((report.get('run') or {}).get('seasons') or {})
+    merged = _merge(reports)
+    if 'run' in merged:
+        merged['run']['seasons'] = seasons
+    return {'scan': scans[0] if scans else None, 'report': merged}
 
 
 def _require_work_dir(context: JobContext) -> str:
@@ -121,6 +175,8 @@ def run(context: JobContext, request: RunRequest, control: JobControl, *, allow_
                 raise ValueError('redesigning a published title requires allow_repository_writes in service config: '
                                  + ', '.join(published))
             for title_id in title_ids:
+                # only a cancel stops the sending back, not a window: a paused redesign carries on as a run of what it has
+                # not designed (design/job-windows.md §3), which needs every title sent back
                 if control.cancelled():   # those sent back so far are designed by the next run that takes them
                     index.refresh(context.profile, settings)
                     return RunOutcome(scanned, StagesReport('design', 0, cancelled=True))
@@ -140,7 +196,8 @@ def run(context: JobContext, request: RunRequest, control: JobControl, *, allow_
             index.refresh(context.profile, settings)
         report = run_stages(context.profile, selection, request.through, run_config=run_config, index=index,
                             publish=publish, settings=settings, retry_failed=request.retry_failed,
-                            unattended=request.unattended, join=join, should_cancel=control.cancelled, on_progress=control.progress, on_event=control.event)
+                            unattended=request.unattended, join=join, should_cancel=control.should_stop,
+                            on_progress=control.progress, on_event=control.event)
     return RunOutcome(scanned, report)
 
 
@@ -167,6 +224,7 @@ def executor(profile_path: str, env: Optional[Mapping[str, str]] = None,
              allow_repository_writes: bool = False) -> Callable[[Job, JobControl], Any]:
     ''' The JobManager's `execute`: reads the profile for each job, then does it holding the work directory's lease. '''
     def execute(job: Job, control: JobControl):
+        request = job.current_request   # a paused run carries on with the titles it had left
         context = load(profile_path, env)
         work_dir = _require_work_dir(context)
         while True:
@@ -176,23 +234,23 @@ def executor(profile_path: str, env: Optional[Mapping[str, str]] = None,
                 # the work list or a command-line run has it (design/archive/library-sync/worklist-feedback.md F5):
                 # extract and design go to that run; anything else waits for it to end
                 holder = read_lease(work_dir)
-                if holder is not None and isinstance(job.request, RunRequest) and job.request.through in JOINABLE and not job.request.redesign:
-                    outcome = handed_off(context, job.request, control, holder)
+                if holder is not None and isinstance(request, RunRequest) and request.through in JOINABLE and not request.redesign:
+                    outcome = handed_off(context, request, control, holder)
                     if outcome is not WAIT_AGAIN:
                         return outcome
-                elif control.cancelled():
+                elif control.should_stop():   # cancelled, or its window closed while it waited: it pauses
                     return None
                 else:
                     sleep(poll_seconds)
                 continue
             try:
-                if isinstance(job.request, ScanRequest):
-                    return scan(context, job.request)
-                if isinstance(job.request, RunRequest):
-                    return run(context, job.request, control, allow_repository_writes=allow_repository_writes)
-                if isinstance(job.request, AcceptRequest):
-                    return accept(context, job.request)
-                raise TypeError(f'not a job request: {job.request!r}')
+                if isinstance(request, ScanRequest):
+                    return scan(context, request)
+                if isinstance(request, RunRequest):
+                    return run(context, request, control, allow_repository_writes=allow_repository_writes)
+                if isinstance(request, AcceptRequest):
+                    return accept(context, request)
+                raise TypeError(f'not a job request: {request!r}')
             finally:
                 lease.__exit__(None, None, None)
     return execute
@@ -218,7 +276,7 @@ def handed_off(context: JobContext, request: RunRequest, control: JobControl, ho
     control.event(ExecutionEvent('', '', '', 'handed_off', time.time(),
                                  f'{holder.who()} is running: handed it {len(ids)} titles'))
     ended = hand_off(work_dir, JoinRequest(Selection(ids=tuple(ids)), request.through, request.retry_failed),
-                     should_stop=control.cancelled)
+                     should_stop=control.should_stop)
     if ended == STOPPED:
         return None
     if ended == WITHDRAWN:

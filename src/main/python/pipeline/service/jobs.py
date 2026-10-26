@@ -245,7 +245,7 @@ class JobControl:
 
     def paused(self) -> bool:
         ''' Whether a run is to stop taking titles because its window has closed (it pauses, and carries on later). '''
-        return self.__manager._window_closed(self.__job)
+        return self.__manager is not None and self.__manager._window_closed(self.__job)
 
     def should_stop(self) -> bool:
         ''' Cancelled or paused: what a run polls between titles. '''

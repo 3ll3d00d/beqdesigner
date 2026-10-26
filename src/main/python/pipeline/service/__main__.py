@@ -25,7 +25,7 @@ from pipeline.service.designer import DesignerProbe
 from pipeline.service.jobs import JobManager
 from pipeline.service.scheduler import AutoScheduler
 from pipeline.service.notify import Notifier
-from pipeline.service.work import executor, job_failed
+from pipeline.service.work import executor, job_failed, merge_outcomes, remaining_titles
 
 logger = logging.getLogger('pipeline_service')
 
@@ -88,7 +88,8 @@ def build(argv: Optional[List[str]] = None, env: Optional[Mapping[str, str]] = N
         parser.error('no token: set BEQ_SERVICE_TOKEN (or BEQ_SERVICE_TOKEN_FILE), or use --no-auth on 127.0.0.1')
     from pipeline.service.api import create_app
     manager = JobManager(executor(args.profile, env, allow_repository_writes=config.allow_repository_writes), state_dir=config.state_dir, history_limit=config.history_limit,
-                         allow_repository_writes=config.allow_repository_writes, failed=job_failed)
+                         allow_repository_writes=config.allow_repository_writes, failed=job_failed,
+                         remaining=remaining_titles, merge=merge_outcomes)
     designer = DesignerProbe(args.profile, env)
     notifier = None
 
