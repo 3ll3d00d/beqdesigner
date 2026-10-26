@@ -95,8 +95,9 @@ message. Tests: `test_pipeline_library_decide.py`.
     endpoints up would design differently. The scan action is also on Titles. Polls `/v1/status` every 10 s.
   - *Jobs*: history newest first, by state. A job's page: its state and times, the result (counts; failures,
     unavailable, failed earlier, not published, designed and skipped titles, each linked to its review), why the job
-    itself failed, its log (live while it runs) and Cancel (Drop for a queued job; "Stopping after the title in hand" for
-    a running one).
+    itself failed, its log (live while it runs) and Cancel (Drop for a queued or paused job; "Stopping after the title
+    in hand" for a running one). When a job may run -- its window, what it waits until, its parts -- and a change to it,
+    the field on *New job* and *Revise*, and the default on Status: [job windows](job-windows.md) §5.
   - *New job*: a scan of chosen sources, or a run: the filter form (needs, search, source, kind, year, new since the
     last scan), `through`, scan first, retry failed, *Preview* (`POST /v1/plan`: the label, what would run with its
     stages, what would be skipped and why; marked stale when the choices change) and *Run*. Publish and commit are

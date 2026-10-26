@@ -133,7 +133,7 @@ join the run job in progress (§5.1).
 | `id` | UUID |
 | `kind` | `scan \| run \| accept` |
 | `origin` | `api \| schedule` |
-| `state` | `queued \| running \| succeeded \| failed \| cancelled \| interrupted` |
+| `state` | `queued \| running \| paused \| succeeded \| failed \| cancelled \| interrupted` |
 | `request` | the typed request that created it |
 | `submitted_at`, `started_at`, `finished_at` | RFC 3339 |
 | `progress` | `{done, total, title, stage, id}` from `stages.Progress` |
@@ -144,6 +144,9 @@ join the run job in progress (§5.1).
 - `failed` means the job raised or `StagesReport.failed` is true (a title
   failed, a publish was refused, git refused). A title-level failure is in the
   result; the job still reports every title it did.
+- **Windows** ([job windows](job-windows.md)): a job may be given the times of day it may run (else the default
+  window's). Outside them a queued job waits while others run, and a run pauses between titles and carries on when
+  they open, as one job (`window`, `waiting_until`, `parts`, `paused_at`); a paused or waiting job survives a restart.
 - **Cancel** of a queued job removes it; of a running job sets the flag
   `run_stages(should_cancel=)` polls between titles. The job ends `cancelled`
   with `attempted`/`not_run` from the report.
@@ -430,7 +433,8 @@ retry_failed, next_run_at, last_run: {job_id, state, finished_at}}`.
   "needs extract or design" is exactly what is still to do.
 - `through` is `extract` or `design` only (`AutoThrough`). No automatic
   publish is offered.
-- **Busy:** if any job is queued or running when a tick is due, the tick is
+- **Busy:** if any job is queued or running when a tick is due (one waiting for its window, or paused, does not
+  count: [job windows](job-windows.md) §3), the tick is
   skipped and recorded (`last_skip: busy`) through an atomic idle-only
   submission in `JobManager`; ticks never pile up. The next is
   `interval_minutes` after the *finish* of the last scheduled job.
