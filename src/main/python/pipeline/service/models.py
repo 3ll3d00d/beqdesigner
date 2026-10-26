@@ -14,6 +14,7 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field, RootModel, mo
 from pipeline.library.bulk import DEFAULT_ACCEPT_THRESHOLD
 from pipeline.library.selection import Selection
 from pipeline.service.jobs import MAX_REDESIGN_IDS, redesign_problem
+from pipeline.service.window import window_problem
 from pipeline.library.state import NEEDS, FLAG_DUPLICATE, FLAG_GONE, FLAG_IGNORED, FLAG_IN_CATALOGUE, FLAG_SHADOWED
 from pipeline.library.year import YEAR_PATTERN, YearRange, numeric_year
 
@@ -71,6 +72,7 @@ class JobKind(str, Enum):
 class JobState(str, Enum):
     queued = 'queued'
     running = 'running'
+    paused = 'paused'
     succeeded = 'succeeded'
     failed = 'failed'
     cancelled = 'cancelled'
@@ -99,6 +101,43 @@ class Input(BaseModel):
 
 def timestamp(value: Optional[float]) -> Optional[datetime]:
     return None if value is None else datetime.fromtimestamp(value, tz=timezone.utc)
+
+
+# --- active windows (design/job-windows.md) ------------------------------------------------------------------------------
+
+MAX_WINDOW_RANGES = 24
+
+
+def _ranges(value: Optional[List[str]]) -> Optional[List[str]]:
+    problem = window_problem(value) if value is not None else ''
+    if problem:
+        raise ValueError(problem)
+    return value
+
+
+Ranges = Annotated[List[str], Field(max_length=MAX_WINDOW_RANGES), AfterValidator(_ranges)]
+WINDOW_DESCRIPTION = ('The times of day it may run: daily "HH:MM-HH:MM" ranges in the service\'s time zone (one may cross '
+                      'midnight, 22:00-06:00); outside them it waits, and a run pauses between titles and carries on when '
+                      'they next open. null: the default window (/v1/job-window); []: any time.')
+
+
+class Windowed(Input):
+    window: Optional[Ranges] = Field(None, description=WINDOW_DESCRIPTION)
+
+
+class JobWindowUpdate(Input):
+    ''' A queued, running or paused job's new window. '''
+    window: Optional[Ranges] = Field(description=WINDOW_DESCRIPTION)
+
+
+class DefaultWindowUpdate(Input):
+    window: Ranges = Field(description='The window of every job given none: daily "HH:MM-HH:MM" ranges; [] is any time.')
+
+
+class DefaultWindow(DefaultWindowUpdate):
+    time_zone: str = Field(description="The service's time zone, which every window is in.")
+    open_now: bool
+    next_change: Optional[datetime] = Field(description='When it next opens (or closes, while open); null: never.')
 
 
 # --- the filter ---------------------------------------------------------------------------------------------------------
@@ -482,13 +521,13 @@ class NextTitle(BaseModel):
 
 # --- plans and job requests ---------------------------------------------------------------------------------------------
 
-class ScanJobRequest(Input):
+class ScanJobRequest(Windowed):
     sources: List[str] = Field(default_factory=list, description="Sources to list again, by name; none is all of them.")
     allow_empty: bool = Field(False, description='A source that now lists nothing replaces its titles (else it keeps them: '
                                                  'an unmounted share).')
 
 
-class RunJobRequest(Input):
+class RunJobRequest(Windowed):
     filter: TitleFilter = Field(default_factory=TitleFilter)
     through: Through = Field(Through.design, description='Run every stage up to this one that each title still needs. '
                                                          'A title waiting for review is never taken past design.')
@@ -524,7 +563,7 @@ class AdjustmentAsk(Input):
     text: Optional[str] = Field(None, description='What the person said, in their words (a note is only this).')
 
 
-class ReviseRequest(Input):
+class ReviseRequest(Windowed):
     ''' Send titles back: to review (decide again), design (designed again) or extract (extracted and designed again). '''
     ids: List[str] = Field(min_length=1, max_length=MAX_REDESIGN_IDS)
     to: Literal['review', 'design', 'extract']
@@ -534,6 +573,12 @@ class ReviseRequest(Input):
     adjustments: Optional[List[AdjustmentAsk]] = Field(
         None, description='With design or extract: what the designer is asked to change, from now on, for every title '
                           'sent (replacing what they had; [] asks for none). Absent: each keeps its own.')
+
+    @model_validator(mode='after')
+    def window_needs_a_run(self):
+        if self.window is not None and not self.run:
+            raise ValueError('a window is for the run job: give it with run')
+        return self
 
 
 class RevisedTitle(BaseModel):
@@ -607,7 +652,7 @@ class TitleStreams(BaseModel):
     streams: List[AudioStream]
 
 
-class AcceptJobRequest(Input):
+class AcceptJobRequest(Windowed):
     filter: TitleFilter = Field(default_factory=TitleFilter)
     threshold: float = Field(DEFAULT_ACCEPT_THRESHOLD, ge=0, le=1, description="Accept the designer's top pick at least "
                                                                                'this confident.')
@@ -799,6 +844,12 @@ class JobBase(BaseModel):
     error: Optional[str] = Field(None, description='Why the job itself failed (a title that failed is in the result).')
     joined_to: Optional[str] = Field(None, description='The run job this one joined: its titles went into that run, '
                                                        'and it ends when that run does, with its result.')
+    window: Optional[List[str]] = Field(None, description='Its window as given (null: the default\'s; []: any time).')
+    window_open: Optional[bool] = Field(None, description='Whether it may run now, with the default applied.')
+    waiting_until: Optional[datetime] = Field(None, description='A queued or paused job whose window is closed: when it '
+                                                                'next opens, and the job is taken or carries on.')
+    parts: int = Field(0, description='How many times it has been started: more than one once paused and resumed.')
+    paused_at: List[datetime] = Field([], description='When it paused, each time its window closed while it ran.')
 
 
 class ScanJob(JobBase):
@@ -914,24 +965,30 @@ class ReviewedOutcome(BaseModel):
     titles: List[ReviewedTitle]
 
 
-def job_model(job, now: Optional[float] = None) -> Union[ScanJob, RunJob, AcceptJob]:
+def job_model(job, now: Optional[float] = None, windows=None) -> Union[ScanJob, RunJob, AcceptJob]:
     '''
     A jobs.Job (live, or read back from the history) as its typed model.
     :param now: the time, for a running job's rate and estimate (R9); default the clock.
+    :param windows: the JobManager, which says whether the job's window is open now (else that is left null).
     '''
     import time
     progress = Progress(**_data(job.progress)) if job.progress else None
     if job.state == 'running':
         progress = with_rate(progress, job.started_at, time.time() if now is None else now)
+    window = getattr(job, 'window', None)
     common = dict(id=job.id, origin=job.origin, state=job.state, submitted_at=timestamp(job.submitted_at),
                   started_at=timestamp(job.started_at), finished_at=timestamp(job.finished_at),
                   progress=progress, error=job.error or None,
-                  joined_to=getattr(job, 'joined_to', None))
+                  joined_to=getattr(job, 'joined_to', None), window=window, parts=getattr(job, 'parts', 0),
+                  paused_at=[timestamp(t) for t in getattr(job, 'paused_at', ())])
+    if windows is not None and not job.finished:
+        common.update(window_open=windows.window_of(job).is_open(time.time() if now is None else now),
+                      waiting_until=timestamp(windows.waiting_until(job)))
     request = _request_data(job.request)
     finished_ok = job.result is not None
     if job.kind == 'scan':
         return ScanJob(request=ScanJobRequest(sources=list(request.get('sources') or ()),
-                                              allow_empty=bool(request.get('allow_empty'))),
+                                              allow_empty=bool(request.get('allow_empty')), window=window),
                        result=scan_result(job.result) if finished_ok else None, **common)
     selection = TitleFilter.of(request.get('selection') or {})
     if job.kind == 'run':
@@ -940,10 +997,10 @@ def job_model(job, now: Optional[float] = None) -> Union[ScanJob, RunJob, Accept
                                             retry_failed=bool(request.get('retry_failed')),
                                             redesign=bool(request.get('redesign')),
                                             revise_to=request.get('revise_to') or 'design',
-                                            audio_stream=request.get('audio_stream')),
+                                            audio_stream=request.get('audio_stream'), window=window),
                       result=run_result(job.result) if finished_ok else None, **common)
     return AcceptJob(request=AcceptJobRequest(filter=selection, threshold=request.get('threshold', DEFAULT_ACCEPT_THRESHOLD),
-                                              dry_run=bool(request.get('dry_run'))),
+                                              dry_run=bool(request.get('dry_run')), window=window),
                      result=accept_result(job.result) if finished_ok else None, **common)
 
 
@@ -956,7 +1013,10 @@ class _JobEventBase(BaseModel):
 class StateEvent(_JobEventBase):
     ''' The job entered a state; the stream ends with a finished one. '''
     type: Literal['state']
-    state: str = Field(description='queued, running, cancelling, succeeded, failed, cancelled or interrupted.')
+    state: str = Field(description='queued, running, cancelling, pausing, paused, succeeded, failed, cancelled or '
+                                   'interrupted.')
+    resumes_at: Optional[datetime] = Field(None, description='paused: when its window next opens.')
+    part: Optional[int] = Field(None, description='running again after a pause: which part this is (2, 3, ...).')
 
 
 class RunProgressEvent(_JobEventBase):
@@ -987,7 +1047,13 @@ class TitleEvent(_JobEventBase):
     kind: str = Field(description='stage_started, command_finished, ...')
 
 
-class JobEvent(RootModel[Annotated[Union[StateEvent, RunProgressEvent, ExtractProgressEvent, TitleEvent],
+class WindowEvent(_JobEventBase):
+    ''' The job's window was changed (design/job-windows.md). '''
+    type: Literal['window']
+    window: Optional[List[str]] = Field(None, description='The new window: absent for the default, [] for any time.')
+
+
+class JobEvent(RootModel[Annotated[Union[StateEvent, RunProgressEvent, ExtractProgressEvent, TitleEvent, WindowEvent],
                                    Field(discriminator='type')]]):
     ''' One thing a job reported, in order (`seq`). `type` says which fields it has, and every one has `text`. '''
 
@@ -995,6 +1061,8 @@ class JobEvent(RootModel[Annotated[Union[StateEvent, RunProgressEvent, ExtractPr
     def of(cls, event: Dict[str, Any]) -> 'JobEvent':
         ''' From the job manager's kept event, which has the same fields but the time as epoch seconds and no text yet. '''
         data = {k: v for k, v in event.items() if v is not None}
+        if isinstance(data.get('resumes_at'), (int, float)):
+            data['resumes_at'] = timestamp(data['resumes_at'])
         model = cls.model_validate({**data, 'at': timestamp(event['at']), 'text': event.get('text') or ''})
         if not model.root.text:
             model.root.text = _event_text(model.root.model_dump())
@@ -1010,6 +1078,11 @@ def _event_text(event: Dict[str, Any]) -> str:
     ''' The words for an event that carries only numbers: a state, a step of the run, ffmpeg's position. '''
     kind = event.get('type')
     if kind == 'state':
+        if event.get('resumes_at'):
+            local = event['resumes_at'].astimezone().strftime('%Y-%m-%d %H:%M')   # the service's time zone, as windows are
+            return f"job {event['state']}: its window is closed; it carries on at {local}"
+        if event.get('part'):
+            return f"job {event['state']} again (part {event['part']})"
         return f"job {event['state']}"
     if kind == 'run_progress':
         doing = f"{event['stage']}: {event.get('title')}" if event.get('stage') else 'finished'
@@ -1018,6 +1091,10 @@ def _event_text(event: Dict[str, Any]) -> str:
         if event.get('total_ms'):
             return f"{event['title']}: extracted {_clock(event['done_ms'])} of {_clock(event['total_ms'])} ({event['percent']}%)"
         return f"{event['title']}: extracted {_clock(event['done_ms'])}"
+    if kind == 'window':
+        window = event.get('window')
+        return 'window: the default' if window is None else f"window: {', '.join(window)}" if window else \
+            'window: any time'
     return ''
 
 

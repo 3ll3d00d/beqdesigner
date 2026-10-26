@@ -312,7 +312,7 @@ def test_a_run_job_takes_the_filter_and_reports_a_typed_result(service):
                                          'declined': None, 'out_of_date': None, 'adjusted': None, 'unmet': None,
                                          'several_runs': None},
                               'through': 'design', 'scan_first': True, 'retry_failed': False, 'redesign': False,
-                              'revise_to': 'design', 'audio_stream': None}
+                              'revise_to': 'design', 'audio_stream': None, 'window': None}
     assert job['result']['scan']['titles'] == 3 and job['result']['attempted'] == ['x'] and job['result']['failed'] == []
     assert job['progress'] == {'done': 1, 'total': 1, 'title': 'Alien', 'stage': 'design', 'id': 'x',
                                'per_hour': None, 'remaining_seconds': None, 'estimated_finish': None}   # finished: no estimate
@@ -496,7 +496,8 @@ def test_each_type_of_event_has_its_own_fields_and_says_in_words_what_they_mean(
 def test_the_published_event_schema_is_one_shape_per_type():
     schemas = openapi_document()['components']['schemas']
     assert schemas['JobEvent']['discriminator']['propertyName'] == 'type'
-    assert set(schemas['JobEvent']['discriminator']['mapping']) == {'state', 'run_progress', 'extract_progress', 'event'}
+    assert set(schemas['JobEvent']['discriminator']['mapping']) == {'state', 'run_progress', 'extract_progress', 'event',
+                                                                    'window'}
     assert {'done_ms', 'total_ms', 'percent'} <= set(schemas['ExtractProgressEvent']['properties'])
 
 

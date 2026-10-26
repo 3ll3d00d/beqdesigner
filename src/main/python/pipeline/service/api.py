@@ -336,7 +336,7 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
                                              item_count=s.item_count) for s in summary.sources])
         current = manager.current
         return models.ServiceStatus(version=version, index=index, queued=len(manager.queued),
-                                    current_job=models.job_model(current) if current else None,
+                                    current_job=models.job_model(current, windows=manager) if current else None,
                                     schedule=models.Schedule.model_validate(scheduler.snapshot()),
                                     notify=notifier.outcomes(), designer=designer_status(),
                                     tmdb=bool(ctx.values.get('tmdb_api_key')),
@@ -588,7 +588,8 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
     edits.register(v1, edits.EditRoutes(context=context, read_index=read_index, review_row=review_row,
                                          review_entry=review_entry, in_flight=in_flight, review_model=review_model,
                                          refresh=refresher.request, problem=ServiceProblem, responses=_responses,
-                                         submit=manager.submit, repository_writes=config.allow_repository_writes))
+                                         submit=manager.submit, repository_writes=config.allow_repository_writes,
+                                         windows=manager))
 
     impact.register(v1, impact.ImpactRoutes(context=context, read_index=read_index, designer=designer,
                                             checker=impact_checker, in_flight=in_flight, refresh=refresher.request,
@@ -642,7 +643,7 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
             skipped=[models.SkippedTitle(id=s.id, title=s.title, reason=s.reason) for s in planned.skipped])
 
     def accepted(job) -> JSONResponse:
-        body = models.job_model(job)
+        body = models.job_model(job, windows=manager)
         return JSONResponse(body.model_dump(mode='json'), status_code=202, headers={'Location': f'/v1/jobs/{job.id}'})
 
     submitted = {202: {'description': 'Queued; `Location` names the job.'}, **_responses(403, 422, 503)}
@@ -651,7 +652,8 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
              responses=submitted)
     def submit_scan(body: models.ScanJobRequest):
         check_sources(context(), names=tuple(body.sources))
-        return accepted(manager.submit(ScanRequest(sources=tuple(body.sources), allow_empty=body.allow_empty)))
+        return accepted(manager.submit(ScanRequest(sources=tuple(body.sources), allow_empty=body.allow_empty),
+                                       window=body.window))
 
     @v1.post('/jobs/run', status_code=202, response_model=models.Job, tags=['jobs'],
              summary='Extract, design (and, if allowed, publish or commit) the titles a filter selects', responses=submitted)
@@ -660,31 +662,57 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
         selection_of(body.filter)   # refused now, not when it runs, while no designer says its design version
         return accepted(manager.submit(RunRequest(body.filter.to_selection(), body.through.value, body.scan_first,
                                                   body.retry_failed, redesign=body.redesign, revise_to=body.revise_to,
-                                                  audio_stream=body.audio_stream)))
+                                                  audio_stream=body.audio_stream), window=body.window))
 
     @v1.post('/jobs/accept', status_code=202, response_model=models.Job, tags=['jobs'],
              summary="Accept the designer's top pick for confident titles (needs allow_repository_writes, unless a dry run)",
              responses=submitted)
     def submit_accept(body: models.AcceptJobRequest):
         check_sources(context(), body.filter)
-        return accepted(manager.submit(AcceptRequest(body.filter.to_selection(), body.threshold, body.dry_run)))
+        return accepted(manager.submit(AcceptRequest(body.filter.to_selection(), body.threshold, body.dry_run),
+                                       window=body.window))
 
     @v1.get('/jobs', response_model=models.JobList, tags=['jobs'], summary='Jobs, newest first')
     def jobs(state: Optional[models.JobState] = None, kind: Optional[models.JobKind] = None,
              limit: Annotated[int, Query(ge=1, le=500)] = 50) -> models.JobList:
         found = [job for job in manager.jobs() if (state is None or job.state == state.value)
                  and (kind is None or job.kind == kind.value)]
-        return models.JobList(jobs=[models.job_model(job) for job in found[:limit]])
+        return models.JobList(jobs=[models.job_model(job, windows=manager) for job in found[:limit]])
 
     @v1.get('/jobs/{job_id}', response_model=models.Job, tags=['jobs'], summary='One job', responses=_responses(404))
     def job(job_id: str):
-        return models.job_model(manager.get(job_id))
+        return models.job_model(manager.get(job_id), windows=manager)
 
     @v1.post('/jobs/{job_id}/cancel', response_model=models.Job, tags=['jobs'],
-             summary='Cancel: a queued job is dropped, a running one stops before its next title',
+             summary='Cancel: a queued or paused job is dropped, a running one stops before its next title',
              responses=_responses(404, 409))
     def cancel(job_id: str):
-        return models.job_model(manager.cancel(job_id))
+        return models.job_model(manager.cancel(job_id), windows=manager)
+
+    @v1.put('/jobs/{job_id}/window', response_model=models.Job, tags=['jobs'],
+            summary="Change a queued, running or paused job's window (design/job-windows.md)",
+            responses=_responses(404, 409, 422))
+    def set_job_window(job_id: str, body: models.JobWindowUpdate):
+        return models.job_model(manager.set_window(job_id, body.window), windows=manager)
+
+    def default_window() -> models.DefaultWindow:
+        ranges, now = manager.default_window, manager.now()
+        window = manager.window(ranges)
+        change = window.next_open(now) if not window.is_open(now) else window.next_close(now)
+        return models.DefaultWindow(window=ranges, time_zone=manager.time_zone, open_now=window.is_open(now),
+                                    next_change=models.timestamp(change))
+
+    @v1.get('/job-window', response_model=models.DefaultWindow, tags=['jobs'],
+            summary='The default window: when a job given none may run')
+    def get_default_window():
+        return default_window()
+
+    @v1.put('/job-window', response_model=models.DefaultWindow, tags=['jobs'],
+            summary='Change the default window (every job given none follows it, queued, running or paused)',
+            responses=_responses(422))
+    def put_default_window(body: models.DefaultWindowUpdate):
+        manager.set_default_window(body.window)
+        return default_window()
 
     @v1.get('/jobs/{job_id}/log', response_model=List[models.JobEvent], response_model_exclude_none=True, tags=['jobs'],
             summary="What the job has reported so far (the last 500 events)", responses=_responses(404))

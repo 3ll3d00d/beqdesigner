@@ -33,7 +33,7 @@ from model.execution_events import ExecutionEvent, event_text, redact_text, reda
 from pipeline.library.bulk import DEFAULT_ACCEPT_THRESHOLD
 from pipeline.library.selection import THROUGH, Selection
 from pipeline.library.stages import FfmpegProgress, Progress
-from pipeline.service.window import ActiveWindow
+from pipeline.service.window import ActiveWindow, time_zone_name
 
 logger = logging.getLogger('service_jobs')
 
@@ -382,6 +382,19 @@ class JobManager:
             return bool(self.__queue) or self.current is not None
 
     # --- windows (design/job-windows.md) --------------------------------------------------------------------------------
+
+    def now(self) -> float:
+        return self.__clock()
+
+    def window(self, ranges: Optional[List[str]] = None) -> ActiveWindow:
+        ''' These ranges (else the default's) as a window in the service's time zone. :raises ValueError: '''
+        with self.__lock:
+            return ActiveWindow.of(self.__default_window if ranges is None else ranges, self.__tz)
+
+    @property
+    def time_zone(self) -> str:
+        ''' The name of the zone every window is in: the container's TZ, else what the clock calls it. '''
+        return time_zone_name(self.__tz)
 
     def window_of(self, job: Job) -> ActiveWindow:
         ''' The job's window, or the default's for a job given none. '''

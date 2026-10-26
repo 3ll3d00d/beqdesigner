@@ -28,7 +28,7 @@ export function runResult(overrides: Partial<Schemas['RunResult']> = {}): Schema
 export function runJob(overrides: Partial<Schemas['RunJob']> = {}): Schemas['RunJob'] {
   return {
     kind: 'run', id: 'job-1', origin: 'api', state: 'succeeded', submitted_at: NOW, started_at: NOW, finished_at: NOW,
-    progress: null, error: null, joined_to: null,
+    progress: null, error: null, joined_to: null, parts: 1, paused_at: [],
     request: { filter: { needs: ['extract', 'design'], new_since_scan: false, kind: 'movie' }, through: 'design',
                scan_first: true, retry_failed: false, redesign: false, revise_to: 'design' },
     result: runResult(),
@@ -39,7 +39,7 @@ export function runJob(overrides: Partial<Schemas['RunJob']> = {}): Schemas['Run
 export function scanJob(overrides: Partial<Schemas['ScanJob']> = {}): Schemas['ScanJob'] {
   return {
     kind: 'scan', id: 'scan-1', origin: 'schedule', state: 'failed', submitted_at: NOW, started_at: NOW, finished_at: NOW,
-    progress: null, error: 'profile unreadable', joined_to: null, request: { sources: [], allow_empty: false }, result: null,
+    progress: null, error: 'profile unreadable', joined_to: null, parts: 1, paused_at: [], request: { sources: [], allow_empty: false }, result: null,
     ...overrides,
   }
 }

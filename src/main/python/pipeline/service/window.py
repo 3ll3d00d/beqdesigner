@@ -6,6 +6,7 @@ The window is read in local wall-clock time, a minute at a time: a range opens w
 and closes when it reads its end. So a range whose start a daylight-saving change skips opens at the first minute after
 the change that is inside it, and an hour the change repeats is open, or not, both times, as the wall clock reads.
 '''
+import os
 import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta, tzinfo
@@ -98,6 +99,14 @@ class ActiveWindow:
         if self.any_time or not self.is_open(t):
             return None
         return self.__next_change(t, False)
+
+
+def time_zone_name(tz: Optional[tzinfo] = None) -> str:
+    ''' What the zone is called: TZ when it is the process's zone and set (Europe/London), else its abbreviation. '''
+    if tz is None and os.environ.get('TZ'):
+        return os.environ['TZ']
+    now = datetime.now(tz) if tz is not None else datetime.now().astimezone()
+    return now.tzname() or 'local time'
 
 
 def window_problem(ranges: Optional[Sequence[str]]) -> str:

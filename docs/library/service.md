@@ -98,6 +98,21 @@ Every call under `/v1` needs the token as `Authorization: Bearer <token>`. `/hea
 
 Stopping it (Ctrl-C, or `SIGTERM`) lets the title in hand finish, then stops.
 
+### When jobs may run
+
+A job can be given a **window**: the times of day it may run, as daily ranges in the service's time zone (the
+container's `TZ`), e.g. `"window": ["01:00-07:00"]` on `POST /v1/jobs/run`, `/v1/jobs/scan`, `/v1/jobs/accept` or
+`POST /v1/revise` with `run`. A range may cross midnight (`22:00-06:00`), and several may be given.
+
+- Outside its window a queued job waits (`waiting_until` says until when) while other jobs run.
+- A run whose window closes stops taking titles: the ones in hand finish, then it is `paused` and carries on with the
+  titles it had left when the window next opens. It stays one job, with one progress bar, log and result (`parts`
+  counts how many times it started).
+- A scan or accept that is running when its window closes finishes.
+- A job given no window follows the default (`GET`/`PUT /v1/job-window`); the default starts as any time. Give
+  `"window": []` for a job that may run any time whatever the default says.
+- A paused job, or one waiting for its window, is kept when the service restarts.
+
 ### What you can ask it
 
 | Call | Does |
@@ -109,7 +124,9 @@ Stopping it (Ctrl-C, or `SIGTERM`) lets the title in hand finish, then stops.
 | `GET /v1/jobs`, `/v1/jobs/{id}` | the jobs, and one job with its result |
 | `GET /v1/jobs/{id}/events` | follow a job as it runs (Server-Sent Events) |
 | `GET /v1/jobs/{id}/log` | what a job has reported so far, as a list |
-| `POST /v1/jobs/{id}/cancel` | cancel: a waiting job is dropped, a running one stops after the title in hand |
+| `POST /v1/jobs/{id}/cancel` | cancel: a waiting or paused job is dropped, a running one stops after the title in hand |
+| `PUT /v1/jobs/{id}/window` | change the times of day a queued, running or paused job may run (see "When jobs may run" below) |
+| `GET /v1/job-window`, `PUT /v1/job-window` | the default window: when a job given none may run |
 | `GET /v1/status` | the counts the work list's strip shows, the job running now, the schedule and whether the designer answers |
 | `GET /v1/schedule`, `PUT /v1/schedule` | read or save the automatic extract/design schedule |
 | `POST /v1/schedule/trigger` | run one scheduled tick now; returns 409 while a job is queued or running |

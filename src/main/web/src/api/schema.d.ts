@@ -612,8 +612,43 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Cancel: a queued job is dropped, a running one stops before its next title */
+        /** Cancel: a queued or paused job is dropped, a running one stops before its next title */
         post: operations["cancel_v1_jobs__job_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/jobs/{job_id}/window": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change a queued, running or paused job's window (design/job-windows.md) */
+        put: operations["set_job_window_v1_jobs__job_id__window_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/job-window": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The default window: when a job given none may run */
+        get: operations["get_default_window_v1_job_window_get"];
+        /** Change the default window (every job given none follows it, queued, running or paused) */
+        put: operations["put_default_window_v1_job_window_put"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -706,6 +741,33 @@ export interface components {
              */
             joined_to?: string | null;
             /**
+             * Window
+             * @description Its window as given (null: the default's; []: any time).
+             */
+            window?: string[] | null;
+            /**
+             * Window Open
+             * @description Whether it may run now, with the default applied.
+             */
+            window_open?: boolean | null;
+            /**
+             * Waiting Until
+             * @description A queued or paused job whose window is closed: when it next opens, and the job is taken or carries on.
+             */
+            waiting_until?: string | null;
+            /**
+             * Parts
+             * @description How many times it has been started: more than one once paused and resumed.
+             * @default 0
+             */
+            parts: number;
+            /**
+             * Paused At
+             * @description When it paused, each time its window closed while it ran.
+             * @default []
+             */
+            paused_at: string[];
+            /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
@@ -715,6 +777,11 @@ export interface components {
         };
         /** AcceptJobRequest */
         AcceptJobRequest: {
+            /**
+             * Window
+             * @description The times of day it may run: daily "HH:MM-HH:MM" ranges in the service's time zone (one may cross midnight, 22:00-06:00); outside them it waits, and a run pauses between titles and carries on when they next open. null: the default window (/v1/job-window); []: any time.
+             */
+            window?: string[] | null;
             filter?: components["schemas"]["TitleFilter"];
             /**
              * Threshold
@@ -1042,6 +1109,34 @@ export interface components {
             reason: string;
             /** Message */
             message: string;
+        };
+        /** DefaultWindow */
+        DefaultWindow: {
+            /**
+             * Window
+             * @description The window of every job given none: daily "HH:MM-HH:MM" ranges; [] is any time.
+             */
+            window: string[];
+            /**
+             * Time Zone
+             * @description The service's time zone, which every window is in.
+             */
+            time_zone: string;
+            /** Open Now */
+            open_now: boolean;
+            /**
+             * Next Change
+             * @description When it next opens (or closes, while open); null: never.
+             */
+            next_change: string | null;
+        };
+        /** DefaultWindowUpdate */
+        DefaultWindowUpdate: {
+            /**
+             * Window
+             * @description The window of every job given none: daily "HH:MM-HH:MM" ranges; [] is any time.
+             */
+            window: string[];
         };
         /**
          * DesignIdentityView
@@ -1436,7 +1531,7 @@ export interface components {
          * JobEvent
          * @description One thing a job reported, in order (`seq`). `type` says which fields it has, and every one has `text`.
          */
-        JobEvent: components["schemas"]["StateEvent"] | components["schemas"]["RunProgressEvent"] | components["schemas"]["ExtractProgressEvent"] | components["schemas"]["TitleEvent"];
+        JobEvent: components["schemas"]["StateEvent"] | components["schemas"]["RunProgressEvent"] | components["schemas"]["ExtractProgressEvent"] | components["schemas"]["TitleEvent"] | components["schemas"]["WindowEvent"];
         /**
          * JobKind
          * @enum {string}
@@ -1456,7 +1551,18 @@ export interface components {
          * JobState
          * @enum {string}
          */
-        JobState: "queued" | "running" | "succeeded" | "failed" | "cancelled" | "interrupted";
+        JobState: "queued" | "running" | "paused" | "succeeded" | "failed" | "cancelled" | "interrupted";
+        /**
+         * JobWindowUpdate
+         * @description A queued, running or paused job's new window.
+         */
+        JobWindowUpdate: {
+            /**
+             * Window
+             * @description The times of day it may run: daily "HH:MM-HH:MM" ranges in the service's time zone (one may cross midnight, 22:00-06:00); outside them it waits, and a run pauses between titles and carries on when they next open. null: the default window (/v1/job-window); []: any time.
+             */
+            window: string[] | null;
+        };
         /**
          * Kind
          * @enum {string}
@@ -1982,6 +2088,11 @@ export interface components {
          * @description Send titles back: to review (decide again), design (designed again) or extract (extracted and designed again).
          */
         ReviseRequest: {
+            /**
+             * Window
+             * @description The times of day it may run: daily "HH:MM-HH:MM" ranges in the service's time zone (one may cross midnight, 22:00-06:00); outside them it waits, and a run pauses between titles and carries on when they next open. null: the default window (/v1/job-window); []: any time.
+             */
+            window?: string[] | null;
             /** Ids */
             ids: string[];
             /**
@@ -2046,6 +2157,33 @@ export interface components {
              */
             joined_to?: string | null;
             /**
+             * Window
+             * @description Its window as given (null: the default's; []: any time).
+             */
+            window?: string[] | null;
+            /**
+             * Window Open
+             * @description Whether it may run now, with the default applied.
+             */
+            window_open?: boolean | null;
+            /**
+             * Waiting Until
+             * @description A queued or paused job whose window is closed: when it next opens, and the job is taken or carries on.
+             */
+            waiting_until?: string | null;
+            /**
+             * Parts
+             * @description How many times it has been started: more than one once paused and resumed.
+             * @default 0
+             */
+            parts: number;
+            /**
+             * Paused At
+             * @description When it paused, each time its window closed while it ran.
+             * @default []
+             */
+            paused_at: string[];
+            /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
@@ -2055,6 +2193,11 @@ export interface components {
         };
         /** RunJobRequest */
         RunJobRequest: {
+            /**
+             * Window
+             * @description The times of day it may run: daily "HH:MM-HH:MM" ranges in the service's time zone (one may cross midnight, 22:00-06:00); outside them it waits, and a run pauses between titles and carries on when they next open. null: the default window (/v1/job-window); []: any time.
+             */
+            window?: string[] | null;
             filter?: components["schemas"]["TitleFilter"];
             /**
              * @description Run every stage up to this one that each title still needs. A title waiting for review is never taken past design.
@@ -2219,6 +2362,33 @@ export interface components {
              */
             joined_to?: string | null;
             /**
+             * Window
+             * @description Its window as given (null: the default's; []: any time).
+             */
+            window?: string[] | null;
+            /**
+             * Window Open
+             * @description Whether it may run now, with the default applied.
+             */
+            window_open?: boolean | null;
+            /**
+             * Waiting Until
+             * @description A queued or paused job whose window is closed: when it next opens, and the job is taken or carries on.
+             */
+            waiting_until?: string | null;
+            /**
+             * Parts
+             * @description How many times it has been started: more than one once paused and resumed.
+             * @default 0
+             */
+            parts: number;
+            /**
+             * Paused At
+             * @description When it paused, each time its window closed while it ran.
+             * @default []
+             */
+            paused_at: string[];
+            /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
@@ -2228,6 +2398,11 @@ export interface components {
         };
         /** ScanJobRequest */
         ScanJobRequest: {
+            /**
+             * Window
+             * @description The times of day it may run: daily "HH:MM-HH:MM" ranges in the service's time zone (one may cross midnight, 22:00-06:00); outside them it waits, and a run pauses between titles and carries on when they next open. null: the default window (/v1/job-window); []: any time.
+             */
+            window?: string[] | null;
             /**
              * Sources
              * @description Sources to list again, by name; none is all of them.
@@ -2412,9 +2587,19 @@ export interface components {
             type: "state";
             /**
              * State
-             * @description queued, running, cancelling, succeeded, failed, cancelled or interrupted.
+             * @description queued, running, cancelling, pausing, paused, succeeded, failed, cancelled or interrupted.
              */
             state: string;
+            /**
+             * Resumes At
+             * @description paused: when its window next opens.
+             */
+            resumes_at?: string | null;
+            /**
+             * Part
+             * @description running again after a pause: which part this is (2, 3, ...).
+             */
+            part?: number | null;
         };
         /** StreamChoice */
         StreamChoice: {
@@ -2777,6 +2962,37 @@ export interface components {
              * @description The designs the designer rejected in it.
              */
             rejected?: components["schemas"]["CandidateView"][];
+        };
+        /**
+         * WindowEvent
+         * @description The job's window was changed (design/job-windows.md).
+         */
+        WindowEvent: {
+            /**
+             * Seq
+             * @description Its place in the job: events come in this order, and `after` resumes after one.
+             */
+            seq: number;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /**
+             * Text
+             * @description What a person reads (redacted).
+             */
+            text: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "window";
+            /**
+             * Window
+             * @description The new window: absent for the default, [] for any time.
+             */
+            window?: string[] | null;
         };
     };
     responses: never;
@@ -5223,6 +5439,139 @@ export interface operations {
                 };
             };
             /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    set_job_window_v1_jobs__job_id__window_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobWindowUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScanJob"] | components["schemas"]["RunJob"] | components["schemas"]["AcceptJob"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_default_window_v1_job_window_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DefaultWindow"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    put_default_window_v1_job_window_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DefaultWindowUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DefaultWindow"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     [name: string]: unknown;

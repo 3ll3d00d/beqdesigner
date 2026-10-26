@@ -3876,7 +3876,7 @@
         "tags": [
           "jobs"
         ],
-        "summary": "Cancel: a queued job is dropped, a running one stops before its next title",
+        "summary": "Cancel: a queued or paused job is dropped, a running one stops before its next title",
         "operationId": "cancel_v1_jobs__job_id__cancel_post",
         "security": [
           {
@@ -3965,6 +3965,202 @@
             }
           }
         }
+      }
+    },
+    "/v1/jobs/{job_id}/window": {
+      "put": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Change a queued, running or paused job's window (design/job-windows.md)",
+        "operationId": "set_job_window_v1_jobs__job_id__window_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JobWindowUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ScanJob"
+                    },
+                    {
+                      "$ref": "#/components/schemas/RunJob"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AcceptJob"
+                    }
+                  ],
+                  "discriminator": {
+                    "propertyName": "kind",
+                    "mapping": {
+                      "scan": "#/components/schemas/ScanJob",
+                      "run": "#/components/schemas/RunJob",
+                      "accept": "#/components/schemas/AcceptJob"
+                    }
+                  },
+                  "title": "Response Set Job Window V1 Jobs  Job Id  Window Put"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
+    },
+    "/v1/job-window": {
+      "get": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "The default window: when a job given none may run",
+        "operationId": "get_default_window_v1_job_window_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefaultWindow"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Change the default window (every job given none follows it, queued, running or paused)",
+        "operationId": "put_default_window_v1_job_window_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DefaultWindowUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefaultWindow"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/v1/jobs/{job_id}/log": {
@@ -4238,6 +4434,62 @@
             "title": "Joined To",
             "description": "The run job this one joined: its titles went into that run, and it ends when that run does, with its result."
           },
+          "window": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window",
+            "description": "Its window as given (null: the default's; []: any time)."
+          },
+          "window_open": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window Open",
+            "description": "Whether it may run now, with the default applied."
+          },
+          "waiting_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Waiting Until",
+            "description": "A queued or paused job whose window is closed: when it next opens, and the job is taken or carries on."
+          },
+          "parts": {
+            "type": "integer",
+            "title": "Parts",
+            "description": "How many times it has been started: more than one once paused and resumed.",
+            "default": 0
+          },
+          "paused_at": {
+            "items": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "type": "array",
+            "title": "Paused At",
+            "description": "When it paused, each time its window closed while it ran.",
+            "default": []
+          },
           "kind": {
             "type": "string",
             "const": "accept",
@@ -4274,6 +4526,22 @@
       },
       "AcceptJobRequest": {
         "properties": {
+          "window": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "maxItems": 24
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window",
+            "description": "The times of day it may run: daily \"HH:MM-HH:MM\" ranges in the service's time zone (one may cross midnight, 22:00-06:00); outside them it waits, and a run pauses between titles and carries on when they next open. null: the default window (/v1/job-window); []: any time."
+          },
           "filter": {
             "$ref": "#/components/schemas/TitleFilter"
           },
@@ -4950,6 +5218,69 @@
           "message"
         ],
         "title": "Decline"
+      },
+      "DefaultWindow": {
+        "properties": {
+          "window": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 24,
+            "title": "Window",
+            "description": "The window of every job given none: daily \"HH:MM-HH:MM\" ranges; [] is any time."
+          },
+          "time_zone": {
+            "type": "string",
+            "title": "Time Zone",
+            "description": "The service's time zone, which every window is in."
+          },
+          "open_now": {
+            "type": "boolean",
+            "title": "Open Now"
+          },
+          "next_change": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Change",
+            "description": "When it next opens (or closes, while open); null: never."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "window",
+          "time_zone",
+          "open_now",
+          "next_change"
+        ],
+        "title": "DefaultWindow"
+      },
+      "DefaultWindowUpdate": {
+        "properties": {
+          "window": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 24,
+            "title": "Window",
+            "description": "The window of every job given none: daily \"HH:MM-HH:MM\" ranges; [] is any time."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "window"
+        ],
+        "title": "DefaultWindowUpdate"
       },
       "DesignIdentityView": {
         "properties": {
@@ -5748,6 +6079,9 @@
           },
           {
             "$ref": "#/components/schemas/TitleEvent"
+          },
+          {
+            "$ref": "#/components/schemas/WindowEvent"
           }
         ],
         "title": "JobEvent",
@@ -5758,7 +6092,8 @@
             "event": "#/components/schemas/TitleEvent",
             "extract_progress": "#/components/schemas/ExtractProgressEvent",
             "run_progress": "#/components/schemas/RunProgressEvent",
-            "state": "#/components/schemas/StateEvent"
+            "state": "#/components/schemas/StateEvent",
+            "window": "#/components/schemas/WindowEvent"
           }
         }
       },
@@ -5818,12 +6153,40 @@
         "enum": [
           "queued",
           "running",
+          "paused",
           "succeeded",
           "failed",
           "cancelled",
           "interrupted"
         ],
         "title": "JobState"
+      },
+      "JobWindowUpdate": {
+        "properties": {
+          "window": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "maxItems": 24
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window",
+            "description": "The times of day it may run: daily \"HH:MM-HH:MM\" ranges in the service's time zone (one may cross midnight, 22:00-06:00); outside them it waits, and a run pauses between titles and carries on when they next open. null: the default window (/v1/job-window); []: any time."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "window"
+        ],
+        "title": "JobWindowUpdate",
+        "description": "A queued, running or paused job's new window. "
       },
       "Kind": {
         "type": "string",
@@ -7076,6 +7439,22 @@
       },
       "ReviseRequest": {
         "properties": {
+          "window": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "maxItems": 24
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window",
+            "description": "The times of day it may run: daily \"HH:MM-HH:MM\" ranges in the service's time zone (one may cross midnight, 22:00-06:00); outside them it waits, and a run pauses between titles and carries on when they next open. null: the default window (/v1/job-window); []: any time."
+          },
           "ids": {
             "items": {
               "type": "string"
@@ -7233,6 +7612,62 @@
             "title": "Joined To",
             "description": "The run job this one joined: its titles went into that run, and it ends when that run does, with its result."
           },
+          "window": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window",
+            "description": "Its window as given (null: the default's; []: any time)."
+          },
+          "window_open": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window Open",
+            "description": "Whether it may run now, with the default applied."
+          },
+          "waiting_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Waiting Until",
+            "description": "A queued or paused job whose window is closed: when it next opens, and the job is taken or carries on."
+          },
+          "parts": {
+            "type": "integer",
+            "title": "Parts",
+            "description": "How many times it has been started: more than one once paused and resumed.",
+            "default": 0
+          },
+          "paused_at": {
+            "items": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "type": "array",
+            "title": "Paused At",
+            "description": "When it paused, each time its window closed while it ran.",
+            "default": []
+          },
           "kind": {
             "type": "string",
             "const": "run",
@@ -7269,6 +7704,22 @@
       },
       "RunJobRequest": {
         "properties": {
+          "window": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "maxItems": 24
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window",
+            "description": "The times of day it may run: daily \"HH:MM-HH:MM\" ranges in the service's time zone (one may cross midnight, 22:00-06:00); outside them it waits, and a run pauses between titles and carries on when they next open. null: the default window (/v1/job-window); []: any time."
+          },
           "filter": {
             "$ref": "#/components/schemas/TitleFilter"
           },
@@ -7662,6 +8113,62 @@
             "title": "Joined To",
             "description": "The run job this one joined: its titles went into that run, and it ends when that run does, with its result."
           },
+          "window": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window",
+            "description": "Its window as given (null: the default's; []: any time)."
+          },
+          "window_open": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window Open",
+            "description": "Whether it may run now, with the default applied."
+          },
+          "waiting_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Waiting Until",
+            "description": "A queued or paused job whose window is closed: when it next opens, and the job is taken or carries on."
+          },
+          "parts": {
+            "type": "integer",
+            "title": "Parts",
+            "description": "How many times it has been started: more than one once paused and resumed.",
+            "default": 0
+          },
+          "paused_at": {
+            "items": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "type": "array",
+            "title": "Paused At",
+            "description": "When it paused, each time its window closed while it ran.",
+            "default": []
+          },
           "kind": {
             "type": "string",
             "const": "scan",
@@ -7698,6 +8205,22 @@
       },
       "ScanJobRequest": {
         "properties": {
+          "window": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "maxItems": 24
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window",
+            "description": "The times of day it may run: daily \"HH:MM-HH:MM\" ranges in the service's time zone (one may cross midnight, 22:00-06:00); outside them it waits, and a run pauses between titles and carries on when they next open. null: the default window (/v1/job-window); []: any time."
+          },
           "sources": {
             "items": {
               "type": "string"
@@ -8132,7 +8655,32 @@
           "state": {
             "type": "string",
             "title": "State",
-            "description": "queued, running, cancelling, succeeded, failed, cancelled or interrupted."
+            "description": "queued, running, cancelling, pausing, paused, succeeded, failed, cancelled or interrupted."
+          },
+          "resumes_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resumes At",
+            "description": "paused: when its window next opens."
+          },
+          "part": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Part",
+            "description": "running again after a pause: which part this is (2, 3, ...)."
           }
         },
         "type": "object",
@@ -8943,6 +9491,54 @@
           "adjustment_outcomes"
         ],
         "title": "VariantSummary"
+      },
+      "WindowEvent": {
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "title": "Seq",
+            "description": "Its place in the job: events come in this order, and `after` resumes after one."
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "description": "What a person reads (redacted)."
+          },
+          "type": {
+            "type": "string",
+            "const": "window",
+            "title": "Type"
+          },
+          "window": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window",
+            "description": "The new window: absent for the default, [] for any time."
+          }
+        },
+        "type": "object",
+        "required": [
+          "seq",
+          "at",
+          "text",
+          "type"
+        ],
+        "title": "WindowEvent",
+        "description": "The job's window was changed (design/job-windows.md). "
       }
     },
     "securitySchemes": {

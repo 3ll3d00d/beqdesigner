@@ -11,7 +11,7 @@ import binascii
 import os
 from datetime import datetime, timezone
 from dataclasses import dataclass
-from typing import Annotated, Callable
+from typing import Annotated, Any, Callable
 
 from fastapi import APIRouter, Query
 from fastapi.responses import FileResponse, JSONResponse
@@ -52,6 +52,7 @@ class EditRoutes:
     responses: Callable
     submit: Callable          # the job manager's: a RunRequest in, the queued Job out
     repository_writes: bool   # the service config's allow_repository_writes
+    windows: Any = None       # the job manager, which says whether a job's window is open (models.job_model)
 
 
 def register(v1: APIRouter, deps: EditRoutes) -> None:
@@ -224,8 +225,9 @@ def register(v1: APIRouter, deps: EditRoutes) -> None:
                                                    extract_invalidated=result.extract_invalidated))
         if body.run:
             job = deps.submit(RunRequest(Selection(ids=tuple(ready)), 'design', scan_first=False, retry_failed=True,
-                                         redesign=True, revise_to=body.to)) if ready else None
-            return models.ReviseOutcome(revised=[], failed=failed, job=models.job_model(job) if job else None)
+                                         redesign=True, revise_to=body.to), window=body.window) if ready else None
+            return models.ReviseOutcome(revised=[], failed=failed,
+                                        job=models.job_model(job, windows=deps.windows) if job else None)
         if revised:
             deps.refresh()
         return models.ReviseOutcome(revised=revised, failed=failed)
@@ -271,7 +273,7 @@ def register(v1: APIRouter, deps: EditRoutes) -> None:
             raise Problem(422, 'No such stream', f'{title_id} has {len(details)} audio stream(s)')
         job = deps.submit(RunRequest(Selection(ids=(title_id,)), 'design', scan_first=False, retry_failed=True,
                                      redesign=True, revise_to='extract', audio_stream=body.audio_stream))
-        return JSONResponse(models.job_model(job).model_dump(mode='json'), status_code=202,
+        return JSONResponse(models.job_model(job, windows=deps.windows).model_dump(mode='json'), status_code=202,
                             headers={'Location': f'/v1/jobs/{job.id}'})
 
     # --- variants (WP7) --------------------------------------------------------------------------------------------
