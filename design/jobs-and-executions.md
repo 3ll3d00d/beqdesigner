@@ -73,6 +73,27 @@ One continuous run of a job: from when it starts until it finishes, fails, is ca
 - A notification is sent when an execution ends `succeeded` or `failed` (as for a job today), not when it stops; a
   one-off job being `done` is the last one's notification.
 
+### 2.3 What an execution says about how it ran
+
+Each execution keeps **statistics**, so its page answers "how did it go" at a glance, without reading the log:
+
+- **Titles by outcome**: designed, declined by the designer, failed (extraction or design, with the reasons grouped
+  and counted), unavailable, skipped (grouped by reason), already done (extraction or design cached), and not reached
+  (stopped or cancelled); each count opens the list of titles.
+- **Designers**: for each endpoint that designed for it -- its URL, release, design version and settings -- how many
+  designs it made, declined and failed, and their times (mean, p50, p90, max). A run whose endpoints reported different
+  releases or versions says so.
+- **Timing**: wall time from start to end, titles an hour, and for each stage -- extraction, waiting for a design slot,
+  the design at the designer -- mean, p90 and max, with the slowest titles listed.
+- **A job** shows the same, summed over its executions (a one-off job's progress, a recurring job's last N runs).
+
+The log's 500 kept events cannot hold this for a run of hundreds of titles, so it is gathered as the run goes into the
+execution's own record (a small entry per title: its outcome, each stage's start and end, and the endpoint that
+designed it), kept with the execution in `executions.json`, and the statistics are computed from those. The endpoint
+comes from the designer pool, which reports each design call (title, endpoint, its release and version from its last
+`/health`, start, end, outcome) to the run (`DesignerPool`, through `run_stages`' events), since neither the queue entry
+nor today's events record which endpoint designed a title.
+
 ## 3. The service
 
 - Internally the present `Job`/`JobManager` become `Execution`/`ExecutionQueue` (the queue, the worker, cancel, the log,
@@ -100,7 +121,8 @@ the service is an alpha; scripts that submit work move from `POST /v1/jobs/run` 
 | `GET`/`PATCH`/`DELETE /v1/jobs/{id}` | One job; edit it (§2.1); remove it. |
 | `POST /v1/jobs/{id}/pause`, `/resume`, `/run` | Pause, resume, run now (recurring). |
 | `GET /v1/executions` | The log: running, next scheduled, history (`?job=`, `?state=`). |
-| `GET /v1/executions/{id}`, `/log`, `/events` | One execution, its log, and following it (as a job's are today). |
+| `GET /v1/executions/{id}`, `/log`, `/events` | One execution (with its statistics, §2.3), its log, and following it (as a job's are today). |
+| `GET /v1/executions/{id}/titles` | Its titles, each with its outcome, stage times and designer (`?outcome=`). |
 | `POST /v1/executions/{id}/cancel` | Cancel a running or queued execution. |
 | `POST /v1/plan` | Unchanged: what a run would do. |
 | `POST /v1/revise` with `run` | Makes a one-off redesign job, and returns it with its first execution. |
@@ -116,8 +138,11 @@ and no longer a `schedule`.
   N min) and its window, state, next execution, and the running execution with its progress and *Cancel*. Each row has
   *Pause*/*Resume*, *Edit…*, *Run now* (recurring) and *Remove*; *New job…* above. The default window stays here.
 - **Executions** (the Jobs tab, renamed): the log — the running execution, each active job's next scheduled
-  execution, and every past execution, filterable by job and state. An execution's page is today's job page (its
-  result, its log, live while it runs, *Cancel*), with a link to its job.
+  execution, and every past execution, filterable by job and state, each row with its counts (designed, declined,
+  failed) and wall time. An execution's page leads with its statistics (§2.3): the outcome counts, a table of designers
+  (endpoint, release, version, designs, declined, failed, mean, p90, max), the stage times and the slowest titles;
+  then its result lists, its log (live while it runs) and *Cancel*, with a link to its job. Live while it runs: the
+  counts and times update as titles finish.
 - **New job / Edit job**: what (scan, run, accept), the filter and preview as today, *When* (once / every N minutes),
   the window field, and a name.
 - **Revise** with *now* makes a one-off redesign job, as above.
@@ -128,14 +153,17 @@ and no longer a `schedule`.
 2. `JobBook`: jobs, recurrence, windows (an execution stops at the window's end; no more pause/resume inside one),
    pause/resume/edit/run now/remove, cancel's effect on a one-off, the designer-down skip and ending by itself,
    persistence, the migration. Replaces `AutoScheduler`. Tests with a fake execute and clock.
-3. The routes and models (§4), `/v1/status`, the notifier, the OpenAPI document and `schema.d.ts`, `docker/smoke.py`
+3. Statistics (§2.3): the pool's per-call reports, the per-title records, the figures, persistence; tests over a
+   fake pool and the real `run_stages`.
+4. The routes and models (§4), `/v1/status`, the notifier, the OpenAPI document and `schema.d.ts`, `docker/smoke.py`
    and the user guide.
-4. The browser (§5).
-5. The references (pipeline-service §5, §8, job windows, web-app), the archive.
+5. The browser (§5).
+6. The references (pipeline-service §5, §8, job windows, web-app), the archive.
 
 ## 7. Done when
 
 The main page lists every job and pausing, resuming, editing or removing one does what §2.1 says; the Executions page
-is the log of every execution, with each job's next one; a windowed one-off run is one job whose nights are separate
+is the log of every execution, with each job's next one, and each execution's page says how it ran (titles by outcome,
+designers with their versions and counts, stage times as mean, p90 and max); a windowed one-off run is one job whose nights are separate
 executions; several recurring jobs run on their own intervals and windows; and an upgrade keeps the schedule as a
 recurring job and a windowed redesign in progress as an active one-off job.
