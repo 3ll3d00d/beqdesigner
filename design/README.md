@@ -21,6 +21,7 @@ contract paths used by schemas, source comments and external implementers.
 | [Design version](design-version.md) | Contract 1.4's design identity and the caller's *out of date* selection: why, rules and what is built (TODO L3) |
 | [Redesign scope](redesign-scope.md) | Design, not built: contract 1.6's run record, *reviewed at* and `/impact` on the caller's side (TODO RS) |
 | [Job windows](job-windows.md) | Architecture reference: the times of day each job may run, the default window, and a run paused between titles and resumed as one job |
+| [Jobs and executions](jobs-and-executions.md) | Design, not built: jobs as definitions (recurring or once, with a window) apart from their executions, replacing the single schedule (TODO JE) |
 | [Web app parity](web-parity.md) | Plan, not built: browser editing, visualisation, BEQ comparison and adjusted redesign with variants (TODO WP) |
 | [Library run gaps](library-run-gaps.md) | Plan, not built: the first full library run's results and the work left (TODO L1-L6) |
 | [TODO](TODO.md) | Sole current backlog, with status, dependencies and acceptance criteria in priority order |
