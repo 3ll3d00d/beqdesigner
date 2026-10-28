@@ -1,4 +1,4 @@
-import { followJob, SseParser, type JobEvent } from './events'
+import { followExecution, SseParser, type JobEvent } from './events'
 
 function frame(event: Partial<JobEvent> & { seq: number; type: string }): string {
   return `id: ${event.seq}\nevent: ${event.type}\ndata: ${JSON.stringify({ at: '2026-10-10T00:00:00Z', text: '', ...event })}\n\n`
@@ -36,10 +36,10 @@ describe('following a job', () => {
                       frame({ seq: 2, type: 'run_progress', done: 1, total: 2 } as JobEvent),
                       frame({ seq: 3, type: 'state', state: 'succeeded' } as JobEvent), frame({ seq: 4, type: 'state', state: 'x' } as JobEvent))
     })
-    const ended = await followJob('j', { token: () => 't', onEvent: (e) => seen.push(e.seq), fetch: fetch as never })
+    const ended = await followExecution('j', { token: () => 't', onEvent: (e) => seen.push(e.seq), fetch: fetch as never })
     expect(ended).toBe(true)
     expect(seen).toEqual([1, 2, 3])
-    expect(fetch.mock.calls[0]![0]).toBe('/v1/jobs/j/events')
+    expect(fetch.mock.calls[0]![0]).toBe('/v1/executions/j/events')
   })
 
   it('resumes after a dropped connection from the last event it had', async () => {
@@ -66,7 +66,7 @@ describe('following a job', () => {
       return streamOf(frame({ seq: 6, type: 'state', state: 'failed' } as JobEvent))
     })
 
-    const ended = await followJob('j', { token: () => null, onEvent: (e) => seen.push(e.seq), fetch: fetch as never,
+    const ended = await followExecution('j', { token: () => null, onEvent: (e) => seen.push(e.seq), fetch: fetch as never,
                                          retryMs: 1 })
 
     expect(ended).toBe(true)
@@ -76,17 +76,17 @@ describe('following a job', () => {
 
   it('treats a clean end of the stream as the job being over', async () => {
     const fetch = vi.fn(async () => streamOf())
-    expect(await followJob('j', { token: () => null, onEvent: () => {}, fetch: fetch as never })).toBe(true)
+    expect(await followExecution('j', { token: () => null, onEvent: () => {}, fetch: fetch as never })).toBe(true)
     expect(fetch).toHaveBeenCalledOnce()
   })
 
   it('gives up on a 401 at once, and after the retries on a service that is down', async () => {
     const unauthorised = vi.fn(async () => new Response(null, { status: 401, statusText: 'Unauthorized' }))
-    await expect(followJob('j', { token: () => null, onEvent: () => {}, fetch: unauthorised as never })).rejects.toThrow('401')
+    await expect(followExecution('j', { token: () => null, onEvent: () => {}, fetch: unauthorised as never })).rejects.toThrow('401')
     expect(unauthorised).toHaveBeenCalledOnce()
 
     const down = vi.fn(async () => new Response(null, { status: 503, statusText: 'Service Unavailable' }))
-    await expect(followJob('j', { token: () => null, onEvent: () => {}, fetch: down as never, retryMs: 1, maxRetries: 2 }))
+    await expect(followExecution('j', { token: () => null, onEvent: () => {}, fetch: down as never, retryMs: 1, maxRetries: 2 }))
       .rejects.toThrow('503')
     expect(down).toHaveBeenCalledTimes(3)
   })
@@ -97,7 +97,7 @@ describe('following a job', () => {
       controller.abort()
       throw new DOMException('aborted', 'AbortError')
     })
-    expect(await followJob('j', { token: () => null, onEvent: () => {}, fetch: fetch as never, signal: controller.signal }))
+    expect(await followExecution('j', { token: () => null, onEvent: () => {}, fetch: fetch as never, signal: controller.signal }))
       .toBe(false)
   })
 })

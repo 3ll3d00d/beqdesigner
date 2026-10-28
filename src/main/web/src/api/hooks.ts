@@ -6,19 +6,25 @@ import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../auth/auth'
 import { FINISHED_STATES } from '../format'
 import { unwrap, type Schemas } from './client'
-import { followJob, type JobEvent } from './events'
+import { followExecution, type JobEvent } from './events'
 import { cleanFilter, type Sort, type TitleFilter } from './filter'
 import { readToken } from './token'
 
 export type Job = Schemas['ScanJob'] | Schemas['RunJob'] | Schemas['AcceptJob']
 export type JobState = Schemas['JobState']
+export type Execution = Schemas['ScanExecution'] | Schemas['RunExecution'] | Schemas['AcceptExecution']
+export type ExecutionState = Schemas['ExecutionState']
+type JobCreate = Schemas['ScanJobCreate'] | Schemas['RunJobCreate'] | Schemas['AcceptJobCreate']
+/** How a job is made beside what it does: its name, `every` N minutes (null: once) and its window (null: the default). */
+export type Timing = { name?: string; every?: number | null; window?: string[] | null }
 
 export const keys = {
   status: ['status'] as const,
   jobs: (state?: JobState | null) => ['jobs', state ?? 'all'] as const,
   job: (id: string) => ['job', id] as const,
+  executions: (job?: string | null, state?: ExecutionState | null) => ['executions', job ?? 'all', state ?? 'all'] as const,
+  execution: (id: string) => ['execution', id] as const,
   log: (id: string) => ['log', id] as const,
-  schedule: ['schedule'] as const,
   titles: (query: string) => ['titles', query] as const,
   review: (id: string) => ['review', id] as const,
   chart: (id: string, query: Record<string, unknown>) => ['chart', id, query] as const,
@@ -31,11 +37,13 @@ export function useStatus(refetchInterval = 10_000) {
   return useQuery({ queryKey: keys.status, queryFn: async () => unwrap(await client.GET('/v1/status')), refetchInterval })
 }
 
+/** The jobs (what is done, and when), newest first. */
 export function useJobs(state?: JobState | null) {
   const { client } = useAuth()
   return useQuery({
     queryKey: keys.jobs(state),
-    queryFn: async () => unwrap(await client.GET('/v1/jobs', { params: { query: { state: state ?? undefined, limit: 100 } } })),
+    queryFn: async () => unwrap(await client.GET('/v1/jobs', { params: { query: { state: state ?? undefined } } }))
+      .jobs as Job[],
     refetchInterval: 10_000,
   })
 }
@@ -45,40 +53,64 @@ export function useJob(id: string) {
   return useQuery({
     queryKey: keys.job(id),
     queryFn: async () => unwrap(await client.GET('/v1/jobs/{job_id}', { params: { path: { job_id: id } } })) as Job,
+    refetchInterval: (query) => (query.state.data && ['done', 'removed'].includes(query.state.data.state) ? false : 5_000),
+  })
+}
+
+/** The log: the running execution, each job's next one, and every one kept, newest first. */
+export function useExecutions(job?: string | null, state?: ExecutionState | null) {
+  const { client } = useAuth()
+  return useQuery({
+    queryKey: keys.executions(job, state),
+    queryFn: async () => unwrap(await client.GET('/v1/executions', {
+      params: { query: { job: job ?? undefined, state: state ?? undefined, limit: 100 } } })),
+    refetchInterval: 10_000,
+  })
+}
+
+export function useExecution(id: string) {
+  const { client } = useAuth()
+  return useQuery({
+    queryKey: keys.execution(id),
+    queryFn: async () => unwrap(await client.GET('/v1/executions/{execution_id}',
+                                                 { params: { path: { execution_id: id } } })) as Execution,
     refetchInterval: (query) => (query.state.data && FINISHED_STATES.has(query.state.data.state) ? false : 5_000),
   })
 }
 
-export function useJobLog(id: string, enabled: boolean) {
+export function useExecutionLog(id: string, enabled: boolean) {
   const { client } = useAuth()
   return useQuery({
     queryKey: keys.log(id),
-    queryFn: async () => unwrap(await client.GET('/v1/jobs/{job_id}/log', { params: { path: { job_id: id } } })),
+    queryFn: async () => unwrap(await client.GET('/v1/executions/{execution_id}/log',
+                                                 { params: { path: { execution_id: id } } })),
     enabled,
   })
 }
 
 /**
- * A running job's events as they happen (the stream), from the start of its buffer. When the job ends, its queries and the
- * status are refreshed. `null` id follows nothing.
+ * A running execution's events as they happen (the stream), from the start of its buffer. When it ends, its queries and
+ * the status are refreshed. `null` id follows nothing.
  */
-export function useJobEvents(id: string | null, limit = 500) {
+export function useExecutionEvents(id: string | null, limit = 500) {
   const queries = useQueryClient()
-  // kept with the job they are of, so a change of job shows none of the last one's without resetting state in the effect
+  // kept with the execution they are of, so a change of one shows none of the last one's without resetting state
   const [followed, setFollowed] = useState<{ id: string | null; events: JobEvent[]; problem: string }>(
     { id: null, events: [], problem: '' })
   useEffect(() => {
     if (!id) return
     const controller = new AbortController()
     const mine = (seen: typeof followed) => (seen.id === id ? seen : { id, events: [], problem: '' })
-    followJob(id, {
+    followExecution(id, {
       token: readToken,
       signal: controller.signal,
       onEvent: (event) => setFollowed((seen) => ({ ...mine(seen), events: [...mine(seen).events, event].slice(-limit) })),
     }).then((ended) => {
       if (!ended) return
-      void queries.invalidateQueries({ queryKey: keys.job(id) })
+      void queries.invalidateQueries({ queryKey: keys.execution(id) })
+      void queries.invalidateQueries({ queryKey: ['executions'] })
       void queries.invalidateQueries({ queryKey: ['jobs'] })
+      void queries.invalidateQueries({ queryKey: ['job'] })
       void queries.invalidateQueries({ queryKey: keys.status })
       void queries.invalidateQueries({ queryKey: ['titles'] })
     }, (error: unknown) => {
@@ -91,53 +123,28 @@ export function useJobEvents(id: string | null, limit = 500) {
   return followed.id === id && id ? { events: followed.events, problem: followed.problem } : { events: [], problem: '' }
 }
 
-export function useSchedule() {
-  const { client } = useAuth()
-  return useQuery({ queryKey: keys.schedule, queryFn: async () => unwrap(await client.GET('/v1/schedule')) })
-}
-
-/** After anything that queues or ends work: the lists that show it. */
+/** After anything that makes, changes or ends work: the lists that show it. */
 export function useRefreshWork() {
   const queries = useQueryClient()
   return () => {
     void queries.invalidateQueries({ queryKey: ['jobs'] })
+    void queries.invalidateQueries({ queryKey: ['job'] })
+    void queries.invalidateQueries({ queryKey: ['executions'] })
     void queries.invalidateQueries({ queryKey: keys.status })
-    void queries.invalidateQueries({ queryKey: keys.schedule })
   }
 }
 
-export function useCancelJob() {
+export function useCancelExecution() {
   const { client } = useAuth()
   const queries = useQueryClient()
   const refresh = useRefreshWork()
   return useMutation({
     mutationFn: async (id: string) =>
-      unwrap(await client.POST('/v1/jobs/{job_id}/cancel', { params: { path: { job_id: id } } })) as Job,
-    onSuccess: (job) => {
-      queries.setQueryData(keys.job(job.id), job)
+      unwrap(await client.POST('/v1/executions/{execution_id}/cancel', { params: { path: { execution_id: id } } })) as Execution,
+    onSuccess: (execution) => {
+      queries.setQueryData(keys.execution(execution.id), execution)
       refresh()
     },
-  })
-}
-
-export function useSaveSchedule() {
-  const { client } = useAuth()
-  const queries = useQueryClient()
-  return useMutation({
-    mutationFn: async (body: Schemas['ScheduleUpdate']) => unwrap(await client.PUT('/v1/schedule', { body })),
-    onSuccess: (schedule) => {
-      queries.setQueryData(keys.schedule, schedule)
-      void queries.invalidateQueries({ queryKey: keys.status })
-    },
-  })
-}
-
-export function useTriggerSchedule() {
-  const { client } = useAuth()
-  const refresh = useRefreshWork()
-  return useMutation({
-    mutationFn: async () => unwrap(await client.POST('/v1/schedule/trigger')) as Job,
-    onSuccess: refresh,
   })
 }
 
@@ -160,13 +167,49 @@ export function useSaveDefaultWindow() {
   })
 }
 
-export function useSetJobWindow() {
+/** What a job body says beside its request: only what was given, so a window left out is the default. */
+function timing({ name, every, window }: Timing) {
+  return { ...(name ? { name } : {}), ...(every ? { every } : {}), ...(window !== undefined && window !== null ? { window } : {}) }
+}
+
+export function useCreateJob() {
+  const { client } = useAuth()
+  const refresh = useRefreshWork()
+  return useMutation({
+    mutationFn: async (body: JobCreate) => unwrap(await client.POST('/v1/jobs', { body })) as Job,
+    onSuccess: refresh,
+  })
+}
+
+/** A scan job: once, unless `every` says how often. */
+export function useSubmitScan() {
+  const create = useCreateJob()
+  return {
+    ...create,
+    mutate: ({ name, every, window, ...request }: Schemas['ScanJobRequest'] & Timing,
+             options?: Parameters<typeof create.mutate>[1]) =>
+      create.mutate({ kind: 'scan', request, ...timing({ name, every, window }) } as JobCreate, options),
+  }
+}
+
+/** A run job: once, unless `every` says how often (only a run through extract or design recurs). */
+export function useSubmitRun() {
+  const create = useCreateJob()
+  return {
+    ...create,
+    mutate: ({ name, every, window, ...request }: Schemas['RunJobRequest'] & Timing,
+             options?: Parameters<typeof create.mutate>[1]) =>
+      create.mutate({ kind: 'run', request, ...timing({ name, every, window }) } as JobCreate, options),
+  }
+}
+
+export function useEditJob() {
   const { client } = useAuth()
   const queries = useQueryClient()
   const refresh = useRefreshWork()
   return useMutation({
-    mutationFn: async ({ id, window }: { id: string; window: string[] | null }) =>
-      unwrap(await client.PUT('/v1/jobs/{job_id}/window', { params: { path: { job_id: id } }, body: { window } })) as Job,
+    mutationFn: async ({ id, ...body }: Schemas['JobUpdate'] & { id: string }) =>
+      unwrap(await client.PATCH('/v1/jobs/{job_id}', { params: { path: { job_id: id } }, body })) as Job,
     onSuccess: (job) => {
       queries.setQueryData(keys.job(job.id), job)
       refresh()
@@ -174,20 +217,20 @@ export function useSetJobWindow() {
   })
 }
 
-export function useSubmitScan() {
+/** Pause, resume, run now (a recurring job) or remove a job. */
+export function useJobAction() {
   const { client } = useAuth()
   const refresh = useRefreshWork()
   return useMutation({
-    mutationFn: async (body: Schemas['ScanJobRequest']) => unwrap(await client.POST('/v1/jobs/scan', { body })) as Job,
-    onSuccess: refresh,
-  })
-}
-
-export function useSubmitRun() {
-  const { client } = useAuth()
-  const refresh = useRefreshWork()
-  return useMutation({
-    mutationFn: async (body: Schemas['RunJobRequest']) => unwrap(await client.POST('/v1/jobs/run', { body })) as Job,
+    mutationFn: async ({ id, action }: { id: string; action: 'pause' | 'resume' | 'run' | 'remove' }) => {
+      const path = { params: { path: { job_id: id } } }
+      switch (action) {
+        case 'pause': return unwrap(await client.POST('/v1/jobs/{job_id}/pause', path))
+        case 'resume': return unwrap(await client.POST('/v1/jobs/{job_id}/resume', path))
+        case 'run': return unwrap(await client.POST('/v1/jobs/{job_id}/run', path))
+        case 'remove': return unwrap(await client.DELETE('/v1/jobs/{job_id}', path))
+      }
+    },
     onSuccess: refresh,
   })
 }
@@ -427,7 +470,7 @@ export function useChooseStream(id: string) {
   const refresh = useRefreshWork()
   return useMutation({
     mutationFn: async (audioStream: number) => unwrap(await client.PUT('/v1/titles/{title_id}/stream', {
-      params: { path: { title_id: id } }, body: { audio_stream: audioStream } })) as Job,
+      params: { path: { title_id: id } }, body: { audio_stream: audioStream } })) as Job,   // a one-off job
     onSuccess: refresh,
   })
 }

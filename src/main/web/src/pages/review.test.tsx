@@ -187,9 +187,9 @@ describe('titles', () => {
                  asked.push(new URL(request.url).searchParams)
                  return json({ total: 2, offset: 0, limit: 100, titles: [title('a'), title('b')] })
                }),
-               http.post('/v1/jobs/run', async ({ request }) => {
-                 sent.push(await request.json())
-                 return json(runJob({ id: 'j1' }), 202)
+               http.post('/v1/jobs', async ({ request }) => {
+                 sent.push((await request.json() as { request: unknown }).request)
+                 return json(runJob({ id: 'j1' }), 201)
                }),
                http.get('/v1/jobs/j1', () => json(runJob({ id: 'j1' }))))
     const router = renderApp('/titles')
@@ -260,12 +260,11 @@ describe('titles', () => {
                  return json({ through: 'publish', label: 'Publish 3', skipped: [],
                                planned: ['a', 'b', 'c'].map((id) => ({ id, title: id, stages: ['publish'] })) })
                }),
-               http.post('/v1/jobs/run', async ({ request }) => {
-                 bodies.push(await request.json())
-                 return json(runJob({ id: 'pub', state: 'queued', result: null }), 202)
+               http.post('/v1/jobs', async ({ request }) => {
+                 bodies.push((await request.json() as { request: unknown }).request)
+                 return json(runJob({ id: 'pub' }), 201)
                }),
-               http.get('/v1/jobs/pub', () => json(runJob({ id: 'pub', state: 'queued', result: null }))),
-               http.get('/v1/jobs/pub/events', () => new HttpResponse(new ReadableStream())))
+               http.get('/v1/jobs/pub', () => json(runJob({ id: 'pub' }))))
     const router = renderApp('/titles?kind=movie')
 
     await waitFor(() => expect(screen.getByRole('button', { name: 'Publish accepted…' })).toBeEnabled())
@@ -439,7 +438,7 @@ describe('revising one title', () => {
       sent.push(body)
       return json(body.run ? { revised: [], failed: [], job: runJob() }
         : { revised: [{ id: 'a', reverted: [], extract_invalidated: false }], failed: [], job: null })
-    }), http.get('/v1/jobs/job-1', () => json(runJob())), http.get('/v1/jobs/job-1/log', () => json([])))
+    }), http.get('/v1/jobs/job-1', () => json(runJob())))
     return sent
   }
 
@@ -523,9 +522,9 @@ describe('choosing the audio stream', () => {
     server.use(http.get('/v1/titles/a/streams', () => json(streams)),
                http.put('/v1/titles/a/stream', async ({ request }) => {
                  chosen.push(await request.json())
-                 return json(runJob(), 202)
+                 return json(runJob(), 201)
                }),
-               http.get('/v1/jobs/job-1', () => json(runJob())), http.get('/v1/jobs/job-1/log', () => json([])))
+               http.get('/v1/jobs/job-1', () => json(runJob())))
     const router = renderApp('/titles/a')
     await userEvent.click(await screen.findByRole('button', { name: 'Audio stream…' }))
     const picker = screen.getByRole('group', { name: 'Audio stream' })

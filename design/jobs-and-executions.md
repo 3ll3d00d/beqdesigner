@@ -1,6 +1,6 @@
 # Jobs and executions
 
-**Design, partly built** (TODO JE: steps 1, 2 and 4 built; 3, 5 and 6 not). Agreed with the user on 2026-10-27. It replaces the service's single schedule and its
+**Design, partly built** (TODO JE: steps 1, 2, 4 and 5 built; 3 and 6 not). Agreed with the user on 2026-10-27. It replaces the service's single schedule and its
 one-record-per-request jobs with two things: a **job**, the definition of some work, and its **executions**, the runs
 that do it. When built, the lasting behaviour moves to [pipeline service §5 and §8](pipeline-service.md) and
 [job windows](job-windows.md), and this file is archived.
@@ -158,7 +158,9 @@ and no longer a `schedule`.
    fake pool and the real `run_stages`.
 4. The routes and models (§4), `/v1/status`, the notifier, the OpenAPI document and `schema.d.ts`, `docker/smoke.py`
    and the user guide. **Done with step 2**; the browser (step 5) is built next, before step 3.
-5. The browser (§5).
+5. The browser (§5). **Done**: Status lists the jobs, `/jobs/:id` is a job's page (edit, pause, run now, remove),
+   `/executions` the log and `/executions/:id` an execution's page; `/jobs` goes to Status. The statistics (§2.3) come
+   with step 3.
 6. The references (pipeline-service §5, §8, job windows, web-app), the archive.
 
 **Built differently from the design above (step 2):**

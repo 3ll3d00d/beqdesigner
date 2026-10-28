@@ -1,5 +1,5 @@
-// When jobs may run (design/job-windows.md §5): a window given with a new job, a job waiting or paused, its window changed,
-// and the default on Status, against a mocked service.
+// When jobs may run (design/job-windows.md §5, design/jobs-and-executions.md §5): a window given with a new job, a job
+// waiting for it, its window changed, and the default on Status, against a mocked service.
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw/http'
@@ -7,7 +7,7 @@ import { http, HttpResponse } from 'msw/http'
 import { saveToken } from '../api/token'
 import { describeWindow, parseRanges } from '../components/WindowField'
 import { when } from '../format'
-import { index, runJob, scanJob, schedule } from '../test/fixtures'
+import { index, runExecution, runJob, scanJob } from '../test/fixtures'
 import { renderApp } from '../test/render'
 import { server, status, statusRoute, TOKEN } from '../test/server'
 
@@ -18,7 +18,6 @@ function json(body: unknown, init?: number) {
 }
 
 const LATER = '2026-10-11T01:00:00Z'
-const never = () => new HttpResponse(new ReadableStream(), { headers: { 'Content-Type': 'text/event-stream' } })
 const nightly = { window: ['01:00-07:00'], time_zone: 'Europe/London', open_now: false, next_change: LATER }
 
 it('reads the ranges typed a line or a comma each, and says a window in words', () => {
@@ -31,91 +30,91 @@ it('reads the ranges typed a line or a comma each, and says a window in words', 
 describe('a new job', () => {
   it('sends the times it may run in, and none when it follows the default', async () => {
     const bodies: unknown[] = []
-    const queued = scanJob({ id: 'scan-2', state: 'queued', error: null })
+    const made = scanJob({ id: 'scan-2', window: ['01:00-07:00'], next_at: LATER, executions: 0, last_execution: null })
     server.use(statusRoute(status({ index: index() })),
-               http.post('/v1/jobs/scan', async ({ request }) => {
+               http.post('/v1/jobs', async ({ request }) => {
                  bodies.push(await request.json())
-                 return json(queued, 202)
+                 return json(made, 201)
                }),
-               http.get('/v1/jobs/scan-2', () => json(queued)), http.get('/v1/jobs/scan-2/events', never))
+               http.get('/v1/jobs/scan-2', () => json(made)))
     const router = renderApp('/jobs/new?kind=scan')
 
     await userEvent.click(await screen.findByRole('radio', { name: 'Only between' }))
     await userEvent.type(screen.getByRole('textbox', { name: 'Times' }), '01:00-07:00')
     await userEvent.click(screen.getByRole('button', { name: 'Scan' }))
     await waitFor(() => expect(router.state.location.pathname).toBe('/jobs/scan-2'))
-    expect(bodies).toEqual([{ sources: [], allow_empty: false, window: ['01:00-07:00'] }])
+    expect(bodies).toEqual([{ kind: 'scan', request: { sources: [], allow_empty: false }, window: ['01:00-07:00'] }])
+    expect((await screen.findByText('Next')).nextElementSibling).toHaveTextContent(when(LATER))
   })
 
   it('may run any time whatever the default says', async () => {
     let body: unknown
     server.use(statusRoute(status({ index: index() })),
-               http.post('/v1/jobs/run', async ({ request }) => {
+               http.post('/v1/jobs', async ({ request }) => {
                  body = await request.json()
-                 return json(runJob({ state: 'queued', finished_at: null, result: null }), 202)
+                 return json(runJob(), 201)
                }),
-               http.get('/v1/jobs/job-1', () => json(runJob())), http.get('/v1/jobs/job-1/log', () => json([])))
+               http.get('/v1/jobs/job-1', () => json(runJob())))
     renderApp('/jobs/new')
     await userEvent.click(await screen.findByRole('radio', { name: 'Any time' }))
     await userEvent.click(screen.getByRole('button', { name: 'Run' }))
-    await waitFor(() => expect(body).toMatchObject({ window: [] }))
+    await waitFor(() => expect(body).toMatchObject({ kind: 'run', window: [] }))
   })
 })
 
 describe('a job outside its window', () => {
-  it('says in the list when a waiting job is taken and a paused one carries on', async () => {
-    server.use(http.get('/v1/jobs', () => json({ jobs: [
-      runJob({ id: 'p', state: 'paused', finished_at: null, result: null, waiting_until: LATER, window: ['01:00-07:00'] }),
-      scanJob({ id: 'w', state: 'queued', finished_at: null, error: null, waiting_until: LATER }),
-    ] })))
-    renderApp('/jobs')
-    expect(await screen.findByText(`until ${when(LATER)}`)).toBeInTheDocument()
-    expect(screen.getByText(`waits for ${when(LATER)}`)).toBeInTheDocument()
-    expect(screen.getAllByText('Paused').length).toBeGreaterThan(0)
+  it('says on Status when a waiting job runs next', async () => {
+    server.use(statusRoute(status({ index: index() })),
+               http.get('/v1/jobs', () => json({ jobs: [runJob({ window: ['01:00-07:00'], next_at: LATER, executions: 1 })] })))
+    renderApp('/')
+    const table = await screen.findByRole('table', { name: 'Jobs' })
+    expect(within(table).getByText(when(LATER))).toBeInTheDocument()
+    expect(within(table).getByText('01:00-07:00')).toBeInTheDocument()
   })
 
-  it('shows a paused job\'s window and parts, and changes its window', async () => {
+  it('changes its window', async () => {
     let asked: unknown
-    const paused = runJob({ state: 'paused', finished_at: null, result: null, window: ['01:00-02:00'], window_open: false,
-                            waiting_until: LATER, parts: 2, paused_at: ['2026-10-10T02:00:00Z'] })
-    server.use(http.get('/v1/job-window', () => json(nightly)),
-               http.get('/v1/jobs/job-1', () => json(paused)), http.get('/v1/jobs/job-1/events', never),
-               http.put('/v1/jobs/job-1/window', async ({ request }) => {
+    const waiting = runJob({ window: ['01:00-02:00'], next_at: LATER })
+    server.use(statusRoute(status({ index: index() })), http.get('/v1/job-window', () => json(nightly)),
+               http.get('/v1/jobs/job-1', () => json(asked ? { ...waiting, window: [], next_at: null } : waiting)),
+               http.patch('/v1/jobs/job-1', async ({ request }) => {
                  asked = await request.json()
-                 return json({ ...paused, window: [], waiting_until: null })
+                 return json({ ...waiting, window: [], next_at: null })
                }))
     renderApp('/jobs/job-1')
 
-    const facts = await screen.findByText(/01:00-02:00 \(Europe\/London\)/)
-    expect(within(facts).getByText(/paused until/)).toBeInTheDocument()
-    expect(screen.getByText(/Started 2 times; paused/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Drop' })).toBeInTheDocument()   // a paused job is dropped, as a queued one
-
-    await userEvent.click(screen.getByRole('button', { name: 'Change…' }))
+    expect(await screen.findByText('01:00-02:00 (Europe/London)')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Edit…' }))
     await userEvent.click(screen.getByRole('radio', { name: 'Any time' }))
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
-    await waitFor(() => expect(asked).toEqual({ window: [] }))
+    await waitFor(() => expect(asked).toEqual({ name: 'Movies through design', window: [] }))
     expect(await screen.findByText(/any time \(Europe\/London\)/)).toBeInTheDocument()
   })
 
   it('says why a window was refused', async () => {
-    const queued = runJob({ state: 'queued', finished_at: null, result: null })
-    server.use(http.get('/v1/jobs/job-1', () => json(queued)), http.get('/v1/jobs/job-1/events', never),
-               http.put('/v1/jobs/job-1/window', () => json({ title: 'Unprocessable', status: 422,
-                                                              detail: "'night': a range is HH:MM-HH:MM" }, 422)))
+    server.use(statusRoute(status({ index: index() })), http.get('/v1/jobs/job-1', () => json(runJob())),
+               http.patch('/v1/jobs/job-1', () => json({ title: 'Unprocessable', status: 422,
+                                                         detail: "'night': a range is HH:MM-HH:MM" }, 422)))
     renderApp('/jobs/job-1')
-    await userEvent.click(await screen.findByRole('button', { name: 'Change…' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit…' }))
     await userEvent.click(screen.getByRole('radio', { name: 'Only between' }))
     await userEvent.type(screen.getByRole('textbox', { name: 'Times' }), 'night')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('a range is HH:MM-HH:MM')
+  })
+
+  it('says an execution its window stopped is waiting for its job to carry on', async () => {
+    server.use(http.get('/v1/executions/ex-1', () => json(runExecution({ state: 'stopped', stopped_because: 'window' }))),
+               http.get('/v1/executions/ex-1/log', () => json([])))
+    renderApp('/executions/ex-1')
+    expect((await screen.findByText('State')).nextElementSibling).toHaveTextContent('Stopped — its window closed')
   })
 })
 
 describe('the default window', () => {
   it('is on Status, says when it next opens, and is saved there', async () => {
     let saved: unknown
-    server.use(statusRoute(status({ index: index() })), http.get('/v1/schedule', () => json(schedule())),
+    server.use(statusRoute(status({ index: index() })),
                http.get('/v1/job-window', () => json({ window: [], time_zone: 'Europe/London', open_now: true,
                                                        next_change: null })),
                http.put('/v1/job-window', async ({ request }) => {

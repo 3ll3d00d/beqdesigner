@@ -1,11 +1,13 @@
-// Starting work (design/web-app.md §4): a scan, or a run of a filtered selection through a stage, previewed first with
-// POST /v1/plan. Publish and commit are offered only when the service allows them (allow_repository_writes, a repository).
+// Making a job (design/web-app.md §4, design/jobs-and-executions.md §5): a scan, or a run of a filtered selection through a
+// stage, previewed first with POST /v1/plan; once, or every N minutes (a run through extract or design). Publish and
+// commit are offered only when the service allows them (allow_repository_writes, a repository).
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 
 import type { Schemas } from '../api/client'
 import { cleanFilter, describeFilter, filterFromQuery, type Needs, type TitleFilter } from '../api/filter'
 import { usePlan, useStatus, useSubmitRun, useSubmitScan } from '../api/hooks'
+import { EveryField, type Every } from '../components/EveryField'
 import { FilterForm } from '../components/FilterForm'
 import { WindowField, type Window } from '../components/WindowField'
 import { count } from '../format'
@@ -20,17 +22,27 @@ export function repositoryRefusal(status: Schemas['ServiceStatus'] | undefined):
   return ''
 }
 
+function NameField({ value, onChange }: { value: string; onChange: (name: string) => void }) {
+  return (
+    <label className="inline">
+      Name <input aria-label="Name" value={value} placeholder="What it does" onChange={(e) => onChange(e.target.value)} />
+    </label>
+  )
+}
+
 function ScanForm({ sources }: { sources: string[] }) {
   const navigate = useNavigate()
   const scan = useSubmitScan()
   const [chosen, setChosen] = useState<string[]>([])
   const [jobWindow, setJobWindow] = useState<Window>(null)
+  const [name, setName] = useState('')
   return (
     <form onSubmit={(e) => {
       e.preventDefault()
-      scan.mutate({ sources: chosen, allow_empty: false, ...(jobWindow !== null ? { window: jobWindow } : {}) },
+      scan.mutate({ sources: chosen, allow_empty: false, name, window: jobWindow },
                   { onSuccess: (job) => navigate(`/jobs/${job.id}`) })
     }}>
+      <NameField value={name} onChange={setName} />
       <fieldset>
         <legend>Sources</legend>
         {sources.length ? sources.map((name) => (
@@ -58,7 +70,10 @@ function RunForm({ sources, initial, status }: { sources: string[]; initial: Tit
   const [scanFirst, setScanFirst] = useState(true)
   const [retryFailed, setRetryFailed] = useState(false)
   const [jobWindow, setJobWindow] = useState<Window>(null)
+  const [every, setEvery] = useState<Every>(null)
+  const [name, setName] = useState('')
   const refusal = repositoryRefusal(status)
+  const recurs = through === 'extract' || through === 'design'
   const body = (): Schemas['RunJobRequest'] => ({ filter: cleanFilter(filter), through, redesign: false, revise_to: 'design', scan_first: scanFirst,
                                                   retry_failed: retryFailed })
   const preview = plan.data
@@ -67,8 +82,10 @@ function RunForm({ sources, initial, status }: { sources: string[]; initial: Tit
   return (
     <form onSubmit={(e) => {
       e.preventDefault()
-      run.mutate({ ...body(), ...(jobWindow !== null ? { window: jobWindow } : {}) }, { onSuccess: (job) => navigate(`/jobs/${job.id}`) })
+      run.mutate({ ...body(), name, window: jobWindow, every: recurs ? every : null },
+                 { onSuccess: (job) => navigate(`/jobs/${job.id}`) })
     }}>
+      <NameField value={name} onChange={setName} />
       <FilterForm value={filter} onChange={setFilter} sources={sources} needs={RUN_NEEDS} />
       <fieldset>
         <legend>Through</legend>
@@ -93,12 +110,15 @@ function RunForm({ sources, initial, status }: { sources: string[]; initial: Tit
           Retry titles that failed before
         </label>
       </fieldset>
+      <EveryField value={recurs ? every : null} onChange={setEvery} allowed={recurs}
+                  why="Only a run through extract or design recurs: publish and commit wait for a person." />
+      {recurs && every !== null && <p className="muted">Each run works on the titles that still need extract or design.</p>}
       <WindowField value={jobWindow} onChange={setJobWindow} />
       <div className="actions">
         <button type="button" className="secondary" disabled={plan.isPending} onClick={() => plan.mutate(body())}>
           Preview
         </button>
-        <button type="submit" disabled={run.isPending}>Run</button>
+        <button type="submit" disabled={run.isPending}>{recurs && every !== null ? 'Make job' : 'Run'}</button>
       </div>
       {(plan.error || run.error) && <p role="alert" className="problem">{(plan.error ?? run.error)!.message}</p>}
       {preview && (
@@ -138,7 +158,7 @@ export function NewJobPage() {
   const sources = status.data?.index?.sources.map((s) => s.name) ?? []
   return (
     <section>
-      <p><Link to="/jobs">← Jobs</Link></p>
+      <p><Link to="/">← Status</Link></p>
       <h1>New job</h1>
       <div className="tabs" role="tablist">
         {(['run', 'scan'] as const).map((k) => (

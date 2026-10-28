@@ -1,4 +1,4 @@
-// Following a job's events (GET /v1/jobs/{id}/events, Server-Sent Events). EventSource cannot send the Authorization header,
+// Following an execution's events (GET /v1/executions/{id}/events, Server-Sent Events). EventSource cannot send the Authorization header,
 // so the stream is read with fetch; a dropped connection is resumed with Last-Event-ID until the job's final state event.
 import type { Schemas } from './client'
 
@@ -65,10 +65,10 @@ export interface FollowOptions {
  * stream only when the job is over, and keeps a live one open with comments every 15 s), the signal aborts (false), or
  * the stream cannot be resumed after `maxRetries` failures in a row (rejects). A 401 or 404 is not retried.
  */
-export async function followJob(jobId: string, options: FollowOptions): Promise<boolean> {
+export async function followExecution(executionId: string, options: FollowOptions): Promise<boolean> {
   const { token, onEvent, signal, retryMs = 2000, maxRetries = 5 } = options
   const fetcher = options.fetch ?? globalThis.fetch
-  const url = `${options.baseUrl ?? ''}/v1/jobs/${encodeURIComponent(jobId)}/events`
+  const url = `${options.baseUrl ?? ''}/v1/executions/${encodeURIComponent(executionId)}/events`
   let last = options.after ?? 0
   let failures = 0
   while (!signal?.aborted) {

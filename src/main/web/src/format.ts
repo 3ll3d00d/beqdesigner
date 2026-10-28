@@ -27,17 +27,32 @@ export const STRIP_WORDS: Record<NeedsWord, string> = {
   done: 'Done',
 }
 
+/** An execution's states. */
 export const STATE_WORDS: Record<string, string> = {
   queued: 'Queued',
   running: 'Running',
-  paused: 'Paused',
   succeeded: 'Succeeded',
   failed: 'Failed',
   cancelled: 'Cancelled',
+  stopped: 'Stopped',
   interrupted: 'Interrupted',
 }
 
-export const FINISHED_STATES = new Set(['succeeded', 'failed', 'cancelled', 'interrupted'])
+/** A job's states. */
+export const JOB_STATE_WORDS: Record<string, string> = {
+  active: 'Active',
+  paused: 'Paused',
+  done: 'Done',
+  removed: 'Removed',
+}
+
+export const STOPPED_WORDS: Record<string, string> = {
+  window: 'its window closed',
+  paused: 'its job was paused',
+  removed: 'its job was removed',
+}
+
+export const FINISHED_STATES = new Set(['succeeded', 'failed', 'cancelled', 'stopped', 'interrupted'])
 
 export function when(value: string | null | undefined, now: Date = new Date()): string {
   if (!value) return '—'

@@ -1,178 +1,167 @@
-// One job: what was asked, how it went, its log (live while it runs), and Cancel.
+// One job (design/jobs-and-executions.md §5): what it does and when, its execution running now (followed live), the ones
+// before, and pause, resume, run now, edit and remove.
 import { useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, useNavigate, useParams } from 'react-router'
 
 import type { Schemas } from '../api/client'
-import type { JobEvent } from '../api/events'
-import { useCancelJob, useDefaultWindow, useJob, useJobEvents, useJobLog, useSetJobWindow, type Job } from '../api/hooks'
-import { describeJob, JobProgress, StateBadge } from '../components/JobBits'
+import { cleanFilter, type Needs, type TitleFilter } from '../api/filter'
+import { useCancelExecution, useDefaultWindow, useEditJob, useExecutionEvents, useExecutions, useJob, useJobAction,
+  useStatus, type Execution, type Job } from '../api/hooks'
+import { EveryField, type Every } from '../components/EveryField'
+import { FilterForm } from '../components/FilterForm'
+import { describeEvery, describeExecution, describeRequest, ExecutionProgress, JobStateBadge, StateBadge, stoppedBecause }
+  from '../components/JobBits'
 import { describeWindow, WindowField, type Window } from '../components/WindowField'
-import { between, count, FINISHED_STATES, when } from '../format'
+import { between, count, when } from '../format'
 
-function Titles({ heading, items }: { heading: string; items: { id: string; message?: string; reason?: string; title?: string }[] }) {
-  if (!items.length) return null
+const RECURRING_NEEDS: readonly Needs[] = ['extract', 'design']
+
+/** Its name and window; a recurring job's interval and run too. A one-off's request is fixed once made. */
+function EditJob({ job, done }: { job: Job; done: () => void }) {
+  const edit = useEditJob()
+  const status = useStatus(0)
+  const sources = status.data?.index?.sources.map((s) => s.name) ?? []
+  const [name, setName] = useState(job.name)
+  const [window, setWindow] = useState<Window>(job.window ?? null)
+  const [every, setEvery] = useState<Every>(job.every ?? null)
+  const run = job.kind === 'run' ? job.request : null
+  const [filter, setFilter] = useState<TitleFilter>(run?.filter ?? {})
+  const [through, setThrough] = useState<'extract' | 'design'>(run?.through === 'extract' ? 'extract' : 'design')
+  const [retryFailed, setRetryFailed] = useState(!!run?.retry_failed)
   return (
-    <details open={items.length <= 10}>
-      <summary>{heading} ({items.length.toLocaleString()})</summary>
-      <ul className="titles">
-        {items.map((item) => (
-          <li key={item.id}>
-            <Link to={`/titles/${encodeURIComponent(item.id)}`}>{item.title || item.id}</Link>
-            {(item.message || item.reason) && <span className="muted"> — {item.message || item.reason}</span>}
-          </li>
-        ))}
-      </ul>
-    </details>
+    <form aria-label="Edit job" onSubmit={(e) => {
+      e.preventDefault()
+      const body: Schemas['JobUpdate'] & { id: string } = { id: job.id, name, window }
+      if (job.every && run) {
+        Object.assign(body, { every: every ?? job.every, request: {
+          ...run, filter: cleanFilter({ ...filter, needs: ['extract', 'design'] }), through, retry_failed: retryFailed } })
+      }
+      edit.mutate(body, { onSuccess: done })
+    }}>
+      <label className="inline">Name <input value={name} onChange={(e) => setName(e.target.value)} /></label>
+      <WindowField value={window} onChange={setWindow} />
+      {job.every && run && <>
+        <EveryField value={every} onChange={setEvery} allowed={true} />
+        <FilterForm value={filter} onChange={setFilter} sources={sources} needs={RECURRING_NEEDS} />
+        <fieldset>
+          <legend>Through</legend>
+          {(['extract', 'design'] as const).map((stage) => (
+            <label key={stage} className="check">
+              <input type="radio" name="through" checked={through === stage} onChange={() => setThrough(stage)} />{stage}
+            </label>
+          ))}
+          <label className="check">
+            <input type="checkbox" checked={retryFailed} onChange={(e) => setRetryFailed(e.target.checked)} />
+            Retry titles that failed before
+          </label>
+        </fieldset>
+      </>}
+      <div className="actions">
+        <button type="submit" disabled={edit.isPending}>Save</button>
+        <button type="button" className="secondary" onClick={done}>Cancel</button>
+      </div>
+      {edit.error && <p role="alert" className="problem">{edit.error.message}</p>}
+    </form>
   )
 }
 
-const ids = (values: string[]) => values.map((id) => ({ id }))
-
-function ScanOutcome({ result }: { result: Schemas['ScanResult'] }) {
-  const errors = Object.entries(result.errors)
+/** The execution running now (or waiting), followed live, with Cancel. */
+function Running({ execution, oneOff }: { execution: Execution; oneOff: boolean }) {
+  const live = useExecutionEvents(execution.state === 'running' ? execution.id : null)
+  const cancel = useCancelExecution()
   return (
-    <>
-      <p>{count(result.titles, 'title')}: {result.new.length.toLocaleString()} new, {result.gone.length.toLocaleString()} gone.</p>
-      {errors.map(([source, why]) => <p key={source} className="problem">{source}: {why}</p>)}
-      <Titles heading="New" items={ids(result.new)} />
-    </>
-  )
-}
-
-function RunOutcome({ result }: { result: Schemas['RunResult'] }) {
-  return (
-    <>
-      {result.scan && <ScanOutcome result={result.scan} />}
-      <p>
-        {count(result.selected, 'title')} selected: {result.extracted.length.toLocaleString()} extracted
-        ({result.cached.length.toLocaleString()} already), {result.designed.length.toLocaleString()} designed
-        ({result.design_cached.length.toLocaleString()} already)
-        {result.published.length ? `, ${result.published.length.toLocaleString()} published` : ''}.
-      </p>
-      {result.cancelled && <p className="problem">Cancelled: {count(result.not_run.length, 'title')} not run.</p>}
-      {result.stopped && <p className="problem">{result.stopped}</p>}
-      {result.commit_error && <p className="problem">Commit: {result.commit_error}</p>}
-      {result.committed && <p>Committed to the catalogue.</p>}
-      <Titles heading="Failed" items={result.failed} />
-      <Titles heading="Not done: something it needs was unavailable" items={result.unavailable ?? []} />
-      <Titles heading="Not tried: failed before with the same source and settings" items={result.failed_earlier} />
-      <Titles heading="Not published" items={result.publish_errors.map((e) => ({ id: e.id, message: e.message || e.error }))} />
-      <Titles heading="Designed" items={ids(result.designed)} />
-      <Titles heading="Skipped" items={result.skipped} />
-    </>
-  )
-}
-
-function AcceptOutcome({ result }: { result: Schemas['AcceptResult'] }) {
-  return (
-    <>
-      <p>{result.dry_run ? 'Would accept' : 'Accepted'} {count(result.accepted.length, 'title')} at confidence {result.threshold}
-        {' '}or more; {result.below_threshold.toLocaleString()} below it.</p>
-      {result.note && <p className="muted">{result.note}</p>}
-      <Titles heading={result.dry_run ? 'Would accept' : 'Accepted'} items={ids(result.accepted)} />
-      <Titles heading="Left for a person" items={result.excluded} />
-    </>
-  )
-}
-
-function Outcome({ job }: { job: Job }) {
-  if (job.error) return <p role="alert" className="problem">{job.error}</p>
-  if (!job.result) return null
-  switch (job.kind) {
-    case 'scan': return <ScanOutcome result={job.result} />
-    case 'run': return <RunOutcome result={job.result} />
-    case 'accept': return <AcceptOutcome result={job.result} />
-  }
-}
-
-function Log({ events }: { events: JobEvent[] }) {
-  if (!events.length) return <p className="muted">Nothing reported yet.</p>
-  return (
-    <ol className="log" aria-label="Log">
-      {events.map((event) => (
-        <li key={event.seq} className={`event-${event.type}`}>
-          <time dateTime={event.at}>{when(event.at)}</time> {event.text}
-        </li>
-      ))}
-    </ol>
-  )
-}
-
-/** When a job may run, when it waits until, and a change to that while it has not finished. */
-function JobWindow({ job, open }: { job: Job; open: boolean }) {
-  const defaults = useDefaultWindow()
-  const save = useSetJobWindow()
-  const [editing, setEditing] = useState(false)
-  const [value, setValue] = useState<Window>(job.window ?? null)
-  return (
-    <>
-      <dt>Runs</dt>
-      <dd>{describeWindow(job.window, defaults.data)}
-        {job.waiting_until && <span className="muted"> — {job.state === 'paused' ? 'paused until' : 'waits for'}{' '}
-          {when(job.waiting_until)}</span>}
-        {open && !editing && <> <button type="button" className="secondary" onClick={() => { setValue(job.window ?? null); setEditing(true) }}>
-          Change…</button></>}
-      </dd>
-      {editing && (
-        <dd>
-          <form onSubmit={(e) => {
-            e.preventDefault()
-            save.mutate({ id: job.id, window: value }, { onSuccess: () => setEditing(false) })
-          }}>
-            <WindowField value={value} onChange={setValue} />
-            <div className="actions">
-              <button type="submit" disabled={save.isPending}>Save</button>
-              <button type="button" className="secondary" onClick={() => setEditing(false)}>Cancel</button>
-            </div>
-            {save.error && <p role="alert" className="problem">{save.error.message}</p>}
-          </form>
-        </dd>
-      )}
-      {job.parts > 1 && <><dt>Parts</dt><dd>Started {job.parts} times; paused {job.paused_at.map((t) => when(t)).join(', ')}</dd></>}
-      {job.parts <= 1 && job.paused_at.length > 0 && <><dt>Paused</dt><dd>{job.paused_at.map((t) => when(t)).join(', ')}</dd></>}
-    </>
+    <section aria-label="Running">
+      <h2>Now</h2>
+      <p><StateBadge state={execution.state} />{' '}
+        <Link to={`/executions/${execution.id}`}>{describeExecution(execution)}</Link>
+        {execution.waiting_until && <span className="muted"> — waits for {when(execution.waiting_until)}</span>}
+        {' '}<button type="button" className="danger" disabled={cancel.isPending} onClick={() => cancel.mutate(execution.id)}>
+          Cancel</button></p>
+      {oneOff && <p className="muted">Cancelling it removes this job.</p>}
+      {cancel.error && <p role="alert" className="problem">{cancel.error.message}</p>}
+      <ExecutionProgress execution={execution} events={live.events} />
+    </section>
   )
 }
 
 export function JobPage() {
   const { jobId = '' } = useParams()
   const job = useJob(jobId)
-  const running = job.data ? !FINISHED_STATES.has(job.data.state) : false
-  const live = useJobEvents(running ? jobId : null)
-  const history = useJobLog(jobId, !!job.data && !running)
-  const cancel = useCancelJob()
+  const executions = useExecutions(jobId)
+  const defaults = useDefaultWindow()
+  const act = useJobAction()
+  const navigate = useNavigate()
+  const [editing, setEditing] = useState(false)
+  const [removing, setRemoving] = useState(false)
 
   if (job.isPending) return <p className="muted">Loading…</p>
   if (job.isError) return <p role="alert" className="problem">{job.error.message}</p>
   const data = job.data
-  const events = running ? live.events : history.data ?? []
+  const live = data.state === 'active' || data.state === 'paused'
+  const running = data.running_execution as Execution | null | undefined
+  const history = ((executions.data?.executions ?? []) as Execution[]).filter((e) => e.id !== running?.id)
   return (
     <section>
-      <p><Link to="/jobs">← Jobs</Link></p>
+      <p><Link to="/">← Status</Link></p>
       <div className="title-row">
-        <h1>{describeJob(data)}</h1>
-        {running && (
-          <button type="button" className="danger" disabled={cancel.isPending} onClick={() => cancel.mutate(data.id)}>
-            {data.state === 'running' ? 'Cancel' : 'Drop'}
-          </button>
+        <h1>{data.name}</h1>
+        {live && (
+          <div className="actions">
+            {data.state === 'active'
+              ? <button type="button" disabled={act.isPending} onClick={() => act.mutate({ id: data.id, action: 'pause' })}>Pause</button>
+              : <button type="button" disabled={act.isPending} onClick={() => act.mutate({ id: data.id, action: 'resume' })}>Resume</button>}
+            {data.every && !running && (
+              <button type="button" className="secondary" disabled={act.isPending}
+                      onClick={() => act.mutate({ id: data.id, action: 'run' })}>Run now</button>
+            )}
+            <button type="button" className="secondary" onClick={() => setEditing(true)}>Edit…</button>
+            <button type="button" className="danger" onClick={() => setRemoving(true)}>Remove…</button>
+          </div>
         )}
       </div>
-      {cancel.error && <p role="alert" className="problem">{cancel.error.message}</p>}
-      {cancel.isSuccess && data.state === 'running' && <p className="muted">Stopping after the title in hand…</p>}
-      <dl className="facts">
-        <dt>State</dt><dd><StateBadge state={data.state} /></dd>
-        <dt>From</dt><dd>{data.origin === 'schedule' ? 'the schedule' : 'a request'}</dd>
-        <dt>Submitted</dt><dd>{when(data.submitted_at)}</dd>
-        <dt>Started</dt><dd>{when(data.started_at)}</dd>
-        <dt>Took</dt><dd>{data.started_at ? between(data.started_at, data.finished_at) : '—'}</dd>
-        {data.joined_to && <><dt>Joined</dt><dd><Link to={`/jobs/${data.joined_to}`}>the run in progress</Link></dd></>}
-        <JobWindow job={data} open={running} />
-      </dl>
-      <JobProgress job={data} events={live.events} />
-      <Outcome job={data} />
-      <h2>Log</h2>
-      {live.problem && <p role="alert" className="problem">Lost the live log: {live.problem}</p>}
-      <Log events={events} />
+      {act.error && <p role="alert" className="problem">{act.error.message}</p>}
+      {removing && (
+        <div className="confirm" role="group" aria-label="Confirm remove">
+          <p>Remove this job? Nothing more of it runs{running ? ', and the run going stops before its next title' : ''}.</p>
+          <div className="actions">
+            <button type="button" className="danger" disabled={act.isPending}
+                    onClick={() => act.mutate({ id: data.id, action: 'remove' },
+                                              { onSuccess: () => { setRemoving(false); navigate('/') } })}>Remove</button>
+            <button type="button" className="secondary" onClick={() => setRemoving(false)}>Back</button>
+          </div>
+        </div>
+      )}
+      {editing ? <EditJob job={data} done={() => setEditing(false)} /> : (
+        <dl className="facts">
+          <dt>State</dt><dd><JobStateBadge state={data.state} />{data.ended && <span className="muted"> — {data.ended}</span>}</dd>
+          <dt>Does</dt><dd>{describeRequest(data)}</dd>
+          <dt>When</dt><dd>{describeEvery(data)}</dd>
+          <dt>Runs</dt><dd>{describeWindow(data.window, defaults.data)}</dd>
+          <dt>Next</dt><dd>{data.next_at ? when(data.next_at) : '—'}</dd>
+          {data.progress && <><dt>Progress</dt><dd>{data.progress.done.toLocaleString()}
+            {data.progress.total != null && <> of {data.progress.total.toLocaleString()}</>} done
+            {data.remaining != null && data.state !== 'done' && <span className="muted"> ({count(data.remaining, 'title')} left)</span>}</dd></>}
+          {data.last_skip && <><dt>Last skipped</dt><dd>{data.last_skip}</dd></>}
+          <dt>Made</dt><dd>{when(data.created_at)}</dd>
+        </dl>
+      )}
+      {running && <Running execution={running} oneOff={!data.every} />}
+      <h2>Executions</h2>
+      {history.length ? (
+        <table className="list" aria-label="Its executions">
+          <thead><tr><th>State</th><th>Run</th><th>Started</th><th>Took</th></tr></thead>
+          <tbody>
+            {history.map((e) => (
+              <tr key={e.id}>
+                <td><StateBadge state={e.state} />{stoppedBecause(e) && <span className="muted"> {stoppedBecause(e)}</span>}</td>
+                <td><Link to={`/executions/${e.id}`}>{e.number ? `Run ${e.number}` : describeExecution(e)}</Link></td>
+                <td>{when(e.started_at ?? e.submitted_at)}</td>
+                <td>{e.started_at ? between(e.started_at, e.finished_at) : '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : <p className="muted">{running ? 'None before this one.' : 'None yet.'}</p>}
     </section>
   )
 }

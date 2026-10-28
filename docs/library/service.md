@@ -279,13 +279,17 @@ receive the job and title details.
 Open `http://HOST:PORT/` and sign in with the service token. *Remember on this device* keeps it in the browser;
 otherwise it lasts until the tab is closed. The token is checked with the service before it is kept.
 
-* **Status:** how many titles need each stage (each count opens the list of them), the job running now and how far it
-  has got (the title in hand, ffmpeg's percent, the time to go), what is waiting, the schedule and the sources it
-  scans before each run, with *Pause*/*Resume*, *Run now*, *Rescan sources* and *New job* together under *Jobs*; and
-  the *Designers* table.
-* **Jobs:** what has run and is running, each job's result (its failures link to the titles) and its log, live while it
-  runs, with *Cancel*. *New job* scans the sources, or runs the titles a filter selects through extract, design,
-  publish or commit; *Preview* says what would run and what would be skipped, and why, before anything is started.
+* **Status:** how many titles need each stage (each count opens the list of them), the execution running now and how
+  far it has got (the title in hand, ffmpeg's percent, the time to go), what is waiting, and every job that is active or
+  paused, with *Pause*/*Resume*, *Run now* (a recurring job) and *Edit…*, then *Rescan sources* and *New job*, under
+  *Jobs*; and the *Designers* table.
+* **A job:** what it does, how often, its window and next start, its execution running now (live, with *Cancel*,
+  which removes a one-off job) and the ones before, with *Pause*/*Resume*, *Run now*, *Edit…* and *Remove…*. *New job*
+  scans the sources, or runs the titles a filter selects through extract, design, publish or commit, once or (through
+  extract or design) every so many minutes; *Preview* says what would run and what would be skipped, and why, before
+  anything is started.
+* **Executions:** the log of what has run and is running, and each job's next start; each execution's result (its
+  failures link to the titles) and its log, live while it runs, with *Cancel*.
 * **Titles:** the work list's table and filters. The filters are kept in the address bar, so a list can be bookmarked
   or shared. *Review next waiting* opens the first title waiting for a decision. *Publish accepted…* and *Commit
   published…* say how many titles they would take and ask before starting.

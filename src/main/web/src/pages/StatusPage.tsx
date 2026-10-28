@@ -1,14 +1,14 @@
-// What the service is doing (design/web-app.md §4): the pipeline strip, the jobs (the one running now followed live, the
-// schedule and the sources it scans) and the designers.
+// What the service is doing (design/web-app.md §4, design/jobs-and-executions.md §5): the pipeline strip, the jobs (each
+// one, with the execution running now followed live, and the sources a scan lists) and the designers.
 import { Link } from 'react-router'
 
 import type { Schemas } from '../api/client'
-import { describeFilter, filterToQuery } from '../api/filter'
-import { useJobEvents, useSaveSchedule, useSchedule, useStatus, useTriggerSchedule, type Job } from '../api/hooks'
+import { filterToQuery } from '../api/filter'
+import { useExecutionEvents, useJobAction, useJobs, useStatus, type Execution, type Job } from '../api/hooks'
 import type { JobEvent } from '../api/events'
-import { describeJob, extraction, StateBadge } from '../components/JobBits'
+import { describeEvery, describeExecution, describeRequest, extraction, JobStateBadge, StateBadge } from '../components/JobBits'
 import { ScanSources } from '../components/ScanSources'
-import { DefaultWindow } from '../components/WindowField'
+import { DefaultWindow, describeRanges } from '../components/WindowField'
 import { count, duration, NEEDS_ORDER, STRIP_WORDS, when } from '../format'
 
 function Strip({ counts }: { counts: Record<string, number> }) {
@@ -29,7 +29,7 @@ function Strip({ counts }: { counts: Record<string, number> }) {
 type Designs = Schemas['EndpointDesign'][]
 
 /** What the job is doing now: the title in hand (with ffmpeg's progress on it), and the designs out on the designer. */
-function Activity({ job, events, designing }: { job: Job; events: JobEvent[]; designing: Designs }) {
+function Activity({ job, events, designing }: { job: Execution; events: JobEvent[]; designing: Designs }) {
   const progress = job.progress
   const ffmpeg = extraction(events, progress?.id || undefined)
   const inHand = progress?.stage && progress.title && !(progress.stage === 'design' && designing.length)
@@ -46,72 +46,80 @@ function Activity({ job, events, designing }: { job: Job; events: JobEvent[]; de
   )
 }
 
-type Schedule = Schemas['Schedule']
-
-/** When the schedule runs next and what it does: each tick lists the sources again, then runs what the filter selects. */
-function describeSchedule(schedule: Schedule): string {
-  if (!schedule.enabled) return 'Paused.'
-  return `Every ${schedule.interval_minutes} min: scan the sources, then run ${describeFilter(schedule.filter ?? {})} through ` +
-    `${schedule.through}.`
+/** A job in a row: what it does, when, its state and next run, the execution running now, and pause, resume, run now. */
+function JobRow({ job }: { job: Job }) {
+  const act = useJobAction()
+  const running = job.running_execution as Execution | null | undefined
+  return (
+    <tr>
+      <td><Link to={`/jobs/${job.id}`}>{job.name}</Link><div className="muted">{describeRequest(job)}</div></td>
+      <td>{describeEvery(job)}{job.window !== null && job.window !== undefined &&
+        <div className="muted">{describeRanges(job.window)}</div>}</td>
+      <td><JobStateBadge state={job.state} />{job.last_skip && <div className="muted">skipped: {job.last_skip}</div>}</td>
+      <td>{running ? <><StateBadge state={running.state} />{' '}
+        <Link to={`/executions/${running.id}`}>{running.progress && running.state === 'running'
+          ? `${running.progress.done.toLocaleString()} of ${running.progress.total.toLocaleString()}` : 'open'}</Link></>
+        : job.next_at ? when(job.next_at) : '—'}</td>
+      <td className="actions">
+        {job.state === 'active'
+          ? <button type="button" className="secondary" disabled={act.isPending}
+                    onClick={() => act.mutate({ id: job.id, action: 'pause' })}>Pause</button>
+          : job.state === 'paused' && <button type="button" className="secondary" disabled={act.isPending}
+                                              onClick={() => act.mutate({ id: job.id, action: 'resume' })}>Resume</button>}
+        {job.every && !running && (job.state === 'active' || job.state === 'paused') &&
+          <button type="button" className="secondary" disabled={act.isPending}
+                  onClick={() => act.mutate({ id: job.id, action: 'run' })}>Run now</button>}
+        <Link to={`/jobs/${job.id}`}>Edit…</Link>
+        {act.error && <span role="alert" className="problem"> {act.error.message}</span>}
+      </td>
+    </tr>
+  )
 }
 
 /**
- * The work, from both ends: the job running now (followed live), what is waiting, the schedule that queues the next one
- * and the sources it lists first -- with every way to start or stop one.
+ * The work, from both ends: the execution running now (followed live), what waits, and every job that is active or paused
+ * -- with the ways to start, pause or change one -- and the sources a scan lists.
  */
-function Jobs({ job, queued, designing, sources, scanned }:
-              { job: Job | null; queued: number; designing: Designs; sources: Schemas['SourceStatus'][]; scanned: boolean }) {
-  const { events } = useJobEvents(job?.state === 'running' ? job.id : null)
-  const progress = job?.state === 'running' ? job.progress : null
-  const schedule = useSchedule()
-  const save = useSaveSchedule()
-  const trigger = useTriggerSchedule()
-  const data = schedule.data
-  const problem = save.error?.message ?? trigger.error?.message
+function Jobs({ running, waiting, designing, sources, scanned }:
+              { running: Execution | null; waiting: number; designing: Designs; sources: Schemas['SourceStatus'][];
+                scanned: boolean }) {
+  const { events } = useExecutionEvents(running?.state === 'running' ? running.id : null)
+  const progress = running?.state === 'running' ? running.progress : null
+  const jobs = useJobs()
+  const listed = (jobs.data ?? []).filter((j) => j.state === 'active' || j.state === 'paused')
   return (
     <section className="card wide" aria-labelledby="jobs">
       <h2 id="jobs">Jobs</h2>
-      <dl className="facts" aria-label="Jobs">
-        <dt>Job</dt>
-        <dd>{job ? <><StateBadge state={job.state} /> <Link to={`/jobs/${job.id}`}>{describeJob(job)}</Link></>
-          : <span className="muted">None running</span>}</dd>
-        {job && <>
-          <dt>Started</dt><dd>{when(job.started_at)}</dd>
+      <dl className="facts" aria-label="Running">
+        <dt>Running</dt>
+        <dd>{running ? <><StateBadge state={running.state} /> <Link to={`/executions/${running.id}`}>{describeExecution(running)}</Link></>
+          : <span className="muted">Nothing</span>}</dd>
+        {running && <>
+          <dt>Started</dt><dd>{when(running.started_at)}</dd>
           <dt>Estimated end</dt>
           <dd>{progress?.estimated_finish ? when(progress.estimated_finish) : '—'}
             {progress?.remaining_seconds != null && <span className="muted"> (about {duration(progress.remaining_seconds)} to go)</span>}</dd>
           <dt>Progress</dt>
           <dd>{progress ? <>{progress.done.toLocaleString()} of {progress.total.toLocaleString()}
             {progress.per_hour ? <span className="muted">, {progress.per_hour} an hour</span> : null}</> : '—'}</dd>
-          <dt>Activity</dt><dd><Activity job={job} events={events} designing={job.state === 'running' ? designing : []} /></dd>
+          <dt>Activity</dt><dd><Activity job={running} events={events} designing={running.state === 'running' ? designing : []} /></dd>
         </>}
-        <dt>Waiting</dt><dd>{queued ? count(queued, 'job') : 'Nothing'}</dd>
+        <dt>Waiting</dt><dd>{waiting ? count(waiting, 'execution') : 'Nothing'}</dd>
         <dt>Jobs run</dt><dd><DefaultWindow /></dd>
-        {data && <>
-          <dt>Schedule</dt><dd>{describeSchedule(data)}</dd>
-          {data.enabled && data.next_run_at && <><dt>Next run</dt><dd>{when(data.next_run_at)}</dd></>}
-          {data.last_run && <><dt>Last run</dt><dd><StateBadge state={data.last_run.state} />{' '}
-            <Link to={`/jobs/${data.last_run.job_id}`}>{when(data.last_run.finished_at)}</Link></dd></>}
-          {data.last_skip && <><dt>Last skipped</dt><dd>{data.last_skip}</dd></>}
-          {data.ended && <><dt>Ended</dt><dd>{data.ended}</dd></>}
-        </>}
       </dl>
       {progress && <progress value={progress.done} max={Math.max(progress.total, 1)} aria-label="Progress" />}
+      {jobs.isError && <p role="alert" className="problem">{jobs.error.message}</p>}
+      {listed.length > 0 ? (
+        <table className="list" aria-label="Jobs">
+          <thead><tr><th>Job</th><th>When</th><th>State</th><th>Next</th><th></th></tr></thead>
+          <tbody>{listed.map((job) => <JobRow key={job.id} job={job} />)}</tbody>
+        </table>
+      ) : jobs.data && <p className="muted">No jobs are active or paused.</p>}
       <div className="actions">
-        {data && <>
-          <button type="button" disabled={save.isPending}
-                  onClick={() => save.mutate({ enabled: !data.enabled, interval_minutes: data.interval_minutes,
-                                               filter: data.filter, through: data.through, retry_failed: data.retry_failed })}>
-            {data.enabled ? 'Pause' : 'Resume'}
-          </button>
-          <button type="button" className="secondary" disabled={trigger.isPending} onClick={() => trigger.mutate()}>
-            Run now
-          </button>
-        </>}
         <ScanSources scanned={scanned} />
         <Link to="/jobs/new">New job…</Link>
+        <Link to="/executions">Every execution</Link>
       </div>
-      {problem && <p role="alert" className="problem">{problem}</p>}
       {sources.length > 0 && (
         <table aria-label="Sources">
           <thead><tr><th>Source</th><th>Kind</th><th className="num">Titles</th><th>Last listed</th><th>Problem</th></tr></thead>
@@ -194,7 +202,7 @@ export function StatusPage() {
           ) : <p>Not scanned yet. <Link to="/jobs/new?kind=scan">Scan the sources…</Link></p>}
           <p className="muted">Service <span>{status.data.version}</span>.</p>
           <div className="cards">
-            <Jobs job={status.data.current_job as Job | null} queued={status.data.queued}
+            <Jobs running={(status.data.running_execution ?? null) as Execution | null} waiting={status.data.waiting ?? 0}
                   designing={(status.data.designer?.endpoints ?? []).flatMap((e) => e.designing ?? [])}
                   sources={status.data.index?.sources ?? []} scanned={!!status.data.index} />
             <Designers designer={status.data.designer} />

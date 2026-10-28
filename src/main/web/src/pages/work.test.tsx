@@ -1,4 +1,4 @@
-// The Status and Jobs screens (W4) against a mocked service.
+// The Status, Jobs and Executions screens (W4, design/jobs-and-executions.md §5) against a mocked service.
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw/http'
@@ -6,7 +6,7 @@ import { http, HttpResponse } from 'msw/http'
 import { filterFromQuery, filterToQuery, sortFromQuery, sortToQuery } from '../api/filter'
 import { saveToken } from '../api/token'
 import { when } from '../format'
-import { event, eventStream, index, runJob, runResult, scanJob, schedule } from '../test/fixtures'
+import { event, eventStream, index, runExecution, runJob, runResult, scanExecution, scanJob } from '../test/fixtures'
 import { renderApp } from '../test/render'
 import { server, status, statusRoute, TOKEN } from '../test/server'
 
@@ -38,25 +38,22 @@ describe('scan sources shortcut', () => {
   ])('queues every source from %s (scanned: %s) and opens the job', async (path, scanned) => {
     const requests: unknown[] = []
     server.use(statusRoute(status({ index: scanned ? index() : null })),
-      http.get('/v1/schedule', () => json(schedule())),
       http.get('/v1/titles', () => json({ titles: [], total: 0, offset: 0, limit: 100 })),
-      http.post('/v1/jobs/scan', async ({ request }) => {
+      http.post('/v1/jobs', async ({ request }) => {
         requests.push(await request.json())
-        return json(scanJob(), 202)
+        return json(scanJob(), 201)
       }),
-      http.get('/v1/jobs/scan-1', () => json(scanJob())),
-      http.get('/v1/jobs/scan-1/log', () => json([])))
+      http.get('/v1/jobs/job-scan', () => json(scanJob())))
     const router = renderApp(path as string)
     await userEvent.click(await screen.findByRole('button', { name: scanned ? 'Rescan sources' : 'Scan sources' }))
-    await waitFor(() => expect(router.state.location.pathname).toBe('/jobs/scan-1'))
-    expect(requests).toEqual([{ sources: [], allow_empty: false }])
+    await waitFor(() => expect(router.state.location.pathname).toBe('/jobs/job-scan'))
+    expect(requests).toEqual([{ kind: 'scan', request: { sources: [], allow_empty: false } }])
   })
 
   it('prevents duplicate submissions while pending and displays a refusal', async () => {
     let refuse!: () => void
     server.use(statusRoute(status({ index: index() })),
-      http.get('/v1/schedule', () => json(schedule())),
-      http.post('/v1/jobs/scan', async () => {
+      http.post('/v1/jobs', async () => {
         await new Promise<void>((resolve) => { refuse = resolve })
         return json({ title: 'Queue full', status: 409, detail: 'The job queue is full.' }, 409)
       }))
@@ -73,7 +70,7 @@ describe('scan sources shortcut', () => {
 
 describe('status', () => {
   it('shows what titles need, each linked to the list of them', async () => {
-    server.use(statusRoute(status({ index: index() })), http.get('/v1/schedule', () => json(schedule())))
+    server.use(statusRoute(status({ index: index() })))
     const router = renderApp('/')
 
     const strip = await screen.findByRole('list', { name: 'What titles need' })
@@ -96,7 +93,7 @@ describe('status', () => {
                   { url: 'http://b/design', parallel: 3, reachable: false, detail: 'GET http://b/health failed: refused',
                     checked_at: '2026-10-22T08:00:00Z', designing: [] }],
     }
-    server.use(statusRoute(status({ index: index(), designer })), http.get('/v1/schedule', () => json(schedule())))
+    server.use(statusRoute(status({ index: index(), designer })))
     renderApp('/')
 
     const table = await screen.findByRole('table', { name: 'Designers' })
@@ -119,7 +116,7 @@ describe('status', () => {
     const designer = { name: 'beqforge', reachable: true, detail: 'http://a/design', checked_at: null,
                        endpoints: [{ url: 'http://a/design', parallel: 2, reachable: true, detail: 'http://a/design' }],
                        design_version: null, design_disagreement: [] }
-    server.use(statusRoute(status({ index: index(), designer })), http.get('/v1/schedule', () => json(schedule())))
+    server.use(statusRoute(status({ index: index(), designer })))
     renderApp('/')
 
     const table = await screen.findByRole('table', { name: 'Designers' })
@@ -138,7 +135,7 @@ describe('status', () => {
       design_disagreement: ['http://a/design designs with version 4, default settings',
                             'http://b/design designs with version 5, default settings'],
     }
-    server.use(statusRoute(status({ index: index(), designer })), http.get('/v1/schedule', () => json(schedule())))
+    server.use(statusRoute(status({ index: index(), designer })))
     renderApp('/')
 
     const warning = await screen.findByRole('alert', { name: 'Designers disagree' })
@@ -150,7 +147,7 @@ describe('status', () => {
   it('lists a designer with no endpoints as one row saying why', async () => {
     const designer = { name: 'manual', reachable: null, detail: 'not an HTTP designer: nothing to ask', checked_at: null,
                        endpoints: [] }
-    server.use(statusRoute(status({ index: index(), designer })), http.get('/v1/schedule', () => json(schedule())))
+    server.use(statusRoute(status({ index: index(), designer })))
     renderApp('/')
 
     const table = await screen.findByRole('table', { name: 'Designers' })
@@ -158,44 +155,41 @@ describe('status', () => {
     expect(within(row!).getAllByRole('cell').map((td) => td.textContent)).toEqual(['manual', 'not an HTTP designer: nothing to ask'])
   })
 
-  it('follows the job running now', async () => {
-    const running = runJob({ state: 'running', finished_at: null, result: null,
-                             progress: { done: 1, total: 4, title: 'Alien', stage: 'extract', id: 'a', remaining_seconds: 600 } })
-    server.use(statusRoute(status({ index: index(), current_job: running, queued: 2 })),
-               http.get('/v1/schedule', () => json(schedule())),
-               http.get('/v1/jobs/job-1/events', () => new HttpResponse(eventStream([
+  it('follows the execution running now', async () => {
+    const running = runExecution({ state: 'running', finished_at: null, result: null,
+                                   progress: { done: 1, total: 4, title: 'Alien', stage: 'extract', id: 'a', remaining_seconds: 600 } })
+    server.use(statusRoute(status({ index: index(), running_execution: running, waiting: 2 })),
+               http.get('/v1/executions/ex-1/events', () => new HttpResponse(eventStream([
                  event(1, { type: 'state', state: 'running' }),
                  event(2, { type: 'extract_progress', title: 'Alien', title_id: 'a', done_ms: 500, percent: 42 }),
                ]), { headers: { 'Content-Type': 'text/event-stream' } })))
     renderApp('/')
 
-    expect(await screen.findByText(/Run through design: needing extract or design, movies/)).toBeInTheDocument()
+    expect((await screen.findByText('Movies through design')).closest('a')).toHaveAttribute('href', '/executions/ex-1')
     expect(screen.getByRole('progressbar', { name: 'Progress' })).toHaveAttribute('value', '1')
-    await screen.findByText('Schedule')
     const facts = screen.getByText('Estimated end').closest('dl')!
+    await within(facts).findByText('Any time')
     const rows = Object.fromEntries(within(facts).getAllByRole('term').map((dt) => [dt.textContent, dt.nextElementSibling!.textContent]))
-    expect(Object.keys(rows)).toEqual(['Job', 'Started', 'Estimated end', 'Progress', 'Activity', 'Waiting', 'Jobs run',
-                                       'Schedule', 'Next run'])
+    expect(Object.keys(rows)).toEqual(['Running', 'Started', 'Estimated end', 'Progress', 'Activity', 'Waiting', 'Jobs run'])
     expect(rows['Started']).toBe(when(running.started_at))
     expect(rows['Estimated end']).toBe('— (about 10 min 0 s to go)')
     expect(rows['Progress']).toBe('1 of 4')
     expect(await screen.findByText(/42% extracted/)).toBeInTheDocument()
     expect(within(facts).getByText('Alien')).toBeInTheDocument()
-    expect(rows['Waiting']).toBe('2 jobs')
+    expect(rows['Waiting']).toBe('2 executions')
   })
 
-  it('says when the job should end and lists the designs out on the designer as its activity', async () => {
-    const running = runJob({ state: 'running', finished_at: null, result: null,
-                             progress: { done: 10, total: 100, title: 'Brazil', stage: 'design', id: 'b', remaining_seconds: 3600,
-                                         per_hour: 40, estimated_finish: '2026-10-23T07:00:00Z' } })
+  it('says when the execution should end and lists the designs out on the designer as its activity', async () => {
+    const running = runExecution({ state: 'running', finished_at: null, result: null,
+                                   progress: { done: 10, total: 100, title: 'Brazil', stage: 'design', id: 'b', remaining_seconds: 3600,
+                                               per_hour: 40, estimated_finish: '2026-10-23T07:00:00Z' } })
     const designer = { name: 'beqforge', reachable: true, detail: '', checked_at: null,
                        endpoints: [{ url: 'http://a/design', parallel: 2, reachable: true, detail: 'http://a/design',
                                      designing: [{ title_id: 'a', title: 'Alien', started_at: '2026-10-22T08:00:00Z' },
                                                  { title_id: 'b', title: 'Brazil', started_at: '2026-10-22T08:01:00Z' }] }] }
-    server.use(statusRoute(status({ index: index(), current_job: running, designer })),
-               http.get('/v1/schedule', () => json(schedule())),
-               http.get('/v1/jobs/job-1/events', () => new HttpResponse(eventStream([]),
-                                                                        { headers: { 'Content-Type': 'text/event-stream' } })))
+    server.use(statusRoute(status({ index: index(), running_execution: running, designer })),
+               http.get('/v1/executions/ex-1/events', () => new HttpResponse(eventStream([]),
+                                                                              { headers: { 'Content-Type': 'text/event-stream' } })))
     renderApp('/')
 
     const facts = (await screen.findByText('Estimated end')).closest('dl')!
@@ -205,124 +199,216 @@ describe('status', () => {
     expect(rows['Activity']).toBe('designing Alien, Brazil')
   })
 
-  it('pauses and runs the schedule, and says why a tick was refused', async () => {
-    const saved: unknown[] = []
+  it('lists each job that is active or paused, with pause, resume and run now, and says why one was refused', async () => {
+    const asked: string[] = []
     server.use(statusRoute(status({ index: index() })),
-               http.get('/v1/schedule', () => json(schedule())),
-               http.put('/v1/schedule', async ({ request }) => {
-                 const body = await request.json()
-                 saved.push(body)
-                 return json(schedule({ ...(body as object), next_run_at: null }))
-               }),
-               http.post('/v1/schedule/trigger', () =>
-                 json({ title: 'Service busy', status: 409, detail: 'a job is queued or running' }, 409)))
+               http.get('/v1/jobs', () => json({ jobs: [
+                 runJob({ name: 'Nightly', every: 90, window: ['01:00-05:00'], next_at: '2026-10-23T01:00:00Z',
+                          last_skip: 'busy', progress: null }),
+                 scanJob({ state: 'paused' }),
+                 runJob({ id: 'gone', name: 'Old', state: 'done' }),
+               ] })),
+               http.post('/v1/jobs/:id/:action', ({ params }) => {
+                 asked.push(`${params.id} ${params.action}`)
+                 return params.action === 'run'
+                   ? json({ title: 'Service busy', status: 409, detail: 'another execution is running' }, 409)
+                   : json(runJob())
+               }))
     renderApp('/')
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Pause' }))
-    expect(await screen.findByRole('button', { name: 'Resume' })).toBeInTheDocument()
-    expect(saved).toEqual([{ enabled: false, interval_minutes: 60, filter: { new_since_scan: false, kind: 'movie' },
-                             through: 'design', retry_failed: false }])
-    await userEvent.click(screen.getByRole('button', { name: 'Run now' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('Service busy: a job is queued or running')
+    const table = await screen.findByRole('table', { name: 'Jobs' })
+    const rows = within(table).getAllByRole('row').slice(1)
+    expect(rows.map((r) => within(r).getAllByRole('cell').slice(0, 4).map((td) => td.textContent))).toEqual([
+      ['NightlyRun through design: needing extract or design, movies', 'Every 1 h 30 min01:00-05:00', 'Activeskipped: busy',
+       when('2026-10-23T01:00:00Z')],
+      ['List the sources againScan every source', 'Once', 'Paused', '—'],
+    ])
+    expect(within(rows[0]!).getByRole('link', { name: 'Nightly' })).toHaveAttribute('href', '/jobs/job-1')
+    expect(within(rows[0]!).getByRole('link', { name: 'Edit…' })).toHaveAttribute('href', '/jobs/job-1')
+    await userEvent.click(within(rows[0]!).getByRole('button', { name: 'Pause' }))
+    await userEvent.click(within(rows[1]!).getByRole('button', { name: 'Resume' }))
+    await userEvent.click(within(rows[0]!).getByRole('button', { name: 'Run now' }))
+    expect(await within(rows[0]!).findByRole('alert')).toHaveTextContent('Service busy: another execution is running')
+    expect(asked).toEqual(['job-1 pause', 'job-scan resume', 'job-1 run'])
+    expect(within(rows[1]!).queryByRole('button', { name: 'Run now' })).not.toBeInTheDocument()   // a one-off runs by itself
   })
 
-  it('shows the job, the schedule and the sources it scans as one section, with every way to start one', async () => {
-    server.use(statusRoute(status({ index: index() })),
-               http.get('/v1/schedule', () => json(schedule({
-                 last_run: { job_id: 'job-0', state: 'failed', finished_at: '2026-10-22T07:00:00Z' },
-                 last_skip: 'the designer is down' }))))
+  it('shows what runs, what waits and the jobs as one section, with every way to start one', async () => {
+    server.use(statusRoute(status({ index: index() })))
     renderApp('/')
 
     const section = (await screen.findByRole('heading', { name: 'Jobs' })).closest('section')!
-    await within(section).findByText('Schedule')
     const facts = section.querySelector('dl')!
     await within(facts).findByText('Any time')   // the default window, asked for apart from the status
     const rows = Object.fromEntries(within(facts).getAllByRole('term').map((dt) => [dt.textContent, dt.nextElementSibling!.textContent]))
-    expect(rows).toEqual({
-      Job: 'None running', Waiting: 'Nothing', 'Jobs run': 'Any time — open now Change…',
-      Schedule: 'Every 60 min: scan the sources, then run movies through design.',
-      'Next run': when(schedule().next_run_at), 'Last run': `Failed ${when('2026-10-22T07:00:00Z')}`,
-      'Last skipped': 'the designer is down',
-    })
-    expect(within(facts).getByRole('link', { name: when('2026-10-22T07:00:00Z') })).toHaveAttribute('href', '/jobs/job-0')
-    expect(within(section).getAllByRole('button').map((b) => b.textContent)).toEqual(['Change…', 'Pause', 'Run now',
-                                                                                         'Rescan sources'])
+    expect(rows).toEqual({ Running: 'Nothing', Waiting: 'Nothing', 'Jobs run': 'Any time — open now Change…' })
+    expect(await within(section).findByText('No jobs are active or paused.')).toBeInTheDocument()
+    expect(within(section).getAllByRole('button').map((b) => b.textContent)).toEqual(['Change…', 'Rescan sources'])
     expect(within(section).getByRole('link', { name: 'New job…' })).toHaveAttribute('href', '/jobs/new')
+    expect(within(section).getByRole('link', { name: 'Every execution' })).toHaveAttribute('href', '/executions')
     const sources = within(section).getByRole('table', { name: 'Sources' })
     expect(within(sources).getAllByRole('row').slice(1).map((r) => within(r).getAllByRole('cell')[0]!.textContent))
       .toEqual(['films', 'tv'])
     expect(screen.queryByRole('heading', { name: 'Schedule' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'Sources' })).not.toBeInTheDocument()
   })
 
   it('says when the library has not been scanned', async () => {
-    server.use(statusRoute(status()), http.get('/v1/schedule', () => json(schedule({ enabled: false }))))
+    server.use(statusRoute(status()))
     renderApp('/')
     expect(await screen.findByText('Scan the sources…')).toHaveAttribute('href', '/jobs/new?kind=scan')
-    expect(await screen.findByText('Paused.')).toBeInTheDocument()
-  })
-
-  it('says why the schedule turned itself off', async () => {
-    server.use(statusRoute(status({ index: index() })),
-               http.get('/v1/schedule', () => json(schedule({ enabled: false, ended: 'all 2 listed titles are done' }))))
-    renderApp('/')
-    expect((await screen.findByText('Ended')).nextElementSibling).toHaveTextContent('all 2 listed titles are done')
   })
 })
 
-describe('jobs', () => {
-  it('lists them and filters by state', async () => {
-    const asked: (string | null)[] = []
-    server.use(http.get('/v1/jobs', ({ request }) => {
-      asked.push(new URL(request.url).searchParams.get('state'))
-      return json({ jobs: [runJob(), scanJob()] })
-    }))
-    const router = renderApp('/jobs')
+describe('a job', () => {
+  it('says what it does and when, follows its execution running now, and lists the ones before', async () => {
+    const running = runExecution({ id: 'ex-2', number: 2, state: 'running', finished_at: null, result: null,
+                                   progress: { done: 3, total: 5, title: 'Heat', stage: 'design', id: 'h' } })
+    server.use(http.get('/v1/jobs/job-1', () => json(runJob({ window: ['01:00-05:00'], next_at: null, remaining: 2,
+                                                                progress: { done: 3, total: 5 }, running_execution: running,
+                                                                executions: 2 }))),
+               http.get('/v1/executions', ({ request }) => {
+                 expect(new URL(request.url).searchParams.get('job')).toBe('job-1')
+                 return json({ running, next: [], executions: [running, runExecution({ state: 'stopped', stopped_because: 'window' })] })
+               }),
+               http.get('/v1/executions/ex-2/events', () => new HttpResponse(new ReadableStream(), {
+                 headers: { 'Content-Type': 'text/event-stream' } })))
+    renderApp('/jobs/job-1')
 
-    expect(await screen.findByText('Scan every source')).toBeInTheDocument()
-    expect(screen.getByText('Run through design: needing extract or design, movies').closest('a'))
-      .toHaveAttribute('href', '/jobs/job-1')
-    await userEvent.selectOptions(screen.getByLabelText('State'), 'failed')
-    await waitFor(() => expect(asked).toContain('failed'))
-    expect(router.state.location.search).toBe('?state=failed')
+    expect(await screen.findByRole('heading', { name: 'Movies through design' })).toBeInTheDocument()
+    const facts = document.querySelector('dl')!
+    await within(facts).findByText(/Europe\/London/)
+    const rows = Object.fromEntries(within(facts).getAllByRole('term').map((dt) => [dt.textContent, dt.nextElementSibling!.textContent]))
+    expect(rows).toMatchObject({ State: 'Active', Does: 'Run through design: needing extract or design, movies', When: 'Once',
+                                 Runs: '01:00-05:00 (Europe/London)', Next: '—', Progress: '3 of 5 done (2 titles left)' })
+    const now = screen.getByRole('region', { name: 'Running' })
+    expect(within(now).getByRole('link', { name: 'Movies through design (run 2)' })).toHaveAttribute('href', '/executions/ex-2')
+    expect(within(now).getByText('Cancelling it removes this job.')).toBeInTheDocument()
+    const before = await screen.findByRole('table', { name: 'Its executions' })
+    expect(within(before).getAllByRole('row').slice(1).map((r) => within(r).getAllByRole('cell')[0]!.textContent))
+      .toEqual(['Stopped its window closed'])
+    expect(screen.queryByRole('button', { name: 'Run now' })).not.toBeInTheDocument()
   })
 
-  it("shows a finished job's result, its failures linked to the titles, and its log", async () => {
-    server.use(http.get('/v1/jobs/job-1', () => json(runJob())),
-               http.get('/v1/jobs/job-1/log', () => json([event(1, { type: 'state', state: 'running', text: 'Started' }),
-                                                          event(2, { type: 'state', state: 'succeeded', text: 'Finished' })])))
+  it("changes a recurring job's name, interval and window", async () => {
+    let body: unknown
+    server.use(statusRoute(status({ index: index() })),
+               http.get('/v1/jobs/job-1', () => json(runJob({ name: 'Nightly', every: 60, progress: null }))),
+               http.patch('/v1/jobs/job-1', async ({ request }) => {
+                 body = await request.json()
+                 return json(runJob({ name: 'Hourly', every: 30, progress: null }))
+               }))
     renderApp('/jobs/job-1')
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit…' }))
+    const form = screen.getByRole('form', { name: 'Edit job' })
+    await userEvent.clear(within(form).getByLabelText('Name'))
+    await userEvent.type(within(form).getByLabelText('Name'), 'Hourly')
+    await userEvent.clear(within(form).getByLabelText('Minutes'))
+    await userEvent.type(within(form).getByLabelText('Minutes'), '30')
+    await userEvent.click(within(form).getByRole('radio', { name: 'Any time' }))
+    await userEvent.click(within(form).getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(body).toMatchObject({ name: 'Hourly', every: 30, window: [],
+                                                     request: { through: 'design', filter: { needs: ['extract', 'design'] } } }))
+  })
+
+  it('removes a job once asked, and says why one ended by itself', async () => {
+    let removed = false
+    server.use(http.get('/v1/jobs/job-1', () => json(runJob({ every: 60 }))),
+               http.delete('/v1/jobs/job-1', () => {
+                 removed = true
+                 return json(runJob({ state: 'removed' }))
+               }),
+               http.get('/v1/jobs/job-2', () => json(runJob({ id: 'job-2', state: 'done', ended: 'all 2 listed titles are done' }))))
+    const router = renderApp('/jobs/job-1')
+    await userEvent.click(await screen.findByRole('button', { name: 'Remove…' }))
+    await userEvent.click(within(screen.getByRole('group', { name: 'Confirm remove' })).getByRole('button', { name: 'Remove' }))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/'))
+    expect(removed).toBe(true)
+
+    renderApp('/jobs/job-2')
+    expect((await screen.findByText('Done')).closest('dd')).toHaveTextContent('all 2 listed titles are done')
+  })
+})
+
+describe('executions', () => {
+  it('lists them, with each job\'s next, and filters by job and state', async () => {
+    const asked: string[] = []
+    server.use(http.get('/v1/jobs', () => json({ jobs: [runJob()] })),
+               http.get('/v1/executions', ({ request }) => {
+                 asked.push(new URL(request.url).search)
+                 return json({ running: null, next: [{ job_id: 'job-1', job_name: 'Movies through design', at: '2026-10-23T01:00:00Z' }],
+                               executions: [runExecution(), scanExecution(), runExecution({ id: 'ex-0', job_name: null,
+                                                                                            job_id: null, number: 0 })] })
+               }))
+    const router = renderApp('/executions')
+
+    const next = await screen.findByRole('table', { name: 'Next' })
+    expect(within(next).getByRole('link', { name: 'Movies through design' })).toHaveAttribute('href', '/jobs/job-1')
+    const log = screen.getByRole('table', { name: 'Executions' })
+    expect(within(log).getByRole('link', { name: 'Movies through design' })).toHaveAttribute('href', '/executions/ex-1')
+    expect(within(log).getByText('List the sources again')).toBeInTheDocument()
+    expect(within(log).getByText('Run through design: needing extract or design, movies')).toBeInTheDocument()   // no job kept
+    expect(within(log).getAllByRole('row')[1]!.lastElementChild!.textContent).toBe('1 designed, 1 failed')
+    await userEvent.selectOptions(screen.getByLabelText('State'), 'stopped')
+    await userEvent.selectOptions(screen.getByLabelText('Job'), 'job-1')
+    await waitFor(() => expect(asked.at(-1)).toContain('job=job-1'))
+    expect(asked.at(-1)).toContain('state=stopped')
+    expect(router.state.location.search).toBe('?state=stopped&job=job-1')
+  })
+
+  it("shows a finished execution's result, its failures linked to the titles, its job, and its log", async () => {
+    server.use(http.get('/v1/executions/ex-1', () => json(runExecution())),
+               http.get('/v1/executions/ex-1/log', () => json([event(1, { type: 'state', state: 'running', text: 'Started' }),
+                                                                event(2, { type: 'state', state: 'succeeded', text: 'Finished' })])))
+    renderApp('/executions/ex-1')
 
     expect(await screen.findByText(/3 titles selected: 2 extracted/)).toBeInTheDocument()
     expect(screen.getByText('b').closest('a')).toHaveAttribute('href', '/titles/b')
     expect(screen.getByText(/designer said no/)).toBeInTheDocument()
     expect(screen.getByText('Cube')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Movies through design' })).toHaveAttribute('href', '/jobs/job-1')
     const log = await screen.findByRole('list', { name: 'Log' })
     expect(within(log).getByText(/Finished/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument()
   })
 
-  it('shows why a job itself failed', async () => {
-    server.use(http.get('/v1/jobs/scan-1', () => json(scanJob())), http.get('/v1/jobs/scan-1/log', () => json([])))
-    renderApp('/jobs/scan-1')
+  it('says a stopped run left its titles for its job, not that it was cancelled', async () => {
+    server.use(http.get('/v1/executions/ex-1', () => json(runExecution({
+                 state: 'stopped', stopped_because: 'window', result: runResult({ cancelled: true, not_run: ['c', 'd'] }) }))),
+               http.get('/v1/executions/ex-1/log', () => json([])))
+    renderApp('/executions/ex-1')
+    expect(await screen.findByText("Stopped: 2 titles left for its job's next run.")).toBeInTheDocument()
+    expect(screen.getByText(/its window closed/)).toBeInTheDocument()
+  })
+
+  it('shows why an execution itself failed', async () => {
+    server.use(http.get('/v1/executions/scan-1', () => json(scanExecution())), http.get('/v1/executions/scan-1/log', () => json([])))
+    renderApp('/executions/scan-1')
     expect(await screen.findByRole('alert')).toHaveTextContent('profile unreadable')
   })
 
-  it('cancels a running job, which stops after the title in hand', async () => {
+  it('cancels a running execution, which stops after the title in hand', async () => {
     let cancelled = false
-    const running = runJob({ state: 'running', finished_at: null, result: null })
-    server.use(http.get('/v1/jobs/job-1', () => json(running)),
-               http.get('/v1/jobs/job-1/events', () => new HttpResponse(new ReadableStream(), {
+    const running = runExecution({ state: 'running', finished_at: null, result: null })
+    server.use(http.get('/v1/executions/ex-1', () => json(running)),
+               http.get('/v1/executions/ex-1/events', () => new HttpResponse(new ReadableStream(), {
                  headers: { 'Content-Type': 'text/event-stream' } })),
-               http.post('/v1/jobs/job-1/cancel', () => {
+               http.post('/v1/executions/ex-1/cancel', () => {
                  cancelled = true
                  return json(running)
                }))
-    renderApp('/jobs/job-1')
+    renderApp('/executions/ex-1')
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Cancel' }))
+    expect(await screen.findByText('Cancelling it removes its job: nothing more of it runs.')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
     expect(await screen.findByText('Stopping after the title in hand…')).toBeInTheDocument()
     expect(cancelled).toBe(true)
+  })
+
+  it('sends the old Jobs address to the status page', async () => {
+    server.use(statusRoute(status()))
+    const router = renderApp('/jobs')
+    await waitFor(() => expect(router.state.location.pathname).toBe('/'))
   })
 })
 
@@ -337,13 +423,11 @@ describe('a new job', () => {
                                          { id: 'h', title: 'Heat', stages: ['design'] }],
                                skipped: [{ id: 'c', title: 'Cube', reason: 'waiting for review' }] })
                }),
-               http.post('/v1/jobs/run', async ({ request }) => {
+               http.post('/v1/jobs', async ({ request }) => {
                  planned.push(await request.json())
-                 return json(runJob({ id: 'new-job', state: 'queued' }), 202)
+                 return json(runJob({ id: 'new-job' }), 201)
                }),
-               http.get('/v1/jobs/new-job', () => json(runJob({ id: 'new-job', state: 'queued', result: null }))),
-               http.get('/v1/jobs/new-job/events', () => new HttpResponse(new ReadableStream(), {
-                 headers: { 'Content-Type': 'text/event-stream' } })))
+               http.get('/v1/jobs/new-job', () => json(runJob({ id: 'new-job' }))))
     const router = renderApp('/jobs/new?kind=movie')
 
     await userEvent.click(await screen.findByRole('checkbox', { name: 'Extract' }))
@@ -363,7 +447,31 @@ describe('a new job', () => {
     expect(screen.getByText('The choices changed since this preview: preview again.')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Run' }))
     await waitFor(() => expect(router.state.location.pathname).toBe('/jobs/new-job'))
-    expect(planned[1]).toMatchObject({ retry_failed: true })
+    expect(planned[1]).toEqual({ kind: 'run', request: { ...planned[0] as object, retry_failed: true } })
+  })
+
+  it('makes a recurring run, named, every so many minutes, and offers it only through extract or design', async () => {
+    let body: unknown
+    server.use(statusRoute(status({ index: index(), repository_writes: true, repositories_configured: true })),
+               http.post('/v1/jobs', async ({ request }) => {
+                 body = await request.json()
+                 return json(runJob({ id: 'nightly', every: 45 }), 201)
+               }),
+               http.get('/v1/jobs/nightly', () => json(runJob({ id: 'nightly', every: 45 }))))
+    const router = renderApp('/jobs/new')
+
+    await userEvent.type(await screen.findByLabelText('Name'), 'Nightly')
+    await userEvent.click(screen.getByRole('radio', { name: 'Every' }))
+    await userEvent.clear(screen.getByLabelText('Minutes'))
+    await userEvent.type(screen.getByLabelText('Minutes'), '45')
+    await userEvent.click(screen.getByRole('radio', { name: 'publish' }))
+    expect(screen.getByRole('radio', { name: 'Every' })).toBeDisabled()
+    expect(screen.getByRole('radio', { name: 'Once' })).toBeChecked()
+    await userEvent.click(screen.getByRole('radio', { name: 'design' }))
+    await userEvent.click(screen.getByRole('radio', { name: 'Every' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Make job' }))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/jobs/nightly'))
+    expect(body).toMatchObject({ kind: 'run', name: 'Nightly', every: 45, request: { through: 'design' } })
   })
 
   it('offers publish and commit only when the service allows them, and says why not', async () => {
@@ -391,25 +499,23 @@ describe('a new job', () => {
   it('scans the sources chosen', async () => {
     let body: unknown
     server.use(statusRoute(status({ index: index() })),
-               http.post('/v1/jobs/scan', async ({ request }) => {
+               http.post('/v1/jobs', async ({ request }) => {
                  body = await request.json()
-                 return json(scanJob({ id: 'scan-2', state: 'queued', error: null }), 202)
+                 return json(scanJob({ id: 'scan-2' }), 201)
                }),
-               http.get('/v1/jobs/scan-2', () => json(scanJob({ id: 'scan-2', state: 'queued', error: null }))),
-               http.get('/v1/jobs/scan-2/events', () => new HttpResponse(new ReadableStream(), {
-                 headers: { 'Content-Type': 'text/event-stream' } })))
+               http.get('/v1/jobs/scan-2', () => json(scanJob({ id: 'scan-2' }))))
     const router = renderApp('/jobs/new?kind=scan')
 
     await userEvent.click(await screen.findByRole('checkbox', { name: 'tv' }))
     await userEvent.click(screen.getByRole('button', { name: 'Scan' }))
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/jobs/scan-2'))
-    expect(body).toEqual({ sources: ['tv'], allow_empty: false })
+    expect(body).toEqual({ kind: 'scan', request: { sources: ['tv'], allow_empty: false } })
   })
 
   it('says why a run was refused', async () => {
     server.use(statusRoute(status({ index: index() })),
-               http.post('/v1/jobs/run', () => json({ title: 'Unknown source', status: 422, detail: 'no such source: x' }, 422)))
+               http.post('/v1/jobs', () => json({ title: 'Unknown source', status: 422, detail: 'no such source: x' }, 422)))
     renderApp('/jobs/new')
     await userEvent.click(await screen.findByRole('button', { name: 'Run' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Unknown source: no such source: x')

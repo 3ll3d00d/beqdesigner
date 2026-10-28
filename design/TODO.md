@@ -49,7 +49,7 @@ outside it. A beqforge version bump invalidates its bundled optimiser seed
 | Priority | ID | R | Previous IDs | Status | Depends on |
 |---|---|---|---|---|---|
 | 1 | IG | | -- | Built 2026-10-28: a run keeps one prepared design waiting per pool slot. Left: measure titles an hour on the next library run after deploying it (the DV8 run made 93) | A release deployed, and a run of a few hundred titles |
-| 2 | JE | | [jobs and executions](jobs-and-executions.md) | Decisions settled 2026-10-28 (the API rename, cancelling a one-off's execution removes the job, editing and migration as designed). Steps 1 (the rename), 2 (`JobBook`, migration) and 4 (routes, models, OpenAPI, guide, smoke) done; the browser (5), statistics (3) and the references (6) left; the browser does not build against the new API until step 5 | -- |
+| 2 | JE | | [jobs and executions](jobs-and-executions.md) | Decisions settled 2026-10-28 (the API rename, cancelling a one-off's execution removes the job, editing and migration as designed). Steps 1 (the rename), 2 (`JobBook`, migration), 4 (routes, models, OpenAPI, guide, smoke) and 5 (the browser) done; statistics (3) and the references (6) left | -- |
 | 3 | RV | | [library run](library-run-gaps.md#l1-finish-the-review-of-the-run-operational) | Operational: all 1,287 designs await a person's review; the DV8 redesign (1,051 titles, 2026-10-26 to 28) changed 728 and left 323 as they were | A person |
 | 4 | E2 | R | chunk 31, T2-T4 | Waiting for manual acceptance; everything it exercises is built and published | Real media, a JRiver server and disposable repositories |
 | 5 | L1 | | [library run](library-run-gaps.md#l1-finish-the-review-of-the-run-operational) | Declines through design version 6 are in the ledger (stage E, 270); the 16 still declined at version 8 are not | -- |
@@ -100,8 +100,8 @@ stage as there are slots, since a waiting one has started its stage.
 a window; paused, resumed, edited, removed) apart from its executions (each continuous run: the log), any number of
 recurring jobs replacing the one schedule, and statistics for each execution. The user settled the four open decisions
 on 2026-10-28: the breaking API rename (`/v1/executions`), cancelling a one-off's execution **removes** the job (not
-pauses it, as the design first said), what can be edited, and the migration on upgrade, as designed. Steps 1, 2 and 4
-are done (deviations listed in the design); the browser is next, then the statistics.
+pauses it, as the design first said), what can be edited, and the migration on upgrade, as designed. Steps 1, 2, 4 and
+5 are done (deviations listed in the design); the statistics are next.
 **Done when** its §7 holds.
 
 ### RV — Review the redesigned library (operational)

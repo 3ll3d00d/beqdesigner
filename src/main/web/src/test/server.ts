@@ -11,6 +11,8 @@ export const TOKEN = 'test-token'
 const DEFAULTS = [
   http.get('/v1/titles/:id/projects', () => HttpResponse.json({ projects: [], summary: '', warn: false, note: '' })),
   http.get('/v1/job-window', () => HttpResponse.json({ window: [], time_zone: 'Europe/London', open_now: true, next_change: null })),
+  http.get('/v1/jobs', () => HttpResponse.json({ jobs: [] })),
+  http.get('/v1/executions', () => HttpResponse.json({ running: null, next: [], executions: [] })),
 ]
 
 export const server = setupServer(...DEFAULTS)
@@ -20,7 +22,7 @@ afterEach(() => server.resetHandlers())
 afterAll(() => server.close())
 
 export function status(overrides: Partial<Schemas['ServiceStatus']> = {}): Schemas['ServiceStatus'] {
-  return { version: '2.2.0', index: null, current_job: null, queued: 0, repository_writes: false,
+  return { version: '2.2.0', index: null, running_execution: null, waiting: 0, repository_writes: false,
            repositories_configured: false, ...overrides }
 }
 

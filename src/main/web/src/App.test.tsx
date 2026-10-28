@@ -3,7 +3,6 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw/http'
 
 import { saveToken } from './api/token'
-import { schedule } from './test/fixtures'
 import { server, status, statusRoute, TOKEN } from './test/server'
 import { renderApp } from './test/render'
 
@@ -64,7 +63,7 @@ describe('signing in', () => {
 describe('signed in', () => {
   it('shows the status of the service it reached', async () => {
     saveToken(TOKEN, false)
-    server.use(statusRoute(status({ version: '2.3.0' })), http.get('/v1/schedule', () => HttpResponse.json(schedule())))
+    server.use(statusRoute(status({ version: '2.3.0' })))
     renderApp('/')
     expect(await screen.findByText('2.3.0')).toBeInTheDocument()
     expect(screen.getByText(/Not scanned yet/)).toBeInTheDocument()

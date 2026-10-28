@@ -25,10 +25,11 @@ export function runResult(overrides: Partial<Schemas['RunResult']> = {}): Schema
   }
 }
 
-export function runJob(overrides: Partial<Schemas['RunJob']> = {}): Schemas['RunJob'] {
+export function runExecution(overrides: Partial<Schemas['RunExecution']> = {}): Schemas['RunExecution'] {
   return {
-    kind: 'run', id: 'job-1', origin: 'api', state: 'succeeded', submitted_at: NOW, started_at: NOW, finished_at: NOW,
-    progress: null, error: null, joined_to: null, parts: 1, paused_at: [],
+    kind: 'run', id: 'ex-1', job_id: 'job-1', job_name: 'Movies through design', number: 1, origin: 'api',
+    state: 'succeeded', stopped_because: null, submitted_at: NOW, started_at: NOW, finished_at: NOW,
+    progress: null, error: null, joined_to: null,
     request: { filter: { needs: ['extract', 'design'], new_since_scan: false, kind: 'movie' }, through: 'design',
                scan_first: true, retry_failed: false, redesign: false, revise_to: 'design' },
     result: runResult(),
@@ -36,17 +37,35 @@ export function runJob(overrides: Partial<Schemas['RunJob']> = {}): Schemas['Run
   }
 }
 
-export function scanJob(overrides: Partial<Schemas['ScanJob']> = {}): Schemas['ScanJob'] {
+export function scanExecution(overrides: Partial<Schemas['ScanExecution']> = {}): Schemas['ScanExecution'] {
   return {
-    kind: 'scan', id: 'scan-1', origin: 'schedule', state: 'failed', submitted_at: NOW, started_at: NOW, finished_at: NOW,
-    progress: null, error: 'profile unreadable', joined_to: null, parts: 1, paused_at: [], request: { sources: [], allow_empty: false }, result: null,
+    kind: 'scan', id: 'scan-1', job_id: 'job-scan', job_name: 'List the sources again', number: 1, origin: 'schedule',
+    state: 'failed', stopped_because: null, submitted_at: NOW, started_at: NOW, finished_at: NOW,
+    progress: null, error: 'profile unreadable', joined_to: null, request: { sources: [], allow_empty: false }, result: null,
     ...overrides,
   }
 }
 
-export function schedule(overrides: Partial<Schemas['Schedule']> = {}): Schemas['Schedule'] {
-  return { enabled: true, interval_minutes: 60, filter: { new_since_scan: false, kind: 'movie' }, through: 'design',
-           retry_failed: false, next_run_at: NOW, last_run: null, last_skip: null, ended: null, ...overrides }
+/** A run job (the definition): once unless `every` says how often. */
+export function runJob(overrides: Partial<Schemas['RunJob']> = {}): Schemas['RunJob'] {
+  return {
+    kind: 'run', id: 'job-1', name: 'Movies through design', every: null, window: null, state: 'active', created_at: NOW,
+    next_at: null, progress: { done: 0, total: null }, remaining: null, executions: 1, last_execution: 'ex-1',
+    running_execution: null, last_finished_at: null, last_skip: null, ended: null,
+    request: { filter: { needs: ['extract', 'design'], new_since_scan: false, kind: 'movie' }, through: 'design',
+               scan_first: true, retry_failed: false, redesign: false, revise_to: 'design' },
+    ...overrides,
+  }
+}
+
+export function scanJob(overrides: Partial<Schemas['ScanJob']> = {}): Schemas['ScanJob'] {
+  return {
+    kind: 'scan', id: 'job-scan', name: 'List the sources again', every: null, window: null, state: 'active',
+    created_at: NOW, next_at: null, progress: { done: 0, total: null }, remaining: null, executions: 1,
+    last_execution: 'scan-1', running_execution: null, last_finished_at: null, last_skip: null, ended: null,
+    request: { sources: [], allow_empty: false },
+    ...overrides,
+  }
 }
 
 export function event(seq: number, fields: Record<string, unknown>): JobEvent {

@@ -20,7 +20,7 @@ The rules and the write of a decision are the Qt-free `pipeline/library/decide.p
 `offered_digest()`, `next_waiting_id()`), and the curves a design is judged on `pipeline/library/review_chart.py`
 (`chart_curves()`). The desktop title page (`model/worklist_title_decide.py`, `model/worklist_title_text.py`) and the
 service's review routes both call them, so the two cannot apply different rules. Where they say where to do something,
-the caller passes its own words: `redo`, `run_hint` (the service names `POST /v1/jobs/run`) and `metadata_hint` (the
+the caller passes its own words: `redo`, `run_hint` (the service names `POST /v1/jobs` with kind run) and `metadata_hint` (the
 title page says its Metadata tab, the service says the app). `decide()` refuses with a kind -- `changed`, `blocked`,
 `metadata`, `override` or `invalid` -- that the service maps to 409s and a 422, and the title page to a reload or a
 message. Tests: `test_pipeline_library_decide.py`.
@@ -74,33 +74,43 @@ message. Tests: `test_pipeline_library_decide.py`.
 - **Auth:** sign-in checks the token with `GET /v1/status` and keeps it for the tab (`sessionStorage`) or, when asked,
   the device (`localStorage`), in memory when storage refuses (`src/api/token.ts`). Every call reads it from there; a 401
   from any call signs out, back to sign-in with the page asked for kept (`?next=`, a path inside the app only).
-- **Live events:** `src/api/events.ts` reads `GET /v1/jobs/{id}/events` with `fetch` and a streamed body, because
+- **Live events:** `src/api/events.ts` reads `GET /v1/executions/{id}/events` with `fetch` and a streamed body, because
   `EventSource` cannot send the `Authorization` header. It resumes a dropped connection with `Last-Event-ID` (giving up
-  after five retries in a row), and ends at the job's final state event or a clean end of the stream, which the service sends only
-  for a job that is over. A 401 or 404 is not retried. The service sends the stream with `X-Accel-Buffering: no`, so nginx in front passes
-  each event on as it comes. `useJobEvents()` keeps the last 500 and refreshes the job, jobs,
-  status and titles queries when the job ends.
+  after five retries in a row), and ends at the execution's final state event or a clean end of the stream, which the
+  service sends only for one that is over. A 401 or 404 is not retried. The service sends the stream with
+  `X-Accel-Buffering: no`, so nginx in front passes each event on as it comes. `useExecutionEvents()` keeps the last 500
+  and refreshes the execution, executions, jobs, status and titles queries when it ends.
 - **Screens** (`src/pages/`):
   - *Status*: the pipeline strip (titles per `needs`, each linked to the Titles list filtered to it), then two
-    sections. *Jobs* is the work from both ends, as facts: the job running now (job, started, estimated end with time
-    to go, progress with the rate an hour, and activity: the stage and title in hand with ffmpeg's percent, or the
-    titles out on the designer) and a progress bar, how many wait, the schedule (what each tick does -- it scans the
-    sources first, then runs what its filter selects -- the next run, the last run and skip, why it ended), with its
-    buttons (Pause/Resume over `PUT /v1/schedule`, Run now, *Scan sources* -- *Rescan sources* after the first scan --
-    which queues a scan of every source and opens its job page, and New job) and the sources with their last error.
+    sections. *Jobs* is the work from both ends: as facts, the execution running now (linked to its page; started,
+    estimated end with time to go, progress with the rate an hour, and activity: the stage and title in hand with
+    ffmpeg's percent, or the titles out on the designer) and a progress bar, how many wait, and the default window;
+    then a table of every job active or paused (design/jobs-and-executions.md §5: name and what it does, once or every
+    N, its window, state and last skip, its running execution or next start) with *Pause*/*Resume*, *Run now* (a
+    recurring job) and *Edit…* (its page); then *Scan sources* -- *Rescan sources* after the first scan -- which makes a
+    one-off scan job and opens it, *New job…*, *Every execution*, and the sources with their last error.
     *Designers* is one table with a row per endpoint of the configured designer (designer, URL, up/down with when
     `/health` was last asked and why it is down, protocol -- the design version --, version -- the release its
     `/health` names, the build on hover --, max jobs, and what each is designing now from `designing`, linked to its
     review; *idle* when nothing is out; a designer with no endpoints is one row saying why) with the warning when the
     endpoints up would design differently. The scan action is also on Titles. Polls `/v1/status` every 10 s.
-  - *Jobs*: history newest first, by state. A job's page: its state and times, the result (counts; failures,
-    unavailable, failed earlier, not published, designed and skipped titles, each linked to its review), why the job
-    itself failed, its log (live while it runs) and Cancel (Drop for a queued or paused job; "Stopping after the title
-    in hand" for a running one). When a job may run -- its window, what it waits until, its parts -- and a change to it,
-    the field on *New job* and *Revise*, and the default on Status: [job windows](job-windows.md) §5.
-  - *New job*: a scan of chosen sources, or a run: the filter form (needs, search, source, kind, year, new since the
-    last scan), `through`, scan first, retry failed, *Preview* (`POST /v1/plan`: the label, what would run with its
-    stages, what would be skipped and why; marked stale when the choices change) and *Run*. Publish and commit are
+  - *A job* (`/jobs/:id`): its name, state (and why it ended), what it does, once or every N, its window, its next
+    start, a one-off's progress over its executions and the titles left; its execution running now, followed live, with
+    *Cancel* (which removes a one-off job, and says so); the executions before; and *Pause*/*Resume*, *Run now*,
+    *Edit…* (name and window; a recurring job's interval, filter, through and retry failed) and *Remove…* (asked first).
+    `/jobs` goes to Status.
+  - *Executions* (`/executions`, the log): each active job's next start, then every execution kept, newest first,
+    filtered by job and state, each with its job's name and which run of it, why it stopped, and what a run designed
+    and failed. An execution's page: its state (and why it stopped), its job, what it was asked, its times and window,
+    the result (counts; failures, unavailable, failed earlier, not published, designed and skipped titles, each linked to
+    its review; a stopped run's titles left for its job's next run), why it failed, its log (live while it runs) and
+    Cancel (Drop for a queued one; "Stopping after the title in hand" for a running one). The window field on *New job*,
+    *Edit…* and *Revise*, and the default on Status: [job windows](job-windows.md) §5.
+  - *New job*: a name, then a scan of chosen sources, or a run: the filter form (needs, search, source, kind, year, new
+    since the last scan), `through`, scan first, retry failed, *When* (once, or every N minutes -- only a run through
+    extract or design recurs), the window, *Preview* (`POST /v1/plan`: the label, what would run with its stages, what
+    would be skipped and why; marked stale when the choices change) and *Run* (*Make job* for a recurring one); either
+    opens the job's page. Publish and commit are
     disabled, with the reason, until `/v1/status` says `repository_writes` and `repositories_configured`. Bulk accept is
     not offered: the app decides titles one at a time.
   - *Titles*: a table of 100 a page (title, year, kind, source, needs, detail, confidence, designs, flags) linked to

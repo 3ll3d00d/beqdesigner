@@ -5,8 +5,9 @@ import { createBrowserRouter, Navigate, NavLink, Outlet, RouterProvider, useLoca
 
 import { AuthProvider, useAuth } from './auth/auth'
 import { SignIn } from './auth/SignIn'
+import { ExecutionPage } from './pages/ExecutionPage'
+import { ExecutionsPage } from './pages/ExecutionsPage'
 import { JobPage } from './pages/JobPage'
-import { JobsPage } from './pages/JobsPage'
 import { NewJobPage } from './pages/NewJobPage'
 import { NotFound } from './pages/NotFound'
 import { StatusPage } from './pages/StatusPage'
@@ -25,7 +26,7 @@ function Shell() {
         <span className="brand">BEQDesigner pipeline</span>
         <nav aria-label="Main">
           <NavLink to="/" end>Status</NavLink>
-          <NavLink to="/jobs">Jobs</NavLink>
+          <NavLink to="/executions">Executions</NavLink>
           <NavLink to="/titles">Titles</NavLink>
         </nav>
         <button type="button" className="link" onClick={signOut}>Sign out</button>
@@ -43,9 +44,11 @@ export const routes: RouteObject[] = [
     element: <Shell />,
     children: [
       { index: true, element: <StatusPage /> },
-      { path: 'jobs', element: <JobsPage /> },
+      { path: 'jobs', element: <Navigate to="/" replace /> },   // the jobs are on the status page
       { path: 'jobs/new', element: <NewJobPage /> },
       { path: 'jobs/:jobId', element: <JobPage /> },
+      { path: 'executions', element: <ExecutionsPage /> },
+      { path: 'executions/:executionId', element: <ExecutionPage /> },
       { path: 'titles', element: <TitlesPage /> },
       // the review page -- uPlot and every chart -- loads when it is first opened, not with the app
       { path: 'titles/:titleId', lazy: async () => ({ Component: (await import('./pages/ReviewPage')).ReviewPage }) },

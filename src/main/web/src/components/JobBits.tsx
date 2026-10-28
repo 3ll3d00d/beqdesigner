@@ -1,22 +1,46 @@
-// A job in a line, its state as a badge, and its progress, live while it runs.
+// A job or an execution in a line, their states as badges, and an execution's progress, live while it runs.
 import type { JobEvent } from '../api/events'
 import { describeFilter } from '../api/filter'
-import type { Job } from '../api/hooks'
-import { duration, STATE_WORDS } from '../format'
+import type { Execution, Job } from '../api/hooks'
+import { duration, JOB_STATE_WORDS, STATE_WORDS, STOPPED_WORDS } from '../format'
 
-export function describeJob(job: Job): string {
-  switch (job.kind) {
+/** What a job or an execution is asked to do, from its request. */
+export function describeRequest(work: Job | Execution): string {
+  switch (work.kind) {
     case 'scan':
-      return job.request.sources?.length ? `Scan ${job.request.sources.join(', ')}` : 'Scan every source'
+      return work.request.sources?.length ? `Scan ${work.request.sources.join(', ')}` : 'Scan every source'
     case 'run':
-      return `${job.request.redesign ? 'Redesign' : `Run through ${job.request.through}`}: ${describeFilter(job.request.filter ?? {})}`
+      return `${work.request.redesign ? 'Redesign' : `Run through ${work.request.through}`}: ${describeFilter(work.request.filter ?? {})}`
     case 'accept':
-      return `${job.request.dry_run ? 'Dry run of bulk accept' : 'Bulk accept'}: ${describeFilter(job.request.filter ?? {})}`
+      return `${work.request.dry_run ? 'Dry run of bulk accept' : 'Bulk accept'}: ${describeFilter(work.request.filter ?? {})}`
   }
+}
+
+/** An execution in a line: its job's name and which run of it, else what it did. */
+export function describeExecution(execution: Execution): string {
+  if (execution.job_name) return execution.number > 1 ? `${execution.job_name} (run ${execution.number})` : execution.job_name
+  return describeRequest(execution)
+}
+
+/** How often a job runs. */
+export function describeEvery(job: Job): string {
+  if (!job.every) return 'Once'
+  const hours = Math.floor(job.every / 60)
+  const minutes = job.every % 60
+  return `Every ${[hours ? `${hours} h` : '', minutes ? `${minutes} min` : ''].filter(Boolean).join(' ')}`
 }
 
 export function StateBadge({ state }: { state: string }) {
   return <span className={`badge state-${state}`}>{STATE_WORDS[state] ?? state}</span>
+}
+
+export function JobStateBadge({ state }: { state: string }) {
+  return <span className={`badge job-${state}`}>{JOB_STATE_WORDS[state] ?? state}</span>
+}
+
+/** Why an execution stopped before it had done everything, in words; '' if it did not. */
+export function stoppedBecause(execution: Execution): string {
+  return execution.state === 'stopped' && execution.stopped_because ? STOPPED_WORDS[execution.stopped_because] ?? '' : ''
 }
 
 /** The newest ffmpeg report in the events, if its title is the one the run is on. */
@@ -29,9 +53,9 @@ export function extraction(events: JobEvent[], titleId: string | undefined) {
   return null
 }
 
-export function JobProgress({ job, events = [] }: { job: Job; events?: JobEvent[] }) {
-  const progress = job.progress
-  if (!progress || job.state !== 'running') return null
+export function ExecutionProgress({ execution, events = [] }: { execution: Execution; events?: JobEvent[] }) {
+  const progress = execution.progress
+  if (!progress || execution.state !== 'running') return null
   const fraction = progress.total ? progress.done / progress.total : 0
   const ffmpeg = extraction(events, progress.id || undefined)
   return (

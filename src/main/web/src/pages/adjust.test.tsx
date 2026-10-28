@@ -65,7 +65,7 @@ function routes(over: Parameters<typeof review>[0] = {}, kinds: Record<string, u
       sent.push(await request.json() as Record<string, unknown>)
       return json({ revised: [], failed: [], job: runJob() })
     }),
-    http.get('/v1/jobs/job-1', () => json(runJob())), http.get('/v1/jobs/job-1/log', () => json([])),
+    http.get('/v1/jobs/job-1', () => json(runJob())),
     http.post('/v1/titles/a/variants/:v/use', async ({ params, request }) => {
       used.push([params.v, await request.json()])
       return json(review({ ...over, variant_id: String(params.v), variants: [] }))
