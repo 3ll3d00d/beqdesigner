@@ -20,6 +20,7 @@ import logging
 import subprocess
 import threading
 import uuid
+from contextlib import nullcontext
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from contextvars import copy_context
 from dataclasses import dataclass, field, replace
@@ -30,6 +31,7 @@ from pipeline.library.disks import DiskSlots, disks_of
 from pipeline.library.index import LibraryIndex
 from pipeline.library.join import JoinQueue
 from pipeline.library.profile import Profile
+from pipeline.designer.pool import not_started, starting_only_while
 from pipeline.designer.registry import designer_capacity
 from pipeline.library.run import MAX_DESIGN_SLOTS, LibraryRunConfig, LibraryRunReport, UnavailableStreak, \
     cached_unit_work, design_unit_work, run_unit
@@ -364,9 +366,24 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
             '''
             return min(MAX_DESIGN_SLOTS, designer_capacity(run_config.designer) or run_config.design_parallelism)
 
-        def design_task(planned, work):
+        def designs_in_hand_now() -> int:
+            '''
+            How many designs to have under way. A pool (a designer that says its capacity) sends one only when a slot is
+            free, so it is given one more per slot: that title's request is prepared, and the last one's result written,
+            while the slot designs, and a freed slot is filled at once (TODO IG). Anything else gets one per slot.
+            '''
+            slots = design_slots_now()
+            return 2 * slots if designer_capacity(run_config.designer) else slots
+
+        def design_task(planned, work, may_stop: bool):
+            '''
+            :param may_stop: a title not started yet (routed straight to design): while it waits for a designer slot, a
+                cancel or a stop leaves it unsent (DesignNotStarted), as one not yet submitted is left. One extracted in
+                this run is designed whatever happens, as before.
+            '''
             title_id = planned.row.id
-            with event_scope(title_id=title_id, stage='design'):
+            gate = starting_only_while(lambda: not halted()) if may_stop else nullcontext()
+            with event_scope(title_id=title_id, stage='design'), gate:
                 return design_unit_work(work, run_config, index,
                                         on_stage=lambda progress_id, stage: emit(
                                             stage, progress_id, titles.get(progress_id, progress_id)))
@@ -432,7 +449,7 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
 
         with ThreadPoolExecutor(max_workers=run_config.extract_parallelism,
                                 thread_name_prefix='library-extract') as extract_pool, \
-                ThreadPoolExecutor(max_workers=MAX_DESIGN_SLOTS,   # threads are made only as designs are submitted
+                ThreadPoolExecutor(max_workers=2 * MAX_DESIGN_SLOTS,   # made only as designs are submitted
                                    thread_name_prefix='library-design') as design_pool:
             while True:
                 cancel_requested = halted()
@@ -455,10 +472,11 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
                             slots.take(reading[future])
                 elif not report.stopped:
                     report.cancelled = True
-                while (design_pending or design_ready) and len(designing) < design_slots_now() \
+                while (design_pending or design_ready) and len(designing) < designs_in_hand_now() \
                         and not report.stopped:
+                    may_stop = not design_pending
                     planned, work = (design_pending or design_ready).pop(0)
-                    design_future = design_pool.submit(copy_context().run, design_task, planned, work)
+                    design_future = design_pool.submit(copy_context().run, design_task, planned, work, may_stop)
                     designing[design_future] = planned
                 if not extracting and not designing and (not (design_pending or design_ready) or report.stopped) and \
                         (not pending or halted()):
@@ -516,6 +534,11 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
                         try:
                             local = future.result()
                         except Exception as error:
+                            if not_started(error):   # it waited for a slot and the run stopped: left in not_run
+                                with event_scope(title_id=row_id, stage='design'):
+                                    emit_execution_event('cancelled', message='Not designed: the run stopped while '
+                                                                              'it waited for a designer slot')
+                                continue
                             local = LibraryRunReport(failed=[(row_id, f'{type(error).__name__}: {error}')])
                             with event_scope(title_id=row_id, stage='design'):
                                 emit_execution_event('failed', message=f'{type(error).__name__}: {error}')

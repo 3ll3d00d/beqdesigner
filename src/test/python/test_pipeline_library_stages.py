@@ -422,7 +422,10 @@ def test_cancelled_before_anything_runs_does_nothing(env, work):
 
 
 def test_the_design_stage_follows_the_designers_capacity_as_it_changes(env, monkeypatch):
-    ''' A pool of endpoints says how many designs it takes now (§7.2): more than run.parallelism.design, and it can change. '''
+    '''
+    A pool of endpoints says how many designs it takes now (§7.2): more than run.parallelism.design, and it can change.
+    The run keeps one more in hand per slot (TODO IG), which wait in the pool for a slot.
+    '''
     from pipeline.designer import registry
     from pipeline.library import stages
 
@@ -458,7 +461,7 @@ def test_the_design_stage_follows_the_designers_capacity_as_it_changes(env, monk
     finally:
         registry.unregister_designer(DESIGNER)
 
-    assert most[0] == 3
+    assert most[0] == 6   # two per slot in hand; the pool sends no more than 3 (test_pipeline_design_lookahead)
 
 
 def test_cancel_while_a_dispatched_title_waits_for_design_finishes_dispatched_titles_only(env, monkeypatch):

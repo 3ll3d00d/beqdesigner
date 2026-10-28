@@ -9,6 +9,7 @@ import requests
 
 from pipeline.config import AnalysisConfig
 from pipeline.designer.contract import Coverage
+from pipeline.designer.pool import not_started
 from pipeline.library.design_cache import design_if_needed
 from model.execution_events import emit_execution_event, event_scope
 from pipeline.library.failure import Unavailable, failure_message, unavailable_reason
@@ -535,7 +536,11 @@ def cached_unit_work(unit, run_config: LibraryRunConfig) -> tuple[Optional[UnitW
 def design_unit_work(work: UnitWork, run_config: LibraryRunConfig,
                      index: Optional[LibraryIndex] = None,
                      on_stage: Optional[Callable[[str, str], None]] = None) -> LibraryRunReport:
-    """Run only the design stage for an extraction already completed by ``run_unit(..., through='extract')``."""
+    """
+    Run only the design stage for an extraction already completed by ``run_unit(..., through='extract')``.
+    :raises pipeline.designer.pool.DesignNotStarted: (or an error raised from one) if the design waited for a designer
+        slot and was not sent; nothing is reported or remembered for it.
+    """
     report = LibraryRunReport()
     unit = work.unit
     item = work.item
@@ -547,6 +552,8 @@ def design_unit_work(work: UnitWork, run_config: LibraryRunConfig,
             _design_work(Session(run_config.config), work, run_config, report)
             emit_execution_event('stage_completed', message='Design complete')
     except Exception as error:
+        if not_started(error):   # it waited for a slot and its run stopped wanting it: not a failure (TODO IG)
+            raise
         logger.exception('Library design failed for %s (%s)', item.display_name, item.id)
         if not hasattr(error, 'library_stage'):
             error.library_stage = 'design'

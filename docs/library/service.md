@@ -105,7 +105,8 @@ container's `TZ`), e.g. `"window": ["01:00-07:00"]` on `POST /v1/jobs/run`, `/v1
 `POST /v1/revise` with `run`. A range may cross midnight (`22:00-06:00`), and several may be given.
 
 - Outside its window a queued job waits (`waiting_until` says until when) while other jobs run.
-- A run whose window closes stops taking titles: the ones in hand finish, then it is `paused` and carries on with the
+- A run whose window closes stops taking titles: the ones being designed or extracted finish (a title only waiting for
+  a designer slot is left), then it is `paused` and carries on with the
   titles it had left when the window next opens. It stays one job, with one progress bar, log and result (`parts`
   counts how many times it started).
 - A scan or accept that is running when its window closes finishes.

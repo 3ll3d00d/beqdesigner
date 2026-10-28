@@ -38,7 +38,7 @@ skips opens at the first minute after the change that is inside it, and an hour 
 | Job | Outside its window |
 |---|---|
 | queued | It is not started; it stays `queued`, and `waiting_until` says when it next opens. |
-| a running run | It stops taking titles before the next one (`JobControl.should_stop()`, which `run_stages`, the hand-off to another process's run, and the wait for the work directory's lease all poll). Titles in hand finish. It is then `paused` until its window opens, and carries on with the titles it had not started. |
+| a running run | It stops taking titles before the next one (`JobControl.should_stop()`, which `run_stages`, the hand-off to another process's run, and the wait for the work directory's lease all poll). Titles being designed or extracted finish; one that only waits for a designer slot (prepared ahead, TODO IG) is not sent. It is then `paused` until its window opens, and carries on with the titles it had not started. |
 | a running scan or accept | It finishes: both are short, and stopping either part-way leaves nothing worth resuming. |
 | paused | It stays `paused`, with `waiting_until`. |
 

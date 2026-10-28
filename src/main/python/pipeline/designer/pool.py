@@ -19,10 +19,14 @@ DesignerUnavailable, which a run counts towards `stop_after_unavailable` as befo
 
 How many designs an endpoint is sent at once is its `parallel` in the profile, or else what its /health reports
 (`parallel`, beqforge 0.2.4 on), or else 1. It is read again at every check, so a designer restarted with more workers is
-used to the full within a minute, and `capacity` (what a run keeps in hand) counts only the endpoints that are up.
+used to the full within a minute, and `capacity` (how many designs a run sends at once) counts only the endpoints that are up.
 
 What each endpoint is designing now is in `states()`: a caller names the title it designs with `designing()` around the
 call, and the pool keeps it against the endpoint for as long as the design is out.
+
+A run keeps more designs in hand than the pool has slots (TODO IG), so that the next title's request is ready when a
+slot comes free rather than prepared only then. A design waiting for a slot gives up, with DesignNotStarted, when the
+check its caller set with `starting_only_while()` says the run no longer wants it (cancelled, or its window closed).
 '''
 import logging
 import threading
@@ -52,6 +56,37 @@ class Activity:
 
 
 _designing: ContextVar[Optional[Tuple[str, str]]] = ContextVar('pipeline.designer.pool.designing', default=None)
+
+
+_may_start: ContextVar[Optional[Callable[[], bool]]] = ContextVar('pipeline.designer.pool.may_start', default=None)
+
+
+class DesignNotStarted(Exception):
+    ''' A design that waited for a slot and was not sent, because its run no longer wanted it when one came free. '''
+
+
+@contextmanager
+def starting_only_while(may_start: Callable[[], bool]) -> Iterator[None]:
+    '''
+    Designs made inside this block are sent only while `may_start()` is true: it is asked as a slot is taken (and each
+    time a waiting design wakes), and False raises DesignNotStarted instead of sending the design.
+    '''
+    token = _may_start.set(may_start)
+    try:
+        yield
+    finally:
+        _may_start.reset(token)
+
+
+def not_started(error: Optional[BaseException]) -> bool:
+    ''' True if `error`, or anything it was raised from, is a DesignNotStarted. '''
+    seen = set()
+    while error is not None and id(error) not in seen:
+        seen.add(id(error))
+        if isinstance(error, DesignNotStarted):
+            return True
+        error = error.__cause__ or error.__context__
+    return False
 
 
 @contextmanager
@@ -128,7 +163,8 @@ class DesignerPool:
     def capacity(self) -> int:
         '''
         How many designs the pool takes at once now: the endpoints that are up (or not asked yet), each at its limit. A
-        run keeps this many in hand. At least 1, so that with none up a design is still tried and found unavailable.
+        run keeps twice this many in hand, half of them waiting here for a slot. At least 1, so that with none up a design
+        is still tried and found unavailable.
         '''
         with self._condition:
             return max(1, sum(e.limit for e in self.endpoints if e.up or e.checked_at is None))
@@ -146,8 +182,9 @@ class DesignerPool:
     def __call__(self, request: DesignRequest, sources=None) -> DesignResponse:
         tried: set = set()
         named = _designing.get()
+        may_start = _may_start.get()
         while True:
-            endpoint = self._acquire(tried)
+            endpoint = self._acquire(tried, may_start)
             call = object()
             if named is not None:
                 with self._condition:
@@ -166,13 +203,23 @@ class DesignerPool:
             finally:
                 self._release(endpoint, id(call))
 
-    def _acquire(self, tried: set) -> PoolEndpoint:
+    def _acquire(self, tried: set, may_start: Optional[Callable[[], bool]] = None) -> PoolEndpoint:
         '''
         A slot on an endpoint that is up, waiting for one to come free while every live endpoint is busy.
+        :param may_start: asked before a slot is taken and each time the wait ends; False gives up.
         :raises DesignerUnavailable: if no endpoint not already tried for this design is up.
+        :raises DesignNotStarted: if `may_start` says the design is no longer wanted.
         '''
         with self._condition:
             while True:
+                if may_start is not None:
+                    self._condition.release()   # the run's check may take its own locks: never under the pool's
+                    try:
+                        wanted = may_start()
+                    finally:
+                        self._condition.acquire()
+                    if not wanted:
+                        raise DesignNotStarted('the run no longer wants this design')
                 candidates = [e for e in self.endpoints if e.url not in tried]
                 due = [e for e in candidates if not e.checking and
                        (e.checked_at is None or self.clock() - e.checked_at >= self.recheck_seconds)]

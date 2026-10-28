@@ -410,8 +410,10 @@ design; nothing is retried inline. An unknown name stops the run before anything
 
 A designer can be served by several endpoints (`designers: {beqforge: {endpoints: [{url, parallel, by_reference,
 headers}, ...]}}`, contract §7.2): `pipeline.designer.pool` sends each design to the endpoint with the most room that
-is up, leaves out one that does not answer until it does, and keeps as many designs in hand as the live endpoints take:
-each its `parallel`, or what its `/health` reports, or 1. The endpoints must run the same designer build.
+is up, leaves out one that does not answer until it does, and sends at most as many designs at once as the live endpoints
+take: each its `parallel`, or what its `/health` reports, or 1. A run keeps one more design in hand per slot, its request
+prepared and waiting in the pool, so a slot that comes free is used at once rather than after the next request is built;
+one waiting when the run is cancelled, or its window closes, is not sent. The endpoints must run the same designer build.
 
 ### Config file
 

@@ -1199,9 +1199,10 @@ designers:
 
 The caller (`pipeline.designer.pool`) registers them as one designer under its name, so a design's fingerprint (which
 names the designer) does not depend on which endpoint answered. **Every endpoint must run the same designer build**, or
-two designs of one title could differ by where they ran. A run keeps as many designs in hand as the endpoints that are up take together
+two designs of one title could differ by where they ran. A run sends at most as many designs at once as the endpoints that are up take together
 (in place of `run.parallelism.design`, and following them as they change), and each design goes to the endpoint with the most room
-that is up. The caller asks each endpoint's `/health` (§7.1) before using it and again every minute; one that does not
+that is up. It prepares one more request per slot meanwhile, sent only as a slot comes free, so an endpoint is never sent
+more than it takes. The caller asks each endpoint's `/health` (§7.1) before using it and again every minute; one that does not
 answer, or that a request cannot reach (no connection, or a gateway's 502/503/504), is left out until it answers again,
 and that design is sent to another endpoint. Any other failure, including a design that outlives its timeout, is the
 design's own: it is not sent elsewhere. Only when no endpoint is up is the design unavailable. A single `url` is one

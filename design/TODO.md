@@ -48,7 +48,7 @@ outside it. A beqforge version bump invalidates its bundled optimiser seed
 
 | Priority | ID | R | Previous IDs | Status | Depends on |
 |---|---|---|---|---|---|
-| 1 | IG | | -- | Not started: each designer slot sits idle about 20 s a title between designs (93 titles an hour on the DV8 run against ~75 s of designer time per title with 3 slots) | -- |
+| 1 | IG | | -- | Built 2026-10-28: a run keeps one prepared design waiting per pool slot. Left: measure titles an hour on the next library run after deploying it (the DV8 run made 93) | A release deployed, and a run of a few hundred titles |
 | 2 | JE | | [jobs and executions](jobs-and-executions.md) | Design written 2026-10-27, not started; its four defaulted decisions (§ the build's API rename, cancel pauses a one-off, what can be edited, the migration) await the user | The user's answer on the four decisions |
 | 3 | RV | | [library run](library-run-gaps.md#l1-finish-the-review-of-the-run-operational) | Operational: all 1,287 designs await a person's review; the DV8 redesign (1,051 titles, 2026-10-26 to 28) changed 728 and left 323 as they were | A person |
 | 4 | E2 | R | chunk 31, T2-T4 | Waiting for manual acceptance; everything it exercises is built and published | Real media, a JRiver server and disposable repositories |
@@ -84,9 +84,15 @@ only after the previous result has been written. Prepare the next request while 
 result after the slot's next request has gone, so each slot stays busy (beqforge's estimate: about 1.25x the
 throughput, with nothing changed on the designers).
 
-**Done when** a slot sends its next request without waiting for the previous title's result to be written or the next
-title's request to be prepared, covered by tests over a fake designer, and a library run's titles an hour is compared
-with the DV8 run's 93.
+**Built 2026-10-28:** `run_stages` keeps twice the pool's capacity in hand when the designer is a pool, and the pool
+(`pipeline.designer.pool`) still sends no endpoint more than its `parallel`: the extra designs prepare their request and
+wait for a slot there. One routed straight to design that is still waiting when the run is cancelled, or its window
+closes, gives up (`DesignNotStarted`, asked through `starting_only_while()` outside the pool's lock) and is left in
+`not_run` with a `cancelled` event, not recorded as a failure; one extracted in the run is designed as before. Tests:
+`test_pipeline_design_lookahead.py`. A side effect: the run's progress shows up to twice as many titles at the design
+stage as there are slots, since a waiting one has started its stage.
+
+**Done when** a library run's titles an hour, on a deployed release with this, is compared with the DV8 run's 93.
 
 ### JE — Jobs and executions
 
