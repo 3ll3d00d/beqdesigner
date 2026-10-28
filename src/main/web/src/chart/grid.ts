@@ -140,3 +140,19 @@ export function clock(seconds: number): string {
   const s = Math.max(0, Math.round(seconds))
   return `${Math.floor(s / 3600)}:${String(Math.floor(s / 60) % 60).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
 }
+
+/** The frequency of each of a grid's columns, Hz. */
+export const gridFreqs = (grid: Grid): number[] => Array.from({ length: grid.freqs }, (_, i) => grid.f0 + i * grid.df)
+
+/**
+ * The top of one colour scale for a title, the same whichever of its designs is drawn: the loudest the measured grid
+ * reaches, or the loudest any design lifts it to -- each frequency's loudest measured cell plus that design's response
+ * there (`responses`, dB at `gridFreqs(before)`), which is what the design's own grid would show at its loudest.
+ */
+export function sharedTop(before: Grid, responses: number[][]): number {
+  let top = -Infinity
+  loudestByFrequency(before, gridTimes(before)).forEach((db, f) => {
+    if (db !== null) top = Math.max(top, db, ...responses.map((r) => db + (r[f] ?? 0)))
+  })
+  return Number.isFinite(top) ? top : before.floorDb + 254 * before.stepDb
+}

@@ -204,6 +204,13 @@ the left and as measured on the right, 1-40 Hz across and time down, each cell w
 wide (at least 5 px) in the spectrogram's colours, quietest first (`byLevel()` groups the cells by level so each colour is
 set once), on the page's background. *Published image…* fetches the PNG publish writes and links it.
 
+Both take their 60 dB scale from the **title**, not the design drawn (`scaleTop()`, `sharedTop()`), so it stays put while
+designs are compared: its top is the loudest the measured grid reaches or any of the title's designs lifts it to, each
+frequency's loudest measured cell plus that design's response there (`responseDb()` of its filters, which the review
+page passes for every design run). The service scales each grid to its own loudest cell, so the drawn grid's top would
+move with the design; it counts only if some design's filters cannot be read. Tests: `src/chart/grid.test.ts`,
+`src/pages/visuals.test.tsx`.
+
 Both are navigated the same way (`PlaneControls`, `usePlaneGestures`, `src/chart/plane.ts`): the frequency and time ranges
 are typed (Hz; h:mm:ss, m:ss or seconds) and applied on Enter or leaving the box, a box that does not read is marked;
 *＋*/*－* zoom about the middle, *Back* returns to the view before (a stack of 50), *Whole title* (or a double click)

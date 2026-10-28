@@ -1,8 +1,9 @@
 // The spectrogram grid (design/web-parity.md WP2): decoding the service's bytes and painting them.
 import { encodeGrid } from '../test/grid'
 import { byLevel } from '../components/HeatmapView'
+import { scaleTop } from '../components/Spectrogram'
 import { clock, decodeGrid, differenceColour, gridTimes, level, levelAt, levelColour, loudestByFrequency, paint,
-  scaleGradient } from './grid'
+  scaleGradient, sharedTop } from './grid'
 
 // 3 times x 4 frequencies (0, 10, 20, 30 Hz); 0 is below the floor
 const grid = () => decodeGrid(encodeGrid({ times: 3, freqs: 4, cells: [0, 50, 100, 1, 0, 200, 0, 1, 255, 0, 0, 0] }))
@@ -64,6 +65,24 @@ describe('reading the grid for a readout and a colour bar', () => {
     expect(Array.from(groups[1]!)).toEqual([3, 7])
     expect(Array.from(groups[255]!)).toEqual([8])
     expect(groups.reduce((n, g) => n + g.length, 0)).toBe(6)
+  })
+})
+
+describe('one colour scale for every design of a title', () => {
+  // the loudest of each column: 154 dB at 0 Hz, 99 at 10, -1 at 20, -100 at 30
+  it("is the measured grid's top, or the most any design lifts a frequency's loudest cell to", () => {
+    expect(sharedTop(grid(), [])).toBe(154)
+    expect(sharedTop(grid(), [[0, 60, 0, 0]])).toBe(159)                     // 99 + 60 at 10 Hz
+    expect(sharedTop(grid(), [[0, 60, 0, 0], [0, 0, 0, 300]])).toBe(200)     // -100 + 300 at 30 Hz: the larger
+    expect(sharedTop(grid(), [[-10, 0, 0, 0]])).toBe(154)                    // a cut never lowers it below the measured
+  })
+
+  it('is the same whichever design is drawn, and covers one whose filters cannot be read', () => {
+    const designs = [{ rows: [{ type: 'low_shelf' as const, freq_hz: 20, gain_db: 10, q: 0.7, count: 1 }], fs: 96000 },
+                     { rows: [], fs: 96000 }]
+    const loud = decodeGrid(encodeGrid({ times: 1, freqs: 4, cells: [255, 255, 255, 255], floorDb: 100 }))
+    expect(scaleTop(grid(), designs, loud)).toBe(scaleTop(grid(), designs, null))   // the drawn grid does not move it
+    expect(scaleTop(grid(), [...designs, null], loud)).toBe(354)                    // unless a design cannot be read
   })
 })
 

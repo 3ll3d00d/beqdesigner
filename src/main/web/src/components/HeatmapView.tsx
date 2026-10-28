@@ -1,6 +1,7 @@
 // The heatmap of a design (design/web-parity.md WP2): the publication heatmap's two panes -- after the design on the
 // left, as measured on the right, 1-40 Hz across and time down -- drawn here from the spectrogram's grids, so it has the
-// spectrogram's colour scale and the page's background, follows light and dark, and zooms. A dot is each cell within
+// spectrogram's colour scale and the page's background, follows light and dark, and zooms. The scale is the title's, not
+// the design's (`scaleTop`): it stays put while designs are compared. A dot is each cell within
 // LEVELS_DB of the loudest (as the published image keeps those within 60 dB), quietest first so the loud ones lie on top.
 // The image publish writes is still there, as a link.
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -12,7 +13,7 @@ import type { Range } from '../chart/view'
 import { cssColour, useColourScheme } from '../theme'
 import { PlaneControls, useZoomHistory, type Plane } from './PlaneControls'
 import { SelectionBox } from './SelectionBox'
-import { ColourBar, LEVELS_DB, linearTicks, MAX_HZ, topOf, useWidth } from './Spectrogram'
+import { ColourBar, LEVELS_DB, linearTicks, MAX_HZ, scaleTop, useWidth, type DesignFilters } from './Spectrogram'
 import { usePlaneGestures } from './usePlaneGestures'
 
 const DEFAULT_X: Range = [1, 40]
@@ -70,8 +71,10 @@ function PublishedImage({ titleId, candidate, variant }: { titleId: string; cand
   return <a href={heatmap.url} target="_blank" rel="noreferrer">Open the published image</a>
 }
 
-export function HeatmapView({ titleId, candidate, variant = null, title }: {
+export function HeatmapView({ titleId, candidate, variant = null, title, designs = [] }: {
   titleId: string; candidate: number; variant?: string | null; title: string
+  /** Every design of the title, so the colour scale is the same whichever is drawn (`scaleTop`). */
+  designs?: DesignFilters[]
 }) {
   const before = useSpectrogram(titleId, candidate, false, MAX_HZ, true, variant)
   const after = useSpectrogram(titleId, candidate, true, MAX_HZ, true, variant)
@@ -95,7 +98,7 @@ export function HeatmapView({ titleId, candidate, variant = null, title }: {
     history.clear()
     setPlane(null)
   }
-  const top = grids ? Math.max(topOf(grids.before), topOf(grids.after)) : 0
+  const top = useMemo(() => (grids ? scaleTop(grids.before, designs, grids.after) : 0), [grids, designs])
   const levels: Range = [top - LEVELS_DB, top]
   const paneWidth = Math.floor((width - MARGIN.left - MARGIN.gap) / 2), paneHeight = HEIGHT - MARGIN.top - MARGIN.bottom
   const panes: Axes[] = [0, 1].map((i) => ({ left: MARGIN.left + i * (paneWidth + MARGIN.gap), top: MARGIN.top,

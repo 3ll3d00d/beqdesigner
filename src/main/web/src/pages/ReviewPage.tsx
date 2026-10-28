@@ -4,7 +4,7 @@
 // the heading) and its problems, and Accept / Reject / Skip (A, R, S; 1-9 highlight a design). Accepting a design the
 // designer rejected asks first; accepting one of an earlier run makes that run current. After a decision, or Skip, the
 // next title waiting in the same filtered list opens.
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 
 import type { Schemas } from '../api/client'
@@ -196,6 +196,8 @@ export function ReviewPage() {
   const picked = candidate?.index ?? 0   // into its own run's designs
   const pickedRun = offer?.run ?? null
   const runOffers = offers.filter((o) => o.run === pickedRun).length
+  // every design's filters, for one spectrogram and heatmap colour scale whichever design is drawn
+  const designFilters = useMemo(() => offers.map((o) => rowsOf(o.candidate.filters)), [data])   // eslint-disable-line react-hooks/exhaustive-deps
   const [view, setView] = useState<ChartView>(loadView)
   const [visual, setVisual] = useState<Visual>('magnitude')
   const projects = useProjects(titleId, data?.digest)
@@ -447,7 +449,7 @@ export function ReviewPage() {
             </>
           )}
           {visual === 'spectrogram' && (offers.length
-            ? <Spectrogram titleId={titleId} candidate={picked} variant={pickedRun} view={view}
+            ? <Spectrogram titleId={titleId} candidate={picked} variant={pickedRun} view={view} designs={designFilters}
                            onZoom={(x) => changeView({ ...view, x })}
                            onReset={() => changeView({ ...view, x: DEFAULT_VIEW.x })} />
             : <p className="muted">No design yet: nothing to draw.</p>)}
@@ -455,7 +457,7 @@ export function ReviewPage() {
             <PublishedBeqs titleId={titleId} ours={chart.data?.series ?? []} picked={picked} view={view} onView={changeView} />
           )}
           {visual === 'heatmap' && (offers.length
-            ? <HeatmapView titleId={titleId} candidate={picked} variant={pickedRun} title={data!.title} />
+            ? <HeatmapView titleId={titleId} candidate={picked} variant={pickedRun} title={data!.title} designs={designFilters} />
             : <p className="muted">No design yet: nothing to draw.</p>)}
         </section>
         <Commentary candidate={candidate} review={data!} />

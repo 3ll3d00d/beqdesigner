@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw/http'
 
 import { saveToken } from '../api/token'
-import { chart, index, METADATA_FIELDS, review } from '../test/fixtures'
+import { candidate, chart, index, METADATA_FIELDS, review } from '../test/fixtures'
 import { encodeGrid } from '../test/grid'
 import { renderApp } from '../test/render'
 import { server, status, statusRoute, TOKEN } from '../test/server'
@@ -166,3 +166,29 @@ it('says why a title cannot be drawn', async () => {
   await userEvent.click(await screen.findByRole('tab', { name: 'Spectrogram' }))
   expect(await screen.findByRole('alert')).toHaveTextContent('No extracted mono audio')
 })
+
+it('keeps the heatmap and spectrogram colour scale while designs are compared', async () => {
+  const shelf = (gain: number) => ({ filters: [{ _type: 'LowShelf', fs: 96000, fc: 20, q: 0.7, gain, count: 1 }] })
+  routes(0)
+  server.use(
+    http.get('/v1/titles/a/review', () => json(review({ candidates: [candidate(0, { filters: shelf(4) }),
+                                                                     candidate(1, { filters: shelf(12) })] }))),
+    http.get('/v1/titles/a/spectrogram', ({ request }) => {
+      const query = new URL(request.url).searchParams
+      // each grid scaled to its own loudest, as the service sends them: the louder design's starts higher
+      const floorDb = query.get('filtered') === 'true' ? (query.get('candidate') === '1' ? -80 : -90) : -100
+      return new HttpResponse(encodeGrid({ times: 2, freqs: 3, cells: [255, 100, 1, 200, 50, 1], floorDb }),
+                              { headers: { 'Content-Type': 'application/octet-stream' } })
+    }),
+  )
+  renderApp('/titles/a')
+  await userEvent.click(await screen.findByRole('tab', { name: 'Heatmap' }))
+  const scale = async () => (await screen.findByRole('img', { name: /^-?\d+ to -?\d+ dB$/ })).getAttribute('aria-label')
+  const first = await scale()
+  await userEvent.click(screen.getAllByRole('radio')[1]!)
+  await screen.findByRole('img', { name: /design 2: after the design/ })
+  expect(await scale()).toBe(first)
+  await userEvent.click(screen.getByRole('tab', { name: 'Spectrogram' }))
+  expect(await scale()).toBe(first)                     // the spectrogram's is the title's too
+})
+

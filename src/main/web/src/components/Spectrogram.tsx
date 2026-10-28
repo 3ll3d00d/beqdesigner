@@ -3,11 +3,12 @@
 // frequency in a strip under it ("where are the heavy hits"). The ranges are typed in, or zoomed by dragging a box (shown
 // as it is dragged), the wheel about the pointer, or the zoom buttons; Back returns to the view before, and *Whole title*
 // (or a double click) to the whole title and the chart's preset range.
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { useSpectrogram } from '../api/hooks'
-import { clock, decodeGrid, differenceColour, differenceGradient, gridTimes, levelAt, levelColour, loudestByFrequency,
-  paint, scaleGradient, type Grid, type GridMode } from '../chart/grid'
+import { responseDb, type FilterRow } from '../chart/biquad'
+import { clock, decodeGrid, differenceColour, differenceGradient, gridFreqs, gridTimes, levelAt, levelColour,
+  loudestByFrequency, paint, scaleGradient, sharedTop, type Grid, type GridMode } from '../chart/grid'
 import { pxOf, pyOf, zoomAbout, type Axes } from '../chart/plane'
 import { drawnRange, logTicks, type ChartView, type Range } from '../chart/view'
 import { cssColour, useColourScheme } from '../theme'
@@ -37,6 +38,20 @@ export function linearTicks([low, high]: Range, count = 6): number[] {
 
 /** The loudest level a grid holds, dB: the top of the scale. */
 export const topOf = (grid: Grid) => grid.floorDb + 254 * grid.stepDb
+
+/** A design's filters as the page has them (`rowsOf()`); null for one it cannot read. */
+export type DesignFilters = { rows: FilterRow[]; fs: number } | null
+
+/**
+ * The top of the colour scale for a title: the same for every one of its designs (`designs`, all of them), so switching
+ * between them compares like with like. A design whose filters cannot be read is covered by the drawn grid's own top.
+ */
+export function scaleTop(before: Grid, designs: DesignFilters[], after: Grid | null = null): number {
+  const freqs = gridFreqs(before)
+  const readable = designs.filter((d): d is NonNullable<DesignFilters> => d !== null)
+  const top = sharedTop(before, readable.map((d) => responseDb(d.rows, d.fs, freqs)))
+  return after && readable.length < designs.length ? Math.max(top, topOf(after)) : top
+}
 
 /** The width a canvas inside `holder` can take, followed as it resizes. */
 export function useWidth(holder: React.RefObject<HTMLDivElement | null>, initial = 800) {
@@ -69,9 +84,11 @@ interface Props {
   view: ChartView
   onZoom: (x: Range) => void
   onReset: () => void
+  /** Every design of the title, for one colour scale whichever is drawn (`scaleTop`). */
+  designs?: DesignFilters[]
 }
 
-export function Spectrogram({ titleId, candidate, variant = null, view, onZoom, onReset }: Props) {
+export function Spectrogram({ titleId, candidate, variant = null, view, onZoom, onReset, designs = [] }: Props) {
   const [mode, setMode] = useState<GridMode>('before')
   const [times, setTimes] = useState<Range | null>(null)
   const before = useSpectrogram(titleId, candidate, false, MAX_HZ, true, variant)
@@ -83,14 +100,14 @@ export function Spectrogram({ titleId, candidate, variant = null, view, onZoom, 
   const scheme = useColourScheme()
 
   const decoded = (data: typeof before.data): Grid | null => (data && !data.pending ? decodeGrid(data.data) : null)
-  const grid = decoded(before.data)
-  const afterGrid = decoded(after.data)
+  const grid = useMemo(() => decoded(before.data), [before.data])   // eslint-disable-line react-hooks/exhaustive-deps
+  const afterGrid = useMemo(() => decoded(after.data), [after.data])   // eslint-disable-line react-hooks/exhaustive-deps
   const ready = grid !== null && (mode === 'before' || afterGrid !== null)
   const x = drawnRange(view)
   const fullT = grid ? gridTimes(grid) : [0, 1] as Range
   const t = times ?? fullT
   const full: Plane = { x: [view.logX ? 1 : 0, grid ? Math.min(MAX_HZ, grid.f0 + grid.df * (grid.freqs - 1)) : MAX_HZ], t: fullT }
-  const top = grid ? topOf(grid) : 0
+  const top = useMemo(() => (grid ? scaleTop(grid, designs, afterGrid) : 0), [grid, afterGrid, designs])
   const levels: Range = [top - LEVELS_DB, top]
   const plotWidth = width - MARGIN.left, plotHeight = HEIGHT - MARGIN.bottom
   const axes: Axes = { left: MARGIN.left, top: 0, width: plotWidth, height: plotHeight, x, t, logX: view.logX }
