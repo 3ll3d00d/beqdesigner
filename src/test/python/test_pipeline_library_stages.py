@@ -438,6 +438,7 @@ def test_the_design_stage_follows_the_designers_capacity_as_it_changes(env, monk
     registry.register_designer(DESIGNER, Pool())
     _scan(env, *[_item(letter) for letter in 'abcdefg'])
     lock, active, most = threading.Lock(), [0], [0]
+    full = threading.Event()   # held until six are in hand, so it does not depend on how fast the machine extracts
 
     def extract(session, unit, config, local_report, index, **kwargs):
         item = unit.item if hasattr(unit, 'item') else unit
@@ -447,7 +448,10 @@ def test_the_design_stage_follows_the_designers_capacity_as_it_changes(env, monk
         with lock:
             active[0] += 1
             most[0] = max(most[0], active[0])
-        time.sleep(0.2)
+            if active[0] >= 6:
+                full.set()
+        full.wait(10)
+        time.sleep(0.05)   # a seventh, if the run would hand one over, has its chance to start
         with lock:
             active[0] -= 1
         return LibraryRunReport(designed=[work.item.id])
