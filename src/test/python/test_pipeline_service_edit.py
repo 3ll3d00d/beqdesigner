@@ -256,6 +256,17 @@ def test_sending_back_with_a_run_is_one_redesign_job(service):
     assert (refused.status_code, refused.json()['title']) == (422, 'Nothing to run')
 
 
+
+def test_the_reason_goes_with_the_redesign_job(service, monkeypatch):
+    ''' "Why (kept in the note)": the job sends each title back with it (service/work.py), as a revise without a run does. '''
+    from pipeline.service import edits
+    made = []
+    real = edits.RunRequest
+    monkeypatch.setattr(edits, 'RunRequest', lambda *args, **kwargs: made.append(kwargs) or real(*args, **kwargs))
+    client, *_ = service
+    assert _revise(client, ids=['a'], to='design', run=True, reason='cap the boost').status_code == 200
+    assert made[-1]['reason'] == 'cap the boost' and made[-1]['revise_to'] == 'design'
+
 @pytest.fixture
 def streams(setup):
     import sqlite3

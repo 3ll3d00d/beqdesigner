@@ -226,7 +226,8 @@ def register(v1: APIRouter, deps: EditRoutes) -> None:
                                                    extract_invalidated=result.extract_invalidated))
         if body.run:
             job = deps.book.create('run', RunRequest(Selection(ids=tuple(ready)), 'design', scan_first=False,
-                                                     retry_failed=True, redesign=True, revise_to=body.to),
+                                                     retry_failed=True, redesign=True, revise_to=body.to,
+                                                     reason=body.reason or ''),
                                    window=body.window) if ready else None
             return models.ReviseOutcome(revised=[], failed=failed, job=deps.job_view(job) if job else None,
                                         execution=deps.first_execution(job) if job else None)

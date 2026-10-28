@@ -227,6 +227,27 @@ def test_redesign_reopens_only_the_requested_title_before_running(manager, profi
     assert 'Sent back for redesign' in read_entry(queue, ids[0]).reviewer_note
 
 
+
+def test_a_redesigns_reason_is_kept_in_the_reviewer_note(manager, profile, monkeypatch):
+    ''' The browser's "Why (kept in the note)" with Extract & design now: the job sends the title back with it. '''
+    from pipeline.library.index import LibraryIndex, index_path
+    from pipeline.review import read_entry
+    from pipeline.service.context import load_context
+    from review_entry_fixture import write_entry
+
+    _done(manager, ScanRequest())
+    ctx = load_context(str(profile), {})
+    with LibraryIndex(index_path(ctx.work_dir)) as index:
+        title_id = index.titles()[0].id
+    queue = ctx.scan_settings().queue_dir
+    write_entry(queue, title_id)
+    monkeypatch.setattr(work, 'run_stages', lambda profile_, selection, through, **kwargs: StagesReport(through, 1))
+
+    job = _done(manager, RunRequest(Selection(ids=(title_id,)), scan_first=False, redesign=True, reason='cap the boost'))
+
+    assert job.state == 'succeeded', job.error
+    assert read_entry(queue, title_id).reviewer_note.endswith('Sent back for redesign: cap the boost')
+
 def _scanned_with_entries(manager, profile, status='pending'):
     from pipeline.library.index import LibraryIndex, index_path
     from pipeline.review import update_entry

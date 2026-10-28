@@ -92,6 +92,7 @@ class RunRequest:
     redesign: bool = False      # explicitly invalidate the titles' existing designs before running (one run for them all)
     revise_to: str = 'design'   # with redesign: how far back each is sent first ('design', or 'extract' to extract again)
     audio_stream: Optional[int] = None   # with redesign to extract, one title: the audio stream (zero-based) a person chose
+    reason: str = ''                     # with redesign: why, added to each title's reviewer note as a revise adds it
 
     def __post_init__(self):
         if self.redesign:

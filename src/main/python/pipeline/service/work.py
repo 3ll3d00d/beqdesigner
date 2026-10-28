@@ -156,7 +156,8 @@ def run(context: JobContext, request: RunRequest, control: ExecutionControl, *, 
                     choose_stream(index, settings.queue_dir, title_id, request.audio_stream, work_dir=settings.work_dir,
                                   **where)
                 else:
-                    revise_entry(settings.queue_dir, title_id, request.revise_to, work_dir=settings.work_dir, **where)
+                    revise_entry(settings.queue_dir, title_id, request.revise_to, request.reason,
+                                 work_dir=settings.work_dir, **where)
             index.refresh(context.profile, settings)
         report = run_stages(context.profile, selection, request.through, run_config=run_config, index=index,
                             publish=publish, settings=settings, retry_failed=request.retry_failed,
