@@ -50,8 +50,6 @@ outside it. A beqforge version bump invalidates its bundled optimiser seed
 | 1 | IG | | -- | Built 2026-10-28: a run keeps one prepared design waiting per pool slot. Left: measure titles an hour on the next library run after deploying it (the DV8 run made 93) | A release deployed, and a run of a few hundred titles |
 | 3 | RV | | [library run](library-run-gaps.md#l1-finish-the-review-of-the-run-operational) | Operational: all 1,287 designs await a person's review; the DV8 redesign (1,051 titles, 2026-10-26 to 28) changed 728 and left 323 as they were | A person |
 | 4 | E2 | R | chunk 31, T2-T4 | Waiting for manual acceptance; everything it exercises is built and published | Real media, a JRiver server and disposable repositories |
-| 5 | L1 | | [library run](library-run-gaps.md#l1-finish-the-review-of-the-run-operational) | Declines through design version 6 are in the ledger (stage E, 270); the 16 still declined at version 8 are not | -- |
-| 6 | L4 | | [library run](library-run-gaps.md#l4-designer-findings-to-hand-to-beqforge) | v5 and v6 handoffs sent (`/media/beq/triage/handoff-v5.md`, `handoff-v6.md`; beqforge TODO 31, 35); check the 7 findings listed there are each covered, and hand on what is not | L1's version 8 declines |
 | 8 | WP | | [web parity](web-parity.md) | Built both sides; the designers run 0.3.1 (contract 1.5 and later) since 2026-10-26. Left: try an adjusted redesign in the browser live, then archive this row | -- |
 | 9 | L6 | | [library run](library-run-gaps.md#l6-finish-what-the-run-started) | Not started; 78 possible duplicates flagged in the index | E2 |
 | 10 | O2 | | former §9 reviewer questions | Behavior exists; acceptance decision missing | Real reviewer feedback |
@@ -98,7 +96,7 @@ Every one of the 1,287 designs is at review. The design version 8 redesign (job 
 236 left out as unaffected, are as a person last saw them. Nothing is accepted without a person (the work list's
 *Accept top pick* asks first). **Done when** each title is accepted, rejected or deliberately left.
 
-### L1, L4, L6 — Gaps left by the first full library run
+### L6 — Gaps left by the first full library run
 
 The run's results and each item's scope and completion criterion are in
 [library-run-gaps.md](library-run-gaps.md) (plan, not built). Archive each item there and here when done.

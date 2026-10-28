@@ -1,6 +1,6 @@
 # Library run: results and the plan for the remaining gaps
 
-**Plan, not built.** Written 2026-10-19 after the first unattended run over the whole JRiver library
+**Plan, partly built** (L1-L5 done, L6 not started). Written 2026-10-19 after the first unattended run over the whole JRiver library
 (1,292 titles) with the pipeline service (2.2.0-alpha.12 to alpha.20) and the beqforge designer
 (0.2.0 to 0.2.5). Status of each item is in [TODO](TODO.md) (rows L1-L6); this file says what was found
 and what each item is. The decline-by-decline evidence is the triage ledger on the share
@@ -45,13 +45,10 @@ source digest computed at each beqforge tag by hand (L3).
 
 ## 2. The gaps
 
-### L1. Finish the review of the run (operational)
+### L1. Finish the review of the run (done)
 
-Every decline through design version 6 is in the ledger (`/media/beq/triage/ledger.jsonl`, the v6 run's 270 as stage
-E), and the v5 and v6 handoffs went to beqforge (its TODO 31 and 35). The design version 8 redesign (2026-10-26 to
-28, 1,051 titles) left 16 declined, not yet in the ledger. A person's review of every design is RV in TODO.
-
-**Done when** every decline in the queue is in the ledger, against the build that made it.
+Done 2026-10-28: [L1, L3, L4 record](archive/library-run-l1-l3-l4.md). Every decline in the queue is in the ledger against
+the build that made it (stage F for the 44 at versions 7 and 8). A person's review of every design is RV in TODO.
 
 ### L2. Extraction failures (done)
 
@@ -60,39 +57,13 @@ Fixed and archived: [L2 record](archive/library-run-l2.md). Seven of the nine no
 
 ### L3. Know which designs a designer upgrade changes (extends D4) (done)
 
-**Agreed 2026-10-19; built both sides and deployed** (designers report design version 8 since 2026-10-26):
-[design-version.md](design-version.md) (contract 1.4: a `design_version` that changes only with the answers, a
-`design_settings` digest, `designer_build`; the caller keeps them per entry and selects *out of date*). Contract 1.6's
-`/impact` then picked which out-of-date designs to redesign ([redesign-scope.md](redesign-scope.md)). **Done
-2026-10-28:** the desktop work list's *Design* filter (Any / Declined / Out of date) and the out-of-date count on its
-drift banner (`model/worklist_design_filter.py`).
+Done: [design-version.md](design-version.md) and contract 1.6's `/impact` on both sides, and the desktop work list's
+*Design* filter and drift-banner count (2026-10-28). Record: [L1, L3, L4](archive/library-run-l1-l3-l4.md).
 
-### L4. Designer findings to hand to beqforge
+### L4. Designer findings to hand to beqforge (done)
 
-beqforge belongs to its own session: each item becomes a handoff in its `plans/`, with the titles,
-messages and repro, not an edit there. In order of titles affected:
-
-1. **F2 part 2, still live on 0.2.5.** Before the Devil Knows You're Dead and Blink Twice still decline
-   *no usable plateau* with "real bass content down to 200.0 Hz": an unmeasured tracking floor reported
-   as a measurement, and the mix plateau still lost on these two.
-2. **Texture retune (beqforge TODO 26).** Its condition, the end of the library review, is met. Cases:
-   Carrie (plateau 8.1-66 Hz, judged 5-10 Hz), Changeling, Mirai, Song of the Sea (community BEQ +11 dB),
-   Fame, and Despicable Me 3, which now fails on tilt instead.
-3. **F6, the absolute 45 dB scene margin**, on dense or LFE-bed mixes: Blade II, Do the Right Thing,
-   Jason Bourne; Sunshine a near miss. Community BEQs +16 to +28 dB on all of them.
-4. **F5, a dialogue-band reference** hides LFE bass: A Real Pain, Eastern Promises.
-5. **O2, an infrasonic plateau** taken as the reference (6 titles, outcome right so far; Carrie is
-   close to it), and **O1, DC offset and its steps** (Desperately Seeking Susan: a correction would ship
-   thumps). The user asked for O1 to be catered for even though rare.
-6. **New: a plateau that starts at the filter floor** licenses nothing below it (So I Married an Axe
-   Murderer; community BEQ 4x low shelf 23 Hz +8 dB).
-7. **Steep filters**: 9 titles decline by documented design (beqforge TODO 5/6, `--content-edge`).
-
-The v5 and v6 handoffs (`/media/beq/triage/handoff-v5.md`, `handoff-v6.md`; beqforge TODO 31 and 35) carry
-the findings still open on those builds; check each of the seven above against them and version 8's declines.
-
-**Done when** each is a handoff in beqforge's `plans/` with a row in its TODO; their releases then go
-through L3.
+Done 2026-10-28: every finding is in beqforge's `plans/library-review-improvements.md` (TODO 29) and handoffs v5/v6/v8.
+Record and table: [L1, L3, L4](archive/library-run-l1-l3-l4.md).
 
 ### L5. Mono titles (done)
 
@@ -111,6 +82,4 @@ channel count; the library route now sends a mono title's one channel as its dec
 
 ## 3. Order
 
-L1 alongside as declines
-arrive, L4's handoffs once L1's re-review settles which verdicts still hold, then L3 (contract work with
-beqforge), then L6.
+L1, L3 and L4 are done; L6 is left.

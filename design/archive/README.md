@@ -22,6 +22,7 @@ architecture references rather than duplicated as active plans.
 | [Spectrum comparison](worklist-spectrum.md) | Completed title-page publication heatmap preview and regression evidence |
 | [Published BEQs](worklist-published.md) | Completed title-page catalogue lookup and image pane, with regression evidence |
 | [Initial release milestone](initial-release.md) | Completed R items, with regression evidence |
+| [Library run L1, L3, L4](library-run-l1-l3-l4.md) | Every decline reviewed against its build, the desktop's out-of-date filter, and the findings handed to beqforge (2026-10-28) |
 | [Library run L5](library-run-l5.md) | Mono titles: the content principle decided, the decomposition sent, and what v0.2.8 does with it (2026-10-19) |
 | [Library run L2](library-run-l2.md) | Extraction failures the first full library run met: causes, fixes and tests (2026-10-19) |
 | [Web review](web-review.md) | Completed W1–W6 (2026-10-10; not the work-list W1/W3 above): the browser app's plan, commits and manual check |
