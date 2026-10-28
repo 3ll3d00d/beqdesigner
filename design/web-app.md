@@ -224,7 +224,9 @@ entries asks for each one's chart (`usePublishedCharts`) and draws them on the w
 `MagnitudeChart`, the same `ChartView`) beside the chart route's curves for the highlighted design; a published BEQ's
 curves carry `candidate` `CATALOGUE_BASE` + its index and take colours of their own. Each ticked entry says its peak
 boost and the RMS difference between our design's filtered average and the track under it over 5-40 Hz
-(`comparison()`).
+(`comparison()`). Each entry also folds out its filters (type, frequency, Q, gain, stacked: the route's `filters`, API 2.1.0) in
+`FilterTable`, the read-only table the Designs card shows the highlighted design's filters in (read with `rowsOf()`, as
+the editor does). Tests: `src/pages/filters.test.tsx`.
 
 ### 4.6 Adjustments and design runs
 

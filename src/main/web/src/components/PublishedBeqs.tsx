@@ -7,6 +7,7 @@ import type { Schemas } from '../api/client'
 import { useCatalogue, usePublishedCharts } from '../api/hooks'
 import { resample, type ChartView, type Range, type Series } from '../chart/view'
 import { ChartControls } from './ChartControls'
+import { FilterTable } from './FilterTable'
 import { CATALOGUE_BASE, MagnitudeChart } from './MagnitudeChart'
 
 const COMPARED: Range = [5, 40]
@@ -91,6 +92,10 @@ export function PublishedBeqs({ titleId, ours, picked, view, onView }: Props) {
                   </label>
                   {e.catalogue_url && <a href={e.catalogue_url} target="_blank" rel="noreferrer">page</a>}
                   {charts[at]?.isError && <span className="problem"> {charts[at]!.error!.message}</span>}
+                  <details className="published-filters">
+                    <summary>{e.filter_count} filter{e.filter_count === 1 ? '' : 's'}</summary>
+                    <FilterTable rows={e.filters ?? []} label={`${e.author}'s filters`} />
+                  </details>
                   {summary && (
                     <span className="muted" aria-label={`How ${e.author}'s BEQ compares`}>
                       {summary.peak && ` · boosts up to ${summary.peak.db.toFixed(1)} dB at ${summary.peak.hz.toFixed(1)} Hz`}

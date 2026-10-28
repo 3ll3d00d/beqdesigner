@@ -320,7 +320,8 @@ otherwise it lasts until the tab is closed. The token is checked with the servic
   image publish would write. The service draws each once (it says so meanwhile) and keeps it with the title's work.
   *Published BEQs* lists what the catalogue has for the title (by TMDB id, else title and year; other tracks and
   editions on request): tick any to draw its response and your track under it beside your design, with its peak boost
-  and how far it is from yours. The service reads only that title's entry from the catalogue (`BEQ_CATALOGUE_URL` to
+  and how far it is from yours. Open an entry's *N filters* to read its filters; the highlighted design's own are listed
+  under *Designs*. The service reads only that title's entry from the catalogue (`BEQ_CATALOGUE_URL` to
   point elsewhere) and keeps it a day.
 * **Design runs:** every design of a title is kept until you discard it. On *Titles*, *Adjustments*, *Answers* and
   *Design runs* find titles that were asked to change something, whose asks were not all honoured, or that keep earlier

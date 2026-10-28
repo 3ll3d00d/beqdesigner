@@ -244,3 +244,11 @@ button.danger.small { padding: 0.15rem 0.6rem; font-size: 0.85rem; }
 .actions > a { align-self: center; }
 details.why { margin: 0; max-width: 24rem; }
 details.why p { margin: 0.2rem 0 0; overflow-wrap: anywhere; font-size: 0.85rem; }
+
+/* a design's or a published BEQ's filters, read-only */
+.filter-table { font-size: 0.9rem; margin-top: 0.3rem; }
+.filter-table td, .filter-table th { padding: 0.15rem 0.5rem; text-align: right; }
+.filter-table td:first-child, .filter-table th:first-child { text-align: left; }
+.design-filters { margin-top: 0.75rem; overflow-x: auto; }
+.published-filters { margin: 0.2rem 0 0.4rem 1.6rem; overflow-x: auto; }
+

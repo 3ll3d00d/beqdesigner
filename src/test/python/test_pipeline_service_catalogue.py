@@ -64,3 +64,19 @@ def test_a_catalogue_that_cannot_be_reached_is_a_502(catalogue):
     fake.down = True
     answer = client.get('/v1/titles/a/catalogue', headers=AUTH)
     assert (answer.status_code, answer.json()['title']) == (502, 'Catalogue unavailable')
+
+
+def test_each_published_beq_lists_its_filters(catalogue):
+    client, _ = catalogue
+    entries = client.get('/v1/titles/a/catalogue', headers=AUTH).json()['entries']
+    assert all(len(e['filters']) == e['filter_count'] for e in entries)
+    first = entries[0]['filters'][0]
+    assert first['type'] in ('low_shelf', 'high_shelf', 'peaking_eq') and first['count'] >= 1
+    assert {'freq_hz', 'gain_db', 'q'} <= set(first)
+
+
+def test_a_filter_the_interface_cannot_say_is_left_out():
+    from pipeline.service.catalogue import published_filters
+    listed = published_filters([{'type': 'LowShelf', 'freq': 20, 'gain': 5, 'q': 0.9, 'count': 3},
+                                {'type': 'Notch', 'freq': 50, 'gain': 0, 'q': 1}, {'type': 'PeakingEQ', 'freq': 'x'}])
+    assert [(f.type, f.freq_hz, f.gain_db, f.q, f.count) for f in listed] == [('low_shelf', 20.0, 5.0, 0.9, 3)]

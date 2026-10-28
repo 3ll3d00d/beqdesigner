@@ -18,7 +18,7 @@ from pipeline.service.window import window_problem
 from pipeline.library.state import NEEDS, FLAG_DUPLICATE, FLAG_GONE, FLAG_IGNORED, FLAG_IN_CATALOGUE, FLAG_SHADOWED
 from pipeline.library.year import YEAR_PATTERN, YearRange, numeric_year
 
-API_VERSION = '2.0.0'
+API_VERSION = '2.1.0'
 
 
 class Needs(str, Enum):
@@ -613,6 +613,15 @@ class AudioStream(BaseModel):
     preferred: bool = Field(description='The one extracted when nobody has chosen.')
 
 
+class PublishedFilter(BaseModel):
+    ''' One of a published BEQ's filters, as the catalogue gives it. '''
+    type: Literal['low_shelf', 'high_shelf', 'peaking_eq']
+    freq_hz: float
+    gain_db: float
+    q: float
+    count: int = Field(1, ge=1, description='How many of it are stacked.')
+
+
 class PublishedBeq(BaseModel):
     index: int = Field(description='Its place in the catalogue\'s list for the title: what its chart is asked by.')
     author: str
@@ -623,6 +632,7 @@ class PublishedBeq(BaseModel):
     same_track: bool = Field(description='For the same audio, edition and episodes as this title, as far as is known.')
     catalogue_url: Optional[str] = Field(None, description='Its page in the catalogue, when the catalogue says.')
     filter_count: int
+    filters: List[PublishedFilter] = Field([], description='2.1: its filters, in order (count: how many stacked).')
 
 
 class PublishedBeqs(BaseModel):

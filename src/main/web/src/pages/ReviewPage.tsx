@@ -9,6 +9,7 @@ import { Link, useNavigate, useParams } from 'react-router'
 
 import type { Schemas } from '../api/client'
 import { useChart, useDecide, useNextTitle, useProjects, useReview, useStatus, useVariantCharts } from '../api/hooks'
+import { rowsOf } from '../chart/biquad'
 import { DEFAULT_VIEW, loadView, saveView, type ChartView, type Range, type Series } from '../chart/view'
 import { ChartControls } from '../components/ChartControls'
 import { HeatmapView } from '../components/HeatmapView'
@@ -20,6 +21,7 @@ import { ReviseDialog, reviseSummary } from '../components/ReviseDialog'
 import { Spectrogram } from '../components/Spectrogram'
 import { StreamPicker } from '../components/StreamPicker'
 import { FilterEditor } from '../components/FilterEditor'
+import { FilterTable } from '../components/FilterTable'
 import { VariantsPanel } from '../components/VariantsPanel'
 import type { Ask } from '../components/AdjustmentsEditor'
 import { metadataText, NEEDS_WORDS, type NeedsWord } from '../format'
@@ -93,6 +95,18 @@ function CandidateLine({ candidate, position }: { candidate: Candidate; position
         <> · gain reduction {number(candidate.gain_reduction_db, ' dB')}</>}
       {candidate.residual_db !== null && candidate.residual_db !== undefined && <> · residual {number(candidate.residual_db, ' dB')}</>}
     </span>
+  )
+}
+
+/** The highlighted design's filters, read-only (editing them is *Edit filters…*). */
+function DesignFilters({ candidate, number }: { candidate: Candidate; number: number }) {
+  const stored = rowsOf(candidate.filters)
+  return (
+    <div className="design-filters">
+      <h3>Design {number}'s filters</h3>
+      {stored ? <FilterTable rows={stored.rows} label={`Design ${number}'s filters`} />
+        : <p className="muted">It has a filter this page cannot show.</p>}
+    </div>
   )
 }
 
@@ -404,6 +418,7 @@ export function ReviewPage() {
               </div>
             )
           })}
+          {candidate && <DesignFilters candidate={candidate} number={offer!.number} />}
         </section>
         <section className="card chart-card" aria-labelledby="chart">
           <h2 id="chart" className="visually-hidden">Chart</h2>

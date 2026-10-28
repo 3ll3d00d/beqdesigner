@@ -28,6 +28,21 @@ class CatalogueRoutes:
     get: Optional[Callable] = None   # requests.get unless given
 
 
+_TYPES = {'LowShelf': 'low_shelf', 'HighShelf': 'high_shelf', 'PeakingEQ': 'peaking_eq'}
+
+
+def published_filters(filters) -> list:
+    ''' A catalogue entry's filters (`{type, freq, gain, q, count}`) as the interface lists them; any it cannot say, left out. '''
+    out = []
+    for f in filters or ():
+        try:
+            out.append(models.PublishedFilter(type=_TYPES[f['type']], freq_hz=float(f['freq']), gain_db=float(f['gain']),
+                                              q=float(f['q']), count=max(1, int(f.get('count') or 1))))
+        except (KeyError, TypeError, ValueError):
+            continue
+    return out
+
+
 def register(v1: APIRouter, deps: CatalogueRoutes) -> None:
     Problem = deps.problem
 
@@ -54,7 +69,8 @@ def register(v1: APIRouter, deps: CatalogueRoutes) -> None:
             return models.PublishedBeqs(entries=[], message='The catalogue has no BEQ for this title.')
         entries = [models.PublishedBeq(index=e.index, author=e.author, audio_types=list(e.audio_types), edition=e.edition,
                                        season=e.season, episodes=e.episodes, same_track=same_track(target, e),
-                                       catalogue_url=e.catalogue_url or None, filter_count=len(e.filters))
+                                       catalogue_url=e.catalogue_url or None, filter_count=len(e.filters),
+                                       filters=published_filters(e.filters))
                    for e in found.entries]
         return models.PublishedBeqs(key=found.key, matched_by=found.matched_by, entries=entries,
                                     compare_url=f'{deps.base_url.rstrip("/")}/compare/?t={found.key}',

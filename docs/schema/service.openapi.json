@@ -4,7 +4,7 @@
     "title": "BEQDesigner pipeline service",
     "summary": "Scan a library, extract and design BEQ filters for titles chosen by filter, on demand or on a schedule, and follow the jobs that do it.",
     "description": "A person decides a title through the review routes or in the BEQDesigner app. Every /v1 route needs the bearer token (Authorize, above). `GET /health` says which release this is.",
-    "version": "2.0.0"
+    "version": "2.1.0"
   },
   "paths": {
     "/health": {
@@ -8002,6 +8002,15 @@
           "filter_count": {
             "type": "integer",
             "title": "Filter Count"
+          },
+          "filters": {
+            "items": {
+              "$ref": "#/components/schemas/PublishedFilter"
+            },
+            "type": "array",
+            "title": "Filters",
+            "description": "2.1: its filters, in order (count: how many stacked).",
+            "default": []
           }
         },
         "type": "object",
@@ -8076,6 +8085,47 @@
           "entries"
         ],
         "title": "PublishedBeqs"
+      },
+      "PublishedFilter": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "low_shelf",
+              "high_shelf",
+              "peaking_eq"
+            ],
+            "title": "Type"
+          },
+          "freq_hz": {
+            "type": "number",
+            "title": "Freq Hz"
+          },
+          "gain_db": {
+            "type": "number",
+            "title": "Gain Db"
+          },
+          "q": {
+            "type": "number",
+            "title": "Q"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Count",
+            "description": "How many of it are stacked.",
+            "default": 1
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "freq_hz",
+          "gain_db",
+          "q"
+        ],
+        "title": "PublishedFilter",
+        "description": "One of a published BEQ's filters, as the catalogue gives it. "
       },
       "PublishedTitle": {
         "properties": {

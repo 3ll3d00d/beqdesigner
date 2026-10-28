@@ -2176,6 +2176,12 @@ export interface components {
             catalogue_url?: string | null;
             /** Filter Count */
             filter_count: number;
+            /**
+             * Filters
+             * @description 2.1: its filters, in order (count: how many stacked).
+             * @default []
+             */
+            filters: components["schemas"]["PublishedFilter"][];
         };
         /** PublishedBeqs */
         PublishedBeqs: {
@@ -2198,6 +2204,29 @@ export interface components {
              * @default
              */
             message: string;
+        };
+        /**
+         * PublishedFilter
+         * @description One of a published BEQ's filters, as the catalogue gives it.
+         */
+        PublishedFilter: {
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "low_shelf" | "high_shelf" | "peaking_eq";
+            /** Freq Hz */
+            freq_hz: number;
+            /** Gain Db */
+            gain_db: number;
+            /** Q */
+            q: number;
+            /**
+             * Count
+             * @description How many of it are stacked.
+             * @default 1
+             */
+            count: number;
         };
         /** PublishedTitle */
         PublishedTitle: {
