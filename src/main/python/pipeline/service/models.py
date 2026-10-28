@@ -18,7 +18,7 @@ from pipeline.service.window import window_problem
 from pipeline.library.state import NEEDS, FLAG_DUPLICATE, FLAG_GONE, FLAG_IGNORED, FLAG_IN_CATALOGUE, FLAG_SHADOWED
 from pipeline.library.year import YEAR_PATTERN, YearRange, numeric_year
 
-API_VERSION = '1.17.0'
+API_VERSION = '2.0.0'
 
 
 class Needs(str, Enum):

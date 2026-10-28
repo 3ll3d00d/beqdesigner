@@ -170,7 +170,7 @@ version `2.2.0-alpha.1` and `designer.reachable: true` at `http://designer:8420/
 **4.1 Scan and choose the sample.**
 
 ```bash
-curl -s -H "$AUTH" -X POST $API/v1/jobs/scan -H 'Content-Type: application/json' -d '{}' | jq .id
+curl -s -H "$AUTH" -X POST $API/v1/jobs -H 'Content-Type: application/json' -d '{"kind": "scan"}' | jq .last_execution
 curl -s -H "$AUTH" "$API/v1/titles?limit=1000" | jq -r '.titles[] | [.id, .title, .year, .needs] | @tsv' > $E2/titles.tsv
 ```
 
@@ -181,37 +181,38 @@ Pick the sample's ids from `titles.tsv` into `$E2/sample.json` as `{"ids": ["jri
 ```bash
 curl -s -H "$AUTH" -X POST $API/v1/plan -H 'Content-Type: application/json' \
   -d "{\"filter\": $(jq '{ids: .ids[:5]}' $E2/sample.json), \"through\": \"design\"}" | jq
-curl -s -H "$AUTH" -X POST $API/v1/jobs/run -H 'Content-Type: application/json' \
-  -d "{\"filter\": $(jq '{ids: .ids[:5]}' $E2/sample.json), \"through\": \"design\"}" | jq .id
+curl -s -H "$AUTH" -X POST $API/v1/jobs -H 'Content-Type: application/json' \
+  -d "{\"kind\": \"run\", \"request\": {\"filter\": $(jq '{ids: .ids[:5]}' $E2/sample.json), \"through\": \"design\"}}" | jq .last_execution
 ```
 
-Follow it: `curl -sN -H "$AUTH" $API/v1/jobs/<id>/events`. **Expect:** each title's events say
+Follow it: `curl -sN -H "$AUTH" $API/v1/executions/<id>/events`. **Expect:** each title's events say
 "Extracting audio stream N: ... (as the library plays it | ...); multichannel kept", then
 "Extraction complete: C channels (layout)", then design; the job ends `succeeded`; five queue
 entries in `$E2/queue`. Open them in the desktop's **Review Folder** on `$SHARE/queue` and check the
 title page: candidates, commentary ending with *Designed by beqforge, <build>* and *Bass management
-sent: 80 Hz crossover ...*, artwork.
+sent: 80 Hz crossover ...*, artwork. `GET /v1/executions/<id>` then says how it ran (`statistics`): note the stage
+times and which endpoint designed each title.
 
-**4.3 Schedule the rest.** Put the sample's filter in the schedule and enable it:
+**4.3 Schedule the rest.** Make a recurring job of the sample:
 
 ```bash
-curl -s -H "$AUTH" -X PUT $API/v1/schedule -H 'Content-Type: application/json' \
-  -d "{\"enabled\": true, \"interval_minutes\": 30, \"through\": \"design\", \"retry_failed\": false, \"filter\": $(jq '{ids}' $E2/sample.json)}" | jq
+curl -s -H "$AUTH" -X POST $API/v1/jobs -H 'Content-Type: application/json' \
+  -d "{\"kind\": \"run\", \"name\": \"E2 sample\", \"every\": 30, \"request\": {\"through\": \"design\", \"filter\": $(jq '{ids, needs: [\"extract\", \"design\"]}' $E2/sample.json)}}" | jq .id
 ```
 
-The first tick is `interval_minutes` after the `PUT`; to start now,
-`curl -s -H "$AUTH" -X POST $API/v1/schedule/trigger | jq`. Once a run leaves none of the sample to do, the schedule
-turns itself off: `GET /v1/schedule` shows `enabled: false` and `ended` says why.
+Its first execution is 30 minutes after it is made; to start now, `curl -s -H "$AUTH" -X POST $API/v1/jobs/<id>/run | jq`.
+Once an execution leaves none of the sample to do, the job ends itself: `GET /v1/jobs/<id>` shows `state: done` and
+`ended` says why.
 
-While it runs, `GET /v1/status` shows `current_job.progress` with `per_hour`, `remaining_seconds`
+While it runs, `GET /v1/status` shows `running_execution.progress` with `per_hour`, `remaining_seconds`
 and `estimated_finish`. Note them after the first hour and at the end.
 
 **4.4 Break the designer.** During a run: `docker stop designer`, wait 10 minutes,
 `docker start designer`. **Expect:** titles designing at the time are `unavailable`, not failed;
 after three in a row the job stops with "stopped after 3 titles in a row ..."; `/ready` stays
 `ready: true` with `designer_reachable: false`; the next tick is skipped
-(`schedule.last_skip: designer unavailable: ...`) and one `failed` notification is sent if
-notifications are set up; within 5 minutes of the designer's return the schedule resumes and those
+(the job's `last_skip: designer unavailable: ...`) and one `failed` notification is sent if
+notifications are set up; within 5 minutes of the designer's return the job runs again and those
 titles are designed. Nothing is listed as *failed* in the work list afterwards.
 
 **4.5 Drop the media.** During an extraction, take the share away from the container's view: on
@@ -223,7 +224,7 @@ mount point is not empty when unmounted, note what happened instead.
 **4.6 Review from the desktop while it runs** (R6). On the desktop, with `$SHARE` mounted:
 - **Review Folder** on `$SHARE/queue` during a run: open, accept and reject a few titles.
   **Expect:** posters show (found in each title's folder), projects open.
-- **The work list** only once `GET /v1/status` shows no `current_job`: open it, check the counts,
+- **The work list** only once `GET /v1/status` shows no `running_execution`: open it, check the counts,
   open a title. **Expect:** it reads the container's index; a title designed by the container is
   not shown as needing design again.
 - Note whether reading the index over the share while the container wrote it ever failed.

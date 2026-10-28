@@ -88,12 +88,13 @@ serialised.
 ```
 pipeline/service/                 # Qt-free: covered by test_pipeline_qt_boundary.py's AST scan
     __main__.py                   # python -m pipeline.service --profile ... --service-config ...
-    config.py                     # ServiceConfig: listen, auth, guards, schedule defaults (§7)
+    config.py                     # ServiceConfig: listen, auth, guards, the old schedule to migrate (§7)
     context.py                    # loads the profile per job; environment secrets
+    jobbook.py                    # JobBook: the jobs, when each is due, the migration (§5, §8)
     executions.py                 # ExecutionQueue: one worker, FIFO queue, cancel, progress, history, joining (§5)
+    statistics.py                 # how an execution ran, from its result and its titles' records (§5)
     work.py                       # what each kind of job does (§2)
     lease.py                      # the work-directory lease (§5.1)
-    scheduler.py                  # AutoScheduler: interval timer that submits jobs (§8)
     notify.py                     # outbound webhooks (§9)
     refresh.py                    # IndexRefresher: the index brought up to date after a decision (§6.8)
     models.py                     # pydantic request/response models and enums (§6.5)
@@ -116,51 +117,52 @@ pipeline/service/                 # Qt-free: covered by test_pipeline_qt_boundar
   job without a restart. A profile that fails to load fails that job with the
   loader's message; the service stays up.
 - **Shutdown:** uvicorn re-raises the signal that stopped it, so the entry
-  point handles SIGTERM itself: it stops accepting jobs, cancels the running
-  one cooperatively, waits up to `shutdown_grace_seconds` (default 120, matched
+  point handles SIGTERM itself: it stops accepting work, stops the running
+  execution cooperatively, waits up to `shutdown_grace_seconds` (default 120, matched
   by the compose file's `stop_grace_period`) and exits 0.
 
-## 5. Jobs
+## 5. Jobs and executions
 
-A **job** is one unit of queued work: `scan`, `run` (a selection through a
-stage, optionally scanning first) or `accept`. One job runs at a time, because
-the index, the queue directory and the git working trees each have a single
-writer; further submissions queue in FIFO order, except that a run job may
-join the run job in progress (§5.1).
+A **job** is the definition of some work -- `scan`, `run` (a selection through a stage, optionally scanning first) or
+`accept` -- done once or every N minutes, within its window; an **execution** is one continuous run of it. The model,
+the rules and the interface are [jobs and executions](jobs-and-executions.md); the times of day are
+[job windows](job-windows.md). One execution runs at a time, because the index, the queue directory and the git
+working trees each have a single writer; further executions queue in FIFO order, except that a run may join the run in
+progress (§5.1).
 
-| Field | Type |
+| Execution field | Type |
 |---|---|
-| `id` | UUID |
+| `id`, `job_id`, `job_name`, `number` | UUID, its job, the job's name, which of its executions (1, 2, ...) |
 | `kind` | `scan \| run \| accept` |
-| `origin` | `api \| schedule` |
-| `state` | `queued \| running \| paused \| succeeded \| failed \| cancelled \| interrupted` |
-| `request` | the typed request that created it |
+| `origin` | `api` (a one-off job) `\| schedule` (a recurring one) |
+| `state` | `queued \| running \| succeeded \| failed \| cancelled \| stopped \| interrupted` |
+| `stopped_because` | `window \| paused \| removed`, when `stopped` |
+| `request` | the typed request it did |
 | `submitted_at`, `started_at`, `finished_at` | RFC 3339 |
 | `progress` | `{done, total, title, stage, id}` from `stages.Progress` |
-| `joined_to` | the job whose run it joined, if any |
+| `joined_to` | the execution whose run it joined, if any |
 | `result` | typed per kind (§6.5), present once finished |
-| `error` | message, when the job itself failed (profile unreadable, index refused) |
+| `error` | message, when it itself failed (profile unreadable, index refused) |
+| `statistics` | how it ran (`GET /v1/executions/{id}` only): titles by outcome, designers, stage times |
 
-- `failed` means the job raised or `StagesReport.failed` is true (a title
-  failed, a publish was refused, git refused). A title-level failure is in the
-  result; the job still reports every title it did.
-- **Windows** ([job windows](job-windows.md)): a job may be given the times of day it may run (else the default
-  window's). Outside them a queued job waits while others run, and a run pauses between titles and carries on when
-  they open, as one job (`window`, `waiting_until`, `parts`, `paused_at`); a paused or waiting job survives a restart.
-- **Cancel** of a queued job removes it; of a running job sets the flag
-  `run_stages(should_cancel=)` polls between titles. The job ends `cancelled`
-  with `attempted`/`not_run` from the report.
-- **Events:** `on_progress` and `on_event` feed a bounded per-job ring buffer,
+- `failed` means it raised or `StagesReport.failed` is true (a title failed, a publish was refused, git refused). A
+  title-level failure is in the result; it still reports every title it did.
+- **Cancel** of a queued execution removes it; of a running one sets the flag `run_stages(should_cancel=)` polls
+  between titles. It ends `cancelled` with `attempted`/`not_run` from the report, and a one-off job whose execution is
+  cancelled is removed. A run told to stop (its window closed, its job paused or removed) ends `stopped`, keeping the
+  titles it had not started (`remaining`) for its job's next execution.
+- **Events:** `on_progress` and `on_event` feed a bounded per-execution ring buffer,
   redacted with the work list's redaction (`model/execution_events.py`),
   readable afterwards and streamed live (§6.1). ffmpeg reports every 0.5 s, so a
   title's ffmpeg updates are kept at most every 5 s (its first and last always),
   and the execution event that repeats each one is not kept; otherwise they push
-  the title's own events out of the 500-event buffer within minutes.
-- **History:** the last `history_limit` (default 200) finished jobs are kept in
-  memory and written atomically to `<work_dir>/service/jobs.json`. A job found
-  `running` at start-up is recorded `interrupted`; nothing resumes
-  automatically (the stages are idempotent, so the next scan/run redoes what is
-  still needed).
+  the title's own events out of the 500-event buffer within minutes. The same events also build a record per title
+  (`Execution.titles`: queued, each stage's start and end, the `designer_call` the pool reports with its endpoint,
+  release and version, how it ended), kept whole, which `statistics.py` makes the figures of.
+- **History:** the jobs are in `<work_dir>/service/jobs.json` and the last `history_limit` (default 200) finished
+  executions in `executions.json`, both written atomically. An execution found queued or running at start-up is recorded
+  `interrupted`; its job, if a one-off with work left, starts another (the stages are idempotent, so it redoes only what
+  is still needed). A job done or removed is forgotten once none of its executions is kept.
 
 ### 5.1 The work-directory lease and joining a run
 
@@ -229,21 +231,21 @@ Every request and response body is a named pydantic model in
 |---|---|---|
 | `GET /health` | → `Health` | liveness and release; no auth |
 | `GET /ready` | → `Readiness` | profile loads, work dir writable, ffmpeg/ffprobe found, profile's designer registered; 503 otherwise; no auth. Also `designer_reachable` (`required: false`: reported, never unready) |
-| `GET /v1/status` | → `ServiceStatus` | index counts (the `status --json` content), current job, queue length, schedule state, notification outcomes, `designer` (`DesignerStatus`: reachable, detail, checked_at, and each endpoint with its own `checked_at` and `designing`: the titles a run has out on it now, read from the run's `DesignerPool`, which `design_and_queue` tells through `pool.designing()`) |
+| `GET /v1/status` | → `ServiceStatus` | index counts (the `status --json` content), the running execution, how many wait, notification outcomes, `designer` (`DesignerStatus`: reachable, detail, checked_at, and each endpoint with its own `checked_at` and `designing`: the titles a run has out on it now, read from the run's `DesignerPool`, which `design_and_queue` tells through `pool.designing()`) |
 | `GET /v1/titles` | query `TitleFilter` + `sort`/`descending` + `limit`/`offset` → `TitlePage` | the work list's table; sorted by a column (else work-list order; a missing year or confidence last), then paged |
 | `GET /v1/titles/{id}` | → `Title` | 404 if unknown |
 | `POST /v1/plan` | `RunRequest` → `PlanPreview` | dry run: what would run and what would be skipped and why |
-| `POST /v1/jobs/scan` | `ScanRequest` → 202 `Job` | |
-| `POST /v1/jobs/run` | `RunRequest` → 202 `Job` | `redesign: true` with 1-500 `ids` (no other filter, through design) sends every one back (`revise_to` design, or extract; with one id and extract, `audio_stream` chooses the stream: `revise.choose_stream()`), all checked first, then designs them in one run; or with `out_of_date: true` (any other filter but ids) sends back every designed title out of date that is not accepted or published |
-| `POST /v1/jobs/accept` | `AcceptRequest` → 202 `Job` | guarded (§6.4) |
-| `GET /v1/jobs` | query `state`, `kind`, `limit` → `JobList` | newest first |
-| `GET /v1/jobs/{id}` | → `Job` | |
-| `POST /v1/jobs/{id}/cancel` | → `Job` | 409 if already finished |
-| `GET /v1/jobs/{id}/events` | → `text/event-stream` of `JobEvent` | Server-Sent Events: backlog then live, ends with the job |
-| `GET /v1/jobs/{id}/log` | → list of `JobEvent` | the events after the fact |
-| `GET /v1/schedule` | → `Schedule` | |
-| `PUT /v1/schedule` | `ScheduleUpdate` → `Schedule` | persisted (§8) |
-| `POST /v1/schedule/trigger` | → 202 `Job` | one tick now; 409 while busy |
+| `GET /v1/jobs` | query `state`, `kind` → `JobList` | the jobs, newest first, each with its next and running execution |
+| `POST /v1/jobs` | `JobCreate` (`kind`, `request`, `name`, `every`, `window`) → 201 `Job` | a one-off is started at once while its window is open; only a run through extract or design recurs (422); publish, commit and accept guarded (§6.4). A run with `redesign: true` and 1-500 `ids` (no other filter, through design) sends every one back (`revise_to` design, or extract; with one id and extract, `audio_stream` chooses the stream: `revise.choose_stream()`), all checked first, then designs them in one run; or with `out_of_date: true` (any other filter but ids) sends back every designed title out of date that is not accepted or published |
+| `GET`/`PATCH`/`DELETE /v1/jobs/{id}` | → `Job` / `JobUpdate` → `Job` / → `Job` | one job (with its titles by outcome); its name and window, a recurring job's `every` and `request` (409 for a one-off's); remove it |
+| `POST /v1/jobs/{id}/pause`, `/resume` | → `Job` | its running execution stops before its next title; 409 done or removed |
+| `POST /v1/jobs/{id}/run` | → 202 `Execution` | a recurring job now; 409 while another execution runs or waits |
+| `GET /v1/executions` | query `job`, `state`, `limit` → `ExecutionList` | the running one, each active job's `next`, and the history newest first |
+| `GET /v1/executions/{id}` | → `Execution` | with its `statistics` |
+| `GET /v1/executions/{id}/titles` | query `outcome` → `ExecutionTitles` | each title's outcome, stage times and designer |
+| `POST /v1/executions/{id}/cancel` | → `Execution` | 409 if already finished; a one-off's job is removed |
+| `GET /v1/executions/{id}/events` | → `text/event-stream` of `JobEvent` | Server-Sent Events: backlog then live, ends with the execution |
+| `GET /v1/executions/{id}/log` | → list of `JobEvent` | the events after the fact |
 | `POST /v1/notify/test` | `NotifyTest` → `NotifyOutcome` | sample events to one target (§9) |
 | `GET /v1/titles/{id}/review` | → `Review` | §6.8; 404 unknown title, 409 no queue entry |
 | `GET /v1/titles/{id}/chart` | query `candidate` or `candidates` (`all`, or indexes), `smoothing`, `responses`, `variant` (another design run, `variants.variant_view()`; its series carry `variant`) → `Chart` | measured curves, and after each design asked for (`ChartSeries.candidate`), with each one's response (`kind` filter) when asked; the main window's smoothing (`review_chart.SMOOTHING`) of all but the responses; 422 no such design, both `candidate` and `candidates`, an unknown smoothing or one a curve is too sparse for |
@@ -313,15 +315,15 @@ profile's sources.
 ### 6.3 Running a stage
 
 ```http
-POST /v1/jobs/run
-{"filter": {"kind": "movie", "year": "2026"}, "through": "design",
- "scan_first": true, "retry_failed": false}
+POST /v1/jobs
+{"kind": "run", "request": {"filter": {"kind": "movie", "year": "2026"}, "through": "design",
+                            "scan_first": true, "retry_failed": false}}
 ```
 
 `through` is `extract | design | publish | commit`, with `plan_stages`'
 meaning: extract and design as needed; publish/commit only titles a person
 accepted. `scan_first` (default true) lists the sources before selecting.
-The finished job's `result` is a `RunResult` carrying the `StagesReport`
+A finished execution's `result` is a `RunResult` carrying the `StagesReport`
 fields (`selected`, `extracted`, `cached`, `designed`, `design_cached`,
 `failed[{id, message}]`, `failed_earlier`, `skipped[{id, title, reason}]`,
 `published`, `publish_errors`, `committed`, `commit_error`, `cancelled`,
@@ -329,10 +331,10 @@ fields (`selected`, `extracted`, `cached`, `designed`, `design_cached`,
 
 ### 6.4 Guards on writing to the repositories
 
-`through: publish | commit` and `POST /v1/jobs/accept` write to, and may push,
+`through: publish | commit` and a job of kind `accept` write to, and may push,
 the catalogue repositories. They are refused with 403 unless the service
 config has `allow_repository_writes: true`, and `commit` is further refused
-unless the profile's `sync:` names the repositories. The schedule can never go
+unless the profile's `sync:` names the repositories. A recurring job can never go
 past `design` (§8). The default container can therefore extract and design
 only.
 
@@ -362,7 +364,7 @@ only.
 - The document is generated from the app and committed as
   `docs/schema/service.openapi.json`; a test regenerates it and fails on any
   difference. It carries no release (`/health` does); `info.version` is the
-  API's own semantic version (1.4.0 since the schedule's `ended`), bumped by hand on a change.
+  API's own semantic version (2.0.0 since jobs and executions replaced the schedule), bumped by hand on a change.
 - Swagger UI and ReDoc are served from a local copy when `--static-dir` /
   `BEQ_SERVICE_STATIC` names one -- the image fetches pinned packages at build
   -- and otherwise load from a CDN.
@@ -400,7 +402,7 @@ listen: {host: 0.0.0.0, port: 8080}
 allow_repository_writes: false
 history_limit: 200
 shutdown_grace_seconds: 120
-schedule:                        # the initial schedule; PUT /v1/schedule overrides it (§8)
+schedule:                        # an older service's schedule: made the recurring job at the first start (§8)
   enabled: true
   interval_minutes: 60
   filter: {kind: movie}          # a TitleFilter; needs is always extract|design (§8)
@@ -421,35 +423,31 @@ password from `JRIVER_PASSWORD[_<SOURCE>]`, else from the Preferences > JRiver
 server with the same address and user (`model/worklist_profile.profile_with_secrets`).
 That copy is never written back; the settings drawer edits the file as read.
 
-## 8. Auto mode
+## 8. Recurring jobs
 
-`AutoScheduler` holds `{enabled, interval_minutes, filter, through,
-retry_failed, next_run_at, last_run: {job_id, state, finished_at}}`.
+A recurring job (`every` N minutes, `JobBook`) is how the service works unattended; any number of them may run on their
+own intervals and windows ([jobs and executions](jobs-and-executions.md) §2.1).
 
-- **A tick** submits one `run` job with `origin: schedule`, `scan_first: true`,
-  `unattended: true` and the schedule's filter with `needs` forced to
-  `[extract, design]`. It does not use `new_since_scan`: "new" is only the
-  latest scan's, so a failed or cancelled tick would lose its titles, whereas
-  "needs extract or design" is exactly what is still to do.
-- `through` is `extract` or `design` only (`AutoThrough`). No automatic
-  publish is offered.
-- **Busy:** if any job is queued or running when a tick is due (one waiting for its window, or paused, does not
-  count: [job windows](job-windows.md) §3), the tick is
-  skipped and recorded (`last_skip: busy`) through an atomic idle-only
-  submission in `ExecutionQueue`; ticks never pile up. The next is
-  `interval_minutes` after the *finish* of the last scheduled job.
-- **Ends by itself:** a schedule whose filter lists `ids` can never match
-  more titles, so once a scheduled run of those ids leaves none of them for
-  later -- nothing `unavailable` or not reached, it was neither cancelled nor
-  stopped, and nothing `failed` when `retry_failed` is on -- the schedule is
-  saved with `enabled: false` and `ended` says why (`AutoScheduler._all_done`).
-  The next save clears `ended`. A filter without ids keeps ticking.
-- **Designer down:** before a tick through design, `DesignerProbe`
+- **An execution** of one is a `run` with `origin: schedule`, `unattended: true` and its filter, through `extract` or
+  `design` only: a recurring job is refused anything else (no automatic publish). The migrated schedule's job has
+  `scan_first: true` and `needs` forced to `[extract, design]`, as the schedule had: "needs extract or design" is
+  exactly what is still to do, where `new_since_scan` would lose a failed or cancelled run's titles.
+- **Due** `every` minutes after its last execution *finished*, within its window. **Busy:** if another execution runs
+  or waits when it is due (one waiting for its window does not count), it is skipped and recorded (`last_skip: busy`)
+  through an atomic idle-only submission in `ExecutionQueue`, and due again `every` minutes later; ticks never pile up.
+- **Ends by itself:** a recurring job whose filter lists `ids` can never match more titles, so once an execution of
+  those ids leaves none of them for later -- nothing `unavailable` or not reached, it was neither cancelled nor
+  stopped, and nothing `failed` when `retry_failed` is on -- it is `done` and `ended` says why
+  (`JobBook.__all_done`). A filter without ids keeps going.
+- **Migration** (`jobbook.migrate`, at the first start of the release): `schedule.json` (else `service.yaml`'s
+  `schedule`) becomes the recurring job *Extract & design new titles*, `active` if it was enabled and `paused` if not;
+  the file is renamed `schedule.json.migrated`.
+- **Designer down:** before a recurring execution through design, `DesignerProbe`
   (`pipeline/service/designer.py`) asks the profile's designer's `/health`
   (`http_binding.check_designer`; a `by_reference` designer must answer 1.2
   with `shared_root`, any other is down only for no answer or 502/503/504). A
   refused tick is skipped (`last_skip: designer unavailable: ...`), retried
-  after `min(interval_minutes, 5)`, and `Notifier.designer_unavailable` sends
+  after `min(every, 5)` minutes, and `Notifier.designer_unavailable` sends
   one `failed` notification (with `job: null`) per outage. A run job through
   design is refused before anything runs; one through publish or commit is
   not, and its designs are reported `unavailable` (R1). `/ready` and
@@ -465,10 +463,6 @@ retry_failed, next_run_at, last_run: {job_id, state, finished_at}}`.
   an unavailable dependency is not remembered, so the next tick runs it again
   (`RunResult.unavailable`, and `stopped` when enough in a row ended the run);
   both make the job `failed` and are in the `failed` notification.
-- `PUT /v1/schedule` validates and writes `<work_dir>/service/schedule.json`
-  atomically; at start-up that file, when present, wins over `service.yaml`.
-  `enabled: false` pauses without losing the settings. The minimum interval is
-  5 minutes.
 
 ## 9. Notifications
 

@@ -620,15 +620,15 @@ BEQ_SERVICE_TOKEN=your-secret PYTHONPATH=src/main/python \
 The token protects `/v1` routes. `GET /health` and `GET /ready` are public.
 The service listens on port 8080 by default; bind it behind a TLS reverse
 proxy for access beyond a local network. `--service-config` points to a YAML
-file with listen settings, the automatic schedule and the repository-write
-guard. The profile is reloaded for each job, and the schedule saved through
-the API is kept in `<work_dir>/service/schedule.json`.
+file with listen settings and the repository-write guard. The profile is reloaded
+for each execution. Jobs are kept in `<work_dir>/service/jobs.json` and their
+executions in `executions.json` (design/jobs-and-executions.md).
 
-`POST /v1/jobs/run` takes the CLI's title selection as `filter` (`needs`,
-`source`, `match`, `ids`, `kind`, `year`) and a `through` stage. It scans first
-by default. `POST /v1/plan` shows what the same selection would run. The
-automatic schedule can only reach `extract` or `design`, leaving every result
-for review. Publish, commit and bulk accept over HTTP require
+`POST /v1/jobs` with `kind: run` takes the CLI's title selection as `request.filter`
+(`needs`, `source`, `match`, `ids`, `kind`, `year`) and a `through` stage, once or
+`every` N minutes. It scans first by default. `POST /v1/plan` shows what the same
+selection would run. A recurring job can only reach `extract` or `design`, leaving
+every result for review. Publish, commit and bulk accept over HTTP require
 `allow_repository_writes: true` in the service config.
 
 Optional outbound webhooks notify configured targets when a scheduled job

@@ -11,8 +11,7 @@ under observation; none is claimed complete. Architecture and contracts are
 backlogs. The caller’s by-reference implementation and live acceptance are
 complete; its three follow-ons are retained below as D2–D4.
 
-Order is recommended execution priority: the service's throughput and job
-model first (they shape every further library run), the people's work (review,
+Order is recommended execution priority: the service's throughput first (they shape every further library run), the people's work (review,
 E2) beside them, then the library run's loose ends, disc behavior, test health,
 and optional improvements/product decisions. A blocked item does not prevent starting the
 next independent item. E1's fixture (`src/test/python/fixtures/jriver/`) is
@@ -49,7 +48,6 @@ outside it. A beqforge version bump invalidates its bundled optimiser seed
 | Priority | ID | R | Previous IDs | Status | Depends on |
 |---|---|---|---|---|---|
 | 1 | IG | | -- | Built 2026-10-28: a run keeps one prepared design waiting per pool slot. Left: measure titles an hour on the next library run after deploying it (the DV8 run made 93) | A release deployed, and a run of a few hundred titles |
-| 2 | JE | | [jobs and executions](jobs-and-executions.md) | Decisions settled 2026-10-28 (the API rename, cancelling a one-off's execution removes the job, editing and migration as designed). Steps 1-5 built (the rename, `JobBook` and migration, statistics, routes and OpenAPI, the browser); step 6 (the references and the archive) left | -- |
 | 3 | RV | | [library run](library-run-gaps.md#l1-finish-the-review-of-the-run-operational) | Operational: all 1,287 designs await a person's review; the DV8 redesign (1,051 titles, 2026-10-26 to 28) changed 728 and left 323 as they were | A person |
 | 4 | E2 | R | chunk 31, T2-T4 | Waiting for manual acceptance; everything it exercises is built and published | Real media, a JRiver server and disposable repositories |
 | 5 | L1 | | [library run](library-run-gaps.md#l1-finish-the-review-of-the-run-operational) | Declines through design version 6 are in the ledger (stage E, 270); the 16 still declined at version 8 are not | -- |
@@ -93,16 +91,6 @@ closes, gives up (`DesignNotStarted`, asked through `starting_only_while()` outs
 stage as there are slots, since a waiting one has started its stage.
 
 **Done when** a library run's titles an hour, on a deployed release with this, is compared with the DV8 run's 93.
-
-### JE — Jobs and executions
-
-[jobs-and-executions.md](jobs-and-executions.md) (design, not built): a job is a definition (once or every N minutes,
-a window; paused, resumed, edited, removed) apart from its executions (each continuous run: the log), any number of
-recurring jobs replacing the one schedule, and statistics for each execution. The user settled the four open decisions
-on 2026-10-28: the breaking API rename (`/v1/executions`), cancelling a one-off's execution **removes** the job (not
-pauses it, as the design first said), what can be edited, and the migration on upgrade, as designed. Steps 1, 2, 4 and
-5 are done, and step 3 (the statistics); deviations are listed in the design. The references and the archive are left.
-**Done when** its §7 holds.
 
 ### RV — Review the redesigned library (operational)
 
@@ -149,6 +137,10 @@ Also record from 2026-10-08's work:
   Pacific Rim, The Godfather...) extract that stream.
 - **Auto rescan:** the work list rescans by itself when opened more than 12
   hours after the last scan.
+- **Jobs and executions** (JE, [archived](archive/jobs-and-executions.md)): the first start of the release migrates
+  the live `schedule.json` to the recurring job *Extract & design new titles* (paused, as the schedule is now) and the
+  job history to executions; a windowed redesign runs as one job whose nights are separate executions, and each says
+  how it ran (`statistics`).
 
 **Done when:** the GUI, season and CLI claims formerly called T2-T4 have
 dated observed results, and the container sample run has a dated record with

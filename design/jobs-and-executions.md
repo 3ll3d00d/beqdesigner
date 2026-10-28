@@ -1,9 +1,10 @@
 # Jobs and executions
 
-**Design, partly built** (TODO JE: steps 1-5 built; 6, the references and the archive, not). Agreed with the user on 2026-10-27. It replaces the service's single schedule and its
-one-record-per-request jobs with two things: a **job**, the definition of some work, and its **executions**, the runs
-that do it. When built, the lasting behaviour moves to [pipeline service §5 and §8](pipeline-service.md) and
-[job windows](job-windows.md), and this file is archived.
+**Architecture reference.** Built 2026-10-28 (TODO JE, agreed with the user on 2026-10-27 and 28); the steps, the
+commits and the evidence are in the [archive](archive/jobs-and-executions.md). It replaced the service's single schedule
+and its one-record-per-request jobs with two things: a **job**, the definition of some work, and its **executions**,
+the runs that do it. Sections 2-5 are the design as agreed; §6 says where the build differs, and wins.
+[Pipeline service §5 and §8](pipeline-service.md) and [job windows](job-windows.md) are written to match.
 
 ## 1. Why
 
@@ -147,29 +148,7 @@ and no longer a `schedule`.
   the window field, and a name.
 - **Revise** with *now* makes a one-off redesign job, as above.
 
-## 6. Steps
-
-1. Rename `Job`/`JobManager` to `Execution`/`ExecutionQueue` internally, no behaviour change. **Done.**
-2. `JobBook`: jobs, recurrence, windows (an execution stops at the window's end; no more pause/resume inside one),
-   pause/resume/edit/run now/remove, cancel's effect on a one-off, the designer-down skip and ending by itself,
-   persistence, the migration. Replaces `AutoScheduler`. Tests with a fake execute and clock. **Done**, together with
-   step 4's server half (below), since the old routes could not stand over the new model.
-3. Statistics (§2.3): the pool's per-call reports, the per-title records, the figures, persistence; tests over a
-   fake pool and the real `run_stages`. **Done**: the pool reports each call as a `designer_call` execution event
-   (`ExecutionEvent.fields`: endpoint, release, version, sent, answered, outcome); the queue keeps a record per title
-   (`Execution.titles`, in `executions.json`); `pipeline/service/statistics.py` makes the figures; `GET
-   /v1/executions/{id}` carries them as `statistics` (the list does not), `GET /v1/executions/{id}/titles` lists the
-   titles, and `GET /v1/jobs/{id}` sums its titles by outcome (`outcomes`). The stages measured are extraction,
-   waiting for the designer (from waiting for a design slot to the designer being sent the request: the idle gap TODO
-   IG closes), at the designer, and writing the result. A job's figures are its outcome totals only, not its times.
-4. The routes and models (§4), `/v1/status`, the notifier, the OpenAPI document and `schema.d.ts`, `docker/smoke.py`
-   and the user guide. **Done with step 2**; the browser (step 5) is built next, before step 3.
-5. The browser (§5). **Done**: Status lists the jobs, `/jobs/:id` is a job's page (edit, pause, run now, remove),
-   `/executions` the log and `/executions/:id` an execution's page; `/jobs` goes to Status. The statistics (§2.3) come
-   with step 3.
-6. The references (pipeline-service §5, §8, job windows, web-app), the archive.
-
-**Built differently from the design above (step 2):**
+## 6. As built
 
 - A cancelled one-off's job is `removed`, not `paused` (the user's decision, 2026-10-28).
 - A one-off is executed only while its window is open: the job book starts it then, rather than queueing an execution
@@ -182,10 +161,15 @@ and no longer a `schedule`.
 - A job done or removed is kept while any of its executions is in the history, then forgotten.
 - `POST /v1/jobs` answers 201 with the job; `PUT /v1/titles/{id}/stream` answers 201 with the one-off job it made.
 
-## 7. Done when
-
-The main page lists every job and pausing, resuming, editing or removing one does what §2.1 says; the Executions page
-is the log of every execution, with each job's next one, and each execution's page says how it ran (titles by outcome,
-designers with their versions and counts, stage times as mean, p90 and max); a windowed one-off run is one job whose nights are separate
-executions; several recurring jobs run on their own intervals and windows; and an upgrade keeps the schedule as a
-recurring job and a windowed redesign in progress as an active one-off job.
+- **Statistics** (§2.3): the pool reports each call as a `designer_call` execution event (`ExecutionEvent.fields`:
+  endpoint, release, version, sent, answered, outcome); the queue keeps a record per title (`Execution.titles`, in
+  `executions.json`); `pipeline/service/statistics.py` makes the figures. `GET /v1/executions/{id}` carries them as
+  `statistics` (the list does not); `GET /v1/executions/{id}/titles` lists the titles; `GET /v1/jobs/{id}` sums its
+  titles by outcome (`outcomes`) but not its times. The stages measured are extraction, waiting for the designer (from
+  waiting for a design slot to the designer being sent the request), at the designer, and writing the result; the
+  slowest titles are those in hand longest.
+- The browser: Status lists the active and paused jobs, each row with *Pause*/*Resume*, *Run now* and *Edit…* (*Remove*
+  and the running execution's *Cancel* are on the job's page, `/jobs/:id`); `/executions` is the log and
+  `/executions/:id` an execution's page with *How it ran*; `/jobs` goes to Status. *New job* offers scan and run, as
+  before (bulk accept is not offered in the browser).
+- The API's version is 2.0.0.

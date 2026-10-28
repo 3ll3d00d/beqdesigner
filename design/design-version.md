@@ -72,7 +72,7 @@ A caller keys nothing on `designer_build`. The pair (`design_version`, `design_s
    shown on the status page as a warning, with each one's `design_settings_detail`, since a redesign would
    answer differently by endpoint.
 3. `Selection` gains **out of date**: an entry whose identity differs from the current one, or that has none.
-   The titles page, the work list filters and `POST /v1/jobs/run` take it like `declined`; the drift banner
+   The titles page, the work list filters and `POST /v1/jobs` (a run's filter) take it like `declined`; the drift banner
    D4 describes counts it.
 4. Nothing redesigns by itself. Accepted and published entries are protected as today; a redesign stays a
    person's choice or an explicit scheduled job.

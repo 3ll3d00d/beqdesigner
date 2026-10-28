@@ -4,7 +4,7 @@
     "title": "BEQDesigner pipeline service",
     "summary": "Scan a library, extract and design BEQ filters for titles chosen by filter, on demand or on a schedule, and follow the jobs that do it.",
     "description": "A person decides a title through the review routes or in the BEQDesigner app. Every /v1 route needs the bearer token (Authorize, above). `GET /health` says which release this is.",
-    "version": "1.17.0"
+    "version": "2.0.0"
   },
   "paths": {
     "/health": {
