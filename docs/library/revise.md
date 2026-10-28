@@ -51,3 +51,5 @@ A change of settings, such as another designer, or another analysis setting, doe
 *Revise...* on the banner opens the same question, over exactly those titles, starting on **Redesign**. *Dismiss* hides the banner until the set of titles changes. It counts accepted and published titles whose design was made under other settings. It does not count seasons, or titles designed before this was recorded, and a title whose *source* changed is not counted here, because it already needs attention.
 
 A title revised from the banner needs *Design* once the list has caught up, and is designed again by the next *Extract & design*.
+
+The banner also counts the designs that are **out of date**: made with an older design version, or other settings, than the designer uses now (the designer is asked when the work list opens). *Show them* lists exactly those, as the *Out of date* choice of the *Design* drop-down does. A newer designer does not redesign anything by itself; select the titles you want redesigned and press *Revise...*.

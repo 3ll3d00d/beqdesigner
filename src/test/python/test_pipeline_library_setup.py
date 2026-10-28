@@ -108,3 +108,28 @@ def test_the_index_is_judged_with_the_profiles_directories_when_the_values_have_
 
     assert (index_settings(profile, {}).work_dir, index_settings(profile, {'queue_dir': '/other'}).queue_dir) == \
         ('/w', '/other')
+
+
+def test_designer_identity_is_the_highest_version_among_the_endpoints_that_are_up(monkeypatch):
+    from pipeline.designer.http_binding import DesignerUnavailable
+    from pipeline.library.setup import designer_identity, designer_endpoints, endpoint_states
+    health = {'http://a/design': {'design_version': 7, 'design_settings': 's7'},
+              'http://b/design': {'design_version': 8, 'design_settings': 's8'},
+              'http://c/design': None}
+
+    def check(url, **kwargs):
+        if health[url] is None:
+            raise DesignerUnavailable('down')
+        return health[url]
+
+    monkeypatch.setattr('pipeline.library.setup.check_designer', check)
+    config = {'designers': {'pool': {'endpoints': [{'url': url} for url in health]}}}
+    values = {'designer': 'pool'}
+
+    states = endpoint_states(designer_endpoints(values, config))
+    assert [(url, reason) for url, _, reason, _, _ in states] == [('http://a/design', ''), ('http://b/design', ''),
+                                                                  ('http://c/design', 'down')]
+    current = designer_identity(values, config)
+    assert (current.version, current.settings) == (8, 's8') and current.disagreement   # a and b would answer differently
+    assert designer_identity({'designer': 'manual'}, config) is None                    # nothing to ask
+    assert designer_identity({'designer': 'pool'}, {'designers': {'pool': {'endpoints': 'nonsense'}}}) is None

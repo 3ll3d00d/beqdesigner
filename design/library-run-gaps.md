@@ -58,13 +58,14 @@ E), and the v5 and v6 handoffs went to beqforge (its TODO 31 and 35). The design
 Fixed and archived: [L2 record](archive/library-run-l2.md). Seven of the nine now extract (or will, run with
 `retry_failed` on the next image); two are encrypted rips and one a file JRiver lists that is gone.
 
-### L3. Know which designs a designer upgrade changes (extends D4)
+### L3. Know which designs a designer upgrade changes (extends D4) (done)
 
 **Agreed 2026-10-19; built both sides and deployed** (designers report design version 8 since 2026-10-26):
 [design-version.md](design-version.md) (contract 1.4: a `design_version` that changes only with the answers, a
 `design_settings` digest, `designer_build`; the caller keeps them per entry and selects *out of date*). Contract 1.6's
-`/impact` then picked which out-of-date designs to redesign ([redesign-scope.md](redesign-scope.md)). Left: the
-desktop work list's *out of date* filter and a count on its drift banner.
+`/impact` then picked which out-of-date designs to redesign ([redesign-scope.md](redesign-scope.md)). **Done
+2026-10-28:** the desktop work list's *Design* filter (Any / Declined / Out of date) and the out-of-date count on its
+drift banner (`model/worklist_design_filter.py`).
 
 ### L4. Designer findings to hand to beqforge
 

@@ -9,9 +9,11 @@ coefficient_bits and integer_bits (strategy order kept: it can change the rankin
 **Caller side built** (2026-10-19): the response and health fields kept per entry, the backfill and the out-of-date
 rule (`pipeline/designer/identity.py`); each endpoint's identity, the current one and the disagreement warning on
 `/v1/status` and the Status page; `out_of_date` on the titles filter, the Titles page's *Design version* select and
-*Redesign out of date…*, and a redesign job by version. Not built: the desktop work list's filter (it has no
-`declined` either) and a count in D4's drift banner. Waiting for beqforge TODO 28; until then every title is
-*unknown* and the filter is refused, as designed.
+*Redesign out of date…*, and a redesign job by version. The desktop work list (2026-10-28,
+`model/worklist_design_filter.py`): a *Design* filter (Any / Declined / Out of date) beside the source combo, the
+profile's designer asked on a worker through the same `pipeline.library.setup.designer_identity()` the service uses,
+and the out-of-date count on D4's drift banner with *Show them*. *Out of date* is not offered until a designer that is
+up says its version.
 
 ## Why
 

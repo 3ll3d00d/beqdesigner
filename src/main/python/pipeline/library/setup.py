@@ -7,9 +7,11 @@ same file means the same run from either (design/pipeline-service.md §4). `over
 file: the command line's flags, or nothing for the service. No argparse, no Qt.
 '''
 from dataclasses import dataclass, replace
-from typing import Any, Mapping, Optional, Tuple
+from typing import Any, List, Mapping, Optional, Tuple
 
-from pipeline.designer.http_binding import DeclaredEndpoint, declared_endpoints, register_declared_designers
+from pipeline.designer.http_binding import DeclaredEndpoint, DesignerUnavailable, check_designer, declared_endpoints, \
+    register_declared_designers, reported_adjustment_kinds, reported_parallel
+from pipeline.designer.identity import CurrentIdentity, EndpointIdentity, current_identity, identity_from_health
 from pipeline.designer.manual import MANUAL_DESIGNER
 from pipeline.designer.registry import registered_designers
 from pipeline.library.bass import bass_management
@@ -106,6 +108,41 @@ def designer_endpoints(values: Mapping[str, Any], config: Mapping[str, Any]) -> 
         return None
     return DesignerEndpoints(name, tuple(declared_endpoints(name, spec, stage_parallelism(values.get('parallelism'))['design'])))
 
+
+
+def endpoint_states(declared: Optional[DesignerEndpoints], timeout: float = 10.0
+                    ) -> List[Tuple[str, int, str, Optional[EndpointIdentity], dict]]:
+    '''
+    Each endpoint of a designer asked now: (url, how many designs it takes at once, why it cannot be used, or '' if it
+    can, the design identity its /health reports or None: design/design-version.md, the adjustment kinds it lists:
+    designer-interface.md §7.1, 1.5). Nothing to ask (None) is no endpoints.
+    '''
+    states = []
+    for endpoint in declared.endpoints if declared is not None else ():
+        try:
+            body = check_designer(endpoint.url, by_reference=endpoint.by_reference, timeout=timeout,
+                                  headers=endpoint.headers)
+            reason = ''
+        except DesignerUnavailable as error:
+            body, reason = None, str(error)
+        # the profile's parallel, else what the designer reports (§7.2), else 1: what the pool sends it at once
+        states.append((endpoint.url, endpoint.parallel or reported_parallel(body) or 1, reason,
+                       identity_from_health(endpoint.url, body), reported_adjustment_kinds(body)))
+    return states
+
+
+def designer_identity(values: Mapping[str, Any], config: Mapping[str, Any],
+                      timeout: float = 10.0) -> Optional[CurrentIdentity]:
+    '''
+    What a redesign now would be made with: the highest design version among the run's designer's endpoints that are up
+    (design/design-version.md); None when none of them says one, there is nothing to ask, or the designer is declared in
+    a form that cannot be used.
+    '''
+    try:
+        declared = designer_endpoints(values, config)
+    except ValueError:
+        return None
+    return current_identity(identity for _, _, reason, identity, _ in endpoint_states(declared, timeout) if not reason)
 
 def run_profile(config: Mapping[str, Any], values: dict[str, Any]) -> Profile:
     '''

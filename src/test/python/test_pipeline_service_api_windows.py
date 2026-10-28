@@ -41,7 +41,7 @@ def _until(condition, timeout=10.0):
 @pytest.fixture(autouse=True)
 def quick_recheck(monkeypatch):
     monkeypatch.setattr(executions, 'WINDOW_RECHECK_SECONDS', 0.01)
-    monkeypatch.setattr('pipeline.service.context.check_designer', lambda *args, **kwargs: None)
+    monkeypatch.setattr('pipeline.library.setup.check_designer', lambda *args, **kwargs: None)
 
 
 @pytest.fixture

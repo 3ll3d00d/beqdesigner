@@ -57,6 +57,7 @@ from model.preferences import WORKLIST_GEOMETRY
 from model.worklist_actions import WorkListActions
 from model.worklist_autopublish import WorkListAutoPublish
 from model.worklist_bulk import WorkListBulk
+from model.worklist_design_filter import WorkListDesignFilter
 from model.worklist_model import ALL_CHIPS, CHIP_ALL, CHIP_DONE, CHIP_WORKING, COLUMNS, COL_DETAIL, COL_NEEDS, COL_RUN_DETAILS, \
     COL_RUN_PROGRESS, COL_SOURCE, COL_TITLE, COL_WAITING, COL_YEAR, ID_ROLE, WorkListModel, WorkListProxy, \
     warning_colour
@@ -243,7 +244,7 @@ class _ScanJob(QRunnable):
 
 AUTO_RESCAN_AFTER_S = 12 * 3600   # opening the window rescans when the last scan is older than this
 
-class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkListBulk, QMainWindow,
+class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkListBulk, WorkListDesignFilter, QMainWindow,
                      Ui_workListWindow):
     '''
     :param parent: the main window, or None.
@@ -283,6 +284,7 @@ class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkL
                  ask_revise: Optional[Callable] = None):
         super().__init__(parent)
         self._init_bulk(ask_revise)
+        self._init_design_filter()
         self._init_autopublish()
         self._open_project = open_project
         self._drawer: Optional[SettingsDrawer] = None
@@ -350,6 +352,7 @@ class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkL
         self._configure_actions()
         self._configure_titles()
         self._configure_bulk()
+        self._configure_design_filter()
         self._configure_settings(choose_profile_path, run_dialog, settings_debounce_ms)
         self.searchEdit.textChanged.connect(self._on_search)
         self.sourceCombo.currentIndexChanged.connect(self._on_source)
@@ -659,7 +662,8 @@ class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkL
 
     def current_selection(self) -> Selection:
         '''
-        The `Selection` the chip, the source combo and the search box amount to -- the same titles the table lists.
+        The `Selection` the chip, the source combo, the *Design* filter and the search box amount to -- the same titles
+        the table lists.
         *All* (and *New*) leave Done out, as the table does; a chunk 26b action over "everything in the filter"
         passes this to `plan_stages()`.
         '''
@@ -672,10 +676,12 @@ class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkL
         if chip == CHIP_WORKING:   # no `needs` says "being worked on": the titles themselves (an id matching none if none)
             return Selection(source=source, match=match, ids=tuple(self.listed_ids()) or ('',))
         if chip == CHIP_ALL:
-            return Selection(needs=not_done, source=source, match=match, ids=ids)
-        if chip == CHIP_NEW:
-            return Selection(needs=not_done, source=source, match=match, ids=ids, new_since_scan=True)
-        return selection_from_chip(chip, source=source, match=match, ids=ids)
+            selection = Selection(needs=not_done, source=source, match=match, ids=ids)
+        elif chip == CHIP_NEW:
+            selection = Selection(needs=not_done, source=source, match=match, ids=ids, new_since_scan=True)
+        else:
+            selection = selection_from_chip(chip, source=source, match=match, ids=ids)
+        return self.design_selection(selection)
 
     # --- loading ----------------------------------------------------------------------------------------------------
 
@@ -701,6 +707,7 @@ class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkL
             self._drawer.refresh_designers()
         self._open_index(self._setup.index_file)
         self.refresh_from_index()
+        self.refresh_identity()   # (asks the designer on a worker; *Out of date* is offered once it answers)
         # no index file yet is "never scanned" too: the scan creates it. A listing older than half a day is taken again,
         # so what was ripped or retagged since is there without a person remembering to press Rescan
         stale = self._last_scan_at is not None and self._clock() - self._last_scan_at > AUTO_RESCAN_AFTER_S

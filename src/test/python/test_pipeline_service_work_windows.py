@@ -52,7 +52,7 @@ class Clock:
 
 @pytest.fixture(autouse=True)
 def designer_answers(monkeypatch):
-    monkeypatch.setattr('pipeline.service.context.check_designer', lambda *args, **kwargs: None)
+    monkeypatch.setattr('pipeline.library.setup.check_designer', lambda *args, **kwargs: None)
     monkeypatch.setattr(jobs, 'WINDOW_RECHECK_SECONDS', 0.01)
 
 

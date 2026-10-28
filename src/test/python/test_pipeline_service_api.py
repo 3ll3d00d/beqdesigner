@@ -35,7 +35,7 @@ def _until(condition, timeout=10.0):
 @pytest.fixture(autouse=True)
 def designer_answers(monkeypatch):
     ''' The profile's designer (port 9, nothing there) answers /health: these tests are not about the designer. '''
-    monkeypatch.setattr('pipeline.service.context.check_designer', lambda *args, **kwargs: None)
+    monkeypatch.setattr('pipeline.library.setup.check_designer', lambda *args, **kwargs: None)
 
 
 @pytest.fixture
@@ -550,7 +550,7 @@ def test_redesign_takes_1_to_500_ids_and_design_only(service, body):
 
 def test_titles_out_of_date_against_what_the_designer_up_now_says(service, monkeypatch):
     client, _, calls = service
-    monkeypatch.setattr('pipeline.service.context.check_designer', lambda *args, **kwargs: {'design_version': 4})
+    monkeypatch.setattr('pipeline.library.setup.check_designer', lambda *args, **kwargs: {'design_version': 4})
     _scanned(client)
 
     def titles(**params):

@@ -18,8 +18,10 @@ from qtpy.QtGui import QBrush, QColor, QGuiApplication, QPalette
 
 from model.execution_events import redact_text
 from model.worklist_failure import failed_stage, failure_text
+from pipeline.designer.identity import CurrentIdentity
 from pipeline.library.index import TitleRow
-from pipeline.library.selection import CHIP_NEW, CHIPS
+from pipeline.library.selection import CHIP_NEW, CHIPS, Selection
+from pipeline.library.state import DECLINED_DETAIL
 
 CHIP_ALL = 'All'
 CHIP_DONE = 'Done'
@@ -333,11 +335,30 @@ def matches_text(row: TitleRow, text: str) -> bool:
     return any(needle in field.casefold() for field in (row.title, row.display_name, row.id, row.path))
 
 
+DESIGN_ANY = ''
+DESIGN_DECLINED = 'declined'
+DESIGN_OUT_OF_DATE = 'out_of_date'
+DESIGN_FILTERS = (DESIGN_ANY, DESIGN_DECLINED, DESIGN_OUT_OF_DATE)
+
+
+def design_accepts(design: str, row: TitleRow, current: Optional[CurrentIdentity]) -> bool:
+    '''
+    Whether the *Design* filter lists a title, as `Selection`'s `declined` and `out_of_date` select it: *Declined* is a
+    design the designer declined, *Out of date* one a redesign now (with `current`) could answer differently; with no
+    `current` nothing is out of date.
+    '''
+    if design == DESIGN_DECLINED:
+        return row.detail.startswith(DECLINED_DETAIL)
+    if design == DESIGN_OUT_OF_DATE:
+        return Selection(current=current).is_out_of_date(row)
+    return True
+
+
 class WorkListProxy(QSortFilterProxyModel):
     '''
-    Filters the model by chip, source, search text and independently matchable displayed columns, and sorts it. With no
-    column chosen (`sort_by(-1)`) the rows are in the index's order: attention, human, machine, then done, each oldest
-    first.
+    Filters the model by chip, source, search text, the *Design* filter and independently matchable displayed columns, and
+    sorts it. With no column chosen (`sort_by(-1)`) the rows are in the index's order: attention, human, machine, then
+    done, each oldest first.
     '''
 
     def __init__(self, parent=None):
@@ -346,6 +367,8 @@ class WorkListProxy(QSortFilterProxyModel):
         self.__source: Optional[str] = None
         self.__text = ''
         self.__column_text: Dict[int, str] = {}
+        self.__design = DESIGN_ANY
+        self.__current: Optional[CurrentIdentity] = None
         self.setSortRole(SORT_ROLE)
         self.setSortCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
 
@@ -360,6 +383,26 @@ class WorkListProxy(QSortFilterProxyModel):
     @property
     def text(self) -> str:
         return self.__text
+
+    @property
+    def design_filter(self) -> str:
+        ''' One of DESIGN_FILTERS: what the *Design* filter lists. '''
+        return self.__design
+
+    @property
+    def current_identity(self) -> Optional[CurrentIdentity]:
+        ''' What a redesign now would be made with, as the designer said; None until it has (or if it cannot). '''
+        return self.__current
+
+    def set_design_filter(self, design: str) -> None:
+        if design not in DESIGN_FILTERS:
+            raise ValueError(f'unknown design filter {design!r}')
+        self.__design = design
+        self.invalidateFilter()
+
+    def set_current_identity(self, current: Optional[CurrentIdentity]) -> None:
+        self.__current = current
+        self.invalidateFilter()
 
     @property
     def column_filters(self) -> Dict[int, str]:
@@ -401,7 +444,8 @@ class WorkListProxy(QSortFilterProxyModel):
     def __accepts(self, row: TitleRow, chip: str, source_row: int) -> bool:
         working = chip == CHIP_WORKING and self.sourceModel().is_working(row.id)
         return (chip_accepts(chip, row, working) and (self.__source is None or row.source == self.__source)
-                and (not self.__text or matches_text(row, self.__text)) and self.__column_matches(source_row))
+                and (not self.__text or matches_text(row, self.__text)) and design_accepts(self.__design, row, self.__current)
+                and self.__column_matches(source_row))
 
     def __column_matches(self, source_row: int) -> bool:
         source = self.sourceModel()

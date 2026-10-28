@@ -13,7 +13,8 @@ The work list's bulk actions -- design/archive/library-sync/workflow-rework/desi
 * **The "settings changed" banner** -- accepted and published titles are never redesigned by a run, and a change of designer,
   analysis or coverage deliberately does not put them back in the list (it would put every done title there at once), so the
   banner says how many were designed under other settings (`pipeline.library.drift`) and offers *Revise...* over exactly
-  those, starting on *Redesign*. *Dismiss* hides it until the set of titles changes. It is worked out on a worker after the
+  those, starting on *Redesign*. It also counts the designs that are out of date against the designer's design version
+  (`model.worklist_design_filter`), with *Show them*. *Dismiss* hides it until the set of titles changes. It is worked out on a worker after the
   index is read, and an answer that arrives after a newer question is dropped.
 
 Everything here refuses while a run, a scan or another such job is going (`_busy()`): they all write to the same outputs.
@@ -26,6 +27,7 @@ from qtpy.QtWidgets import QDialog
 
 from model.preferences import WORKLIST_ACCEPT_THRESHOLD
 from model.worklist_confirm import ConfirmDialog, accept_text, drift_text
+from model.worklist_design_filter import out_of_date_text
 from model.worklist_model import warning_colour
 from model.worklist_revise import ReviseContext, ReviseDialog, ReviseSummary, describe_outcome, revise_context, \
     revise_problem, revise_titles, summarise_outcome
@@ -85,7 +87,8 @@ class WorkListBulk:
     The mixin: it uses `_setup`, `_index`, `_model`, `_preferences`, `_busy()`, `_say()`, `_refresh_actions()`,
     `_refresh_results()`, `refresh_from_index()`, `target_ids()`, `selected_ids()`, `_rows_by_id()`,
     `_results`, `_closed` and the widgets `acceptButton`, `reviseButton`, `driftBanner`, `driftBannerLabel`,
-    `driftBannerButton` and `driftDismissButton` of the window.
+    `driftBannerButton`, `driftDismissButton` and `driftOutOfDateButton` of the window, and `out_of_date_ids()` and
+    `current_identity` of `WorkListDesignFilter`.
     '''
 
     def _init_bulk(self, ask_revise: Optional[AskRevise]) -> None:
@@ -369,14 +372,25 @@ class WorkListBulk:
 
     def dismiss_drift(self) -> None:
         ''' Hides the banner until the set of titles it is about changes. '''
-        self._drift_dismissed = frozenset(self._drift_ids)
+        self._drift_dismissed = self._drift_shown()
         self._refresh_drift_banner()
 
+    def _drift_shown(self) -> frozenset:
+        ''' What the banner is about: the titles designed under other settings, and the designs out of date. '''
+        return frozenset([('settings', i) for i in self._drift_ids] + [('version', i) for i in self.out_of_date_ids()])
+
     def _refresh_drift_banner(self) -> None:
-        shown = bool(self._drift_ids) and frozenset(self._drift_ids) != self._drift_dismissed
+        about = self._drift_shown()
+        shown = bool(about) and about != self._drift_dismissed
         self.driftBanner.setVisible(shown)
         if shown:
-            self.driftBannerLabel.setText(drift_text(len(self._drift_ids)))
+            out_of_date = len(self.out_of_date_ids())
+            said = [drift_text(len(self._drift_ids))] if self._drift_ids else []
+            if out_of_date:
+                said.append(out_of_date_text(out_of_date, self.current_identity))
+            self.driftBannerLabel.setText(' '.join(said))
+            self.driftBannerButton.setVisible(bool(self._drift_ids))
+            self.driftOutOfDateButton.setVisible(bool(out_of_date))
 
     def _refresh_drift(self) -> None:
         '''

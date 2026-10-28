@@ -27,7 +27,7 @@ def _until(condition, timeout=30.0):   # a slow Windows runner took over 10 s
 @pytest.fixture(autouse=True)
 def designer_answers(monkeypatch):
     ''' The profile's designer (port 9, nothing there) answers /health: these tests are not about the designer. '''
-    monkeypatch.setattr('pipeline.service.context.check_designer', lambda *args, **kwargs: None)
+    monkeypatch.setattr('pipeline.library.setup.check_designer', lambda *args, **kwargs: None)
 
 
 @pytest.fixture
@@ -304,7 +304,7 @@ def test_redesign_refuses_published_titles_without_repository_permission(manager
 def test_redesign_by_version_sends_back_the_designs_out_of_date_that_nobody_accepted(manager, profile, monkeypatch):
     from pipeline.review import read_entry, update_entry
     from review_entry_fixture import write_entry
-    monkeypatch.setattr('pipeline.service.context.check_designer', lambda *args, **kwargs: {
+    monkeypatch.setattr('pipeline.library.setup.check_designer', lambda *args, **kwargs: {
         'design_version': 4, 'design_settings': 'd0', 'design_settings_detail': {}})
     ids, queue = _scanned_with_entries(manager, profile)
     write_entry(queue, ids[1], status='accepted')
@@ -327,7 +327,7 @@ def test_redesign_by_version_sends_back_the_designs_out_of_date_that_nobody_acce
 
 def test_redesign_by_version_with_nothing_out_of_date_runs_nothing(manager, profile, monkeypatch):
     from pipeline.review import update_entry
-    monkeypatch.setattr('pipeline.service.context.check_designer', lambda *args, **kwargs: {'design_version': 4})
+    monkeypatch.setattr('pipeline.library.setup.check_designer', lambda *args, **kwargs: {'design_version': 4})
     ids, queue = _scanned_with_entries(manager, profile)
     for title_id in ids:
         update_entry(queue, title_id, design_version=4)

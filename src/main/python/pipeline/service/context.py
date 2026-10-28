@@ -20,13 +20,12 @@ import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Mapping, Optional, Tuple
 
-from pipeline.designer.http_binding import DesignerUnavailable, check_designer, reported_adjustment_kinds, reported_parallel
-from pipeline.designer.identity import CurrentIdentity, EndpointIdentity, current_identity, identity_from_health
+from pipeline.designer.identity import CurrentIdentity, EndpointIdentity
 from pipeline.library.index import index_path
 from pipeline.library.profile import Profile, read_config_file
 from pipeline.library.run import LibraryRunConfig
-from pipeline.library.setup import DesignerEndpoints, configured_values, designer_endpoints, index_settings, \
-    run_config_from_values, run_profile, scan_values, stage_settings
+from pipeline.library.setup import DesignerEndpoints, configured_values, designer_endpoints, designer_identity, \
+    endpoint_states, index_settings, run_config_from_values, run_profile, scan_values, stage_settings
 from pipeline.library.stages import PublishSettings
 from pipeline.library.status import ScanSettings
 from pipeline.service.config import env_name, jriver_password, secret
@@ -104,35 +103,17 @@ class JobContext:
     def designer_endpoint_states(self, timeout: float = 10.0
                                  ) -> List[Tuple[str, int, str, Optional[EndpointIdentity], dict]]:
         '''
-        Each endpoint of the run's designer asked now: (url, how many designs it takes at once, why it cannot be used, or
-        '' if it can, the design identity its /health reports or None: design/design-version.md, the adjustment kinds it
-        lists: designer-interface.md §7.1, 1.5).
+        Each endpoint of the run's designer asked now (`pipeline.library.setup.endpoint_states`).
         :raises ValueError: for a designer the file declares in a form that cannot be used.
         '''
-        declared = self.designer_endpoints()
-        states = []
-        for endpoint in declared.endpoints if declared is not None else ():
-            try:
-                body = check_designer(endpoint.url, by_reference=endpoint.by_reference, timeout=timeout,
-                                      headers=endpoint.headers)
-                reason = ''
-            except DesignerUnavailable as error:
-                body, reason = None, str(error)
-            # the profile's parallel, else what the designer reports (§7.2), else 1: what the pool sends it at once
-            states.append((endpoint.url, endpoint.parallel or reported_parallel(body) or 1, reason,
-                           identity_from_health(endpoint.url, body), reported_adjustment_kinds(body)))
-        return states
+        return endpoint_states(self.designer_endpoints(), timeout)
 
     def designer_identity(self, timeout: float = 10.0) -> Optional[CurrentIdentity]:
         '''
         What a redesign now would be made with: the highest design version among the endpoints that are up
         (design/design-version.md); None when none of them says one (or there is nothing to ask).
         '''
-        try:
-            states = self.designer_endpoint_states(timeout)
-        except ValueError:
-            return None
-        return current_identity(identity for _, _, reason, identity, _ in states if not reason)
+        return designer_identity(self.values, self.config, timeout)
 
     def designer_unavailable(self, timeout: float = 10.0) -> str:
         '''

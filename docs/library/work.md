@@ -7,7 +7,7 @@ The buttons under the list work on **the titles you have selected**. If you have
 * *3 selected of 23 listed*
 * *None selected: the buttons work on all 23 listed*
 
-Select rows with a click, `Ctrl`+click and `Shift`+click, or press *Select all* (which selects everything the current view lists) and *Clear*. To act on one kind of work, press its button on the strip and then *Select all*, or leave nothing selected. Search and the source drop-down narrow it further. Your selection survives a rescan and a run.
+Select rows with a click, `Ctrl`+click and `Shift`+click, or press *Select all* (which selects everything the current view lists) and *Clear*. To act on one kind of work, press its button on the strip and then *Select all*, or leave nothing selected. Search, the source drop-down and the *Design* drop-down (*Declined*, or *Out of date*: designs a redesign now could answer differently) narrow it further. Your selection survives a rescan and a run.
 
 ### Extract & design
 

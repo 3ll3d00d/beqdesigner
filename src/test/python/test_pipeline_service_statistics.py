@@ -233,7 +233,7 @@ def profile(tmp_path):
 
 
 def test_an_execution_says_how_it_ran_and_lists_its_titles_by_outcome_and_its_job_sums_them(profile, monkeypatch):
-    monkeypatch.setattr('pipeline.service.context.check_designer', lambda *args, **kwargs: None)
+    monkeypatch.setattr('pipeline.library.setup.check_designer', lambda *args, **kwargs: None)
     release = threading.Event()
 
     def execute(execution, control):
