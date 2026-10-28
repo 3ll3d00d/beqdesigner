@@ -2,7 +2,7 @@ site_name: BEQDesigner
 site_url: 'https://beqdesigner.readthedocs.io'
 copyright: 'Copyright &copy; 2019 Matt Khan'
 theme:
-  name: 'material'
+  name: 'materialx'
   logo: 'img/icon.png'
   favicon: 'img/icon.ico'
 markdown_extensions:

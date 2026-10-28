@@ -1,1 +1,1 @@
-mkdocs-material>=9.7.7
+mkdocs-materialx>=10.2.2
