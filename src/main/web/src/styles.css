@@ -242,3 +242,5 @@ button.danger.small { padding: 0.15rem 0.6rem; font-size: 0.85rem; }
 .filter-editor .row-actions { display: flex; gap: 0.25rem; align-items: center; flex-wrap: wrap; }
 .notice { color: var(--accent); font-weight: 600; margin: 0.25rem 0; }
 .actions > a { align-self: center; }
+details.why { margin: 0; max-width: 24rem; }
+details.why p { margin: 0.2rem 0 0; overflow-wrap: anywhere; font-size: 0.85rem; }

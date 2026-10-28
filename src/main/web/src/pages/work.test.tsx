@@ -5,7 +5,7 @@ import { http, HttpResponse } from 'msw/http'
 
 import { filterFromQuery, filterToQuery, sortFromQuery, sortToQuery } from '../api/filter'
 import { saveToken } from '../api/token'
-import { when } from '../format'
+import { briefly, when } from '../format'
 import { event, eventStream, index, runExecution, runJob, runResult, scanExecution, scanJob } from '../test/fixtures'
 import { renderApp } from '../test/render'
 import { server, status, statusRoute, TOKEN } from '../test/server'
@@ -15,6 +15,17 @@ beforeEach(() => saveToken(TOKEN, false))
 function json(body: unknown, init?: number) {
   return HttpResponse.json(body as never, init ? { status: init } : undefined)
 }
+
+describe('a designer that is down, in a few words', () => {
+  it.each([
+    ["HTTPConnectionPool(...): Failed to establish a new connection: [Errno 113] No route to host\"))", 'no route to host'],
+    ['[Errno 111] Connection refused', 'connection refused'],
+    ["Caused by ConnectTimeoutError(<HTTPConnection ...>, 'Connection to 10.151.167.29 timed out. (connect timeout=10.0)'))", 'timed out'],
+    ['GET http://a/health answered HTTP 503', 'HTTP 503'],
+    ['refused', 'refused'],
+    ['x'.repeat(80), `${'x'.repeat(57)}…`],
+  ])('%s', (detail, words) => expect(briefly(detail)).toBe(words))
+})
 
 describe('the filter in the address bar', () => {
   it('goes there and back', () => {
@@ -110,6 +121,24 @@ describe('status', () => {
     expect(within(a!).getByRole('link', { name: 'Alien' })).toHaveAttribute('href', '/titles/t1')
     expect(screen.getByRole('heading', { name: 'Designers' })).toBeInTheDocument()
     expect(screen.getAllByRole('table', { name: 'Designers' })).toHaveLength(1)
+  })
+
+  it('says in a few words why an endpoint is down, with the whole message when opened', async () => {
+    const detail = "GET http://10.151.167.29:8420/health failed, so nothing is sent to it by reference: " +
+      "HTTPConnectionPool(host='10.151.167.29', port=8420): Max retries exceeded with url: /health (Caused by " +
+      "NewConnectionError(\"HTTPConnection(host='10.151.167.29', port=8420): Failed to establish a new connection: " +
+      '[Errno 113] No route to host"))'
+    const designer = { name: 'beqforge', reachable: true, detail: '', checked_at: null,
+                       endpoints: [{ url: 'http://b/design', parallel: 1, reachable: false, detail, designing: [] }] }
+    server.use(statusRoute(status({ index: index(), designer })))
+    renderApp('/')
+
+    const table = await screen.findByRole('table', { name: 'Designers' })
+    const why = within(table).getByText('no route to host')
+    expect(why.tagName).toBe('SUMMARY')
+    expect(within(table).getByText(detail)).not.toBeVisible()
+    await userEvent.click(why)
+    expect(within(table).getByText(detail)).toBeVisible()
   })
 
   it('says an endpoint with nothing out is idle, and lists a designer with one endpoint too', async () => {

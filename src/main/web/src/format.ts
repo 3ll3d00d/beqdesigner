@@ -93,3 +93,19 @@ export function metadataText(value: unknown): string {
   }
   return String(value ?? '')
 }
+
+/**
+ * Why a designer endpoint is down, in a few words, from the service's detail (which carries the whole connection
+ * error): the OS's reason, a timeout, an HTTP status, or the start of the text.
+ */
+export function briefly(detail: string | null | undefined): string {
+  const text = detail ?? ''
+  const errno = /\[Errno -?\d+\] ([^"')\]]+)/.exec(text)
+  if (errno) return errno[1]!.trim().replace(/^\w/, (c) => c.toLowerCase())
+  if (/timed? ?out|ConnectTimeout|ReadTimeout/i.test(text)) return 'timed out'
+  if (/connection refused/i.test(text)) return 'connection refused'
+  if (/Name or service not known|nodename nor servname|getaddrinfo/i.test(text)) return 'unknown host'
+  const status = /\bHTTP (\d{3})\b/.exec(text)
+  if (status) return `HTTP ${status[1]}`
+  return text.length > 60 ? `${text.slice(0, 57)}…` : text
+}

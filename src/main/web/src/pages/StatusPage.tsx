@@ -9,7 +9,7 @@ import type { JobEvent } from '../api/events'
 import { describeEvery, describeExecution, describeRequest, extraction, JobStateBadge, StateBadge } from '../components/JobBits'
 import { ScanSources } from '../components/ScanSources'
 import { DefaultWindow, describeRanges } from '../components/WindowField'
-import { count, duration, NEEDS_ORDER, STRIP_WORDS, when } from '../format'
+import { briefly, count, duration, NEEDS_ORDER, STRIP_WORDS, when } from '../format'
 
 function Strip({ counts }: { counts: Record<string, number> }) {
   return (
@@ -137,6 +137,18 @@ function Jobs({ running, waiting, designing, sources, scanned }:
   )
 }
 
+/** Why an endpoint is down in a few words; the service's whole message when opened (it can be a paragraph). */
+function Why({ detail }: { detail: string }) {
+  const short = briefly(detail)
+  if (short === detail) return <div className="muted">{detail}</div>
+  return (
+    <details className="why">
+      <summary className="muted">{short}</summary>
+      <p className="muted">{detail}</p>
+    </details>
+  )
+}
+
 /** Every endpoint of the configured designer, one row each; a designer with none (manual) is one row saying why. */
 function Designers({ designer }: { designer: Schemas['DesignerStatus'] | null | undefined }) {
   if (!designer) return null
@@ -160,7 +172,7 @@ function Designers({ designer }: { designer: Schemas['DesignerStatus'] | null | 
               <td>{e.url}</td>
               <td><span className={e.reachable ? '' : 'problem'}>{e.reachable ? 'up' : 'down'}</span>
                 <span className="muted"> · {when(e.checked_at)}</span>
-                {!e.reachable && <div className="muted">{e.detail}</div>}</td>
+                {!e.reachable && <Why detail={e.detail} />}</td>
               <td className="num">{e.design_version ?? '—'}</td>
               <td title={e.designer_build ?? undefined}>{e.designer_release ?? '—'}</td>
               <td className="num">{e.parallel}</td>
