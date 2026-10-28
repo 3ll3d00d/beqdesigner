@@ -69,7 +69,7 @@ pipeline/
                                            #   shared by the title page and the service's review routes
     service/                       # the pipeline as a long-running service (design/pipeline-service.md; HTTP is chunk S3)
         config.py, context.py        # service.yaml and the environment's secrets; a job's profile, read again per job
-        jobs.py, work.py              # one job at a time, cancel, events, history; what scan/run/accept jobs do
+        executions.py, work.py        # one job at a time, cancel, events, history; what scan/run/accept jobs do
         lease.py                        # the work-directory lease every run holds (service job, work list, `run`)
         api.py, models.py               # the HTTP interface and its types, including the review routes
         refresh.py                      # the index brought up to date after a decision over HTTP

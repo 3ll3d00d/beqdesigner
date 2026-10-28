@@ -1,5 +1,5 @@
 '''
-pipeline/service/jobs.py with active windows (design/job-windows.md §3): a job waits for its window while others run, a
+pipeline/service/executions.py with active windows (design/job-windows.md §3): a job waits for its window while others run, a
 run whose window closes pauses between titles and carries on when it opens, as one job, and a paused or waiting job is
 kept across a restart. Driven by a fake run and a fake clock.
 '''
@@ -10,10 +10,10 @@ from datetime import datetime, timezone
 
 import pytest
 
-import pipeline.service.jobs as jobs
+import pipeline.service.executions as jobs
 from pipeline.library.selection import Selection
 from pipeline.library.stages import Progress
-from pipeline.service.jobs import JobFinished, JobManager, RunRequest, ScanRequest, resumed
+from pipeline.service.executions import ExecutionFinished, ExecutionQueue, RunRequest, ScanRequest, resumed
 
 UTC = timezone.utc
 NIGHT = ['01:00-02:00']
@@ -98,7 +98,7 @@ def managers():
     made = []
 
     def make(execute, clock, **kwargs):
-        manager = JobManager(execute, clock=clock, tz=UTC, remaining=remaining, merge=merge, **kwargs)
+        manager = ExecutionQueue(execute, clock=clock, tz=UTC, remaining=remaining, merge=merge, **kwargs)
         made.append(manager)
         return manager
     yield make
@@ -197,7 +197,7 @@ def test_a_waiting_jobs_window_can_be_changed_but_not_a_finished_ones(managers):
     assert manager.set_window(job.id, ['11:00-13:00']) is job and job.window == ['11:00-13:00']
     _until(lambda: job.finished)
     assert [e['window'] for e in job.events if e['type'] == 'window'] == [['11:00-13:00']]
-    with pytest.raises(JobFinished):
+    with pytest.raises(ExecutionFinished):
         manager.set_window(job.id, [])
 
 
@@ -261,7 +261,7 @@ def test_a_job_waiting_for_its_window_does_not_hold_up_the_schedule(managers):
 def test_paused_and_waiting_jobs_carry_on_after_a_restart(tmp_path):
     clock = Clock('2026-10-26 01:40')
     titles = Titles(clock)
-    first = JobManager(titles, clock=clock, tz=UTC, remaining=remaining, merge=merge, state_dir=str(tmp_path))
+    first = ExecutionQueue(titles, clock=clock, tz=UTC, remaining=remaining, merge=merge, state_dir=str(tmp_path))
     paused = first.submit(run('a', 'b', 'c'), window=NIGHT)
     _until(lambda: paused.state == 'paused')
     waiting = first.submit(ScanRequest(sources=('jriver',)), window=['05:00-06:00'])
@@ -272,7 +272,7 @@ def test_paused_and_waiting_jobs_carry_on_after_a_restart(tmp_path):
     assert saved[paused.id] == 'paused' and saved[waiting.id] == 'queued'
 
     clock.set('2026-10-27 01:00')
-    second = JobManager(titles, clock=clock, tz=UTC, remaining=remaining, merge=merge, state_dir=str(tmp_path))
+    second = ExecutionQueue(titles, clock=clock, tz=UTC, remaining=remaining, merge=merge, state_dir=str(tmp_path))
     try:
         again = second.get(paused.id)
         _until(lambda: again.finished)
@@ -287,7 +287,7 @@ def test_paused_and_waiting_jobs_carry_on_after_a_restart(tmp_path):
 def test_a_job_running_when_the_service_stopped_is_still_interrupted(tmp_path):
     (tmp_path / 'jobs.json').write_text(json.dumps([{'id': 'r', 'kind': 'run', 'state': 'running', 'window': NIGHT,
                                                      'request': {'selection': {'ids': ['a']}}}]))
-    manager = JobManager(lambda job, control: None, clock=Clock('2026-10-26 12:00'), tz=UTC, state_dir=str(tmp_path))
+    manager = ExecutionQueue(lambda job, control: None, clock=Clock('2026-10-26 12:00'), tz=UTC, state_dir=str(tmp_path))
     try:
         assert manager.get('r').state == 'interrupted'
     finally:

@@ -17,7 +17,7 @@ from pipeline.library.index import LibraryIndex
 from pipeline.service import models
 from pipeline.service.config import secret
 from pipeline.service.context import env_name, load_context
-from pipeline.service.jobs import Job, JobManager
+from pipeline.service.executions import Execution, ExecutionQueue
 
 logger = logging.getLogger('pipeline_service_notify')
 EVENTS = frozenset(event.value for event in models.NotifyEvent)
@@ -87,7 +87,7 @@ def _index_details(profile_path: str, env: Mapping[str, str], ids: list[str]):
         return {}, None
 
 
-def _parts(job: Job):
+def _parts(job: Execution):
     result = models.job_model(job).result if job.result is not None else None
     designed, failed, count = [], [], 0
     if isinstance(result, models.RunResult):
@@ -110,7 +110,7 @@ def _parts(job: Job):
     return designed, failed, count
 
 
-def events_for(job: Job) -> list[models.NotifyEvent]:
+def events_for(job: Execution) -> list[models.NotifyEvent]:
     designed, failed, _ = _parts(job)
     events = []
     if designed:
@@ -121,7 +121,7 @@ def events_for(job: Job) -> list[models.NotifyEvent]:
     return events
 
 
-def notification(job: Job, event: models.NotifyEvent, resolve: Callable) -> models.Notification:
+def notification(job: Execution, event: models.NotifyEvent, resolve: Callable) -> models.Notification:
     designed, failures, reported_count = _parts(job)
     rows, indexed_count = resolve(designed)
     titles = []
@@ -161,7 +161,7 @@ def _send(target: Target, body: bytes, content_type: str) -> None:
 
 
 class Notifier:
-    def __init__(self, manager: JobManager, profile_path: str, values=(), env: Optional[Mapping[str, str]] = None,
+    def __init__(self, manager: ExecutionQueue, profile_path: str, values=(), env: Optional[Mapping[str, str]] = None,
                  *, resolve: Optional[Callable] = None, send: Callable = _send,
                  sleep: Callable[[float], None] = time.sleep, clock: Callable[[], float] = time.time,
                  start: bool = True):
@@ -205,7 +205,7 @@ class Notifier:
             self.outcome[target.name] = result
         return result
 
-    def _for_job(self, job: Job) -> None:
+    def _for_job(self, job: Execution) -> None:
         for event in events_for(job):
             for target in self.targets:
                 if job.origin in target.origins and event.value in target.events:

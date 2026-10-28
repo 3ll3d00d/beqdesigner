@@ -65,8 +65,8 @@ One continuous run of a job: from when it starts until it finishes, fails, is ca
 | `started_at`, `finished_at`, `progress`, `result`, `error`, the log | As a job has them today, each for this execution only. |
 
 - An execution is a historic record once it ends. **Cancel** stops a running execution before its next title (it ends
-  `cancelled`); a one-off job whose execution was cancelled is then `paused`, so it does not start again at once — the
-  person resumes or removes it. A recurring job's next execution is due at its interval as usual.
+  `cancelled`); a one-off job whose execution was cancelled is then `removed` (the user's decision, 2026-10-28: a
+  cancel means "I'm done with this"), so it never starts again. A recurring job's next execution is due at its interval as usual.
 - The **log** of executions (the Jobs page, renamed Executions) lists the running execution, the **next scheduled
   execution** of each active job (computed from `next_at`, not stored), and the history, newest first.
 - One execution runs at a time, as now; joining the run in progress (§5.1) is between executions as it was between jobs.
@@ -149,7 +149,7 @@ and no longer a `schedule`.
 
 ## 6. Steps
 
-1. Rename `Job`/`JobManager` to `Execution`/`ExecutionQueue` internally, no behaviour change.
+1. Rename `Job`/`JobManager` to `Execution`/`ExecutionQueue` internally, no behaviour change. **Done.**
 2. `JobBook`: jobs, recurrence, windows (an execution stops at the window's end; no more pause/resume inside one),
    pause/resume/edit/run now/remove, cancel's effect on a one-off, the designer-down skip and ending by itself,
    persistence, the migration. Replaces `AutoScheduler`. Tests with a fake execute and clock.

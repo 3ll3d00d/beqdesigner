@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from pipeline.service import models
 from pipeline.service.api import create_app
 from pipeline.service.config import ServiceConfig
-from pipeline.service.jobs import JobManager, RunRequest
+from pipeline.service.executions import ExecutionQueue, RunRequest
 
 TOKEN = 'test-token'
 
@@ -52,7 +52,7 @@ def profile(tmp_path):
 
 @pytest.mark.parametrize('env, configured', [({}, False), ({'TMDB_API_KEY': 'k'}, True)])
 def test_ready_and_status_say_whether_tmdb_is_looked_up_without_making_it_required(profile, env, configured):
-    manager = JobManager(lambda job, control: None)
+    manager = ExecutionQueue(lambda job, control: None)
     app = create_app(manager, ServiceConfig(profile_path=profile, token=TOKEN), env=env)
     client = TestClient(app)
     try:

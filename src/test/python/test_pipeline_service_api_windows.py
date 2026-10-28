@@ -1,6 +1,6 @@
 '''
 The service's job windows over HTTP (design/job-windows.md §4): a window given with a job, changed on a job, and the default,
-through FastAPI's TestClient over a real JobManager with a fake clock (and a fake execute: these are about the interface).
+through FastAPI's TestClient over a real ExecutionQueue with a fake clock (and a fake execute: these are about the interface).
 '''
 import json
 import threading
@@ -10,10 +10,10 @@ from datetime import datetime, timezone
 import pytest
 from fastapi.testclient import TestClient
 
-import pipeline.service.jobs as jobs
+import pipeline.service.executions as jobs
 from pipeline.service.api import create_app
 from pipeline.service.config import ServiceConfig
-from pipeline.service.jobs import JobManager
+from pipeline.service.executions import ExecutionQueue
 from pipeline.service.models import JobEvent
 
 TOKEN = 'test-token'
@@ -57,7 +57,7 @@ def service(profile, tmp_path):
     ''' (client, manager, ran): jobs record that they ran and return nothing; the clock reads 12:00 UTC. '''
     now = [at('2026-10-26 12:00')]
     ran = []
-    manager = JobManager(lambda job, control: ran.append(job.id), clock=lambda: now[0], tz=UTC,
+    manager = ExecutionQueue(lambda job, control: ran.append(job.id), clock=lambda: now[0], tz=UTC,
                          state_dir=str(tmp_path / 'state'))
     app = create_app(manager, ServiceConfig(profile_path=str(profile), token=TOKEN), env={})
     with TestClient(app) as client:

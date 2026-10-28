@@ -6,7 +6,7 @@ import time
 import pytest
 from pydantic import ValidationError
 
-from pipeline.service.jobs import JobManager, ScanRequest
+from pipeline.service.executions import ExecutionQueue, ScanRequest
 from pipeline.service.models import ScheduleUpdate
 from pipeline.service.scheduler import AutoScheduler
 
@@ -28,7 +28,7 @@ def test_tick_forces_needs_and_waits_from_finish(tmp_path):
         release.wait(5)
         return None
 
-    manager = JobManager(execute, clock=lambda: now[0])
+    manager = ExecutionQueue(execute, clock=lambda: now[0])
     scheduler = AutoScheduler(manager, str(tmp_path),
                               {'enabled': True, 'interval_minutes': 5,
                                'filter': {'needs': ['publish'], 'new_since_scan': True, 'kind': 'movie'},
@@ -64,7 +64,7 @@ def test_tick_forces_needs_and_waits_from_finish(tmp_path):
 def test_busy_skip_and_trigger_do_not_queue_ticks(tmp_path):
     now = [1000.0]
     release = threading.Event()
-    manager = JobManager(lambda job, control: release.wait(5), clock=lambda: now[0])
+    manager = ExecutionQueue(lambda job, control: release.wait(5), clock=lambda: now[0])
     scheduler = AutoScheduler(manager, str(tmp_path), {'enabled': True, 'interval_minutes': 5},
                               clock=lambda: now[0], start=False)
     try:
@@ -85,7 +85,7 @@ def test_busy_skip_and_trigger_do_not_queue_ticks(tmp_path):
 
 
 def test_saved_schedule_wins_and_pause_resume(tmp_path):
-    manager = JobManager(lambda job, control: None)
+    manager = ExecutionQueue(lambda job, control: None)
     first = AutoScheduler(manager, str(tmp_path), {'enabled': True, 'interval_minutes': 7}, start=False)
     try:
         paused = first.update(ScheduleUpdate(enabled=False, interval_minutes=9, through='extract'))
@@ -113,7 +113,7 @@ def _run_once(tmp_path, settings, run=None, **report):
     ''' One scheduled tick whose job returns a run that did `run` (and the report's other fields): the schedule after. '''
     now = [1000.0]
     result = {'report': {'through': 'design', 'selected': 2, 'run': run or {}, **report}}
-    manager = JobManager(lambda job, control: result, clock=lambda: now[0])
+    manager = ExecutionQueue(lambda job, control: result, clock=lambda: now[0])
     scheduler = AutoScheduler(manager, str(tmp_path), {'enabled': True, 'interval_minutes': 5, **settings},
                               clock=lambda: now[0], start=False)
     try:
@@ -152,7 +152,7 @@ def test_a_title_that_failed_is_not_left_to_do_unless_failures_are_retried(tmp_p
 
 def test_saving_the_schedule_again_clears_why_it_ended(tmp_path):
     _run_once(tmp_path, {'filter': {'ids': ['a']}})
-    manager = JobManager(lambda job, control: None)
+    manager = ExecutionQueue(lambda job, control: None)
     scheduler = AutoScheduler(manager, str(tmp_path), {}, start=False)
     try:
         scheduler.ended = 'all 1 listed titles are done'

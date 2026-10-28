@@ -13,7 +13,7 @@ from pipeline.library.run import LibraryRunReport
 from pipeline.library.stages import StagesReport
 from pipeline.service.api import create_app
 from pipeline.service.config import ServiceConfig
-from pipeline.service.jobs import Job, JobManager, RunRequest, ScanRequest
+from pipeline.service.executions import Execution, ExecutionQueue, RunRequest, ScanRequest
 from pipeline.service.models import NotifyEvent
 from pipeline.service.notify import Notifier, Target, _body, _send, events_for, notification, targets_from_config
 from pipeline.service.work import RunOutcome
@@ -26,7 +26,7 @@ def _job(*, designed=(), failed=(), earlier=(), publish_errors=(), commit_error=
                           publish_errors=list(publish_errors), commit_error=commit_error, counts={'review': 3},
                           stopped=stopped)
     scanned = ScanResult(1, 1, errors=scan_errors or {}) if scan_errors is not None else None
-    return Job(id='job-1', kind='run', origin=origin, request=RunRequest(), state=state,
+    return Execution(id='job-1', kind='run', origin=origin, request=RunRequest(), state=state,
                submitted_at=1000, started_at=1001, finished_at=1002,
                result=RunOutcome(scanned, report) if not error else None, error=error)
 
@@ -142,7 +142,7 @@ def test_redirect_does_not_forward_the_payload_to_another_url(receiver):
 
 
 def test_delivery_retries_then_succeeds_and_gives_up_without_exposing_secrets():
-    manager = JobManager(lambda job, control: None)
+    manager = ExecutionQueue(lambda job, control: None)
     calls, delays = [], []
 
     def send(target, body, content_type):
@@ -167,7 +167,7 @@ def test_delivery_retries_then_succeeds_and_gives_up_without_exposing_secrets():
 
 def test_delivery_retries_real_http_failures(receiver):
     Recorder.codes = [503, 503, 200]
-    manager = JobManager(lambda job, control: None)
+    manager = ExecutionQueue(lambda job, control: None)
     waits = []
     notifier = Notifier(manager, 'p', [{'name': 'phone', 'url': receiver}], sleep=waits.append, start=False)
     try:
@@ -182,7 +182,7 @@ def test_delivery_retries_real_http_failures(receiver):
 
 def test_a_job_is_saved_before_async_delivery_and_origin_filters_apply(tmp_path):
     recorded = []
-    manager = JobManager(lambda job, control: ScanResult(1, 1, errors={'disk': 'offline'}), state_dir=str(tmp_path),
+    manager = ExecutionQueue(lambda job, control: ScanResult(1, 1, errors={'disk': 'offline'}), state_dir=str(tmp_path),
                          failed=lambda result: bool(result.errors))
     notifier = Notifier(manager, 'unused', [{'name': 'phone', 'url': 'http://example.invalid',
                                              'events': ['failed', 'job_finished'], 'origins': ['schedule']}],
@@ -209,7 +209,7 @@ def test_notification_test_route_and_status_never_return_target_secrets(tmp_path
                                   'run': {'work_dir': str(tmp_path / 'work'), 'queue_dir': str(tmp_path / 'queue'),
                                           'designer': 'manual'}}))
     calls = []
-    manager = JobManager(lambda job, control: None)
+    manager = ExecutionQueue(lambda job, control: None)
     config = ServiceConfig(profile_path=str(profile), token='api-token',
                            notify=({'name': 'phone', 'url': 'https://secret.example/token',
                                     'events': ['review_waiting', 'failed', 'job_finished']},))

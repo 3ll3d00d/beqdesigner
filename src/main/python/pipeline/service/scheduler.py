@@ -8,7 +8,7 @@ from queue import SimpleQueue
 from dataclasses import dataclass
 from typing import Callable, Optional
 
-from pipeline.service.jobs import JobManager, RunRequest
+from pipeline.service.executions import ExecutionQueue, RunRequest
 from pipeline.service.models import ScheduleUpdate, TitleFilter, run_result
 
 DESIGNER_RETRY_MINUTES = 5   # a tick skipped because the designer did not answer is tried again this soon (or sooner)
@@ -43,7 +43,7 @@ class AutoScheduler:
     :param on_designer_down: told the reason once when the designer stops answering, not at every skipped tick.
     '''
 
-    def __init__(self, manager: JobManager, state_dir: Optional[str], defaults: dict,
+    def __init__(self, manager: ExecutionQueue, state_dir: Optional[str], defaults: dict,
                  clock: Callable[[], float] = time.time, *, start: bool = True,
                  designer: Optional[Callable[[], str]] = None,
                  on_designer_down: Optional[Callable[[str], None]] = None):

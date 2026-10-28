@@ -14,7 +14,7 @@ from pipeline.designer.identity import CurrentIdentity
 from pipeline.service.api import create_app
 from pipeline.service.config import ServiceConfig
 from pipeline.service.impact import ImpactChecker
-from pipeline.service.jobs import JobManager
+from pipeline.service.executions import ExecutionQueue
 from pipeline.service.models import Check
 from pipeline.service.work import executor, job_failed
 
@@ -56,7 +56,7 @@ def library(tmp_path, designer, monkeypatch):
         'sources': [{'name': 'disk', 'kind': 'filesystem', 'globs': [str(tmp_path)]}],
         'designers': {'beqforge': designer.url},
         'run': {'work_dir': str(tmp_path / 'work'), 'queue_dir': str(queue), 'designer': 'beqforge'}}))
-    manager = JobManager(executor(str(profile), env={}), failed=job_failed)
+    manager = ExecutionQueue(executor(str(profile), env={}), failed=job_failed)
     checker = ImpactChecker(str(tmp_path / 'state'))
     app = create_app(manager, ServiceConfig(profile_path=str(profile), token=TOKEN), env={},
                      checks=lambda: [Check(name='profile', ok=True)], impact_checker=checker)

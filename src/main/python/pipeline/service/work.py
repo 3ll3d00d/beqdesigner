@@ -22,7 +22,7 @@ from pipeline.library.selection import Selection, plan_stages
 from model.execution_events import ExecutionEvent
 from pipeline.library.stages import StagesReport, run_stages
 from pipeline.service.context import JobContext, load_context
-from pipeline.service.jobs import AcceptRequest, Job, JobControl, RunRequest, ScanRequest
+from pipeline.service.executions import AcceptRequest, Execution, ExecutionControl, RunRequest, ScanRequest
 from pipeline.service.lease import LeaseHeld, WorkDirLease, read_lease
 
 
@@ -131,7 +131,7 @@ def with_current_identity(context: JobContext, selection: Selection) -> Selectio
     return replace(selection, current=current)
 
 
-def run(context: JobContext, request: RunRequest, control: JobControl, *, allow_repository_writes: bool = False) -> RunOutcome:
+def run(context: JobContext, request: RunRequest, control: ExecutionControl, *, allow_repository_writes: bool = False) -> RunOutcome:
     run_config = context.run_config()
     if request.through == 'design':
         # every design would fail: refuse before extracting anything. A run through publish or commit is not refused
@@ -221,9 +221,9 @@ def accept(context: JobContext, request: AcceptRequest):
 def executor(profile_path: str, env: Optional[Mapping[str, str]] = None,
              load: Callable[..., JobContext] = load_context, *, poll_seconds: float = 2.0,
              sleep: Callable[[float], None] = time.sleep,
-             allow_repository_writes: bool = False) -> Callable[[Job, JobControl], Any]:
+             allow_repository_writes: bool = False) -> Callable[[Execution, ExecutionControl], Any]:
     ''' The JobManager's `execute`: reads the profile for each job, then does it holding the work directory's lease. '''
-    def execute(job: Job, control: JobControl):
+    def execute(job: Execution, control: ExecutionControl):
         request = job.current_request   # a paused run carries on with the titles it had left
         context = load(profile_path, env)
         work_dir = _require_work_dir(context)
@@ -259,7 +259,7 @@ def executor(profile_path: str, env: Optional[Mapping[str, str]] = None,
 WAIT_AGAIN = object()   # handed_off(): the run in progress ended without taking the titles, so take the lease and run them
 
 
-def handed_off(context: JobContext, request: RunRequest, control: JobControl, holder):
+def handed_off(context: JobContext, request: RunRequest, control: ExecutionControl, holder):
     '''
     A run job while another process's run holds the work directory: its titles go to that run, and the job ends when it
     does, with a report of what became of them read from the index. :return: a RunOutcome, None if the job was cancelled

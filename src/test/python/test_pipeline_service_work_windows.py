@@ -11,12 +11,12 @@ from datetime import datetime, timezone
 
 import pytest
 
-import pipeline.service.jobs as jobs
+import pipeline.service.executions as jobs
 from pipeline.library.run import LibraryRunReport
 from pipeline.library.selection import Selection
 from pipeline.library.stages import Progress, StagesReport
 from pipeline.service import work
-from pipeline.service.jobs import JobManager, RunRequest, ScanRequest
+from pipeline.service.executions import ExecutionQueue, RunRequest, ScanRequest
 from pipeline.service.models import run_result
 from pipeline.service.work import RunOutcome, executor, job_failed, merge_outcomes, remaining_titles
 
@@ -80,7 +80,7 @@ def clock():
 
 @pytest.fixture
 def manager(profile, clock):
-    made = JobManager(executor(str(profile), env={}, poll_seconds=0.01), failed=job_failed, clock=clock, tz=UTC,
+    made = ExecutionQueue(executor(str(profile), env={}, poll_seconds=0.01), failed=job_failed, clock=clock, tz=UTC,
                       remaining=remaining_titles, merge=merge_outcomes)
     yield made
     made.stop(grace_seconds=5)

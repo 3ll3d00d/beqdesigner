@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 from http.server import ThreadingHTTPServer
 from pipeline.service.api import create_app
 from pipeline.service.config import ServiceConfig
-from pipeline.service.jobs import JobManager
+from pipeline.service.executions import ExecutionQueue
 from pipeline.service.work import executor, job_failed
 
 ROOT = pathlib.Path(__file__).parents[3]
@@ -161,7 +161,7 @@ def test_image_smoke_fixture_extracts_and_designs_through_the_real_service(tmp_p
     profile['designers']['smoke'] = f'http://127.0.0.1:{server.server_port}/design'
     profile['run'].update(work_dir=str(tmp_path / 'work'), queue_dir=str(tmp_path / 'queue'))
     profile_path.write_text(json.dumps(profile))
-    manager = JobManager(executor(str(profile_path), env={}), failed=job_failed)
+    manager = ExecutionQueue(executor(str(profile_path), env={}), failed=job_failed)
     try:
         app = create_app(manager, ServiceConfig(profile_path=str(profile_path), token='smoke-token'), env={})
         with TestClient(app) as client:

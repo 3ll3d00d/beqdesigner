@@ -43,7 +43,7 @@ skips opens at the first minute after the change that is inside it, and an hour 
 | paused | It stays `paused`, with `waiting_until`. |
 
 - **Others run meanwhile.** The worker takes the first queued or paused job whose window is open now, in queue
-  order (`JobManager.__next`); while every one waits it sleeps until the soonest opening, looking again at least every
+  order (`ExecutionQueue.__next`); while every one waits it sleeps until the soonest opening, looking again at least every
   30 s, and at once after a window or the default changes. A paused job goes back to its own place in the queue
   (`Job.order`), not to the end.
 - **One job runs at a time**, as before. A paused job is not running: it holds neither the worker nor the work

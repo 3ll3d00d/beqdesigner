@@ -13,7 +13,7 @@ from pipeline.library.index import ScanResult
 from pipeline.library.selection import Selection
 from pipeline.library.stages import StagesReport
 from pipeline.service import work
-from pipeline.service.jobs import AcceptRequest, JobManager, RunRequest, ScanRequest
+from pipeline.service.executions import AcceptRequest, ExecutionQueue, RunRequest, ScanRequest
 from pipeline.service.work import RunOutcome, executor, job_failed
 
 
@@ -48,7 +48,7 @@ def profile(tmp_path):
 
 @pytest.fixture
 def manager(profile):
-    made = JobManager(executor(str(profile), env={}), failed=job_failed, allow_repository_writes=True)
+    made = ExecutionQueue(executor(str(profile), env={}), failed=job_failed, allow_repository_writes=True)
     yield made
     made.stop(grace_seconds=5)
 
@@ -133,7 +133,7 @@ def test_a_run_with_a_designer_the_profile_does_not_declare_fails_before_anythin
     config['run']['designer'] = 'nobody'
     profile.write_text(json.dumps(config))
     monkeypatch.setattr(work, 'run_stages', lambda *a, **k: pytest.fail('ran'))
-    manager = JobManager(executor(str(profile), env={}), failed=job_failed)
+    manager = ExecutionQueue(executor(str(profile), env={}), failed=job_failed)
     try:
         job = _done(manager, RunRequest())
     finally:

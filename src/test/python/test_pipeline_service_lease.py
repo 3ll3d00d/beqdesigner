@@ -69,7 +69,7 @@ def test_a_service_job_waits_while_another_holds_the_work_directory_and_holds_it
         in progress to end. '''
     import os
     from pipeline.service import work
-    from pipeline.service.jobs import JobControl, Job, ScanRequest
+    from pipeline.service.executions import ExecutionControl, Execution, ScanRequest
     from pipeline.service.lease import lease_path
     work_dir = tmp_path / 'work'
 
@@ -84,29 +84,29 @@ def test_a_service_job_waits_while_another_holds_the_work_directory_and_holds_it
         os.unlink(lease_path(str(work_dir)))
 
     execute = work.executor('profile.yaml', env={}, load=lambda path, env: Context(), sleep=sleep)
-    job = Job('job-9', 'scan', 'api', ScanRequest())
+    job = Execution('job-9', 'scan', 'api', ScanRequest())
 
-    assert execute(job, JobControl(None, job)) == 'scanned' and seen[0].job_id == 'job-9' and slept == []
+    assert execute(job, ExecutionControl(None, job)) == 'scanned' and seen[0].job_id == 'job-9' and slept == []
     assert read_lease(str(work_dir)) is None
     _write(work_dir)
-    assert execute(job, JobControl(None, job)) == 'scanned' and len(slept) == 1 and seen[1].job_id == 'job-9'
+    assert execute(job, ExecutionControl(None, job)) == 'scanned' and len(slept) == 1 and seen[1].job_id == 'job-9'
 
 
 def test_a_job_cancelled_while_it_waits_for_the_work_directory_ends_without_running(tmp_path, monkeypatch):
     from pipeline.service import work
-    from pipeline.service.jobs import JobControl, Job, ScanRequest
+    from pipeline.service.executions import ExecutionControl, Execution, ScanRequest
     work_dir = tmp_path / 'work'
 
     class Context:
         def __init__(self):
             self.work_dir = str(work_dir)
     monkeypatch.setattr(work, 'scan', lambda context, request: pytest.fail('ran while another run held it'))
-    job = Job('job-9', 'scan', 'api', ScanRequest())
+    job = Execution('job-9', 'scan', 'api', ScanRequest())
     execute = work.executor('profile.yaml', env={}, load=lambda path, env: Context(),
                             sleep=lambda seconds: setattr(job, 'cancel_requested', True))
     _write(work_dir)
 
-    assert execute(job, JobControl(None, job)) is None and job.cancel_requested
+    assert execute(job, ExecutionControl(None, job)) is None and job.cancel_requested
 
 
 def test_describe_names_the_short_job_id():

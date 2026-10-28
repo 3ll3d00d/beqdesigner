@@ -77,7 +77,7 @@ def test_the_service_finds_the_index_in_the_index_folder(tmp_path):
 
 def test_a_service_scan_writes_the_index_in_the_index_folder(tmp_path):
     from pipeline.service import work
-    from pipeline.service.jobs import ScanRequest
+    from pipeline.service.executions import ScanRequest
     config = _profile_file(tmp_path, index_dir=str(tmp_path / 'locks'))
     (tmp_path / 'work').mkdir()
 

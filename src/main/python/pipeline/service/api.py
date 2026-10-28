@@ -1,5 +1,5 @@
 '''
-The pipeline service's HTTP interface (design/pipeline-service.md §6): FastAPI over the JobManager. Route handlers never do
+The pipeline service's HTTP interface (design/pipeline-service.md §6): FastAPI over the ExecutionQueue. Route handlers never do
 pipeline work -- they read the index (read-only, a connection per request) or queue a job -- and the OpenAPI document,
 Swagger UI (/docs, with Try it out and Authorize) and ReDoc (/redoc) come from the same types the routes use.
 '''
@@ -32,7 +32,7 @@ from pipeline.service import models
 from pipeline.service.config import ServiceConfig
 from pipeline.service.context import JobContext, load_context
 from pipeline.service.designer import DesignerProbe, designs_out
-from pipeline.service.jobs import FINISHED, AcceptRequest, JobFinished, JobManager, JobNotFound, RepositoryWritesRefused, \
+from pipeline.service.executions import FINISHED, AcceptRequest, ExecutionFinished, ExecutionQueue, ExecutionNotFound, RepositoryWritesRefused, \
     RunRequest, ScanRequest
 from pipeline.service.scheduler import AutoScheduler
 from pipeline.service.lease import read_lease
@@ -119,7 +119,7 @@ def _without_repeated_fit(candidate):
     return {k: v for k, v in candidate.commentary.items() if k != 'fit'}
 
 
-def create_app(manager: JobManager, config: ServiceConfig, *, require_token: bool = True,
+def create_app(manager: ExecutionQueue, config: ServiceConfig, *, require_token: bool = True,
                load: Callable[..., JobContext] = load_context, env: Optional[Mapping[str, str]] = None,
                static_dir: Optional[str] = None, ui_dir: Optional[str] = None, version: Optional[str] = None,
                checks: Optional[Callable[[], List[models.Check]]] = None,
@@ -235,12 +235,12 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
     async def _http(request: Request, error: StarletteHTTPException):
         return _problem(error.status_code, str(error.detail), '')
 
-    @app.exception_handler(JobNotFound)
-    async def _not_found(request: Request, error: JobNotFound):
+    @app.exception_handler(ExecutionNotFound)
+    async def _not_found(request: Request, error: ExecutionNotFound):
         return _problem(404, 'No such job', f'no job {error.args[0]}')
 
-    @app.exception_handler(JobFinished)
-    async def _finished(request: Request, error: JobFinished):
+    @app.exception_handler(ExecutionFinished)
+    async def _finished(request: Request, error: ExecutionFinished):
         return _problem(409, 'Job finished', str(error))
 
     @app.exception_handler(RepositoryWritesRefused)
@@ -836,7 +836,7 @@ def serve_ui(app: FastAPI, ui_dir: Optional[str]) -> None:
 
 def openapi_document() -> dict:
     ''' The interface as published (docs/schema/service.openapi.json): the document of an app with no jobs and no profile. '''
-    manager = JobManager(lambda job, control: None)
+    manager = ExecutionQueue(lambda job, control: None)
     try:
         return create_app(manager, ServiceConfig(profile_path=''), require_token=False, version='0').openapi()
     finally:

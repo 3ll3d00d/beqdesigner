@@ -16,7 +16,7 @@ from pipeline.service.api import create_app
 from pipeline.service.config import ServiceConfig
 from pipeline.service.context import load_context
 from pipeline.service.designer import DesignerProbe
-from pipeline.service.jobs import JobManager, RunRequest
+from pipeline.service.executions import ExecutionQueue, RunRequest
 from pipeline.service.notify import Notifier
 from pipeline.service.scheduler import DESIGNER_RETRY_MINUTES, AutoScheduler
 from pipeline.library.selection import Selection
@@ -162,7 +162,7 @@ def test_an_endpoint_without_parallel_reports_what_its_designer_says(tmp_path, d
 def test_the_status_lists_each_endpoint(tmp_path, designer):
     (tmp_path / 'work').mkdir()
     profile = _pool_profile(tmp_path, [designer.url, _nothing_listening()])
-    manager = JobManager(lambda job, control: None)
+    manager = ExecutionQueue(lambda job, control: None)
     app = create_app(manager, ServiceConfig(profile_path=profile, token=TOKEN), env={},
                      designer=DesignerProbe(profile, {}, timeout=2))
     client = TestClient(app)
@@ -201,7 +201,7 @@ def test_the_status_says_when_each_endpoint_was_asked_and_what_a_run_has_out_on_
                         wall_clock=lambda: 1_700_000_000.0)
     register_designer('rolloff', pool)
     worker = threading.Thread(target=design)
-    manager = JobManager(lambda job, control: None)
+    manager = ExecutionQueue(lambda job, control: None)
     app = create_app(manager, ServiceConfig(profile_path=profile, token=TOKEN), env={},
                      designer=DesignerProbe(profile, {}, timeout=2))
     try:
@@ -223,7 +223,7 @@ def test_the_status_says_when_each_endpoint_was_asked_and_what_a_run_has_out_on_
 def test_nothing_is_out_when_no_run_has_registered_the_designer(tmp_path, designer):
     (tmp_path / 'work').mkdir()
     profile = _pool_profile(tmp_path, [designer.url])
-    manager = JobManager(lambda job, control: None)
+    manager = ExecutionQueue(lambda job, control: None)
     app = create_app(manager, ServiceConfig(profile_path=profile, token=TOKEN), env={},
                      designer=DesignerProbe(profile, {}, timeout=2))
     try:
@@ -243,7 +243,7 @@ def test_the_status_says_what_a_redesign_would_be_made_with_and_where_the_endpoi
                   'designer_build': '0.2.5 (frozen build)'}
     new.health = {'status': 'ok', 'design_version': 5, 'design_settings': 'd1',
                   'design_settings_detail': {'strategy': ['flatten']}, 'designer_release': '0.2.10'}
-    manager = JobManager(lambda job, control: None)
+    manager = ExecutionQueue(lambda job, control: None)
     app = create_app(manager, ServiceConfig(profile_path=profile, token=TOKEN), env={},
                      designer=DesignerProbe(profile, {}, timeout=2))
     try:
@@ -292,7 +292,7 @@ def test_the_probe_reuses_a_recent_answer(tmp_path, designer):
 def test_a_tick_is_skipped_while_the_designer_is_down_notified_once_and_resumed_when_it_is_back(tmp_path, designer):
     now = [1000.0]
     submitted, told = [], []
-    manager = JobManager(lambda job, control: submitted.append(job), clock=lambda: now[0])
+    manager = ExecutionQueue(lambda job, control: submitted.append(job), clock=lambda: now[0])
     probe = DesignerProbe(_profile(tmp_path, designer.url), {})
     scheduler = AutoScheduler(manager, str(tmp_path), {'enabled': True, 'interval_minutes': 60},
                               clock=lambda: now[0], start=False, designer=probe.unavailable,
@@ -323,7 +323,7 @@ def test_a_tick_is_skipped_while_the_designer_is_down_notified_once_and_resumed_
 def test_a_new_outage_is_notified_again(tmp_path, designer):
     now = [1000.0]
     told = []
-    manager = JobManager(lambda job, control: None, clock=lambda: now[0])
+    manager = ExecutionQueue(lambda job, control: None, clock=lambda: now[0])
     probe = DesignerProbe(_profile(tmp_path, designer.url), {})
     scheduler = AutoScheduler(manager, str(tmp_path), {'enabled': True, 'interval_minutes': 5},
                               clock=lambda: now[0], start=False, designer=probe.unavailable,
@@ -350,7 +350,7 @@ def _wait_idle(manager):
 
 def test_a_tick_through_extract_does_not_ask_the_designer(tmp_path, designer):
     now = [1000.0]
-    manager = JobManager(lambda job, control: None, clock=lambda: now[0])
+    manager = ExecutionQueue(lambda job, control: None, clock=lambda: now[0])
     asked = []
     scheduler = AutoScheduler(manager, str(tmp_path), {'enabled': True, 'interval_minutes': 5, 'through': 'extract'},
                               clock=lambda: now[0], start=False, designer=lambda: asked.append(1) or 'down')
@@ -383,7 +383,7 @@ def test_ready_and_status_say_whether_the_designer_answers_and_an_outage_is_not_
     (tmp_path / 'work').mkdir()
     now = [1000.0]
     profile = _profile(tmp_path, designer.url)
-    manager = JobManager(lambda job, control: None)
+    manager = ExecutionQueue(lambda job, control: None)
     probe = DesignerProbe(profile, {}, clock=lambda: now[0])
     app = create_app(manager, ServiceConfig(profile_path=profile, token=TOKEN), env={}, designer=probe)
     client = TestClient(app)
@@ -408,7 +408,7 @@ def test_ready_and_status_say_whether_the_designer_answers_and_an_outage_is_not_
 
 def test_an_outage_is_notified_as_failed_to_the_schedules_targets(tmp_path):
     sent = []
-    manager = JobManager(lambda job, control: None)
+    manager = ExecutionQueue(lambda job, control: None)
     notifier = Notifier(manager, '', [{'name': 'ops', 'url': 'http://example.invalid/hook'},
                                       {'name': 'api-only', 'url': 'http://example.invalid/other', 'origins': ['api']}],
                         env={}, send=lambda target, body, kind: sent.append((target.name, json.loads(body))),

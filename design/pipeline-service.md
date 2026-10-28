@@ -90,7 +90,7 @@ pipeline/service/                 # Qt-free: covered by test_pipeline_qt_boundar
     __main__.py                   # python -m pipeline.service --profile ... --service-config ...
     config.py                     # ServiceConfig: listen, auth, guards, schedule defaults (§7)
     context.py                    # loads the profile per job; environment secrets
-    jobs.py                       # JobManager: one worker, FIFO queue, cancel, progress, history, joining (§5)
+    executions.py                 # ExecutionQueue: one worker, FIFO queue, cancel, progress, history, joining (§5)
     work.py                       # what each kind of job does (§2)
     lease.py                      # the work-directory lease (§5.1)
     scheduler.py                  # AutoScheduler: interval timer that submits jobs (§8)
@@ -109,7 +109,7 @@ pipeline/service/                 # Qt-free: covered by test_pipeline_qt_boundar
   installs the app and the PyInstaller bundle does not carry the service.
 - **Threads:** uvicorn's event loop answers requests; handlers never do
   pipeline work. Reads (status, titles, plan) open their own read-only
-  `LibraryIndex` connection per request. Work goes to the `JobManager`'s
+  `LibraryIndex` connection per request. Work goes to the `ExecutionQueue`'s
   single worker thread.
 - **Profile reloads:** the profile and service config are read again at the
   start of each job, so an edit to the mounted file takes effect on the next
@@ -436,7 +436,7 @@ retry_failed, next_run_at, last_run: {job_id, state, finished_at}}`.
 - **Busy:** if any job is queued or running when a tick is due (one waiting for its window, or paused, does not
   count: [job windows](job-windows.md) §3), the tick is
   skipped and recorded (`last_skip: busy`) through an atomic idle-only
-  submission in `JobManager`; ticks never pile up. The next is
+  submission in `ExecutionQueue`; ticks never pile up. The next is
   `interval_minutes` after the *finish* of the last scheduled job.
 - **Ends by itself:** a schedule whose filter lists `ids` can never match
   more titles, so once a scheduled run of those ids leaves none of them for

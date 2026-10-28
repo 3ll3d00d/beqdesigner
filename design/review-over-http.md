@@ -20,7 +20,7 @@ The review routes decide one title with the same rules and write as the app's ti
   *The designer rejected this design* (`override_rejection` not given); an invalid pick is a 422.
 - **In flight:** a title is in flight while a running job (or one joined to it) has it in hand -- from its `queued`,
   `stage_queued` or `stage_started` execution event or a `Progress` naming it, until its `title_completed`, `failed`,
-  `skipped` or `cancelled` event, or the job's end (`JobManager.titles_in_hand()`). A design that fails without an
+  `skipped` or `cancelled` event, or the job's end (`ExecutionQueue.titles_in_hand()`). A design that fails without an
   exception sends no terminal event, so its title stays in hand until the job ends: the refusal errs on the safe side.
   A fresh lease held by something that is not one of this service's jobs (the work list, the CLI) puts every title that
   needs extract or design in flight. A title in flight refuses both decisions, and `next` passes it over.

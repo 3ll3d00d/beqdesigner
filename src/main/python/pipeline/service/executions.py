@@ -128,11 +128,11 @@ class RepositoryWritesRefused(PermissionError):
     ''' The service config does not allow publish, commit or bulk accept (allow_repository_writes). '''
 
 
-class JobNotFound(KeyError):
+class ExecutionNotFound(KeyError):
     pass
 
 
-class JobFinished(ValueError):
+class ExecutionFinished(ValueError):
     ''' The job has already finished: there is nothing to cancel. '''
 
 
@@ -167,7 +167,7 @@ def request_from_dict(kind: str, data: Dict[str, Any]) -> Any:
 # --- a job -------------------------------------------------------------------------------------------------------------
 
 @dataclass
-class Job:
+class Execution:
     id: str
     kind: str
     origin: str
@@ -212,7 +212,7 @@ def _plain(value: Any) -> Any:
     return value
 
 
-def job_to_dict(job: Job) -> Dict[str, Any]:
+def execution_to_dict(job: Execution) -> Dict[str, Any]:
     ''' What the history file keeps of a job (its events are not kept). '''
     return {'id': job.id, 'kind': job.kind, 'origin': job.origin, 'state': job.state, 'submitted_at': job.submitted_at,
             'started_at': job.started_at, 'finished_at': job.finished_at, 'request': _plain(job.request),
@@ -222,9 +222,9 @@ def job_to_dict(job: Job) -> Dict[str, Any]:
             'done_before': job.done_before, 'order': job.order}
 
 
-def job_from_dict(data: Dict[str, Any]) -> Job:
+def execution_from_dict(data: Dict[str, Any]) -> Execution:
     progress = data.get('progress')
-    return Job(id=data['id'], kind=data['kind'], origin=data.get('origin', 'api'), request=data.get('request'),
+    return Execution(id=data['id'], kind=data['kind'], origin=data.get('origin', 'api'), request=data.get('request'),
                state=data['state'], submitted_at=data.get('submitted_at') or 0.0, started_at=data.get('started_at'),
                finished_at=data.get('finished_at'), progress=Progress(**progress) if progress else None,
                result=data.get('result'), error=data.get('error') or '', joined_to=data.get('joined_to'),
@@ -233,10 +233,10 @@ def job_from_dict(data: Dict[str, Any]) -> Job:
                done_before=data.get('done_before') or 0, order=data.get('order') or 0)
 
 
-class JobControl:
+class ExecutionControl:
     ''' What the running job's `execute` is given: whether to stop, and where to report. '''
 
-    def __init__(self, manager: 'JobManager', job: Job):
+    def __init__(self, manager: 'ExecutionQueue', job: Execution):
         self.__manager = manager
         self.__job = job
 
@@ -269,11 +269,11 @@ def _cancelled(result: Any) -> bool:
     return bool(getattr(result, 'cancelled', False))
 
 
-Execute = Callable[[Job, JobControl], Any]
-Listener = Callable[[Job, dict], None]
+Execute = Callable[[Execution, ExecutionControl], Any]
+Listener = Callable[[Execution, dict], None]
 
 
-class JobManager:
+class ExecutionQueue:
     '''
     :param execute: does a job: returns its result, or raises (the job then fails with the redacted message).
     :param state_dir: where the history is kept; None keeps it in memory only.
@@ -301,10 +301,10 @@ class JobManager:
         self.__clock = clock
         self.__lock = threading.RLock()
         self.__wake = threading.Condition(self.__lock)
-        self.__jobs: Dict[str, Job] = {}      # every job known, oldest first
+        self.__jobs: Dict[str, Execution] = {}      # every job known, oldest first
         self.__queue: Deque[str] = deque()
         self.__listeners: List[Listener] = []
-        self.__completed: List[Callable[[Job], None]] = []
+        self.__completed: List[Callable[[Execution], None]] = []
         self.__stopping = False
         self.__seq = 0
         self.__executing: Optional[str] = None           # the job `execute` is doing (joined jobs are running too)
@@ -319,7 +319,7 @@ class JobManager:
     # --- asking --------------------------------------------------------------------------------------------------------
 
     def submit(self, request: Any, origin: str = 'api', *, if_idle: bool = False,
-               window: Optional[List[str]] = None) -> Optional[Job]:
+               window: Optional[List[str]] = None) -> Optional[Execution]:
         '''
         Queues the job the request describes.
         :param window: the ranges it may run in; None for the default window's, [] for any time.
@@ -341,7 +341,7 @@ class JobManager:
             if if_idle and (self.current is not None or any(self.__runnable(self.__jobs[i]) for i in self.__queue)):
                 return None   # a job waiting for its window, or paused, does not count: it is not in the way
             self.__order += 1
-            job = Job(id=str(uuid.uuid4()), kind=kind, origin=origin, request=request, submitted_at=self.__clock(),
+            job = Execution(id=str(uuid.uuid4()), kind=kind, origin=origin, request=request, submitted_at=self.__clock(),
                       window=None if window is None else ActiveWindow.of(window, self.__tz).texts(), order=self.__order)
             self.__jobs[job.id] = job
             if self.__join(job):
@@ -353,25 +353,25 @@ class JobManager:
             self.__wake.notify_all()
             return job
 
-    def get(self, job_id: str) -> Job:
+    def get(self, job_id: str) -> Execution:
         with self.__lock:
             if job_id not in self.__jobs:
-                raise JobNotFound(job_id)
+                raise ExecutionNotFound(job_id)
             return self.__jobs[job_id]
 
-    def jobs(self) -> List[Job]:
+    def jobs(self) -> List[Execution]:
         ''' Every job known, newest first. '''
         with self.__lock:
             return list(reversed(self.__jobs.values()))
 
     @property
-    def current(self) -> Optional[Job]:
+    def current(self) -> Optional[Execution]:
         ''' The job being done (a job that joined it is running too, but is done by it). '''
         with self.__lock:
             return self.__jobs.get(self.__executing) if self.__executing else None
 
     @property
-    def queued(self) -> List[Job]:
+    def queued(self) -> List[Execution]:
         with self.__lock:
             return [self.__jobs[job_id] for job_id in self.__queue]
 
@@ -396,12 +396,12 @@ class JobManager:
         ''' The name of the zone every window is in: the container's TZ, else what the clock calls it. '''
         return time_zone_name(self.__tz)
 
-    def window_of(self, job: Job) -> ActiveWindow:
+    def window_of(self, job: Execution) -> ActiveWindow:
         ''' The job's window, or the default's for a job given none. '''
         with self.__lock:
             return ActiveWindow.of(job.window if job.window is not None else self.__default_window, self.__tz)
 
-    def waiting_until(self, job: Job) -> Optional[float]:
+    def waiting_until(self, job: Execution) -> Optional[float]:
         ''' When a queued or paused job's closed window next opens; None if it is open, or the job is not waiting. '''
         with self.__lock:
             if job.state not in ('queued', 'paused'):
@@ -423,28 +423,28 @@ class JobManager:
             self.__wake.notify_all()
             return list(texts)
 
-    def set_window(self, job_id: str, ranges: Optional[List[str]]) -> Job:
+    def set_window(self, job_id: str, ranges: Optional[List[str]]) -> Execution:
         '''
         Changes a queued, running or paused job's window (None: the default's; []: any time). A running run whose new
         window is closed pauses before its next title; a waiting job whose new window is open is taken when the worker is free.
-        :raises JobNotFound, JobFinished, ValueError: for a bad range.
+        :raises ExecutionNotFound, ExecutionFinished, ValueError: for a bad range.
         '''
         texts = None if ranges is None else ActiveWindow.of(ranges, self.__tz).texts()
         with self.__lock:
             job = self.get(job_id)
             if job.finished:
-                raise JobFinished(f'job {job_id} has already {job.state}')
+                raise ExecutionFinished(f'job {job_id} has already {job.state}')
             job.window = texts
             self.__record(job, {'type': 'window', 'window': texts})
             self.__save()
             self.__wake.notify_all()
             return job
 
-    def __runnable(self, job: Job) -> bool:
+    def __runnable(self, job: Execution) -> bool:
         return self.window_of(job).is_open(self.__clock())
 
-    def _window_closed(self, job: Job) -> bool:
-        ''' JobControl.paused(): a run whose window has closed stops taking titles, and pauses when its part ends. '''
+    def _window_closed(self, job: Execution) -> bool:
+        ''' ExecutionControl.paused(): a run whose window has closed stops taking titles, and pauses when its part ends. '''
         with self.__lock:
             if job.kind != 'run' or job.cancel_requested or self.__stopping or self.__runnable(job):
                 return False
@@ -453,16 +453,16 @@ class JobManager:
                 self.__record(job, {'type': 'state', 'state': 'pausing'})
             return True
 
-    def cancel(self, job_id: str) -> Job:
+    def cancel(self, job_id: str) -> Execution:
         '''
         A queued job is dropped; a running one stops before its next title.
-        :raises JobNotFound: for an unknown id.
-        :raises JobFinished: for a job that has already finished.
+        :raises ExecutionNotFound: for an unknown id.
+        :raises ExecutionFinished: for a job that has already finished.
         '''
         with self.__lock:
             job = self.get(job_id)
             if job.finished:
-                raise JobFinished(f'job {job_id} has already {job.state}')
+                raise ExecutionFinished(f'job {job_id} has already {job.state}')
             job.cancel_requested = True
             if job.state in ('queued', 'paused'):
                 self.__queue.remove(job_id)
@@ -494,7 +494,7 @@ class JobManager:
                     self.__listeners.remove(listener)
         return unsubscribe
 
-    def subscribe_completed(self, listener: Callable[[Job], None]) -> Callable[[], None]:
+    def subscribe_completed(self, listener: Callable[[Execution], None]) -> Callable[[], None]:
         '''Called after a finished job has been saved; listeners should hand work to another thread.'''
         with self.__lock:
             self.__completed.append(listener)
@@ -524,7 +524,7 @@ class JobManager:
 
     # --- the worker -----------------------------------------------------------------------------------------------------
 
-    def __next(self) -> Optional[Job]:
+    def __next(self) -> Optional[Execution]:
         ''' The first job in the queue whose window is open now: one waiting for its window keeps its place. '''
         for job_id in self.__queue:
             job = self.__jobs[job_id]
@@ -559,7 +559,7 @@ class JobManager:
                 self.__record(job, {'type': 'state', 'state': 'running', **({'part': job.parts} if job.parts > 1 else {})})
                 self.__save()
             try:
-                result = self.__execute(job, JobControl(self, job))
+                result = self.__execute(job, ExecutionControl(self, job))
             except Exception as error:   # the job fails; the service does not
                 logger.exception('job %s (%s) failed', job.id, job.kind)
                 with self.__lock:
@@ -580,7 +580,7 @@ class JobManager:
                 self.__end_joins(job, result, state)
                 self.__finish(job, state)
 
-    def __pause(self, job: Job, result: Any) -> bool:
+    def __pause(self, job: Execution, result: Any) -> bool:
         '''
         A part that stopped because its window closed: the job is paused with the titles it had not started, in its place
         in the queue. :return: False if it is to finish instead (cancelled meanwhile, or nothing left to do).
@@ -605,7 +605,7 @@ class JobManager:
         self.__save()
         return True
 
-    def __requeue(self, job: Job) -> None:
+    def __requeue(self, job: Execution) -> None:
         ''' Back to its place: before the first job queued after it. '''
         place = next((n for n, i in enumerate(self.__queue) if self.__jobs[i].order > job.order), len(self.__queue))
         self.__queue.insert(place, job.id)
@@ -613,11 +613,11 @@ class JobManager:
 
     # --- joining a run in progress (design/archive/library-sync/worklist-feedback.md F5) ------------------------------
 
-    def _on_join_queue(self, job: Job, join) -> None:
+    def _on_join_queue(self, job: Execution, join) -> None:
         with self.__lock:
             self.__join_queues[job.id] = join
 
-    def __join(self, job: Job) -> bool:
+    def __join(self, job: Execution) -> bool:
         '''
         A run job through extract or design joins the executing run job's machine phase while it lasts: it is running at
         once, and ends when that run does. :return: False if there is nothing it can join (it is then queued).
@@ -638,7 +638,7 @@ class JobManager:
         self.__record(host, {'type': 'joined', 'job': job.id})
         return True
 
-    def __end_joins(self, host: Job, result: Any, state: str) -> None:
+    def __end_joins(self, host: Execution, result: Any, state: str) -> None:
         '''
         The jobs that joined `host` end with it, sharing its result -- except one its run did not take (offered once it had
         stopped taking more), which goes back to the front of the queue, unless the host was cancelled. After a failure,
@@ -669,7 +669,7 @@ class JobManager:
         if requeue:
             self.__wake.notify_all()
 
-    def __finish(self, job: Job, state: str) -> None:
+    def __finish(self, job: Execution, state: str) -> None:
         job.state, job.finished_at = state, self.__clock()
         self.__record(job, {'type': 'state', 'state': state})
         self.__trim()
@@ -680,7 +680,7 @@ class JobManager:
             except Exception:
                 logger.exception('a job completion listener failed')
 
-    def _on_progress(self, job: Job, progress) -> None:
+    def _on_progress(self, job: Execution, progress) -> None:
         with self.__lock:
             if isinstance(progress, Progress):
                 if job.done_before:   # a resumed part counts on from where the parts before stopped
@@ -699,7 +699,7 @@ class JobManager:
                                     'done_ms': done, 'total_ms': total,
                                     'percent': min(max(done * 100 // total, 0), 100) if total else None})
 
-    def __keep_ffmpeg(self, job: Job, progress: FfmpegProgress) -> bool:
+    def __keep_ffmpeg(self, job: Execution, progress: FfmpegProgress) -> bool:
         '''
         A title's first and last ffmpeg update, and one every FFMPEG_EVENT_INTERVAL between: every one would flood the
         stream and push the title's own events out of the bounded buffer within minutes.
@@ -711,7 +711,7 @@ class JobManager:
         job.ffmpeg_at[progress.id] = now
         return True
 
-    def _on_event(self, job: Job, event) -> None:
+    def _on_event(self, job: Execution, event) -> None:
         if not isinstance(event, ExecutionEvent) or event.kind == 'progress':
             return   # an ffmpeg progress event repeats the ffmpeg update _on_progress already kept (or let go)
         safe = redacted_event(event)
@@ -740,7 +740,7 @@ class JobManager:
         with self.__lock:
             return job_id in self.__jobs
 
-    def __record(self, job: Job, event: dict) -> None:
+    def __record(self, job: Execution, event: dict) -> None:
         self.__seq += 1
         event = {'seq': self.__seq, 'at': self.__clock(), **event}
         job.events.append(event)
@@ -774,7 +774,7 @@ class JobManager:
 
     def __save(self) -> None:
         try:
-            self.__write_json(HISTORY_FILE, [job_to_dict(job) for job in self.__jobs.values()])
+            self.__write_json(HISTORY_FILE, [execution_to_dict(job) for job in self.__jobs.values()])
         except OSError:
             logger.exception('the job history could not be written to %s', self.__state_dir)
 
@@ -791,7 +791,7 @@ class JobManager:
             logger.exception('the default job window at %s cannot be read; jobs may run any time', path)
             return []
 
-    def __keep(self, job: Job) -> bool:
+    def __keep(self, job: Execution) -> bool:
         '''
         Whether a job the service stopped before it finished carries on after the restart: one paused, or queued while its
         window was closed, whose request can be read back. A job that was running is not (the next run redoes its title).
@@ -821,7 +821,7 @@ class JobManager:
         now = self.__clock()
         for data in saved if isinstance(saved, list) else []:
             try:
-                job = job_from_dict(data)
+                job = execution_from_dict(data)
             except (KeyError, TypeError):
                 logger.warning('a job in %s could not be read, and is left out', path)
                 continue

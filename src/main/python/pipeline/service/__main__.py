@@ -22,7 +22,7 @@ from typing import Any, List, Mapping, Optional, Tuple
 from pipeline.service.config import ServiceConfig, load_service_config
 from pipeline.service.context import load_context
 from pipeline.service.designer import DesignerProbe
-from pipeline.service.jobs import JobManager
+from pipeline.service.executions import ExecutionQueue
 from pipeline.service.scheduler import AutoScheduler
 from pipeline.service.notify import Notifier
 from pipeline.service.work import executor, job_failed, merge_outcomes, remaining_titles
@@ -59,7 +59,7 @@ def _loopback(host: str) -> bool:
         return False
 
 
-def build(argv: Optional[List[str]] = None, env: Optional[Mapping[str, str]] = None) -> Tuple[Any, JobManager, ServiceConfig]:
+def build(argv: Optional[List[str]] = None, env: Optional[Mapping[str, str]] = None) -> Tuple[Any, ExecutionQueue, ServiceConfig]:
     '''
     The app, its job manager and its settings, from the command line.
     :raises SystemExit: (2) for a bad option, profile or service config.
@@ -87,7 +87,7 @@ def build(argv: Optional[List[str]] = None, env: Optional[Mapping[str, str]] = N
     if not config.token and not args.no_auth:
         parser.error('no token: set BEQ_SERVICE_TOKEN (or BEQ_SERVICE_TOKEN_FILE), or use --no-auth on 127.0.0.1')
     from pipeline.service.api import create_app
-    manager = JobManager(executor(args.profile, env, allow_repository_writes=config.allow_repository_writes), state_dir=config.state_dir, history_limit=config.history_limit,
+    manager = ExecutionQueue(executor(args.profile, env, allow_repository_writes=config.allow_repository_writes), state_dir=config.state_dir, history_limit=config.history_limit,
                          allow_repository_writes=config.allow_repository_writes, failed=job_failed,
                          remaining=remaining_titles, merge=merge_outcomes)
     designer = DesignerProbe(args.profile, env)

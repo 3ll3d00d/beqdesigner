@@ -9,7 +9,7 @@ from catalogue_fixture import FakeCatalogue
 from pipeline.review import read_entry, update_entry
 from pipeline.service.api import create_app
 from pipeline.service.config import ServiceConfig
-from pipeline.service.jobs import JobManager
+from pipeline.service.executions import ExecutionQueue
 from pipeline.service.models import Check
 from test_pipeline_service_review import AUTH, TOKEN, Gate, setup  # noqa: F401 (fixtures)
 
@@ -18,7 +18,7 @@ from test_pipeline_service_review import AUTH, TOKEN, Gate, setup  # noqa: F401 
 def catalogue(setup):
     profile, _, queue = setup
     fake = FakeCatalogue()
-    manager = JobManager(Gate())
+    manager = ExecutionQueue(Gate())
     app = create_app(manager, ServiceConfig(profile_path=str(profile), token=TOKEN), env={},
                      checks=lambda: [Check(name='profile', ok=True)], catalogue_url='https://example.org/latest',
                      catalogue_get=fake)

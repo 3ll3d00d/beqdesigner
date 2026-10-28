@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from pipeline.service.__main__ import build
 from pipeline.service.api import create_app
 from pipeline.service.config import ServiceConfig
-from pipeline.service.jobs import JobManager
+from pipeline.service.executions import ExecutionQueue
 
 PAGE = '<!doctype html><div id="root"></div>'
 
@@ -32,7 +32,7 @@ def serve(tmp_path):
     managers = []
 
     def make(ui_dir):
-        manager = JobManager(lambda job, control: None)
+        manager = ExecutionQueue(lambda job, control: None)
         managers.append(manager)
         app = create_app(manager, ServiceConfig(profile_path=str(tmp_path / 'profile.json'), token='t'), env={},
                          ui_dir=str(ui_dir) if ui_dir else None, checks=lambda: [])

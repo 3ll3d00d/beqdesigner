@@ -13,7 +13,7 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field, RootModel, mo
 
 from pipeline.library.bulk import DEFAULT_ACCEPT_THRESHOLD
 from pipeline.library.selection import Selection
-from pipeline.service.jobs import MAX_REDESIGN_IDS, redesign_problem
+from pipeline.service.executions import MAX_REDESIGN_IDS, redesign_problem
 from pipeline.service.window import window_problem
 from pipeline.library.state import NEEDS, FLAG_DUPLICATE, FLAG_GONE, FLAG_IGNORED, FLAG_IN_CATALOGUE, FLAG_SHADOWED
 from pipeline.library.year import YEAR_PATTERN, YearRange, numeric_year
@@ -967,7 +967,7 @@ class ReviewedOutcome(BaseModel):
 
 def job_model(job, now: Optional[float] = None, windows=None) -> Union[ScanJob, RunJob, AcceptJob]:
     '''
-    A jobs.Job (live, or read back from the history) as its typed model.
+    An executions.Execution (live, or read back from the history) as its typed model.
     :param now: the time, for a running job's rate and estimate (R9); default the clock.
     :param windows: the JobManager, which says whether the job's window is open now (else that is left null).
     '''

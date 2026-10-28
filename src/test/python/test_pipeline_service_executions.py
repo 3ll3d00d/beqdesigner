@@ -1,5 +1,5 @@
 '''
-pipeline/service/jobs.py (design/pipeline-service.md §5): one job at a time, in the order asked, cancelled between titles,
+pipeline/service/executions.py (design/pipeline-service.md §5): one job at a time, in the order asked, cancelled between titles,
 with its progress and redacted events kept, and a history that survives a restart. Driven by a fake `execute`.
 '''
 import json
@@ -11,7 +11,7 @@ import pytest
 from model.execution_events import ExecutionEvent
 from pipeline.library.selection import Selection
 from pipeline.library.stages import FfmpegProgress, Progress
-from pipeline.service.jobs import AcceptRequest, JobFinished, JobManager, JobNotFound, RepositoryWritesRefused, \
+from pipeline.service.executions import AcceptRequest, ExecutionFinished, ExecutionQueue, ExecutionNotFound, RepositoryWritesRefused, \
     RunRequest, ScanRequest, writes_repositories
 
 
@@ -40,7 +40,7 @@ def managers():
     made = []
 
     def make(execute, **kwargs):
-        manager = JobManager(execute, **kwargs)
+        manager = ExecutionQueue(execute, **kwargs)
         made.append(manager)
         return manager
     yield make
@@ -95,9 +95,9 @@ def test_a_queued_job_is_dropped_and_a_running_one_stops_before_its_next_title(m
 
     assert waiting.state == 'cancelled' and waiting.started_at is None
     assert running.state == 'cancelled' and running.result == 'stopped' and len(titles_done) < 1000
-    with pytest.raises(JobFinished):
+    with pytest.raises(ExecutionFinished):
         manager.cancel(running.id)
-    with pytest.raises(JobNotFound):
+    with pytest.raises(ExecutionNotFound):
         manager.cancel('nope')
 
 

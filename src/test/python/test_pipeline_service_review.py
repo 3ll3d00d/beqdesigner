@@ -15,7 +15,7 @@ from pipeline.library.index import index_path
 from pipeline.review import read_entry
 from pipeline.service.api import create_app
 from pipeline.service.config import ServiceConfig
-from pipeline.service.jobs import JobManager
+from pipeline.service.executions import ExecutionQueue
 from pipeline.service.lease import lease_path
 from pipeline.service.models import Check
 from review_entry_fixture import write_entry
@@ -70,7 +70,7 @@ def service(setup):
     ''' (client, gate, queue dir, profile path). '''
     profile, _, queue = setup
     gate = Gate()
-    manager = JobManager(gate)
+    manager = ExecutionQueue(gate)
     app = create_app(manager, ServiceConfig(profile_path=str(profile), token=TOKEN), env={},
                      checks=lambda: [Check(name='profile', ok=True)])
     with TestClient(app) as client:
@@ -366,7 +366,7 @@ def test_next_is_the_next_waiting_title_in_the_filtered_list_round_to_the_top(se
 @pytest.mark.parametrize('writes', [False, True])
 def test_the_status_says_whether_publish_and_commit_can_be_offered(setup, writes):
     profile = setup[0]
-    manager = JobManager(lambda job, control: None)
+    manager = ExecutionQueue(lambda job, control: None)
     try:
         app = create_app(manager, ServiceConfig(profile_path=str(profile), token=TOKEN, allow_repository_writes=writes),
                          env={}, checks=lambda: [])
@@ -393,7 +393,7 @@ class FakeRefresher:
 
 def test_a_written_decision_asks_for_the_index_to_be_refreshed_and_a_refused_one_does_not(setup):
     profile = setup[0]
-    refresher, manager = FakeRefresher(), JobManager(lambda job, control: None)
+    refresher, manager = FakeRefresher(), ExecutionQueue(lambda job, control: None)
     try:
         app = create_app(manager, ServiceConfig(profile_path=str(profile), token=TOKEN), env={}, checks=lambda: [],
                          refresher=refresher)

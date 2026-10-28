@@ -31,7 +31,7 @@ from pipeline.metadata import BeqMetadata
 from pipeline.publish.git import RepoTarget
 from pipeline.review import entry_art_path, read_entry, update_entry
 from pipeline.service import models
-from pipeline.service.jobs import RunRequest
+from pipeline.service.executions import RunRequest
 
 RUNNING = 'A run is working on this title now: it cannot be edited until the run has finished with it.'
 CHANGED = 'Changed since it was read'

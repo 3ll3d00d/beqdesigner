@@ -1,6 +1,6 @@
 '''
 pipeline/service/api.py (design/pipeline-service.md §6): the HTTP interface, driven through FastAPI's TestClient over a real
-profile, index and JobManager (run_stages faked), and its published OpenAPI document.
+profile, index and ExecutionQueue (run_stages faked), and its published OpenAPI document.
 '''
 import json
 import pathlib
@@ -15,7 +15,7 @@ from pipeline.library.stages import Progress, StagesReport
 from pipeline.service import work
 from pipeline.service.api import create_app, openapi_document
 from pipeline.service.config import ServiceConfig
-from pipeline.service.jobs import JobManager
+from pipeline.service.executions import ExecutionQueue
 from pipeline.service.models import Check
 from pipeline.service.work import executor, job_failed
 
@@ -54,7 +54,7 @@ def profile(tmp_path):
 @pytest.fixture
 def service(profile, monkeypatch):
     '''
-    (client, manager, calls): the app over a real JobManager; run_stages is recorded, not run. The profile's source lists
+    (client, manager, calls): the app over a real ExecutionQueue; run_stages is recorded, not run. The profile's source lists
     three films with years (a filesystem source reports none: a title has one from JRiver, or once TMDB has named it).
     '''
     from pipeline.library import index as index_module
@@ -69,7 +69,7 @@ def service(profile, monkeypatch):
         kwargs['on_progress'](Progress(1, 1, 'Alien', 'design', 'x'))
         return StagesReport(through, 1, attempted=['x'])
     monkeypatch.setattr(work, 'run_stages', fake_run_stages)
-    manager = JobManager(executor(str(profile), env={}), failed=job_failed)
+    manager = ExecutionQueue(executor(str(profile), env={}), failed=job_failed)
     app = create_app(manager, ServiceConfig(profile_path=str(profile), token=TOKEN), env={},
                      checks=lambda: [Check(name='profile', ok=True)])
     with TestClient(app) as client:
@@ -112,7 +112,7 @@ def test_schedule_trigger_is_409_while_a_job_runs(profile):
         running.set()
         release.wait(5)
 
-    manager = JobManager(execute)
+    manager = ExecutionQueue(execute)
     app = create_app(manager, ServiceConfig(profile_path=str(profile), token=TOKEN), env={})
     try:
         with TestClient(app) as client:
@@ -136,7 +136,7 @@ def test_health_and_readiness_need_no_token(service):
 
 
 def test_not_ready_is_a_503_that_says_why(profile):
-    manager = JobManager(lambda job, control: None)
+    manager = ExecutionQueue(lambda job, control: None)
     app = create_app(manager, ServiceConfig(profile_path=str(profile), token=TOKEN),
                      checks=lambda: [Check(name='ffmpeg', ok=False, detail='not found: ffmpeg')])
     try:
@@ -148,7 +148,7 @@ def test_not_ready_is_a_503_that_says_why(profile):
 
 
 def test_the_default_readiness_checks_the_profile_work_dir_ffmpeg_and_designer(profile):
-    manager = JobManager(lambda job, control: None)
+    manager = ExecutionQueue(lambda job, control: None)
     app = create_app(manager, ServiceConfig(profile_path=str(profile), token=TOKEN), env={})
     try:
         checks = {c['name']: c for c in TestClient(app).get('/ready').json()['checks']}
@@ -176,7 +176,7 @@ def test_the_docs_and_the_document_are_open_and_try_it_out_is_on(service):
 def test_the_docs_use_a_local_copy_of_their_scripts_when_there_is_one(tmp_path, profile):
     (tmp_path / 'static').mkdir()
     (tmp_path / 'static' / 'swagger-ui-bundle.js').write_text('// swagger')
-    manager = JobManager(lambda job, control: None)
+    manager = ExecutionQueue(lambda job, control: None)
     app = create_app(manager, ServiceConfig(profile_path=str(profile), token=TOKEN), static_dir=str(tmp_path / 'static'))
     try:
         client = TestClient(app)
@@ -200,7 +200,7 @@ def test_every_v1_route_needs_the_token(service, headers):
 
 
 def test_a_token_is_required_unless_started_without_auth(profile):
-    manager = JobManager(lambda job, control: None)
+    manager = ExecutionQueue(lambda job, control: None)
     try:
         with pytest.raises(ValueError, match='BEQ_SERVICE_TOKEN'):
             create_app(manager, ServiceConfig(profile_path=str(profile)))
@@ -379,7 +379,7 @@ def gated(profile):
         assert release.wait(10)
         control.progress(Progress(1, 1, 'Heat', 'extract', 'h'))
         return None
-    manager = JobManager(execute)
+    manager = ExecutionQueue(execute)
     app = create_app(manager, ServiceConfig(profile_path=str(profile), token=TOKEN), env={})
     server = uvicorn.Server(uvicorn.Config(app, host='127.0.0.1', port=0, log_level='warning'))
     thread = threading.Thread(target=server.run, daemon=True)
