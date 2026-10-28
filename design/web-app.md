@@ -40,20 +40,21 @@ message. Tests: `test_pipeline_library_decide.py`.
   `openapi-typescript` into `src/api/schema.d.ts` (committed) and called through `openapi-fetch`; the web CI job
   regenerates them and fails on any difference, so the app and the contract cannot drift. Request shapes come from the
   same types: a form holds `Partial<TitleFilter>` and `cleanFilter()` makes the request's.
-- **Versions** -- the npm registry's latest on 2026-10-10, pinned exactly in `package.json`, installing together with no
+- **Versions** -- the npm registry's latest on 2026-10-28 (TypeScript excepted, below), pinned exactly in `package.json`, installing together with no
   peer conflict:
 
   | Package | Version | | Package | Version |
   |---|---|---|---|---|
-  | react, react-dom, @types/react, @types/react-dom | 19.3.0 | | vitest | 5.0.3 |
-  | react-router | 8.4.0 | | jsdom | 30.1.2 |
-  | @tanstack/react-query | 5.104.1 | | @testing-library/react | 16.3.3 |
+  | react, react-dom | 19.3.1 | | vitest | 5.0.5 |
+  | react-router | 8.5.1 | | jsdom | 30.1.3 |
+  | @tanstack/react-query | 5.105.0 | | @testing-library/react | 16.3.3 |
   | uplot | 1.6.32 | | @testing-library/dom | 10.4.2 |
-  | openapi-fetch | 0.17.0 | | @testing-library/user-event | 14.6.7 |
-  | vite | 8.3.4 | | @testing-library/jest-dom | 7.0.1 |
+  | openapi-fetch | 0.17.0 | | @testing-library/user-event | 14.6.8 |
+  | vite | 8.3.5 | | @testing-library/jest-dom | 7.0.1 |
   | @vitejs/plugin-react | 6.1.2 | | msw | 3.0.3 |
-  | typescript | **6.0.3** | | eslint | 10.12.0 |
-  | openapi-typescript | 7.13.0 | | typescript-eslint | 8.71.1 |
+  | @types/react, @types/react-dom | 19.3.0 | | | |
+  | typescript | **6.0.3** | | eslint | 10.13.0 |
+  | openapi-typescript | 7.13.0 | | typescript-eslint | 8.72.1 |
   | | | | eslint-plugin-react-hooks | 7.1.1 |
 
   - **TypeScript 6.0.3, not 7.0.2.** 7.0 is the native (Go) compiler; its package exports only its version and
