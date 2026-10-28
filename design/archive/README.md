@@ -25,6 +25,7 @@ architecture references rather than duplicated as active plans.
 | [Library run L5](library-run-l5.md) | Mono titles: the content principle decided, the decomposition sent, and what v0.2.8 does with it (2026-10-19) |
 | [Library run L2](library-run-l2.md) | Extraction failures the first full library run met: causes, fixes and tests (2026-10-19) |
 | [Web review](web-review.md) | Completed W1–W6 (2026-10-10; not the work-list W1/W3 above): the browser app's plan, commits and manual check |
+| [Redesign scope](redesign-scope-record.md) | Completed RS (2026-10-28): contract 1.6's `/impact` on the caller's side, its live checks and the first scoped redesign (design version 8) |
 | [Job windows](job-windows.md) | Completed JW (2026-10-26): the times of day a job may run; decisions, steps, commits and test evidence |
 | [Configuration-folder hygiene](configuration-folder.md) | R10: Qt application identity, profile default and isolated GUI config paths |
 | Other files | Original headless pipeline, HTTP binding and candidate review plans |

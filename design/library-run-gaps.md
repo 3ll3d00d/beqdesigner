@@ -47,17 +47,9 @@ source digest computed at each beqforge tag by hand (L3).
 
 ### L1. Finish the review of the run (operational)
 
-- Review the declines of job 28643fea as they arrive, the 53 unreviewed ones, and re-confirm the
-  flaw-type verdicts of the 60 that declined again on 0.2.5 (a verdict reached on an older build is
-  evidence, not a conclusion).
-- The second designer (10.151.167.29, the Windows build) is offline until after this run, so the
-  requeue designs on `.10` alone, which keeps a record of each. The Windows build kept no run record for
-  any of its 432 titles (111 declines): beqforge keeps none unless told to. Handed to beqforge as its
-  TODO 27 (records and a log file by default, `record_dir` on `/health`); until then start it with
-  `--record-dir` on the share's `work\records`. A decline among those 432 that needs its evidence is
-  redesigned once to get a record.
-- No design carries the contract 1.3 fit fields yet: beqforge's fit reporting (`92407e8`) is unreleased.
-  Once released, the fit shows on titles designed after it; a redesign only for the fit is not worth it.
+Every decline through design version 6 is in the ledger (`/media/beq/triage/ledger.jsonl`, the v6 run's 270 as stage
+E), and the v5 and v6 handoffs went to beqforge (its TODO 31 and 35). The design version 8 redesign (2026-10-26 to
+28, 1,051 titles) left 16 declined, not yet in the ledger. A person's review of every design is RV in TODO.
 
 **Done when** every decline in the queue is in the ledger, against the build that made it.
 
@@ -68,9 +60,11 @@ Fixed and archived: [L2 record](archive/library-run-l2.md). Seven of the nine no
 
 ### L3. Know which designs a designer upgrade changes (extends D4)
 
-**Agreed 2026-10-19; caller side built the same day** (beqforge's side is its TODO 28): [design-version.md](design-version.md) (contract 1.4: a
-`design_version` that changes only with the answers, a `design_settings` digest, `designer_build`; the caller
-keeps them per entry and selects *out of date*). beqforge's side is its TODO 28.
+**Agreed 2026-10-19; built both sides and deployed** (designers report design version 8 since 2026-10-26):
+[design-version.md](design-version.md) (contract 1.4: a `design_version` that changes only with the answers, a
+`design_settings` digest, `designer_build`; the caller keeps them per entry and selects *out of date*). Contract 1.6's
+`/impact` then picked which out-of-date designs to redesign ([redesign-scope.md](redesign-scope.md)). Left: the
+desktop work list's *out of date* filter and a count on its drift banner.
 
 ### L4. Designer findings to hand to beqforge
 
@@ -92,6 +86,9 @@ messages and repro, not an edit there. In order of titles affected:
 6. **New: a plateau that starts at the filter floor** licenses nothing below it (So I Married an Axe
    Murderer; community BEQ 4x low shelf 23 Hz +8 dB).
 7. **Steep filters**: 9 titles decline by documented design (beqforge TODO 5/6, `--content-edge`).
+
+The v5 and v6 handoffs (`/media/beq/triage/handoff-v5.md`, `handoff-v6.md`; beqforge TODO 31 and 35) carry
+the findings still open on those builds; check each of the seven above against them and version 8's declines.
 
 **Done when** each is a handoff in beqforge's `plans/` with a row in its TODO; their releases then go
 through L3.

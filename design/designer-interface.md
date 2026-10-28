@@ -1,8 +1,8 @@
 # BEQ filter designer interface — v1.6
 
 **Status:** CONTRACT. 1.6's run record path and `/impact` (§3, §7.1) are agreed
-(2026-10-24) and written into the schemas; beqforge returns `run_record` from 0.2.11, and its
-`/impact` is not built yet (its TODO 34). 1.5's adjustments (§2, §3) are agreed, written into the
+(2026-10-24) and written into the schemas; beqforge returns `run_record` from 0.2.11 and answers
+`/impact` from 0.2.12, and this repo's side is built and in live use (2026-10-26). 1.5's adjustments (§2, §3) are agreed, written into the
 schemas and built on this repo's side (2026-10-21: `pipeline/designer`, the queue entry, the
 service), and on beqforge's from 0.2.9 (TODO WP, chunk WP6). Up to 1.4 it
 is fully implemented on this repo's side, 1.1's `rejected`

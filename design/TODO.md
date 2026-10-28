@@ -2,8 +2,8 @@
 
 ## Status
 
-Reviewed on **2026-10-08**, against beqdesigner `8533ad5` and beqforge
-`3eb16ba`. This is the **only current backlog** for the
+Reviewed on **2026-10-28**, against beqdesigner `0b37ffb` (the service runs
+2.2.0-alpha.30) and beqforge 0.3.1 (design version 8, contract 1.6). This is the **only current backlog** for the
 pipeline and library work. Items are unbuilt, partial, awaiting evidence, or
 under observation; none is claimed complete. Architecture and contracts are
 [design references](README.md); completed plans and delivery records live in
@@ -11,9 +11,10 @@ under observation; none is claimed complete. Architecture and contracts are
 backlogs. The caller’s by-reference implementation and live acceptance are
 complete; its three follow-ons are retained below as D2–D4.
 
-Order is recommended execution priority: first the **initial release**
-milestone below, then disc behavior, test health, and optional
-improvements/product decisions. A blocked item does not prevent starting the
+Order is recommended execution priority: the service's throughput and job
+model first (they shape every further library run), the people's work (review,
+E2) beside them, then the library run's loose ends, disc behavior, test health,
+and optional improvements/product decisions. A blocked item does not prevent starting the
 next independent item. E1's fixture (`src/test/python/fixtures/jriver/`) is
 the evidence J2 and the disc items start from.
 
@@ -47,31 +48,60 @@ outside it. A beqforge version bump invalidates its bundled optimiser seed
 
 | Priority | ID | R | Previous IDs | Status | Depends on |
 |---|---|---|---|---|---|
-| 11 | D4 | | by-reference §5 | Release part done (each entry records its designer and build); the drift behavior is not started | Designer build identity policy (full drift behavior only) |
-| 11c | L1 | | [library run](library-run-gaps.md#l1-finish-the-review-of-the-run-operational) | In progress; 53 declines unreviewed, requeue job 28643fea running | -- |
-| 11d | L4 | | [library run](library-run-gaps.md#l4-designer-findings-to-hand-to-beqforge) | Not started; 7 handoffs to write | L1's re-review |
-| 11e | L3 | | [design version](design-version.md), D4 | Built both sides 2026-10-19; contract 1.4. Left: the work-list filter, a drift-banner count, and deploying a beqforge release with it | beqforge release |
-| 11f | L6 | | [library run](library-run-gaps.md#l6-finish-what-the-run-started) | Not started | E2 |
-| 15 | E2 | R | chunk 31, T2-T4 | Waiting for manual acceptance; everything it exercises is built and published | Real media, a JRiver server and disposable repositories |
-| 16 | E3 | | chunk 32, T7 | Not started; the captured library (E1) has no DVDs | A DVD rip in a JRiver library, captured as E1 was |
-| 18 | E5 | | chunk 37, T15 | Waiting for a product decision | E2; representative season media |
-| 19 | T1 | | -- | Watch; probably recurred in CI on 2026-10-08, without a log | Recurrence with a stack dump |
-| 20 | T2 | | -- | Watch; seen twice | Recurrence with its failure message |
-| 20a | T3 | | -- | Watch; seen once | Recurrence |
-| 20b | T4 | | -- | Watch; seen once | Recurrence with its failure message |
-| 21 | RS | | [redesign scope](redesign-scope.md), contract 1.6 | Caller side built 2026-10-25 against a fake designer (all 5 steps; scores as probabilities, 915ff97; `run_records` backfill for pre-1.6 designs). Backfill applied (all 1,287), live check against beqforge's container passed (2026-10-25), 0.2.12 deployed on both designers; service-level `/v1/impact` answered `no_record` for every title until a rescan by a release with a0cb694 (cached summaries from alpha.26); the 105-title sample redesign ran 15:30–17:31 UTC (all designed again, the same 10 declined): moved 15/35 at 0.47, 15/60 at 0.13 (est. 0.13; most of the excess cascades just over 1 dB), 0/10 unaffected; per title in /media/beq/triage/impact-step4-moved.json, sent to beqforge for impact.toml. Next: alpha.29 deployed and rescanned (the service-level `/v1/impact` check), then the person picks the cut-off; archive this row then | beqforge `/impact` (its TODO 34, after design version 7) |
-| 21a | JE | | [jobs and executions](jobs-and-executions.md) | Design agreed 2026-10-27, not started: a job (a definition: once or every N minutes, a window; paused, resumed, edited, removed) apart from its executions (each continuous run: the log); any number of recurring jobs, replacing the one schedule; execution statistics (outcomes, designers and versions, stage times mean/p90/max) | -- |
-| 22 | D2 | | by-reference §5 | Planned; optional, not started | beqforge loader coordination |
-| 23 | D3 | | by-reference §5 | Planned; optional, not started | Contract addition; beqforge coordination |
-| 24 | O2 | | former §9 reviewer questions | Behavior exists; acceptance decision missing | Real reviewer feedback |
-| 25 | O1 | | D6 | Optional idea; no implementation decision | Product decision |
-| 26 | WP | | [web parity](web-parity.md) | Built on both sides: beqdesigner (2026-10-21) and beqforge 0.2.9 (contract 1.5, `4bd3d3e`). Left: deploying a 0.2.9 designer, which turns the browser's adjustments on, then archiving this row | Deploying beqforge 0.2.9 |
+| 1 | IG | | -- | Not started: each designer slot sits idle about 20 s a title between designs (93 titles an hour on the DV8 run against ~75 s of designer time per title with 3 slots) | -- |
+| 2 | JE | | [jobs and executions](jobs-and-executions.md) | Design written 2026-10-27, not started; its four defaulted decisions (§ the build's API rename, cancel pauses a one-off, what can be edited, the migration) await the user | The user's answer on the four decisions |
+| 3 | RV | | [library run](library-run-gaps.md#l1-finish-the-review-of-the-run-operational) | Operational: all 1,287 designs await a person's review; the DV8 redesign (1,051 titles, 2026-10-26 to 28) changed 728 and left 323 as they were | A person |
+| 4 | E2 | R | chunk 31, T2-T4 | Waiting for manual acceptance; everything it exercises is built and published | Real media, a JRiver server and disposable repositories |
+| 5 | L1 | | [library run](library-run-gaps.md#l1-finish-the-review-of-the-run-operational) | Declines through design version 6 are in the ledger (stage E, 270); the 16 still declined at version 8 are not | -- |
+| 6 | L4 | | [library run](library-run-gaps.md#l4-designer-findings-to-hand-to-beqforge) | v5 and v6 handoffs sent (`/media/beq/triage/handoff-v5.md`, `handoff-v6.md`; beqforge TODO 31, 35); check the 7 findings listed there are each covered, and hand on what is not | L1's version 8 declines |
+| 7 | L3 | | [design version](design-version.md), D4 | Built both sides, deployed (designers report version 8). Left: the work-list *out of date* filter and a drift-banner count | -- |
+| 8 | WP | | [web parity](web-parity.md) | Built both sides; the designers run 0.3.1 (contract 1.5 and later) since 2026-10-26. Left: try an adjusted redesign in the browser live, then archive this row | -- |
+| 9 | L6 | | [library run](library-run-gaps.md#l6-finish-what-the-run-started) | Not started; 78 possible duplicates flagged in the index | E2 |
+| 10 | O2 | | former §9 reviewer questions | Behavior exists; acceptance decision missing | Real reviewer feedback |
+| 11 | E3 | | chunk 32, T7 | Not started; the captured library (E1) has no DVDs | A DVD rip in a JRiver library, captured as E1 was |
+| 12 | E5 | | chunk 37, T15 | Waiting for a product decision | E2; representative season media |
+| 13 | T1 | | -- | Watch; probably recurred in CI on 2026-10-08, without a log | Recurrence with a stack dump |
+| 14 | T2 | | -- | Watch; seen twice (last 2026-09-27) | Recurrence with its failure message |
+| 14a | T3 | | -- | Watch; seen once | Recurrence |
+| 14b | T4 | | -- | Watch; seen once | Recurrence with its failure message |
+| 15 | D4 | | by-reference §5 | Release part done (each entry records its designer and build); the drift behavior is not started. The deployed designer reports its build as `unknown+src:66850800b23a` | Designer build identity policy (full drift behavior only) |
+| 16 | D2 | | by-reference §5 | Planned; optional, not started | beqforge loader coordination |
+| 17 | D3 | | by-reference §5 | Planned; optional, not started | Contract addition; beqforge coordination |
+| 18 | O1 | | D6 | Optional idea; no implementation decision | Product decision |
 
 E3 is outside the milestone only if E2's sample shows the documented DVD
 main-title fallback is truthful for the catalogue's discs; if it silently
 duplicates or picks the wrong title, it moves into it. (E4, Blu-ray, is done.)
 
 ## Work in priority order
+
+### IG — Designer slots idle between designs
+
+On the design version 8 redesign (2026-10-26 to 28) the service designed about 93 titles an hour with 3 designer
+slots, so each title held a slot about 116 s, while the designers' own records give about 75 s of design per title
+(beqforge's logs: 16-22 s idle per slot between requests). The gap is the caller's: a slot's next request is prepared
+only after the previous result has been written. Prepare the next request while the current one designs, and write a
+result after the slot's next request has gone, so each slot stays busy (beqforge's estimate: about 1.25x the
+throughput, with nothing changed on the designers).
+
+**Done when** a slot sends its next request without waiting for the previous title's result to be written or the next
+title's request to be prepared, covered by tests over a fake designer, and a library run's titles an hour is compared
+with the DV8 run's 93.
+
+### JE — Jobs and executions
+
+[jobs-and-executions.md](jobs-and-executions.md) (design, not built): a job is a definition (once or every N minutes,
+a window; paused, resumed, edited, removed) apart from its executions (each continuous run: the log), any number of
+recurring jobs replacing the one schedule, and statistics for each execution. Four decisions were taken as defaults
+and await the user: the breaking API rename (`/v1/executions`), cancelling a one-off's execution pauses the job, what
+can be edited, and the migration on upgrade. **Done when** its §7 holds.
+
+### RV — Review the redesigned library (operational)
+
+Every one of the 1,287 designs is at review. The design version 8 redesign (job ids and per-title results in
+`/media/beq/triage/dv8-redesign-moved.json`) moved 728 of the 1,051 it targeted; the 323 that did not move, and the
+236 left out as unaffected, are as a person last saw them. Nothing is accepted without a person (the work list's
+*Accept top pick* asks first). **Done when** each title is accepted, rejected or deliberately left.
 
 ### L1, L3, L4, L6 — Gaps left by the first full library run
 
@@ -194,20 +224,10 @@ close it after a few weeks without recurrence.
 
 ### WP — Web app parity
 
-Bring the browser app to and beyond the desktop title page: metadata/artwork/stream/revise editing, a chart workbench
-(zoom, limits, smoothing, normalisation), spectrograms, comparison with published BEQs, filter editing, and selective
-redesign on request: a caller sends adjustments, the designer answers each one, and every variant is kept (contract 1.5). Chunks, order and open questions are in
-[web-parity.md](web-parity.md) (plan, not built).
-
-**Done when:** every chunk there is built, tested and described in web-app.md, and web-app.md §1 no longer lists
-title-page work that stays in the desktop app.
-
-### RS — Redesign scope
-
-The caller side of contract 1.6 is built ([`redesign-scope.md`](redesign-scope.md); `implemented.md`, `web-app.md`):
-the run record kept, *reviewed at*, the `/impact` client, `/v1/impact` and `/v1/reviewed`, and the Titles page's
-tiers. Done when a live check against beqforge's `/impact` (its TODO 34) answers on this library's records, after one
-design pass on a build that writes record identities; then archive this row.
+Every chunk in [web-parity.md](web-parity.md) is built on this side (2026-10-21), and beqforge's half of contract
+1.5 shipped in 0.2.9; the deployed designers run 0.3.1. **Done when** an adjusted redesign has been made from the
+browser against the deployed designers and web-app.md §1 no longer lists title-page work that stays in the desktop
+app; then archive this row.
 
 ### D2 — Export a reusable request file
 

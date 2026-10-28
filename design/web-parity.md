@@ -1,7 +1,7 @@
 # Web app parity — editing, visualisation, comparison and adjusted redesign
 
-**Document type:** Plan — **design, not built** (drafted 2026-10-20). TODO row **WP**, chunks WP0–WP8 below, all
-*Not started*. When a chunk lands, describe what was built in [web-app.md](web-app.md) (and
+**Document type:** Plan (drafted 2026-10-20), **built**: every chunk WP0–WP8 below is done on this side (2026-10-21)
+and beqforge's half of WP6 shipped in 0.2.9. TODO row **WP** keeps only the live check. When a chunk lands, describe what was built in [web-app.md](web-app.md) (and
 [review-over-http.md](review-over-http.md) / [pipeline-service.md](pipeline-service.md) for routes), archive the chunk's
 record, and strike it here.
 

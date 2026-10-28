@@ -1,9 +1,9 @@
 # Redesign scope: which out-of-date designs to redesign (caller side)
 
-**Status:** built on this side (TODO row RS), against a fake designer; live use waits for beqforge's `/impact`. The contract is
-[`designer-interface.md`](designer-interface.md) 1.6 (§3 "The run record" and "Reviewed designs", §7.1 "Impact"),
-agreed with beqforge on 2026-10-24. beqforge returns `run_record` from 0.2.11; its `/impact` is its TODO 34 and lands
-after design version 7, so this side is built and tested against a fake designer first.
+**Status:** built on this side and in live use since 2026-10-26 (beqforge 0.2.12 onwards answers `/impact`); the
+row RS is archived in [archive/redesign-scope-record.md](archive/redesign-scope-record.md) with the live checks and
+the first scoped redesign. The contract is [`designer-interface.md`](designer-interface.md) 1.6 (§3 "The run record"
+and "Reviewed designs", §7.1 "Impact"), agreed with beqforge on 2026-10-24.
 
 ## Why
 
