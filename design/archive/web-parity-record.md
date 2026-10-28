@@ -174,3 +174,25 @@ frequencies; the full suite, 3379 passed, 1 skipped.
   (API 1.16.0), `ProjectsLine` and the editor's warning. Evidence: the projects test in `test_pipeline_service_edit.py`,
   the editor test about a hand-edited project; `gui/test_worklist_projects.py` unchanged but for the import.
 - **Bundle:** the review page is loaded on demand (`lazy` route): 422 kB main, 97 kB review (was 507 kB in one).
+
+## Live check (28 October 2026)
+
+Service 2.2.0-alpha.32 (`db0fd0a`), designer beqforge 0.3.1 on .10 (`unknown+src:66850800b23a`, design version 8,
+contract 1.6); .29 was down. In the browser, on The Call of the Wild (2020, `jriver-18bd9f7c1e48-1006683`, waiting for
+review, MV +31.2 dB): *Revise…* > *Redesign*, *Ask the designer to change something*, the *Cap the boost at 15 dB*
+preset (`max_boost` db 15), a reason, *Extract & design now*. That made job `d5ce25e0`, execution `d8f90392`: succeeded
+16:41:43-16:43:55 UTC, 67 s on the designer. Result: one design, confidence 0.92, MV +16.5 dB; the adjustment's outcome
+is *adapted*, applied as db 15.75 ("capped at 15 dB; the realised design peaks at 15.7 dB"), and the commentary says
+"the requested cap binds". The entry is variant v5 with v1-v4 kept and the reviewer note carried over. The review page
+lists *Design runs (5)* with the outcome. Every chunk is now in the browser, and web-app.md §1 lists no title-page work
+that stays in the desktop app.
+
+Two things seen on the way, not fixed here:
+- For the 33 s between the design's write (`review.design_and_queue`, 16:43:21) and `design_if_needed`'s update
+  (16:43:54), spent writing the projects, the entry on disk had no `variants`, `variant_id` or reviewer note. A
+  reader in that window, such as the review page, shows "No earlier design runs", and a crash in it would lose the
+  history for good.
+- The reason typed in the revise form ("Why (kept in the note)") reaches `adjusted_with[].reason` but not the
+  reviewer note: a run job's revise (`service/work.py`) calls `revise_entry` without the request's reason, so the
+  note reads only "Sent back for redesign".
+

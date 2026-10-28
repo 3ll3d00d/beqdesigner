@@ -11,8 +11,10 @@ chunk records and evidence, is [archive/web-review.md](archive/web-review.md). T
 A browser app, served by the pipeline service itself, giving a basic view of what the desktop work list and title page
 do: the workload and its status, starting and following jobs, deciding each title's design, and editing its metadata
 and artwork (with TMDB), sending titles back (revise) and choosing their audio stream. Publishing and committing
-accepted titles are offered behind the service's `allow_repository_writes`. Projects, the profile and Review Folder
-stay in the desktop app; a design's filters are edited in the browser (§4.7) rather than through its project.
+accepted titles are offered behind the service's `allow_repository_writes`. Everything the desktop title page does is
+in the browser too: a design's filters are edited there (§4.7) rather than by opening its `.beq` project, whose state
+the review page reports in the desktop badge's words, and a redesign can ask for adjustments (§4.6). Setup -- the
+profile, sources and ignore rules -- and Review Folder are not title-page work, and stay in the desktop app.
 
 ## 2. Decision rules are shared
 

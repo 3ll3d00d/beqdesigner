@@ -1,7 +1,9 @@
 # Web app parity — editing, visualisation, comparison and adjusted redesign
 
-**Document type:** Plan (drafted 2026-10-20), **built**: every chunk WP0–WP8 below is done on this side (2026-10-21)
-and beqforge's half of WP6 shipped in 0.2.9. TODO row **WP** keeps only the live check. When a chunk lands, describe what was built in [web-app.md](web-app.md) (and
+**Document type:** Plan (drafted 2026-10-20), **built and checked live**: every chunk WP0–WP8 below is done on this
+side (2026-10-21), beqforge's half of WP6 shipped in 0.2.9, and an adjusted redesign was made from the browser against the
+deployed designers on 2026-10-28 ([record](archive/web-parity-record.md#live-check-28-october-2026)). Kept here, not in
+the archive, because source comments cite its sections. When a chunk lands, describe what was built in [web-app.md](web-app.md) (and
 [review-over-http.md](review-over-http.md) / [pipeline-service.md](pipeline-service.md) for routes), archive the chunk's
 record, and strike it here.
 

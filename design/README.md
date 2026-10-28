@@ -22,7 +22,7 @@ contract paths used by schemas, source comments and external implementers.
 | [Redesign scope](redesign-scope.md) | Architecture reference: contract 1.6's run record, *reviewed at* and `/impact` on the caller's side |
 | [Job windows](job-windows.md) | Architecture reference: the times of day each job may run, the default window, and a run stopped between titles and carried on by its job |
 | [Jobs and executions](jobs-and-executions.md) | Architecture reference: jobs as definitions (recurring or once, with a window) apart from their executions, and how each execution ran |
-| [Web app parity](web-parity.md) | Plan, built on both sides (live check left, TODO WP): browser editing, visualisation, BEQ comparison and adjusted redesign with variants |
+| [Web app parity](web-parity.md) | Built on both sides and checked live (2026-10-28): browser editing, visualisation, BEQ comparison and adjusted redesign with variants |
 | [Library run gaps](library-run-gaps.md) | Plan, not built: the first full library run's results and the work left (TODO L1-L6) |
 | [TODO](TODO.md) | Sole current backlog, with status, dependencies and acceptance criteria in priority order |
 | [E2 runbook](e2-runbook.md) | Procedure for the release acceptance run (E2) and its record template |

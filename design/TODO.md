@@ -50,7 +50,6 @@ outside it. A beqforge version bump invalidates its bundled optimiser seed
 | 1 | IG | | -- | Built 2026-10-28: a run keeps one prepared design waiting per pool slot. Left: measure titles an hour on the next library run after deploying it (the DV8 run made 93) | A release deployed, and a run of a few hundred titles |
 | 3 | RV | | [library run](library-run-gaps.md#l1-finish-the-review-of-the-run-operational) | Operational: all 1,287 designs await a person's review; the DV8 redesign (1,051 titles, 2026-10-26 to 28) changed 728 and left 323 as they were | A person |
 | 4 | E2 | R | chunk 31, T2-T4 | Waiting for manual acceptance; everything it exercises is built and published | Real media, a JRiver server and disposable repositories |
-| 8 | WP | | [web parity](web-parity.md) | Built both sides; the designers run 0.3.1 (contract 1.5 and later) since 2026-10-26. Left: try an adjusted redesign in the browser live, then archive this row | -- |
 | 9 | L6 | | [library run](library-run-gaps.md#l6-finish-what-the-run-started) | Not started; 78 possible duplicates flagged in the index | E2 |
 | 10 | O2 | | former §9 reviewer questions | Behavior exists; acceptance decision missing | Real reviewer feedback |
 | 11 | E3 | | chunk 32, T7 | Not started; the captured library (E1) has no DVDs | A DVD rip in a JRiver library, captured as E1 was |
@@ -218,13 +217,6 @@ On 2026-10-10 one `pytest -n auto` run of the gui suite failed
 failure message was not kept. It passed in the next three full runs and 15 of 15 repeats under `-n 8`. It does not
 touch the code changed that day (W1, the decision write). If it recurs, record the assertion and fix what it shows;
 close it after a few weeks without recurrence.
-
-### WP — Web app parity
-
-Every chunk in [web-parity.md](web-parity.md) is built on this side (2026-10-21), and beqforge's half of contract
-1.5 shipped in 0.2.9; the deployed designers run 0.3.1. **Done when** an adjusted redesign has been made from the
-browser against the deployed designers and web-app.md §1 no longer lists title-page work that stays in the desktop
-app; then archive this row.
 
 ### D2 — Export a reusable request file
 
