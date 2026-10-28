@@ -642,11 +642,12 @@ def create_app(manager: ExecutionQueue, config: ServiceConfig, *, require_token:
         except JobNotFound:
             return None
 
-    def execution_view(execution):
-        return models.execution_model(execution, queue=manager, job_name=job_name(execution))
+    def execution_view(execution, with_statistics: bool = False):
+        return models.execution_model(execution, queue=manager, job_name=job_name(execution),
+                                      with_statistics=with_statistics)
 
-    def job_view(job):
-        return models.job_model(job, book, manager)
+    def job_view(job, with_outcomes: bool = False):
+        return models.job_model(job, book, manager, with_outcomes=with_outcomes)
 
     def run_request(body: models.RunJobRequest) -> RunRequest:
         return RunRequest(body.filter.to_selection(), body.through.value, body.scan_first, body.retry_failed,
@@ -685,7 +686,7 @@ def create_app(manager: ExecutionQueue, config: ServiceConfig, *, require_token:
 
     @v1.get('/jobs/{job_id}', response_model=models.Job, tags=['jobs'], summary='One job', responses=_responses(404))
     def job(job_id: str):
-        return job_view(book.get(job_id))
+        return job_view(book.get(job_id), with_outcomes=True)
 
     @v1.patch('/jobs/{job_id}', response_model=models.Job, tags=['jobs'],
               summary="Change a job: its name and window; a recurring job's interval and run too", responses=job_responses)
@@ -753,9 +754,19 @@ def create_app(manager: ExecutionQueue, config: ServiceConfig, *, require_token:
                                     else None, next=upcoming, executions=[execution_view(e) for e in found[:limit]])
 
     @v1.get('/executions/{execution_id}', response_model=models.Execution, tags=['executions'],
-            summary='One execution', responses=_responses(404))
+            summary='One execution, with how it ran (its statistics)', responses=_responses(404))
     def execution(execution_id: str):
-        return execution_view(manager.get(execution_id))
+        return execution_view(manager.get(execution_id), with_statistics=True)
+
+    @v1.get('/executions/{execution_id}/titles', response_model=models.ExecutionTitles, tags=['executions'],
+            summary="An execution's titles, each with its outcome, its stage times and the designer that designed it",
+            responses=_responses(404))
+    def execution_titles(execution_id: str, outcome: Optional[str] = None) -> models.ExecutionTitles:
+        from pipeline.service.statistics import title_outcomes
+        found = manager.get(execution_id)
+        return models.ExecutionTitles(titles=[models.ExecutionTitle(**models._data(t))
+                                              for t in title_outcomes(found.result, found.titles)
+                                              if outcome is None or t.outcome == outcome])
 
     @v1.post('/executions/{execution_id}/cancel', response_model=models.Execution, tags=['executions'],
              summary='Cancel: a queued execution is dropped, a running one stops before its next title. A one-off job '

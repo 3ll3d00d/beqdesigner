@@ -842,6 +842,82 @@ def with_rate(progress: Optional['Progress'], started_at: Optional[float], now: 
                                        'estimated_finish': timestamp(now + remaining)})
 
 
+class StageFigures(BaseModel):
+    count: int = Field(description='How many titles the figures are over.')
+    mean: float = Field(description='Seconds.')
+    p50: float
+    p90: float
+    max: float
+
+
+class ReasonCount(BaseModel):
+    reason: str
+    count: int
+
+
+class DesignerFiguresView(BaseModel):
+    endpoint: str
+    release: str = Field(description="The release its /health named, when the design was sent; empty if it named none.")
+    version: str = Field(description='The design version it named.')
+    designed: int
+    declined: int
+    failed: int
+    seconds: Optional[StageFigures] = Field(None, description='Each design at the designer.')
+
+
+class ExecutionTitle(BaseModel):
+    id: str
+    title: str
+    outcome: Literal['designed', 'declined', 'extracted', 'already_done', 'failed', 'unavailable', 'skipped',
+                     'not_reached']
+    reason: str = Field('', description='Why it failed, was unavailable, or was skipped.')
+    extract_seconds: Optional[float] = None
+    waiting_seconds: Optional[float] = Field(None, description='From waiting for a design slot to the designer being sent it.')
+    designer_seconds: Optional[float] = Field(None, description='At the designer.')
+    writing_seconds: Optional[float] = Field(None, description="From the designer's answer to the title's end in the run.")
+    endpoint: str = ''
+    release: str = ''
+    version: str = ''
+
+
+class ExecutionTitles(BaseModel):
+    titles: List[ExecutionTitle]
+
+
+class ExecutionStatistics(BaseModel):
+    ''' How an execution ran (design/jobs-and-executions.md §2.3); a running one's grow as titles finish. '''
+    outcomes: Dict[str, int] = Field(description='Titles by outcome: designed, declined, extracted, already_done, failed, '
+                                                 'unavailable, skipped, not_reached (only those with any).')
+    failures: List[ReasonCount] = Field(description='Why titles failed or were unavailable, grouped, most first.')
+    skips: List[ReasonCount] = Field(description='Why titles were skipped, grouped, most first.')
+    designers: List[DesignerFiguresView] = Field(description='Each endpoint that designed for it, with the release and '
+                                                             'design version it named.')
+    designers_differ: bool = Field(description='Its designs came from more than one release or design version.')
+    wall_seconds: Optional[float] = None
+    per_hour: Optional[float] = Field(None, description='Titles reached an hour.')
+    stages: Dict[str, StageFigures] = Field(description='extract, waiting (for a design slot), designer (the design '
+                                                        'itself) and writing (its result): seconds a title.')
+    slowest: List[ExecutionTitle] = Field(description='The titles in hand longest.')
+
+
+def _figures(value) -> Optional[StageFigures]:
+    return StageFigures(**_data(value)) if value is not None else None
+
+
+def statistics_model(execution) -> ExecutionStatistics:
+    from pipeline.service.statistics import statistics
+    found = statistics(execution)
+    return ExecutionStatistics(
+        outcomes=found.outcomes, failures=[ReasonCount(reason=r, count=n) for r, n in found.failures],
+        skips=[ReasonCount(reason=r, count=n) for r, n in found.skips],
+        designers=[DesignerFiguresView(endpoint=d.endpoint, release=d.release, version=d.version, designed=d.designed,
+                                       declined=d.declined, failed=d.failed, seconds=_figures(d.seconds))
+                   for d in found.designers],
+        designers_differ=found.designers_differ, wall_seconds=found.wall_seconds, per_hour=found.per_hour,
+        stages={k: _figures(v) for k, v in found.stages.items()},
+        slowest=[ExecutionTitle(**_data(t)) for t in found.slowest])
+
+
 class ExecutionBase(BaseModel):
     id: str
     job_id: Optional[str] = Field(None, description='The job it is an execution of.')
@@ -863,6 +939,7 @@ class ExecutionBase(BaseModel):
     window_open: Optional[bool] = Field(None, description='Whether it may run now, with the default applied.')
     waiting_until: Optional[datetime] = Field(None, description='A queued execution whose window is closed: when it '
                                                                 'next opens.')
+    statistics: Optional[ExecutionStatistics] = Field(None, description='How it ran: on GET /v1/executions/{id} only.')
 
 
 class ScanExecution(ExecutionBase):
@@ -960,6 +1037,8 @@ class JobBase(BaseModel):
                                                        'or the designer did not answer).')
     ended: Optional[str] = Field(None, description='Why it is done, when it ended by itself (a recurring job whose ids '
                                                    'are all done).')
+    outcomes: Optional[Dict[str, int]] = Field(None, description='Its titles by outcome, summed over the executions '
+                                                                 'kept: on GET /v1/jobs/{id} only.')
 
 
 class ScanJob(JobBase):
@@ -1086,13 +1165,14 @@ def _request_model(kind: str, request: Any) -> Union[ScanJobRequest, RunJobReque
                             dry_run=bool(data.get('dry_run')))
 
 
-def execution_model(execution, now: Optional[float] = None, queue=None, job_name: Optional[str] = None) \
-        -> Union[ScanExecution, RunExecution, AcceptExecution]:
+def execution_model(execution, now: Optional[float] = None, queue=None, job_name: Optional[str] = None,
+                    with_statistics: bool = False) -> Union[ScanExecution, RunExecution, AcceptExecution]:
     '''
     An executions.Execution (live, or read back from the history) as its typed model.
     :param now: the time, for a running execution's rate and estimate (R9); default the clock.
     :param queue: the ExecutionQueue, which says whether its window is open now (else that is left null).
     :param job_name: its job's name, while the job is kept.
+    :param with_statistics: say how it ran (design/jobs-and-executions.md §2.3).
     '''
     import time
     progress = Progress(**_data(execution.progress)) if execution.progress else None
@@ -1102,7 +1182,8 @@ def execution_model(execution, now: Optional[float] = None, queue=None, job_name
                   origin=execution.origin, state=execution.state, stopped_because=execution.stopped_because or None,
                   submitted_at=timestamp(execution.submitted_at), started_at=timestamp(execution.started_at),
                   finished_at=timestamp(execution.finished_at), progress=progress, error=execution.error or None,
-                  joined_to=execution.joined_to, window=execution.window)
+                  joined_to=execution.joined_to, window=execution.window,
+                  statistics=statistics_model(execution) if with_statistics and execution.kind == 'run' else None)
     if queue is not None and not execution.finished:
         common.update(window_open=queue.window_of(execution).is_open(time.time() if now is None else now),
                       waiting_until=timestamp(queue.waiting_until(execution)))
@@ -1115,8 +1196,20 @@ def execution_model(execution, now: Optional[float] = None, queue=None, job_name
     return AcceptExecution(request=request, result=accept_result(result) if result is not None else None, **common)
 
 
-def job_model(job, book, queue, now: Optional[float] = None) -> Union[ScanJob, RunJob, AcceptJob]:
-    ''' A jobbook.Job as its typed model, with its next and running execution. '''
+def _job_outcomes(job, queue) -> Dict[str, int]:
+    ''' Its titles by outcome over the executions the history keeps (a title done in several counts in each). '''
+    from collections import Counter
+    from pipeline.service.statistics import statistics
+    total: Counter = Counter()
+    for execution_id in job.executions:
+        if queue.has_job(execution_id):
+            total.update(statistics(queue.get(execution_id)).outcomes)
+    return dict(total)
+
+
+def job_model(job, book, queue, now: Optional[float] = None, with_outcomes: bool = False) \
+        -> Union[ScanJob, RunJob, AcceptJob]:
+    ''' A jobbook.Job as its typed model, with its next and running execution (and, asked, its titles by outcome). '''
     running = None
     if job.pending is not None:
         try:
@@ -1130,7 +1223,8 @@ def job_model(job, book, queue, now: Optional[float] = None) -> Union[ScanJob, R
                   remaining=len(job.remaining) if job.remaining is not None and not job.recurring else None,
                   executions=len(job.executions), last_execution=job.executions[-1] if job.executions else None,
                   running_execution=running, last_finished_at=timestamp(job.last_finished_at),
-                  last_skip=job.last_skip or None, ended=job.ended or None, request=_request_model(job.kind, job.request))
+                  last_skip=job.last_skip or None, ended=job.ended or None, request=_request_model(job.kind, job.request),
+                  outcomes=_job_outcomes(job, queue) if with_outcomes and job.kind == 'run' else None)
     return {'scan': ScanJob, 'run': RunJob, 'accept': AcceptJob}[job.kind](**common)
 
 

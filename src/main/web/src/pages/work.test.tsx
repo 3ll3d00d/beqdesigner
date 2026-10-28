@@ -372,6 +372,50 @@ describe('executions', () => {
     expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument()
   })
 
+  it('says how it ran: its titles by outcome, why they failed, each designer and each stage\'s times', async () => {
+    const figures = (mean: number) => ({ count: 2, mean, p50: mean, p90: mean, max: mean })
+    server.use(http.get('/v1/executions/ex-1', () => json(runExecution({ statistics: {
+                 outcomes: { designed: 2, declined: 1, failed: 1 }, failures: [{ reason: 'bad rip', count: 1 }], skips: [],
+                 designers: [{ endpoint: 'http://one', release: '0.3.1', version: '8', designed: 2, declined: 1, failed: 0,
+                               seconds: figures(75) },
+                             { endpoint: 'http://two', release: '0.2.12', version: '7', designed: 0, declined: 0, failed: 0,
+                               seconds: null }],
+                 designers_differ: true, wall_seconds: 3600, per_hour: 93,
+                 stages: { waiting: figures(20), designer: figures(75) },
+                 slowest: [{ id: 'a', title: 'Alien', outcome: 'designed', reason: '', designer_seconds: 196,
+                             endpoint: 'http://one', release: '0.3.1', version: '8' }] } }))),
+               http.get('/v1/executions/ex-1/log', () => json([])),
+               http.get('/v1/executions/ex-1/titles', () => json({ titles: [
+                 { id: 'a', title: 'Alien', outcome: 'designed', reason: '', endpoint: '', release: '', version: '' },
+                 { id: 'c', title: 'Cube', outcome: 'failed', reason: 'bad rip', endpoint: '', release: '', version: '' }] })))
+    renderApp('/executions/ex-1')
+
+    const section = await screen.findByRole('region', { name: 'How it ran' })
+    expect(within(section).getByText(/Took 1 h 0 min, 93 titles an hour/)).toBeInTheDocument()
+    const outcomes = within(section).getByRole('list', { name: 'Outcomes' })
+    expect(within(outcomes).getAllByRole('listitem').filter((li) => li.parentElement === outcomes).map((li) =>
+      li.querySelector('summary')!.textContent)).toEqual(['Designed: 2', 'Declined by the designer: 1', 'Failed: 1'])
+    await userEvent.click(within(outcomes).getByText('Failed: 1'))
+    expect(await within(outcomes).findByRole('link', { name: 'Cube' })).toHaveAttribute('href', '/titles/c')
+    expect(within(section).getByRole('table', { name: 'Why titles failed' })).toHaveTextContent('bad rip1')
+    expect(within(section).getByRole('alert')).toHaveTextContent('more than one release or design version')
+    const designers = within(section).getByRole('table', { name: 'Designers' })
+    expect(within(designers).getAllByRole('row')[1]!.textContent)
+      .toBe('http://one0.3.18210' + '1 min 15 s'.repeat(4))
+    const stages = within(section).getByRole('table', { name: 'Stage times' })
+    expect(within(stages).getAllByRole('row').slice(1).map((r) => r.firstElementChild!.textContent))
+      .toEqual(['Waiting for the designer', 'At the designer'])
+    expect(within(section).getByText(/at the designer 3 min 16 s, on http:\/\/one/)).toBeInTheDocument()
+  })
+
+  it("sums a job's titles by outcome over its executions", async () => {
+    server.use(http.get('/v1/jobs/job-1', () => json(runJob({ outcomes: { designed: 728, declined: 16 } }))))
+    renderApp('/jobs/job-1')
+    await screen.findByText('Does')
+    const term = screen.getAllByText('Titles').find((e) => e.tagName === 'DT')!   // not the Titles tab
+    expect(term.nextElementSibling).toHaveTextContent('designed 728, declined by the designer 16 (over the executions kept)')
+  })
+
   it('says a stopped run left its titles for its job, not that it was cancelled', async () => {
     server.use(http.get('/v1/executions/ex-1', () => json(runExecution({
                  state: 'stopped', stopped_because: 'window', result: runResult({ cancelled: true, not_run: ['c', 'd'] }) }))),

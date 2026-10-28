@@ -595,8 +595,25 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** One execution */
+        /** One execution, with how it ran (its statistics) */
         get: operations["execution_v1_executions__execution_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/executions/{execution_id}/titles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** An execution's titles, each with its outcome, its stage times and the designer that designed it */
+        get: operations["execution_titles_v1_executions__execution_id__titles_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -758,6 +775,8 @@ export interface components {
              * @description A queued execution whose window is closed: when it next opens.
              */
             waiting_until?: string | null;
+            /** @description How it ran: on GET /v1/executions/{id} only. */
+            statistics?: components["schemas"]["ExecutionStatistics"] | null;
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -827,6 +846,13 @@ export interface components {
              * @description Why it is done, when it ended by itself (a recurring job whose ids are all done).
              */
             ended?: string | null;
+            /**
+             * Outcomes
+             * @description Its titles by outcome, summed over the executions kept: on GET /v1/jobs/{id} only.
+             */
+            outcomes?: {
+                [key: string]: number;
+            } | null;
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -1274,6 +1300,29 @@ export interface components {
              */
             designer_release?: string | null;
         };
+        /** DesignerFiguresView */
+        DesignerFiguresView: {
+            /** Endpoint */
+            endpoint: string;
+            /**
+             * Release
+             * @description The release its /health named, when the design was sent; empty if it named none.
+             */
+            release: string;
+            /**
+             * Version
+             * @description The design version it named.
+             */
+            version: string;
+            /** Designed */
+            designed: number;
+            /** Declined */
+            declined: number;
+            /** Failed */
+            failed: number;
+            /** @description Each design at the designer. */
+            seconds?: components["schemas"]["StageFigures"] | null;
+        };
         /** DesignerStatus */
         DesignerStatus: {
             /** Name */
@@ -1390,6 +1439,113 @@ export interface components {
          * @enum {string}
          */
         ExecutionState: "queued" | "running" | "succeeded" | "failed" | "cancelled" | "stopped" | "interrupted";
+        /**
+         * ExecutionStatistics
+         * @description How an execution ran (design/jobs-and-executions.md §2.3); a running one's grow as titles finish.
+         */
+        ExecutionStatistics: {
+            /**
+             * Outcomes
+             * @description Titles by outcome: designed, declined, extracted, already_done, failed, unavailable, skipped, not_reached (only those with any).
+             */
+            outcomes: {
+                [key: string]: number;
+            };
+            /**
+             * Failures
+             * @description Why titles failed or were unavailable, grouped, most first.
+             */
+            failures: components["schemas"]["ReasonCount"][];
+            /**
+             * Skips
+             * @description Why titles were skipped, grouped, most first.
+             */
+            skips: components["schemas"]["ReasonCount"][];
+            /**
+             * Designers
+             * @description Each endpoint that designed for it, with the release and design version it named.
+             */
+            designers: components["schemas"]["DesignerFiguresView"][];
+            /**
+             * Designers Differ
+             * @description Its designs came from more than one release or design version.
+             */
+            designers_differ: boolean;
+            /** Wall Seconds */
+            wall_seconds?: number | null;
+            /**
+             * Per Hour
+             * @description Titles reached an hour.
+             */
+            per_hour?: number | null;
+            /**
+             * Stages
+             * @description extract, waiting (for a design slot), designer (the design itself) and writing (its result): seconds a title.
+             */
+            stages: {
+                [key: string]: components["schemas"]["StageFigures"];
+            };
+            /**
+             * Slowest
+             * @description The titles in hand longest.
+             */
+            slowest: components["schemas"]["ExecutionTitle"][];
+        };
+        /** ExecutionTitle */
+        ExecutionTitle: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "designed" | "declined" | "extracted" | "already_done" | "failed" | "unavailable" | "skipped" | "not_reached";
+            /**
+             * Reason
+             * @description Why it failed, was unavailable, or was skipped.
+             * @default
+             */
+            reason: string;
+            /** Extract Seconds */
+            extract_seconds?: number | null;
+            /**
+             * Waiting Seconds
+             * @description From waiting for a design slot to the designer being sent it.
+             */
+            waiting_seconds?: number | null;
+            /**
+             * Designer Seconds
+             * @description At the designer.
+             */
+            designer_seconds?: number | null;
+            /**
+             * Writing Seconds
+             * @description From the designer's answer to the title's end in the run.
+             */
+            writing_seconds?: number | null;
+            /**
+             * Endpoint
+             * @default
+             */
+            endpoint: string;
+            /**
+             * Release
+             * @default
+             */
+            release: string;
+            /**
+             * Version
+             * @default
+             */
+            version: string;
+        };
+        /** ExecutionTitles */
+        ExecutionTitles: {
+            /** Titles */
+            titles: components["schemas"]["ExecutionTitle"][];
+        };
         /**
          * ExtractProgressEvent
          * @description How far ffmpeg has got extracting a title (one every 5 seconds or so, and the last).
@@ -2049,6 +2205,13 @@ export interface components {
             /** Checks */
             checks: components["schemas"]["Check"][];
         };
+        /** ReasonCount */
+        ReasonCount: {
+            /** Reason */
+            reason: string;
+            /** Count */
+            count: number;
+        };
         /** RepoCommit */
         RepoCommit: {
             /** Repo */
@@ -2332,6 +2495,8 @@ export interface components {
              * @description A queued execution whose window is closed: when it next opens.
              */
             waiting_until?: string | null;
+            /** @description How it ran: on GET /v1/executions/{id} only. */
+            statistics?: components["schemas"]["ExecutionStatistics"] | null;
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -2401,6 +2566,13 @@ export interface components {
              * @description Why it is done, when it ended by itself (a recurring job whose ids are all done).
              */
             ended?: string | null;
+            /**
+             * Outcomes
+             * @description Its titles by outcome, summed over the executions kept: on GET /v1/jobs/{id} only.
+             */
+            outcomes?: {
+                [key: string]: number;
+            } | null;
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -2631,6 +2803,8 @@ export interface components {
              * @description A queued execution whose window is closed: when it next opens.
              */
             waiting_until?: string | null;
+            /** @description How it ran: on GET /v1/executions/{id} only. */
+            statistics?: components["schemas"]["ExecutionStatistics"] | null;
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -2700,6 +2874,13 @@ export interface components {
              * @description Why it is done, when it ended by itself (a recurring job whose ids are all done).
              */
             ended?: string | null;
+            /**
+             * Outcomes
+             * @description Its titles by outcome, summed over the executions kept: on GET /v1/jobs/{id} only.
+             */
+            outcomes?: {
+                [key: string]: number;
+            } | null;
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -2836,6 +3017,25 @@ export interface components {
             last_error: string;
             /** Item Count */
             item_count: number;
+        };
+        /** StageFigures */
+        StageFigures: {
+            /**
+             * Count
+             * @description How many titles the figures are over.
+             */
+            count: number;
+            /**
+             * Mean
+             * @description Seconds.
+             */
+            mean: number;
+            /** P50 */
+            p50: number;
+            /** P90 */
+            p90: number;
+            /** Max */
+            max: number;
         };
         /**
          * StateEvent
@@ -5774,6 +5974,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ScanExecution"] | components["schemas"]["RunExecution"] | components["schemas"]["AcceptExecution"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    execution_titles_v1_executions__execution_id__titles_get: {
+        parameters: {
+            query?: {
+                outcome?: string | null;
+            };
+            header?: never;
+            path: {
+                execution_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExecutionTitles"];
                 };
             };
             /** @description Unauthorized */

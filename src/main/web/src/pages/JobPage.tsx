@@ -8,6 +8,7 @@ import { cleanFilter, type Needs, type TitleFilter } from '../api/filter'
 import { useCancelExecution, useDefaultWindow, useEditJob, useExecutionEvents, useExecutions, useJob, useJobAction,
   useStatus, type Execution, type Job } from '../api/hooks'
 import { EveryField, type Every } from '../components/EveryField'
+import { OUTCOME_WORDS } from '../components/ExecutionStatistics'
 import { FilterForm } from '../components/FilterForm'
 import { describeEvery, describeExecution, describeRequest, ExecutionProgress, JobStateBadge, StateBadge, stoppedBecause }
   from '../components/JobBits'
@@ -142,6 +143,9 @@ export function JobPage() {
             {data.progress.total != null && <> of {data.progress.total.toLocaleString()}</>} done
             {data.remaining != null && data.state !== 'done' && <span className="muted"> ({count(data.remaining, 'title')} left)</span>}</dd></>}
           {data.last_skip && <><dt>Last skipped</dt><dd>{data.last_skip}</dd></>}
+          {data.outcomes && Object.keys(data.outcomes).length > 0 && <><dt>Titles</dt>
+            <dd>{Object.entries(data.outcomes).map(([o, n]) => `${(OUTCOME_WORDS[o] ?? o).toLowerCase()} ${n.toLocaleString()}`)
+              .join(', ')} <span className="muted">(over the executions kept)</span></dd></>}
           <dt>Made</dt><dd>{when(data.created_at)}</dd>
         </dl>
       )}

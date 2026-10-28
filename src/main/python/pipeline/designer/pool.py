@@ -22,7 +22,9 @@ How many designs an endpoint is sent at once is its `parallel` in the profile, o
 used to the full within a minute, and `capacity` (how many designs a run sends at once) counts only the endpoints that are up.
 
 What each endpoint is designing now is in `states()`: a caller names the title it designs with `designing()` around the
-call, and the pool keeps it against the endpoint for as long as the design is out.
+call, and the pool keeps it against the endpoint for as long as the design is out. Each call that reaches an endpoint is
+reported as a `designer_call` execution event (the endpoint, the release and design version its last /health named, when
+it was sent and answered, and whether it designed, declined or failed), which an execution's statistics are made from.
 
 A run keeps more designs in hand than the pool has slots (TODO IG), so that the next title's request is ready when a
 slot comes free rather than prepared only then. A design waiting for a slot gives up, with DesignNotStarted, when the
@@ -38,8 +40,10 @@ from typing import Callable, Dict, Iterator, List, Optional, Sequence, Tuple
 
 import requests
 
+from model.execution_events import emit_execution_event
 from pipeline.designer.contract import DesignRequest, DesignResponse
 from pipeline.designer.http_binding import DesignerUnavailable, reported_parallel
+from pipeline.designer.identity import identity_from_health
 
 logger = logging.getLogger('pipeline.designer.pool')
 
@@ -107,6 +111,8 @@ class PoolEndpoint:
     parallel: Optional[int] = None        # from the profile; None: what /health reports
     takes_sources: bool = False
     reported: Optional[int] = None        # `parallel` from its last /health
+    release: Optional[str] = None         # the release its last /health named
+    version: Optional[int] = None         # the design version its last /health named
     in_use: int = 0
     up: bool = False
     checked_at: Optional[float] = None
@@ -189,11 +195,15 @@ class DesignerPool:
             if named is not None:
                 with self._condition:
                     endpoint.active[id(call)] = Activity(named[0], named[1], self.wall_clock())
+            sent = self.wall_clock()
             try:
                 logger.info('%s: designing on %s', self.name, endpoint.url)
-                return endpoint.call(request, sources) if endpoint.takes_sources else endpoint.call(request)
+                response = endpoint.call(request, sources) if endpoint.takes_sources else endpoint.call(request)
+                self._report(endpoint, sent, 'declined' if getattr(response, 'decline_reason', None) else 'designed')
+                return response
             except Exception as error:
                 if not cannot_reach(error):
+                    self._report(endpoint, sent, 'failed')
                     raise
                 self._down(endpoint, str(error))
                 tried.add(endpoint.url)
@@ -235,6 +245,9 @@ class DesignerPool:
                         e.checking, e.checked_at, e.up, e.reason = False, self.clock(), not reason, reason or ''
                         if not reason:
                             e.reported = reported_parallel(body)
+                            identity = identity_from_health(e.url, body)
+                            e.release = identity.release if identity else None
+                            e.version = identity.version if identity else None
                     self._condition.notify_all()
                     continue
                 up = [e for e in candidates if e.up]
@@ -248,6 +261,12 @@ class DesignerPool:
                     return chosen
                 # every live endpoint is busy (or one is being asked): a release, or the next recheck, frees one
                 self._condition.wait(timeout=self.recheck_seconds)
+
+    def _report(self, endpoint: PoolEndpoint, sent: float, outcome: str) -> None:
+        ''' The call, as an execution event for the run that made it (nothing outside a run). '''
+        emit_execution_event('designer_call', message=f'{outcome} on {endpoint.url}', fields={
+            'endpoint': endpoint.url, 'release': endpoint.release, 'version': endpoint.version, 'sent': f'{sent:.3f}',
+            'answered': f'{self.wall_clock():.3f}', 'outcome': outcome})
 
     @staticmethod
     def _ask(endpoint: PoolEndpoint):

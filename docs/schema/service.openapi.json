@@ -4113,7 +4113,7 @@
         "tags": [
           "executions"
         ],
-        "summary": "One execution",
+        "summary": "One execution, with how it ran (its statistics)",
         "operationId": "execution_v1_executions__execution_id__get",
         "security": [
           {
@@ -4157,6 +4157,89 @@
                     }
                   },
                   "title": "Response Execution V1 Executions  Execution Id  Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/executions/{execution_id}/titles": {
+      "get": {
+        "tags": [
+          "executions"
+        ],
+        "summary": "An execution's titles, each with its outcome, its stage times and the designer that designed it",
+        "operationId": "execution_titles_v1_executions__execution_id__titles_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "execution_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Execution Id"
+            }
+          },
+          {
+            "name": "outcome",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Outcome"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecutionTitles"
                 }
               }
             }
@@ -4732,6 +4815,17 @@
             "title": "Waiting Until",
             "description": "A queued execution whose window is closed: when it next opens."
           },
+          "statistics": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExecutionStatistics"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How it ran: on GET /v1/executions/{id} only."
+          },
           "kind": {
             "type": "string",
             "const": "accept",
@@ -4929,6 +5023,21 @@
             ],
             "title": "Ended",
             "description": "Why it is done, when it ended by itself (a recurring job whose ids are all done)."
+          },
+          "outcomes": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcomes",
+            "description": "Its titles by outcome, summed over the executions kept: on GET /v1/jobs/{id} only."
           },
           "kind": {
             "type": "string",
@@ -5865,6 +5974,57 @@
         ],
         "title": "DesignerEndpointStatus"
       },
+      "DesignerFiguresView": {
+        "properties": {
+          "endpoint": {
+            "type": "string",
+            "title": "Endpoint"
+          },
+          "release": {
+            "type": "string",
+            "title": "Release",
+            "description": "The release its /health named, when the design was sent; empty if it named none."
+          },
+          "version": {
+            "type": "string",
+            "title": "Version",
+            "description": "The design version it named."
+          },
+          "designed": {
+            "type": "integer",
+            "title": "Designed"
+          },
+          "declined": {
+            "type": "integer",
+            "title": "Declined"
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed"
+          },
+          "seconds": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StageFigures"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Each design at the designer."
+          }
+        },
+        "type": "object",
+        "required": [
+          "endpoint",
+          "release",
+          "version",
+          "designed",
+          "declined",
+          "failed"
+        ],
+        "title": "DesignerFiguresView"
+      },
       "DesignerStatus": {
         "properties": {
           "name": {
@@ -6130,6 +6290,215 @@
           "interrupted"
         ],
         "title": "ExecutionState"
+      },
+      "ExecutionStatistics": {
+        "properties": {
+          "outcomes": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Outcomes",
+            "description": "Titles by outcome: designed, declined, extracted, already_done, failed, unavailable, skipped, not_reached (only those with any)."
+          },
+          "failures": {
+            "items": {
+              "$ref": "#/components/schemas/ReasonCount"
+            },
+            "type": "array",
+            "title": "Failures",
+            "description": "Why titles failed or were unavailable, grouped, most first."
+          },
+          "skips": {
+            "items": {
+              "$ref": "#/components/schemas/ReasonCount"
+            },
+            "type": "array",
+            "title": "Skips",
+            "description": "Why titles were skipped, grouped, most first."
+          },
+          "designers": {
+            "items": {
+              "$ref": "#/components/schemas/DesignerFiguresView"
+            },
+            "type": "array",
+            "title": "Designers",
+            "description": "Each endpoint that designed for it, with the release and design version it named."
+          },
+          "designers_differ": {
+            "type": "boolean",
+            "title": "Designers Differ",
+            "description": "Its designs came from more than one release or design version."
+          },
+          "wall_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wall Seconds"
+          },
+          "per_hour": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Per Hour",
+            "description": "Titles reached an hour."
+          },
+          "stages": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/StageFigures"
+            },
+            "type": "object",
+            "title": "Stages",
+            "description": "extract, waiting (for a design slot), designer (the design itself) and writing (its result): seconds a title."
+          },
+          "slowest": {
+            "items": {
+              "$ref": "#/components/schemas/ExecutionTitle"
+            },
+            "type": "array",
+            "title": "Slowest",
+            "description": "The titles in hand longest."
+          }
+        },
+        "type": "object",
+        "required": [
+          "outcomes",
+          "failures",
+          "skips",
+          "designers",
+          "designers_differ",
+          "stages",
+          "slowest"
+        ],
+        "title": "ExecutionStatistics",
+        "description": "How an execution ran (design/jobs-and-executions.md \u00a72.3); a running one's grow as titles finish. "
+      },
+      "ExecutionTitle": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "designed",
+              "declined",
+              "extracted",
+              "already_done",
+              "failed",
+              "unavailable",
+              "skipped",
+              "not_reached"
+            ],
+            "title": "Outcome"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason",
+            "description": "Why it failed, was unavailable, or was skipped.",
+            "default": ""
+          },
+          "extract_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extract Seconds"
+          },
+          "waiting_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Waiting Seconds",
+            "description": "From waiting for a design slot to the designer being sent it."
+          },
+          "designer_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Designer Seconds",
+            "description": "At the designer."
+          },
+          "writing_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Writing Seconds",
+            "description": "From the designer's answer to the title's end in the run."
+          },
+          "endpoint": {
+            "type": "string",
+            "title": "Endpoint",
+            "default": ""
+          },
+          "release": {
+            "type": "string",
+            "title": "Release",
+            "default": ""
+          },
+          "version": {
+            "type": "string",
+            "title": "Version",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "outcome"
+        ],
+        "title": "ExecutionTitle"
+      },
+      "ExecutionTitles": {
+        "properties": {
+          "titles": {
+            "items": {
+              "$ref": "#/components/schemas/ExecutionTitle"
+            },
+            "type": "array",
+            "title": "Titles"
+          }
+        },
+        "type": "object",
+        "required": [
+          "titles"
+        ],
+        "title": "ExecutionTitles"
       },
       "ExtractProgressEvent": {
         "properties": {
@@ -7678,6 +8047,24 @@
         ],
         "title": "Readiness"
       },
+      "ReasonCount": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reason",
+          "count"
+        ],
+        "title": "ReasonCount"
+      },
       "RepoCommit": {
         "properties": {
           "repo": {
@@ -8377,6 +8764,17 @@
             "title": "Waiting Until",
             "description": "A queued execution whose window is closed: when it next opens."
           },
+          "statistics": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExecutionStatistics"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How it ran: on GET /v1/executions/{id} only."
+          },
           "kind": {
             "type": "string",
             "const": "run",
@@ -8574,6 +8972,21 @@
             ],
             "title": "Ended",
             "description": "Why it is done, when it ended by itself (a recurring job whose ids are all done)."
+          },
+          "outcomes": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcomes",
+            "description": "Its titles by outcome, summed over the executions kept: on GET /v1/jobs/{id} only."
           },
           "kind": {
             "type": "string",
@@ -9126,6 +9539,17 @@
             "title": "Waiting Until",
             "description": "A queued execution whose window is closed: when it next opens."
           },
+          "statistics": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExecutionStatistics"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How it ran: on GET /v1/executions/{id} only."
+          },
           "kind": {
             "type": "string",
             "const": "scan",
@@ -9323,6 +9747,21 @@
             ],
             "title": "Ended",
             "description": "Why it is done, when it ended by itself (a recurring job whose ids are all done)."
+          },
+          "outcomes": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcomes",
+            "description": "Its titles by outcome, summed over the executions kept: on GET /v1/jobs/{id} only."
           },
           "kind": {
             "type": "string",
@@ -9665,6 +10104,41 @@
           "item_count"
         ],
         "title": "SourceStatus"
+      },
+      "StageFigures": {
+        "properties": {
+          "count": {
+            "type": "integer",
+            "title": "Count",
+            "description": "How many titles the figures are over."
+          },
+          "mean": {
+            "type": "number",
+            "title": "Mean",
+            "description": "Seconds."
+          },
+          "p50": {
+            "type": "number",
+            "title": "P50"
+          },
+          "p90": {
+            "type": "number",
+            "title": "P90"
+          },
+          "max": {
+            "type": "number",
+            "title": "Max"
+          }
+        },
+        "type": "object",
+        "required": [
+          "count",
+          "mean",
+          "p50",
+          "p90",
+          "max"
+        ],
+        "title": "StageFigures"
       },
       "StateEvent": {
         "properties": {

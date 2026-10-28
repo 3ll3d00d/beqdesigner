@@ -33,6 +33,7 @@ class ExecutionEvent:
     exit_code: Optional[int] = None
     current: Optional[int] = None
     total: Optional[int] = None
+    fields: Tuple[Tuple[str, str], ...] = ()   # small named values (a designer call's endpoint, release, times...)
 
 
 @dataclass(frozen=True)
@@ -76,14 +77,15 @@ def event_scope(*, title_id: Optional[str] = None, stage: Optional[str] = None) 
 
 def emit_execution_event(kind: str, *, message: str = '', command=(), stdout: str = '', stderr: str = '',
                          exit_code: Optional[int] = None, current: Optional[int] = None,
-                         total: Optional[int] = None) -> None:
+                         total: Optional[int] = None, fields: Optional[dict] = None) -> None:
     """Emit a structured event if a library run installed an observer in this context."""
     context = _CURRENT.get()
     if context is None:
         return
     context.emit(ExecutionEvent(
         context.run_id, context.title_id, context.stage, kind, time.time(), message,
-        tuple(str(part) for part in command), stdout, stderr, exit_code, current, total))
+        tuple(str(part) for part in command), stdout, stderr, exit_code, current, total,
+        tuple((str(k), str(v)) for k, v in (fields or {}).items() if v is not None)))
 
 
 # --- redaction: what is kept and shown of an event never carries a credential --------------------------------------
@@ -139,10 +141,11 @@ def event_text(event: ExecutionEvent) -> str:
 
 def redacted_event(event: ExecutionEvent) -> ExecutionEvent:
     ''' The event with its message, command and output redacted and each trimmed to MAX_EVENT_TEXT, fit to keep and show. '''
-    if not (event.stdout or event.stderr or event.message or event.command):
+    if not (event.stdout or event.stderr or event.message or event.command or event.fields):
         return event
     return ExecutionEvent(event.run_id, event.title_id, event.stage, event.kind, event.timestamp,
                           redact_text(event.message)[:MAX_EVENT_TEXT],
                           tuple(arg[:MAX_EVENT_TEXT] for arg in redact_argv(event.command)),
                           redact_text(event.stdout)[:MAX_EVENT_TEXT], redact_text(event.stderr)[:MAX_EVENT_TEXT],
-                          event.exit_code, event.current, event.total)
+                          event.exit_code, event.current, event.total,
+                          tuple((k, redact_text(v)[:MAX_EVENT_TEXT]) for k, v in event.fields))

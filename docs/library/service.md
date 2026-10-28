@@ -158,7 +158,8 @@ container's `TZ`), e.g. `"window": ["01:00-07:00"]` on `POST /v1/jobs`, `PATCH /
 | `POST /v1/jobs/{id}/run` | run a recurring job now; 409 while another execution runs or waits |
 | `GET /v1/titles`, `/v1/titles/{id}` | the titles a filter selects and what each needs, or one title |
 | `POST /v1/plan` | what a run would do, and what it would skip and why -- changing nothing |
-| `GET /v1/executions`, `/v1/executions/{id}` | the log: the running execution, each job's next one, and every one kept (`?job=`, `?state=`); one with its result |
+| `GET /v1/executions`, `/v1/executions/{id}` | the log: the running execution, each job's next one, and every one kept (`?job=`, `?state=`); one with its result and how it ran (`statistics`: titles by outcome, failure reasons grouped, each designer endpoint with its release, version, counts and times, each stage's mean, p50, p90 and max, the slowest titles) |
+| `GET /v1/executions/{id}/titles` | its titles, each with its outcome, its stage times and the designer endpoint, release and version that designed it (`?outcome=`) |
 | `GET /v1/executions/{id}/events` | follow an execution as it runs (Server-Sent Events) |
 | `GET /v1/executions/{id}/log` | what an execution has reported so far, as a list |
 | `POST /v1/executions/{id}/cancel` | cancel: a queued execution is dropped, a running one stops after the title in hand; a one-off job whose execution is cancelled is removed |

@@ -5,6 +5,7 @@ import { Link, useParams } from 'react-router'
 import type { Schemas } from '../api/client'
 import type { JobEvent } from '../api/events'
 import { useCancelExecution, useDefaultWindow, useExecution, useExecutionEvents, useExecutionLog, type Execution } from '../api/hooks'
+import { ExecutionStatistics } from '../components/ExecutionStatistics'
 import { describeExecution, describeRequest, ExecutionProgress, StateBadge, stoppedBecause } from '../components/JobBits'
 import { describeWindow } from '../components/WindowField'
 import { between, count, FINISHED_STATES, when } from '../format'
@@ -141,6 +142,7 @@ export function ExecutionPage() {
           {data.waiting_until && <span className="muted"> — waits for {when(data.waiting_until)}</span>}</dd>
       </dl>
       <ExecutionProgress execution={data} events={live.events} />
+      {data.statistics && <ExecutionStatistics executionId={data.id} statistics={data.statistics} live={running} />}
       <Outcome job={data} />
       <h2>Log</h2>
       {live.problem && <p role="alert" className="problem">Lost the live log: {live.problem}</p>}

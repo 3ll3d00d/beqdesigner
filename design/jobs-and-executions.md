@@ -1,6 +1,6 @@
 # Jobs and executions
 
-**Design, partly built** (TODO JE: steps 1, 2, 4 and 5 built; 3 and 6 not). Agreed with the user on 2026-10-27. It replaces the service's single schedule and its
+**Design, partly built** (TODO JE: steps 1-5 built; 6, the references and the archive, not). Agreed with the user on 2026-10-27. It replaces the service's single schedule and its
 one-record-per-request jobs with two things: a **job**, the definition of some work, and its **executions**, the runs
 that do it. When built, the lasting behaviour moves to [pipeline service §5 and §8](pipeline-service.md) and
 [job windows](job-windows.md), and this file is archived.
@@ -155,7 +155,13 @@ and no longer a `schedule`.
    persistence, the migration. Replaces `AutoScheduler`. Tests with a fake execute and clock. **Done**, together with
    step 4's server half (below), since the old routes could not stand over the new model.
 3. Statistics (§2.3): the pool's per-call reports, the per-title records, the figures, persistence; tests over a
-   fake pool and the real `run_stages`.
+   fake pool and the real `run_stages`. **Done**: the pool reports each call as a `designer_call` execution event
+   (`ExecutionEvent.fields`: endpoint, release, version, sent, answered, outcome); the queue keeps a record per title
+   (`Execution.titles`, in `executions.json`); `pipeline/service/statistics.py` makes the figures; `GET
+   /v1/executions/{id}` carries them as `statistics` (the list does not), `GET /v1/executions/{id}/titles` lists the
+   titles, and `GET /v1/jobs/{id}` sums its titles by outcome (`outcomes`). The stages measured are extraction,
+   waiting for the designer (from waiting for a design slot to the designer being sent the request: the idle gap TODO
+   IG closes), at the designer, and writing the result. A job's figures are its outcome totals only, not its times.
 4. The routes and models (§4), `/v1/status`, the notifier, the OpenAPI document and `schema.d.ts`, `docker/smoke.py`
    and the user guide. **Done with step 2**; the browser (step 5) is built next, before step 3.
 5. The browser (§5). **Done**: Status lists the jobs, `/jobs/:id` is a job's page (edit, pause, run now, remove),

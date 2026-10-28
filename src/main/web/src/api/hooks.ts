@@ -78,6 +78,17 @@ export function useExecution(id: string) {
   })
 }
 
+/** An execution's titles, each with its outcome and stage times. */
+export function useExecutionTitles(id: string, enabled: boolean) {
+  const { client } = useAuth()
+  return useQuery({
+    queryKey: ['execution-titles', id],
+    queryFn: async () => unwrap(await client.GET('/v1/executions/{execution_id}/titles',
+                                                 { params: { path: { execution_id: id } } })).titles,
+    enabled,
+  })
+}
+
 export function useExecutionLog(id: string, enabled: boolean) {
   const { client } = useAuth()
   return useQuery({

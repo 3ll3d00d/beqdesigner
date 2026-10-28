@@ -46,6 +46,7 @@ IN_HAND_FROM = ('queued', 'stage_queued', 'stage_started')
 IN_HAND_UNTIL = ('title_completed', 'failed', 'skipped', 'cancelled')
 FINISHED = ('succeeded', 'failed', 'cancelled', 'stopped', 'interrupted')
 MAX_JOB_EVENTS = 500
+TITLE_ENDS = ('title_completed', 'failed', 'skipped', 'cancelled')   # a title's last event in a run
 FFMPEG_EVENT_INTERVAL = 5.0   # seconds between kept ffmpeg updates for a title: ffmpeg sends one every 0.5s
 HISTORY_FILE = 'executions.json'
 WINDOW_FILE = 'job-window.json'   # the default window
@@ -194,6 +195,9 @@ class Execution:
     remaining: Optional[tuple] = None    # stopped: the titles it had not started (None: unknown, so all of them)
     stopping: str = field(default='', repr=False)   # why it is to stop before its next title, while it runs
     shutting_down: bool = field(default=False, repr=False)   # the service stopped it: it ends interrupted
+    # what became of each title and when (design/jobs-and-executions.md §2.3): {id: {queued, extract_start, ...}}, kept
+    # apart from the bounded log so the statistics hold for a run of hundreds of titles
+    titles: Dict[str, Dict[str, Any]] = field(default_factory=dict, repr=False)
 
     @property
     def finished(self) -> bool:
@@ -214,7 +218,7 @@ def execution_to_dict(job: Execution) -> Dict[str, Any]:
             'result': _plain(job.result), 'error': job.error, 'progress': _plain(job.progress),
             'joined_to': job.joined_to, 'window': job.window, 'job_id': job.job_id, 'number': job.number,
             'stopped_because': job.stopped_because,
-            'remaining': list(job.remaining) if job.remaining is not None else None}
+            'remaining': list(job.remaining) if job.remaining is not None else None, 'titles': job.titles}
 
 
 def execution_from_dict(data: Dict[str, Any]) -> Execution:
@@ -225,7 +229,8 @@ def execution_from_dict(data: Dict[str, Any]) -> Execution:
                result=data.get('result'), error=data.get('error') or '', joined_to=data.get('joined_to'),
                window=data.get('window'), job_id=data.get('job_id'), number=data.get('number') or 0,
                stopped_because=data.get('stopped_because') or '',
-               remaining=tuple(data['remaining']) if data.get('remaining') is not None else None)
+               remaining=tuple(data['remaining']) if data.get('remaining') is not None else None,
+               titles=dict(data.get('titles') or {}))
 
 
 class ExecutionControl:
@@ -265,6 +270,34 @@ def _cancelled(result: Any) -> bool:
     if isinstance(result, dict):
         return bool((result.get('report') or {}).get('cancelled'))
     return bool(getattr(result, 'cancelled', False))
+
+
+def _note(execution: Execution, event: ExecutionEvent) -> None:
+    ''' What the event says of its title's part in the run: when it was queued, each stage's start and end, the designer
+    call, how it ended. '''
+    record = execution.titles.setdefault(event.title_id, {})
+    at, kind, stage = round(event.timestamp, 3), event.kind, event.stage
+    if kind == 'queued':
+        record.setdefault('queued', at)
+        if event.message:
+            record['title'] = event.message[:200]
+    elif kind == 'stage_queued' and stage == 'design':
+        record.setdefault('design_queued', at)
+    elif kind == 'stage_started' and stage in ('extract', 'design'):
+        record.setdefault(f'{stage}_start', at)
+    elif kind == 'stage_completed' and stage in ('extract', 'design'):
+        record[f'{stage}_end'] = at
+    elif kind == 'designer_call':
+        call = dict(event.fields)
+        record.update({k: call[k] for k in ('endpoint', 'release', 'version') if k in call})
+        for k in ('sent', 'answered'):
+            if k in call:
+                record[k] = float(call[k])
+        record['call'] = call.get('outcome', '')
+    elif kind in TITLE_ENDS:
+        record['ended'], record['end'] = at, kind
+        if event.message:
+            record['message'] = event.message[:300]
 
 
 Execute = Callable[[Execution, ExecutionControl], Any]
@@ -722,6 +755,8 @@ class ExecutionQueue:
             return   # an ffmpeg progress event repeats the ffmpeg update _on_progress already kept (or let go)
         safe = redacted_event(event)
         with self.__lock:
+            if safe.title_id:
+                _note(job, safe)
             if event.title_id and event.kind in IN_HAND_FROM:
                 job.in_hand[event.title_id] = event.stage or job.in_hand.get(event.title_id, '')
             elif event.title_id and event.kind in IN_HAND_UNTIL:

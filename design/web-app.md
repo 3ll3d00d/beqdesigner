@@ -95,7 +95,7 @@ message. Tests: `test_pipeline_library_decide.py`.
     review; *idle* when nothing is out; a designer with no endpoints is one row saying why) with the warning when the
     endpoints up would design differently. The scan action is also on Titles. Polls `/v1/status` every 10 s.
   - *A job* (`/jobs/:id`): its name, state (and why it ended), what it does, once or every N, its window, its next
-    start, a one-off's progress over its executions and the titles left; its execution running now, followed live, with
+    start, a one-off's progress over its executions and the titles left, its titles by outcome over the executions kept; its execution running now, followed live, with
     *Cancel* (which removes a one-off job, and says so); the executions before; and *Pause*/*Resume*, *Run now*,
     *Edit…* (name and window; a recurring job's interval, filter, through and retry failed) and *Remove…* (asked first).
     `/jobs` goes to Status.
@@ -103,7 +103,10 @@ message. Tests: `test_pipeline_library_decide.py`.
     filtered by job and state, each with its job's name and which run of it, why it stopped, and what a run designed
     and failed. An execution's page: its state (and why it stopped), its job, what it was asked, its times and window,
     the result (counts; failures, unavailable, failed earlier, not published, designed and skipped titles, each linked to
-    its review; a stopped run's titles left for its job's next run), why it failed, its log (live while it runs) and
+    its review; a stopped run's titles left for its job's next run), *How it ran* (its time and titles an hour, its
+    titles by outcome, each opening the titles from `GET /v1/executions/{id}/titles`, why titles failed or were
+    skipped, each designer endpoint with its release, version, counts and times -- warning when they differ -- each
+    stage's times, and the slowest titles), why it failed, its log (live while it runs) and
     Cancel (Drop for a queued one; "Stopping after the title in hand" for a running one). The window field on *New job*,
     *Edit…* and *Revise*, and the default on Status: [job windows](job-windows.md) §5.
   - *New job*: a name, then a scan of chosen sources, or a run: the filter form (needs, search, source, kind, year, new
