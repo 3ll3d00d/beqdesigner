@@ -1,6 +1,6 @@
 # Jobs and executions
 
-**Design, not built** (TODO JE). Agreed with the user on 2026-10-27. It replaces the service's single schedule and its
+**Design, partly built** (TODO JE: steps 1, 2 and 4 built; 3, 5 and 6 not). Agreed with the user on 2026-10-27. It replaces the service's single schedule and its
 one-record-per-request jobs with two things: a **job**, the definition of some work, and its **executions**, the runs
 that do it. When built, the lasting behaviour moves to [pipeline service §5 and §8](pipeline-service.md) and
 [job windows](job-windows.md), and this file is archived.
@@ -152,13 +152,27 @@ and no longer a `schedule`.
 1. Rename `Job`/`JobManager` to `Execution`/`ExecutionQueue` internally, no behaviour change. **Done.**
 2. `JobBook`: jobs, recurrence, windows (an execution stops at the window's end; no more pause/resume inside one),
    pause/resume/edit/run now/remove, cancel's effect on a one-off, the designer-down skip and ending by itself,
-   persistence, the migration. Replaces `AutoScheduler`. Tests with a fake execute and clock.
+   persistence, the migration. Replaces `AutoScheduler`. Tests with a fake execute and clock. **Done**, together with
+   step 4's server half (below), since the old routes could not stand over the new model.
 3. Statistics (§2.3): the pool's per-call reports, the per-title records, the figures, persistence; tests over a
    fake pool and the real `run_stages`.
 4. The routes and models (§4), `/v1/status`, the notifier, the OpenAPI document and `schema.d.ts`, `docker/smoke.py`
-   and the user guide.
+   and the user guide. **Done with step 2**; the browser (step 5) is built next, before step 3.
 5. The browser (§5).
 6. The references (pipeline-service §5, §8, job windows, web-app), the archive.
+
+**Built differently from the design above (step 2):**
+
+- A cancelled one-off's job is `removed`, not `paused` (the user's decision, 2026-10-28).
+- A one-off is executed only while its window is open: the job book starts it then, rather than queueing an execution
+  that waits. So a job waiting for its window has no execution yet, its `next_at` says when, and the Executions log's
+  `next` lists it; `POST /v1/revise` with `run` returns `execution: null` for one made while its window is closed.
+- A stopped execution keeps the titles it had not started (`remaining`); its job takes them from there.
+- The service stopping leaves what was queued or running `interrupted` (not cancelled), and an execution that had
+  finished its work when the stop came keeps its own outcome; a one-off whose execution was interrupted carries on.
+- An execution that stops or is interrupted sends no notification; `NotifyLinks.job` names the execution.
+- A job done or removed is kept while any of its executions is in the history, then forgotten.
+- `POST /v1/jobs` answers 201 with the job; `PUT /v1/titles/{id}/stream` answers 201 with the one-off job it made.
 
 ## 7. Done when
 

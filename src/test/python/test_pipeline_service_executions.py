@@ -55,7 +55,7 @@ def _saved_jobs(state_dir):
     the file in as the test opens it (PermissionError), and a test reads it without the manager's lock.
     '''
     try:
-        return {job['id']: job for job in json.loads((state_dir / 'jobs.json').read_text())}
+        return {job['id']: job for job in json.loads((state_dir / 'executions.json').read_text())}
     except (PermissionError, FileNotFoundError, ValueError):
         return None
 
@@ -217,20 +217,20 @@ def test_the_history_is_kept_on_disk_and_a_job_cut_off_by_a_stop_is_interrupted(
 
     def saved_states():
         try:
-            return [(j['id'], j['state']) for j in json.loads((tmp_path / 'jobs.json').read_text())]
+            return [(j['id'], j['state']) for j in json.loads((tmp_path / 'executions.json').read_text())]
         except PermissionError:   # Windows: the manager's os.replace is swapping the file in as the test reads it
             return None
 
     # the job's state reads 'running' a moment before the history holding it is written (the test reads it without
     # the manager's lock), so wait for the file itself
     _until(lambda: saved_states() == [(done.id, 'succeeded'), (cut_off.id, 'running')])
-    saved = json.loads((tmp_path / 'jobs.json').read_text())
+    saved = json.loads((tmp_path / 'executions.json').read_text())
     assert saved[1]['request']['selection']['year'] == '2026' and saved[1]['request']['through'] == 'extract'
 
     restarted = managers(lambda job, control: 'ok', state_dir=str(tmp_path))   # as if the process had died
 
     back = restarted.get(cut_off.id)
-    assert back.state == 'interrupted' and 'stopped while the job was running' in back.error
+    assert back.state == 'interrupted' and 'stopped while it was running' in back.error
     assert restarted.get(done.id).state == 'succeeded' and restarted.get(done.id).request == {'sources': ['films'],
                                                                                             'allow_empty': False}
     gate.release.set()
@@ -247,12 +247,12 @@ def test_only_the_latest_finished_jobs_are_kept(managers, tmp_path):
 
 
 def test_a_damaged_history_is_ignored(managers, tmp_path):
-    (tmp_path / 'jobs.json').write_text('{not json')
+    (tmp_path / 'executions.json').write_text('{not json')
 
     assert managers(lambda job, control: 'ok', state_dir=str(tmp_path)).jobs() == []
 
 
-def test_stopping_cancels_what_waits_and_refuses_new_work(managers):
+def test_stopping_interrupts_what_waits_and_refuses_new_work(managers):
     gate = Gate()
     manager = managers(gate)
     running, waiting = manager.submit(ScanRequest()), manager.submit(ScanRequest())
@@ -261,7 +261,7 @@ def test_stopping_cancels_what_waits_and_refuses_new_work(managers):
 
     manager.stop(grace_seconds=5)
 
-    assert waiting.state == 'cancelled' and running.finished
+    assert waiting.state == 'interrupted' and running.state == 'succeeded'   # it had done its work when the stop came
     with pytest.raises(RuntimeError, match='stopping'):
         manager.submit(ScanRequest())
 

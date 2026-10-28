@@ -17,6 +17,7 @@ from pipeline.service.impact import ImpactChecker
 from pipeline.service.executions import ExecutionQueue
 from pipeline.service.models import Check
 from pipeline.service.work import executor, job_failed
+from service_http import first_execution, make_job
 
 TOKEN = 'test-token'
 AUTH = {'Authorization': f'Bearer {TOKEN}'}
@@ -73,10 +74,7 @@ def library(tmp_path, designer, monkeypatch):
 
 
 def _scan(client):
-    response = client.post('/v1/jobs/scan', json={}, headers=AUTH)
-    assert response.status_code == 202, response.text
-    location = response.headers['location']
-    _until(lambda: client.get(location, headers=AUTH).json()['state'] not in ('queued', 'running'))
+    first_execution(client, AUTH, make_job(client, AUTH, 'scan'))
 
 
 def _checked(client, body=None):

@@ -72,41 +72,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/schedule": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Automatic extract/design schedule */
-        get: operations["get_schedule_v1_schedule_get"];
-        /** Save and enable or pause the schedule */
-        put: operations["put_schedule_v1_schedule_put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/schedule/trigger": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Run one automatic tick now */
-        post: operations["trigger_schedule_v1_schedule_trigger_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/titles": {
         parameters: {
             query?: never;
@@ -304,7 +269,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Extract and design a title from another audio stream: a run job */
+        /** Extract and design a title from another audio stream: a one-off job */
         put: operations["choose_v1_titles__title_id__stream_put"];
         post?: never;
         delete?: never;
@@ -518,57 +483,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/jobs/scan": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** List the sources again */
-        post: operations["submit_scan_v1_jobs_scan_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/jobs/run": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Extract, design (and, if allowed, publish or commit) the titles a filter selects */
-        post: operations["submit_run_v1_jobs_run_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/jobs/accept": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Accept the designer's top pick for confident titles (needs allow_repository_writes, unless a dry run) */
-        post: operations["submit_accept_v1_jobs_accept_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/jobs": {
         parameters: {
             query?: never;
@@ -576,10 +490,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Jobs, newest first */
+        /** The jobs: what is done, when, newest first */
         get: operations["jobs_v1_jobs_get"];
         put?: never;
-        post?: never;
+        /** Make a job: once (queued at once) or every N minutes, within its window */
+        post: operations["create_job_v1_jobs_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -597,13 +512,15 @@ export interface paths {
         get: operations["job_v1_jobs__job_id__get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** Remove a job: nothing more starts, and its running execution stops before its next title */
+        delete: operations["remove_job_v1_jobs__job_id__delete"];
         options?: never;
         head?: never;
-        patch?: never;
+        /** Change a job: its name and window; a recurring job's interval and run too */
+        patch: operations["edit_job_v1_jobs__job_id__patch"];
         trace?: never;
     };
-    "/v1/jobs/{job_id}/cancel": {
+    "/v1/jobs/{job_id}/pause": {
         parameters: {
             query?: never;
             header?: never;
@@ -612,15 +529,15 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Cancel: a queued or paused job is dropped, a running one stops before its next title */
-        post: operations["cancel_v1_jobs__job_id__cancel_post"];
+        /** Pause a job: nothing more starts, and its running execution stops before its next title */
+        post: operations["pause_job_v1_jobs__job_id__pause_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/v1/jobs/{job_id}/window": {
+    "/v1/jobs/{job_id}/resume": {
         parameters: {
             query?: never;
             header?: never;
@@ -628,9 +545,77 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Change a queued, running or paused job's window (design/job-windows.md) */
-        put: operations["set_job_window_v1_jobs__job_id__window_put"];
+        put?: never;
+        /** Resume a job: a one-off carries on with what it had left, a recurring one is due now */
+        post: operations["resume_job_v1_jobs__job_id__resume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/jobs/{job_id}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run a recurring job now, if nothing else is running or waiting */
+        post: operations["run_job_v1_jobs__job_id__run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/executions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The log: the running execution, each job's next one, and every one kept, newest first */
+        get: operations["executions_v1_executions_get"];
+        put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/executions/{execution_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One execution */
+        get: operations["execution_v1_executions__execution_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/executions/{execution_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel: a queued execution is dropped, a running one stops before its next title. A one-off job whose execution is cancelled is removed */
+        post: operations["cancel_v1_executions__execution_id__cancel_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -655,15 +640,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/jobs/{job_id}/log": {
+    "/v1/executions/{execution_id}/log": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** What the job has reported so far (the last 500 events) */
-        get: operations["log_v1_jobs__job_id__log_get"];
+        /** What the execution has reported so far (the last 500 events) */
+        get: operations["log_v1_executions__execution_id__log_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -672,15 +657,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/jobs/{job_id}/events": {
+    "/v1/executions/{execution_id}/events": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Follow a job: its events as they happen (Server-Sent Events) */
-        get: operations["events_v1_jobs__job_id__events_get"];
+        /** Follow an execution: its events as they happen (Server-Sent Events) */
+        get: operations["events_v1_executions__execution_id__events_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -714,12 +699,30 @@ export interface webhooks {
 }
 export interface components {
     schemas: {
-        /** AcceptJob */
-        AcceptJob: {
+        /** AcceptExecution */
+        AcceptExecution: {
             /** Id */
             id: string;
+            /**
+             * Job Id
+             * @description The job it is an execution of.
+             */
+            job_id?: string | null;
+            /**
+             * Job Name
+             * @description That job's name, while the job is kept.
+             */
+            job_name?: string | null;
+            /**
+             * Number
+             * @description Which of its job's executions it is: 1, 2, ...
+             * @default 0
+             */
+            number: number;
             origin: components["schemas"]["JobOrigin"];
-            state: components["schemas"]["JobState"];
+            state: components["schemas"]["ExecutionState"];
+            /** @description stopped: its window closed, or its job was paused or removed. Its job carries on with the titles it had not started. */
+            stopped_because?: components["schemas"]["StoppedBecause"] | null;
             /**
              * Submitted At
              * Format: date-time
@@ -732,17 +735,17 @@ export interface components {
             progress: components["schemas"]["Progress"] | null;
             /**
              * Error
-             * @description Why the job itself failed (a title that failed is in the result).
+             * @description Why it failed (a title that failed is in the result).
              */
             error?: string | null;
             /**
              * Joined To
-             * @description The run job this one joined: its titles went into that run, and it ends when that run does, with its result.
+             * @description The execution this one joined: its titles went into that run, and it ends when that run does, with its result.
              */
             joined_to?: string | null;
             /**
              * Window
-             * @description Its window as given (null: the default's; []: any time).
+             * @description Its job's window (null: the default's; []: any time).
              */
             window?: string[] | null;
             /**
@@ -752,21 +755,9 @@ export interface components {
             window_open?: boolean | null;
             /**
              * Waiting Until
-             * @description A queued or paused job whose window is closed: when it next opens, and the job is taken or carries on.
+             * @description A queued execution whose window is closed: when it next opens.
              */
             waiting_until?: string | null;
-            /**
-             * Parts
-             * @description How many times it has been started: more than one once paused and resumed.
-             * @default 0
-             */
-            parts: number;
-            /**
-             * Paused At
-             * @description When it paused, each time its window closed while it ran.
-             * @default []
-             */
-            paused_at: string[];
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -775,13 +766,101 @@ export interface components {
             request: components["schemas"]["AcceptJobRequest"];
             result: components["schemas"]["AcceptResult"] | null;
         };
-        /** AcceptJobRequest */
-        AcceptJobRequest: {
+        /** AcceptJob */
+        AcceptJob: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Every
+             * @description Minutes from the end of one execution to the start of the next (at least 5); null: once.
+             */
+            every?: number | null;
             /**
              * Window
-             * @description The times of day it may run: daily "HH:MM-HH:MM" ranges in the service's time zone (one may cross midnight, 22:00-06:00); outside them it waits, and a run pauses between titles and carries on when they next open. null: the default window (/v1/job-window); []: any time.
+             * @description Its window as given (null: the default's; []: any time).
              */
             window?: string[] | null;
+            state: components["schemas"]["JobState"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Next At
+             * @description When its next execution may start; null while paused, done, removed or running.
+             */
+            next_at?: string | null;
+            /** @description A one-off: over every execution so far. */
+            progress?: components["schemas"]["JobProgress"] | null;
+            /**
+             * Remaining
+             * @description A one-off run that stopped: titles its next execution does.
+             */
+            remaining?: number | null;
+            /**
+             * Executions
+             * @description How many it has had.
+             */
+            executions: number;
+            /**
+             * Last Execution
+             * @description The id of its latest execution.
+             */
+            last_execution?: string | null;
+            /**
+             * Running Execution
+             * @description Its execution queued or running.
+             */
+            running_execution?: (components["schemas"]["ScanExecution"] | components["schemas"]["RunExecution"] | components["schemas"]["AcceptExecution"]) | null;
+            /** Last Finished At */
+            last_finished_at?: string | null;
+            /**
+             * Last Skip
+             * @description A recurring job: why its last due tick did not start one (busy, or the designer did not answer).
+             */
+            last_skip?: string | null;
+            /**
+             * Ended
+             * @description Why it is done, when it ended by itself (a recurring job whose ids are all done).
+             */
+            ended?: string | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "accept";
+            request: components["schemas"]["AcceptJobRequest"];
+        };
+        /** AcceptJobCreate */
+        AcceptJobCreate: {
+            /**
+             * Name
+             * @description What a person calls it; empty: what it does.
+             * @default
+             */
+            name: string;
+            /**
+             * Every
+             * @description Minutes from the end of one execution to the start of the next (at least 5); null: once. Only a run through extract or design recurs.
+             */
+            every?: number | null;
+            /**
+             * Window
+             * @description The times of day it may run: daily "HH:MM-HH:MM" ranges in the service's time zone (one may cross midnight, 22:00-06:00); outside them it waits, and a running execution stops between titles: its job carries on when they next open. null: the default window (/v1/job-window); []: any time.
+             */
+            window?: string[] | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "accept";
+            request?: components["schemas"]["AcceptJobRequest"];
+        };
+        /** AcceptJobRequest */
+        AcceptJobRequest: {
             filter?: components["schemas"]["TitleFilter"];
             /**
              * Threshold
@@ -900,11 +979,6 @@ export interface components {
              */
             preferred: boolean;
         };
-        /**
-         * AutoThrough
-         * @enum {string}
-         */
-        AutoThrough: "extract" | "design";
         /**
          * Blocked
          * @description Why each decision is not offered now; empty when it is.
@@ -1293,6 +1367,29 @@ export interface components {
              */
             started_at: string;
         };
+        /** ExecutionList */
+        ExecutionList: {
+            /**
+             * Running
+             * @description The execution running now.
+             */
+            running?: (components["schemas"]["ScanExecution"] | components["schemas"]["RunExecution"] | components["schemas"]["AcceptExecution"]) | null;
+            /**
+             * Next
+             * @description Each active job's next execution, soonest first.
+             */
+            next?: components["schemas"]["NextExecution"][];
+            /**
+             * Executions
+             * @description Every execution kept, newest first (the running one included).
+             */
+            executions: (components["schemas"]["ScanExecution"] | components["schemas"]["RunExecution"] | components["schemas"]["AcceptExecution"])[];
+        };
+        /**
+         * ExecutionState
+         * @enum {string}
+         */
+        ExecutionState: "queued" | "running" | "succeeded" | "failed" | "cancelled" | "stopped" | "interrupted";
         /**
          * ExtractProgressEvent
          * @description How far ffmpeg has got extracting a title (one every 5 seconds or so, and the last).
@@ -1547,21 +1644,43 @@ export interface components {
          * @enum {string}
          */
         JobOrigin: "api" | "schedule";
+        /** JobProgress */
+        JobProgress: {
+            /**
+             * Done
+             * @description Title-stages done by its executions so far.
+             */
+            done: number;
+            /**
+             * Total
+             * @description How many its first execution set out to do.
+             */
+            total?: number | null;
+        };
         /**
          * JobState
          * @enum {string}
          */
-        JobState: "queued" | "running" | "paused" | "succeeded" | "failed" | "cancelled" | "interrupted";
+        JobState: "active" | "paused" | "done" | "removed";
         /**
-         * JobWindowUpdate
-         * @description A queued, running or paused job's new window.
+         * JobUpdate
+         * @description What changes: only the fields sent. A one-off's request is fixed; `every` and `request` are a recurring job's.
          */
-        JobWindowUpdate: {
+        JobUpdate: {
+            /** Name */
+            name?: string | null;
             /**
              * Window
-             * @description The times of day it may run: daily "HH:MM-HH:MM" ranges in the service's time zone (one may cross midnight, 22:00-06:00); outside them it waits, and a run pauses between titles and carries on when they next open. null: the default window (/v1/job-window); []: any time.
+             * @description The times of day it may run: daily "HH:MM-HH:MM" ranges in the service's time zone (one may cross midnight, 22:00-06:00); outside them it waits, and a running execution stops between titles: its job carries on when they next open. null: the default window (/v1/job-window); []: any time. Send null for the default.
              */
-            window: string[] | null;
+            window?: string[] | null;
+            /**
+             * Every
+             * @description Minutes from the end of one execution to the start of the next (at least 5); null: once.
+             */
+            every?: number | null;
+            /** @description A recurring job's run, from its next execution. */
+            request?: components["schemas"]["RunJobRequest"] | null;
         };
         /**
          * Kind
@@ -1619,6 +1738,18 @@ export interface components {
          * @enum {string}
          */
         Needs: "attention" | "review" | "extract" | "design" | "publish" | "commit" | "done";
+        /** NextExecution */
+        NextExecution: {
+            /** Job Id */
+            job_id: string;
+            /** Job Name */
+            job_name: string;
+            /**
+             * At
+             * @description When it may start: null when it waits only for the one running.
+             */
+            at: string | null;
+        };
         /** NextTitle */
         NextTitle: {
             /** Id */
@@ -1629,7 +1760,7 @@ export interface components {
         /** Notification */
         Notification: {
             event: components["schemas"]["NotifyEvent"];
-            /** @description The job it is about; null for a scheduled run that was skipped (the designer did not answer), which `failed` names instead. */
+            /** @description The execution it is about; null for a scheduled run that was skipped (the designer did not answer), which `failed` names instead. */
             job: components["schemas"]["NotifyJob"] | null;
             /** Designed */
             designed: components["schemas"]["NotifyTitle"][];
@@ -1653,13 +1784,20 @@ export interface components {
             /** Message */
             message: string;
         };
-        /** NotifyJob */
+        /**
+         * NotifyJob
+         * @description The execution a notification is about, and its job.
+         */
         NotifyJob: {
             /** Id */
             id: string;
+            /** Job Id */
+            job_id?: string | null;
+            /** Job Name */
+            job_name?: string | null;
             kind: components["schemas"]["JobKind"];
             origin: components["schemas"]["JobOrigin"];
-            state: components["schemas"]["JobState"];
+            state: components["schemas"]["ExecutionState"];
             /** Started At */
             started_at: string | null;
             /** Finished At */
@@ -2080,8 +2218,13 @@ export interface components {
             revised: components["schemas"]["RevisedTitle"][];
             /** Failed */
             failed: components["schemas"]["ReviseFailure"][];
-            /** @description The run job doing it, when run was asked for. */
-            job?: components["schemas"]["RunJob"] | null;
+            /**
+             * Job
+             * @description The one-off redesign job doing it, when run was asked for.
+             */
+            job?: (components["schemas"]["ScanJob"] | components["schemas"]["RunJob"] | components["schemas"]["AcceptJob"]) | null;
+            /** @description Its first execution. */
+            execution?: components["schemas"]["RunExecution"] | null;
         };
         /**
          * ReviseRequest
@@ -2090,7 +2233,7 @@ export interface components {
         ReviseRequest: {
             /**
              * Window
-             * @description The times of day it may run: daily "HH:MM-HH:MM" ranges in the service's time zone (one may cross midnight, 22:00-06:00); outside them it waits, and a run pauses between titles and carries on when they next open. null: the default window (/v1/job-window); []: any time.
+             * @description The times of day it may run: daily "HH:MM-HH:MM" ranges in the service's time zone (one may cross midnight, 22:00-06:00); outside them it waits, and a running execution stops between titles: its job carries on when they next open. null: the default window (/v1/job-window); []: any time.
              */
             window?: string[] | null;
             /** Ids */
@@ -2130,12 +2273,30 @@ export interface components {
             /** Extract Invalidated */
             extract_invalidated: boolean;
         };
-        /** RunJob */
-        RunJob: {
+        /** RunExecution */
+        RunExecution: {
             /** Id */
             id: string;
+            /**
+             * Job Id
+             * @description The job it is an execution of.
+             */
+            job_id?: string | null;
+            /**
+             * Job Name
+             * @description That job's name, while the job is kept.
+             */
+            job_name?: string | null;
+            /**
+             * Number
+             * @description Which of its job's executions it is: 1, 2, ...
+             * @default 0
+             */
+            number: number;
             origin: components["schemas"]["JobOrigin"];
-            state: components["schemas"]["JobState"];
+            state: components["schemas"]["ExecutionState"];
+            /** @description stopped: its window closed, or its job was paused or removed. Its job carries on with the titles it had not started. */
+            stopped_because?: components["schemas"]["StoppedBecause"] | null;
             /**
              * Submitted At
              * Format: date-time
@@ -2148,17 +2309,17 @@ export interface components {
             progress: components["schemas"]["Progress"] | null;
             /**
              * Error
-             * @description Why the job itself failed (a title that failed is in the result).
+             * @description Why it failed (a title that failed is in the result).
              */
             error?: string | null;
             /**
              * Joined To
-             * @description The run job this one joined: its titles went into that run, and it ends when that run does, with its result.
+             * @description The execution this one joined: its titles went into that run, and it ends when that run does, with its result.
              */
             joined_to?: string | null;
             /**
              * Window
-             * @description Its window as given (null: the default's; []: any time).
+             * @description Its job's window (null: the default's; []: any time).
              */
             window?: string[] | null;
             /**
@@ -2168,21 +2329,9 @@ export interface components {
             window_open?: boolean | null;
             /**
              * Waiting Until
-             * @description A queued or paused job whose window is closed: when it next opens, and the job is taken or carries on.
+             * @description A queued execution whose window is closed: when it next opens.
              */
             waiting_until?: string | null;
-            /**
-             * Parts
-             * @description How many times it has been started: more than one once paused and resumed.
-             * @default 0
-             */
-            parts: number;
-            /**
-             * Paused At
-             * @description When it paused, each time its window closed while it ran.
-             * @default []
-             */
-            paused_at: string[];
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -2191,13 +2340,101 @@ export interface components {
             request: components["schemas"]["RunJobRequest"];
             result: components["schemas"]["RunResult"] | null;
         };
-        /** RunJobRequest */
-        RunJobRequest: {
+        /** RunJob */
+        RunJob: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Every
+             * @description Minutes from the end of one execution to the start of the next (at least 5); null: once.
+             */
+            every?: number | null;
             /**
              * Window
-             * @description The times of day it may run: daily "HH:MM-HH:MM" ranges in the service's time zone (one may cross midnight, 22:00-06:00); outside them it waits, and a run pauses between titles and carries on when they next open. null: the default window (/v1/job-window); []: any time.
+             * @description Its window as given (null: the default's; []: any time).
              */
             window?: string[] | null;
+            state: components["schemas"]["JobState"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Next At
+             * @description When its next execution may start; null while paused, done, removed or running.
+             */
+            next_at?: string | null;
+            /** @description A one-off: over every execution so far. */
+            progress?: components["schemas"]["JobProgress"] | null;
+            /**
+             * Remaining
+             * @description A one-off run that stopped: titles its next execution does.
+             */
+            remaining?: number | null;
+            /**
+             * Executions
+             * @description How many it has had.
+             */
+            executions: number;
+            /**
+             * Last Execution
+             * @description The id of its latest execution.
+             */
+            last_execution?: string | null;
+            /**
+             * Running Execution
+             * @description Its execution queued or running.
+             */
+            running_execution?: (components["schemas"]["ScanExecution"] | components["schemas"]["RunExecution"] | components["schemas"]["AcceptExecution"]) | null;
+            /** Last Finished At */
+            last_finished_at?: string | null;
+            /**
+             * Last Skip
+             * @description A recurring job: why its last due tick did not start one (busy, or the designer did not answer).
+             */
+            last_skip?: string | null;
+            /**
+             * Ended
+             * @description Why it is done, when it ended by itself (a recurring job whose ids are all done).
+             */
+            ended?: string | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "run";
+            request: components["schemas"]["RunJobRequest"];
+        };
+        /** RunJobCreate */
+        RunJobCreate: {
+            /**
+             * Name
+             * @description What a person calls it; empty: what it does.
+             * @default
+             */
+            name: string;
+            /**
+             * Every
+             * @description Minutes from the end of one execution to the start of the next (at least 5); null: once. Only a run through extract or design recurs.
+             */
+            every?: number | null;
+            /**
+             * Window
+             * @description The times of day it may run: daily "HH:MM-HH:MM" ranges in the service's time zone (one may cross midnight, 22:00-06:00); outside them it waits, and a running execution stops between titles: its job carries on when they next open. null: the default window (/v1/job-window); []: any time.
+             */
+            window?: string[] | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "run";
+            request?: components["schemas"]["RunJobRequest"];
+        };
+        /** RunJobRequest */
+        RunJobRequest: {
             filter?: components["schemas"]["TitleFilter"];
             /**
              * @description Run every stage up to this one that each title still needs. A title waiting for review is never taken past design.
@@ -2335,12 +2572,30 @@ export interface components {
                 [key: string]: number;
             };
         };
-        /** ScanJob */
-        ScanJob: {
+        /** ScanExecution */
+        ScanExecution: {
             /** Id */
             id: string;
+            /**
+             * Job Id
+             * @description The job it is an execution of.
+             */
+            job_id?: string | null;
+            /**
+             * Job Name
+             * @description That job's name, while the job is kept.
+             */
+            job_name?: string | null;
+            /**
+             * Number
+             * @description Which of its job's executions it is: 1, 2, ...
+             * @default 0
+             */
+            number: number;
             origin: components["schemas"]["JobOrigin"];
-            state: components["schemas"]["JobState"];
+            state: components["schemas"]["ExecutionState"];
+            /** @description stopped: its window closed, or its job was paused or removed. Its job carries on with the titles it had not started. */
+            stopped_because?: components["schemas"]["StoppedBecause"] | null;
             /**
              * Submitted At
              * Format: date-time
@@ -2353,17 +2608,17 @@ export interface components {
             progress: components["schemas"]["Progress"] | null;
             /**
              * Error
-             * @description Why the job itself failed (a title that failed is in the result).
+             * @description Why it failed (a title that failed is in the result).
              */
             error?: string | null;
             /**
              * Joined To
-             * @description The run job this one joined: its titles went into that run, and it ends when that run does, with its result.
+             * @description The execution this one joined: its titles went into that run, and it ends when that run does, with its result.
              */
             joined_to?: string | null;
             /**
              * Window
-             * @description Its window as given (null: the default's; []: any time).
+             * @description Its job's window (null: the default's; []: any time).
              */
             window?: string[] | null;
             /**
@@ -2373,21 +2628,9 @@ export interface components {
             window_open?: boolean | null;
             /**
              * Waiting Until
-             * @description A queued or paused job whose window is closed: when it next opens, and the job is taken or carries on.
+             * @description A queued execution whose window is closed: when it next opens.
              */
             waiting_until?: string | null;
-            /**
-             * Parts
-             * @description How many times it has been started: more than one once paused and resumed.
-             * @default 0
-             */
-            parts: number;
-            /**
-             * Paused At
-             * @description When it paused, each time its window closed while it ran.
-             * @default []
-             */
-            paused_at: string[];
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -2396,13 +2639,101 @@ export interface components {
             request: components["schemas"]["ScanJobRequest"];
             result: components["schemas"]["ScanResult"] | null;
         };
-        /** ScanJobRequest */
-        ScanJobRequest: {
+        /** ScanJob */
+        ScanJob: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Every
+             * @description Minutes from the end of one execution to the start of the next (at least 5); null: once.
+             */
+            every?: number | null;
             /**
              * Window
-             * @description The times of day it may run: daily "HH:MM-HH:MM" ranges in the service's time zone (one may cross midnight, 22:00-06:00); outside them it waits, and a run pauses between titles and carries on when they next open. null: the default window (/v1/job-window); []: any time.
+             * @description Its window as given (null: the default's; []: any time).
              */
             window?: string[] | null;
+            state: components["schemas"]["JobState"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Next At
+             * @description When its next execution may start; null while paused, done, removed or running.
+             */
+            next_at?: string | null;
+            /** @description A one-off: over every execution so far. */
+            progress?: components["schemas"]["JobProgress"] | null;
+            /**
+             * Remaining
+             * @description A one-off run that stopped: titles its next execution does.
+             */
+            remaining?: number | null;
+            /**
+             * Executions
+             * @description How many it has had.
+             */
+            executions: number;
+            /**
+             * Last Execution
+             * @description The id of its latest execution.
+             */
+            last_execution?: string | null;
+            /**
+             * Running Execution
+             * @description Its execution queued or running.
+             */
+            running_execution?: (components["schemas"]["ScanExecution"] | components["schemas"]["RunExecution"] | components["schemas"]["AcceptExecution"]) | null;
+            /** Last Finished At */
+            last_finished_at?: string | null;
+            /**
+             * Last Skip
+             * @description A recurring job: why its last due tick did not start one (busy, or the designer did not answer).
+             */
+            last_skip?: string | null;
+            /**
+             * Ended
+             * @description Why it is done, when it ended by itself (a recurring job whose ids are all done).
+             */
+            ended?: string | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "scan";
+            request: components["schemas"]["ScanJobRequest"];
+        };
+        /** ScanJobCreate */
+        ScanJobCreate: {
+            /**
+             * Name
+             * @description What a person calls it; empty: what it does.
+             * @default
+             */
+            name: string;
+            /**
+             * Every
+             * @description Minutes from the end of one execution to the start of the next (at least 5); null: once. Only a run through extract or design recurs.
+             */
+            every?: number | null;
+            /**
+             * Window
+             * @description The times of day it may run: daily "HH:MM-HH:MM" ranges in the service's time zone (one may cross midnight, 22:00-06:00); outside them it waits, and a running execution stops between titles: its job carries on when they next open. null: the default window (/v1/job-window); []: any time.
+             */
+            window?: string[] | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "scan";
+            request?: components["schemas"]["ScanJobRequest"];
+        };
+        /** ScanJobRequest */
+        ScanJobRequest: {
             /**
              * Sources
              * @description Sources to list again, by name; none is all of them.
@@ -2444,77 +2775,23 @@ export interface components {
             /** Superseded */
             superseded?: string[];
         };
-        /** Schedule */
-        Schedule: {
-            /**
-             * Enabled
-             * @default false
-             */
-            enabled: boolean;
-            /**
-             * Interval Minutes
-             * @default 60
-             */
-            interval_minutes: number;
-            filter?: components["schemas"]["TitleFilter"];
-            /** @default design */
-            through: components["schemas"]["AutoThrough"];
-            /**
-             * Retry Failed
-             * @default false
-             */
-            retry_failed: boolean;
-            /** Next Run At */
-            next_run_at?: string | null;
-            last_run?: components["schemas"]["ScheduleLastRun"] | null;
-            /** Last Skip */
-            last_skip?: string | null;
-            /**
-             * Ended
-             * @description Why the schedule turned itself off: its filter lists ids, and a run left none of them to do. Cleared by the next save.
-             */
-            ended?: string | null;
-        };
-        /** ScheduleLastRun */
-        ScheduleLastRun: {
-            /** Job Id */
-            job_id: string;
-            state: components["schemas"]["JobState"];
-            /** Finished At */
-            finished_at: string | null;
-        };
-        /** ScheduleUpdate */
-        ScheduleUpdate: {
-            /**
-             * Enabled
-             * @default false
-             */
-            enabled: boolean;
-            /**
-             * Interval Minutes
-             * @default 60
-             */
-            interval_minutes: number;
-            filter?: components["schemas"]["TitleFilter"];
-            /** @default design */
-            through: components["schemas"]["AutoThrough"];
-            /**
-             * Retry Failed
-             * @default false
-             */
-            retry_failed: boolean;
-        };
         /** ServiceStatus */
         ServiceStatus: {
             /** Version */
             version: string;
             /** @description None until the first scan. */
             index: components["schemas"]["IndexStatus"] | null;
-            /** Current Job */
-            current_job: (components["schemas"]["ScanJob"] | components["schemas"]["RunJob"] | components["schemas"]["AcceptJob"]) | null;
-            /** Queued */
-            queued: number;
-            schedule?: components["schemas"]["Schedule"] | null;
+            /**
+             * Running Execution
+             * @description The execution running now.
+             */
+            running_execution?: (components["schemas"]["ScanExecution"] | components["schemas"]["RunExecution"] | components["schemas"]["AcceptExecution"]) | null;
+            /**
+             * Waiting
+             * @description Executions queued behind it, or waiting for their window.
+             * @default 0
+             */
+            waiting: number;
             /** Notify */
             notify?: components["schemas"]["NotifyOutcome"][];
             designer?: components["schemas"]["DesignerStatus"] | null;
@@ -2562,7 +2839,7 @@ export interface components {
         };
         /**
          * StateEvent
-         * @description The job entered a state; the stream ends with a finished one.
+         * @description The execution entered a state; the stream ends with a finished one.
          */
         StateEvent: {
             /**
@@ -2587,20 +2864,20 @@ export interface components {
             type: "state";
             /**
              * State
-             * @description queued, running, cancelling, pausing, paused, succeeded, failed, cancelled or interrupted.
+             * @description queued, running, cancelling, stopping, succeeded, failed, cancelled, stopped or interrupted.
              */
             state: string;
             /**
-             * Resumes At
-             * @description paused: when its window next opens.
+             * Because
+             * @description stopping: its window closed, or its job was paused or removed.
              */
-            resumes_at?: string | null;
-            /**
-             * Part
-             * @description running again after a pause: which part this is (2, 3, ...).
-             */
-            part?: number | null;
+            because?: string | null;
         };
+        /**
+         * StoppedBecause
+         * @enum {string}
+         */
+        StoppedBecause: "window" | "paused" | "removed";
         /** StreamChoice */
         StreamChoice: {
             /**
@@ -3132,124 +3409,6 @@ export interface operations {
             };
             /** @description Validation Error */
             422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    get_schedule_v1_schedule_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Schedule"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    put_schedule_v1_schedule_put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ScheduleUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Schedule"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Unprocessable Content */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Service Unavailable */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    trigger_schedule_v1_schedule_trigger_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Queued. */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ScanJob"] | components["schemas"]["RunJob"] | components["schemas"]["AcceptJob"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Conflict */
-            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4165,12 +4324,12 @@ export interface operations {
         };
         responses: {
             /** @description Successful Response */
-            202: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RunJob"];
+                    "application/json": components["schemas"]["ScanJob"] | components["schemas"]["RunJob"] | components["schemas"]["AcceptJob"];
                 };
             };
             /** @description Unauthorized */
@@ -5120,192 +5279,11 @@ export interface operations {
             };
         };
     };
-    submit_scan_v1_jobs_scan_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ScanJobRequest"];
-            };
-        };
-        responses: {
-            /** @description Queued; `Location` names the job. */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ScanJob"] | components["schemas"]["RunJob"] | components["schemas"]["AcceptJob"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Unprocessable Content */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Service Unavailable */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    submit_run_v1_jobs_run_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RunJobRequest"];
-            };
-        };
-        responses: {
-            /** @description Queued; `Location` names the job. */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ScanJob"] | components["schemas"]["RunJob"] | components["schemas"]["AcceptJob"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Unprocessable Content */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Service Unavailable */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    submit_accept_v1_jobs_accept_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AcceptJobRequest"];
-            };
-        };
-        responses: {
-            /** @description Queued; `Location` names the job. */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ScanJob"] | components["schemas"]["RunJob"] | components["schemas"]["AcceptJob"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Unprocessable Content */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Service Unavailable */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
     jobs_v1_jobs_get: {
         parameters: {
             query?: {
                 state?: components["schemas"]["JobState"] | null;
                 kind?: components["schemas"]["JobKind"] | null;
-                limit?: number;
             };
             header?: never;
             path?: never;
@@ -5333,6 +5311,66 @@ export interface operations {
             };
             /** @description Validation Error */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    create_job_v1_jobs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScanJobCreate"] | components["schemas"]["RunJobCreate"] | components["schemas"]["AcceptJobCreate"];
+            };
+        };
+        responses: {
+            /** @description Made; `Location` names the job. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScanJob"] | components["schemas"]["RunJob"] | components["schemas"]["AcceptJob"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5391,7 +5429,118 @@ export interface operations {
             };
         };
     };
-    cancel_v1_jobs__job_id__cancel_post: {
+    remove_job_v1_jobs__job_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScanJob"] | components["schemas"]["RunJob"] | components["schemas"]["AcceptJob"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    edit_job_v1_jobs__job_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScanJob"] | components["schemas"]["RunJob"] | components["schemas"]["AcceptJob"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    pause_job_v1_jobs__job_id__pause_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -5438,7 +5587,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -5449,7 +5598,7 @@ export interface operations {
             };
         };
     };
-    set_job_window_v1_jobs__job_id__window_put: {
+    resume_job_v1_jobs__job_id__resume_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -5458,11 +5607,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["JobWindowUpdate"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -5501,6 +5646,213 @@ export interface operations {
                 };
             };
             /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    run_job_v1_jobs__job_id__run_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Queued; `Location` names the execution. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScanExecution"] | components["schemas"]["RunExecution"] | components["schemas"]["AcceptExecution"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    executions_v1_executions_get: {
+        parameters: {
+            query?: {
+                job?: string | null;
+                state?: components["schemas"]["ExecutionState"] | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExecutionList"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    execution_v1_executions__execution_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                execution_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScanExecution"] | components["schemas"]["RunExecution"] | components["schemas"]["AcceptExecution"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    cancel_v1_executions__execution_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                execution_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScanExecution"] | components["schemas"]["RunExecution"] | components["schemas"]["AcceptExecution"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Error */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -5582,7 +5934,7 @@ export interface operations {
             };
         };
     };
-    log_v1_jobs__job_id__log_get: {
+    log_v1_executions__execution_id__log_get: {
         parameters: {
             query?: {
                 /** @description Only events after this seq. */
@@ -5590,7 +5942,7 @@ export interface operations {
             };
             header?: never;
             path: {
-                job_id: string;
+                execution_id: string;
             };
             cookie?: never;
         };
@@ -5634,18 +5986,18 @@ export interface operations {
             };
         };
     };
-    events_v1_jobs__job_id__events_get: {
+    events_v1_executions__execution_id__events_get: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                job_id: string;
+                execution_id: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description A stream of JobEvent, one per `data:` line, until the job ends. */
+            /** @description A stream of JobEvent, one per `data:` line, until the execution ends. */
             200: {
                 headers: {
                     [name: string]: unknown;

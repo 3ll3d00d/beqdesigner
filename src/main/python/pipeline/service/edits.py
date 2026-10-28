@@ -50,9 +50,10 @@ class EditRoutes:
     refresh: Callable[[], None]
     problem: type     # ServiceProblem
     responses: Callable
-    submit: Callable          # the job manager's: a RunRequest in, the queued Job out
+    book: Any                 # the JobBook: a one-off redesign job is made with it
     repository_writes: bool   # the service config's allow_repository_writes
-    windows: Any = None       # the job manager, which says whether a job's window is open (models.job_model)
+    job_view: Callable        # a Job as its model
+    first_execution: Callable  # a one-off Job's first execution, as its model
 
 
 def register(v1: APIRouter, deps: EditRoutes) -> None:
@@ -224,10 +225,11 @@ def register(v1: APIRouter, deps: EditRoutes) -> None:
                 revised.append(models.RevisedTitle(id=title_id, reverted=result.reverted,
                                                    extract_invalidated=result.extract_invalidated))
         if body.run:
-            job = deps.submit(RunRequest(Selection(ids=tuple(ready)), 'design', scan_first=False, retry_failed=True,
-                                         redesign=True, revise_to=body.to), window=body.window) if ready else None
-            return models.ReviseOutcome(revised=[], failed=failed,
-                                        job=models.job_model(job, windows=deps.windows) if job else None)
+            job = deps.book.create('run', RunRequest(Selection(ids=tuple(ready)), 'design', scan_first=False,
+                                                     retry_failed=True, redesign=True, revise_to=body.to),
+                                   window=body.window) if ready else None
+            return models.ReviseOutcome(revised=[], failed=failed, job=deps.job_view(job) if job else None,
+                                        execution=deps.first_execution(job) if job else None)
         if revised:
             deps.refresh()
         return models.ReviseOutcome(revised=revised, failed=failed)
@@ -257,8 +259,9 @@ def register(v1: APIRouter, deps: EditRoutes) -> None:
             models.AudioStream(index=i, text=text, preferred=i == preferred)
             for i, text in enumerate(describe_streams(details))])
 
-    @v1.put('/titles/{title_id}/stream', status_code=202, response_model=models.RunJob, tags=['edit'],
-            summary='Extract and design a title from another audio stream: a run job', responses=responses(404, 409, 422, 503))
+    @v1.put('/titles/{title_id}/stream', status_code=201, response_model=models.Job, tags=['edit'],
+            summary='Extract and design a title from another audio stream: a one-off job',
+            responses=responses(404, 409, 422, 503))
     def choose(title_id: str, body: models.StreamChoice):
         ctx = deps.context()
         with deps.read_index(ctx) as index:
@@ -271,9 +274,11 @@ def register(v1: APIRouter, deps: EditRoutes) -> None:
         details, _ = listed_or_probed(item)
         if not 0 <= body.audio_stream < len(details):
             raise Problem(422, 'No such stream', f'{title_id} has {len(details)} audio stream(s)')
-        job = deps.submit(RunRequest(Selection(ids=(title_id,)), 'design', scan_first=False, retry_failed=True,
-                                     redesign=True, revise_to='extract', audio_stream=body.audio_stream))
-        return JSONResponse(models.job_model(job, windows=deps.windows).model_dump(mode='json'), status_code=202,
+        job = deps.book.create('run', RunRequest(Selection(ids=(title_id,)), 'design', scan_first=False,
+                                                 retry_failed=True, redesign=True, revise_to='extract',
+                                                 audio_stream=body.audio_stream),
+                               name=f'Extract {row.title or row.display_name or title_id} from stream {body.audio_stream}')
+        return JSONResponse(deps.job_view(job).model_dump(mode='json'), status_code=201,
                             headers={'Location': f'/v1/jobs/{job.id}'})
 
     # --- variants (WP7) --------------------------------------------------------------------------------------------

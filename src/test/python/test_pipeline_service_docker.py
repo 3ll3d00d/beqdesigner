@@ -166,12 +166,13 @@ def test_image_smoke_fixture_extracts_and_designs_through_the_real_service(tmp_p
         app = create_app(manager, ServiceConfig(profile_path=str(profile_path), token='smoke-token'), env={})
         with TestClient(app) as client:
             auth = {'Authorization': 'Bearer smoke-token'}
-            response = client.post('/v1/jobs/run', json={'filter': {'match': 'Smoke Movie'}, 'through': 'design'},
-                                   headers=auth)
-            assert response.status_code == 202, response.text
+            response = client.post('/v1/jobs', json={'kind': 'run', 'request': {'filter': {'match': 'Smoke Movie'},
+                                                                                'through': 'design'}}, headers=auth)
+            assert response.status_code == 201, response.text
+            execution = response.json()['last_execution']
             deadline = time.time() + 30
             while True:
-                job = client.get(response.headers['Location'], headers=auth).json()
+                job = client.get(f'/v1/executions/{execution}', headers=auth).json()
                 if job['state'] not in ('queued', 'running'):
                     break
                 assert time.time() < deadline, job

@@ -18,6 +18,7 @@ from pipeline.service.config import ServiceConfig
 from pipeline.service.executions import ExecutionQueue
 from pipeline.service.models import Check
 from pipeline.service.work import executor, job_failed
+from service_http import first_execution, make_job
 
 TOKEN = 'test-token'
 AUTH = {'Authorization': f'Bearer {TOKEN}'}
@@ -78,33 +79,51 @@ def service(profile, monkeypatch):
 
 
 def _finish(client, response):
-    assert response.status_code == 202, response.text
-    location = response.headers['location']
-    _until(lambda: client.get(location, headers=AUTH).json()['state'] not in ('queued', 'running'))
-    return client.get(location, headers=AUTH).json()
+    ''' The first execution of the job the response made, once it has finished. '''
+    return first_execution(client, AUTH, response)
 
 
 def _scanned(client):
-    job = _finish(client, client.post('/v1/jobs/scan', json={}, headers=AUTH))
+    job = _finish(client, make_job(client, AUTH, 'scan', {}))
     assert job['state'] == 'succeeded' and job['result']['titles'] == 3
     return job
 
 
-def test_schedule_routes_validate_persist_and_trigger(service):
+def test_a_recurring_job_is_made_edited_paused_and_run_now(service):
     client, manager, calls = service
-    assert client.get('/v1/schedule', headers=AUTH).json()['enabled'] is False
-    invalid = client.put('/v1/schedule', json={'enabled': True, 'through': 'publish'}, headers=AUTH)
-    assert invalid.status_code == 422 and invalid.json()['status'] == 422
-    saved = client.put('/v1/schedule', json={'enabled': True, 'interval_minutes': 5,
-                                             'filter': {'kind': 'movie', 'needs': ['publish']}}, headers=AUTH)
-    assert saved.status_code == 200 and saved.json()['next_run_at']
-    assert client.get('/v1/status', headers=AUTH).json()['schedule']['enabled']
-    job = _finish(client, client.post('/v1/schedule/trigger', headers=AUTH))
-    assert job['origin'] == 'schedule' and job['request']['filter']['needs'] == ['extract', 'design']
-    assert calls[-1][1] == 'design'
+    invalid = make_job(client, AUTH, 'run', {'through': 'publish'}, every=5)
+    assert invalid.status_code == 422 and 'recurring' in invalid.json()['detail']
+    assert make_job(client, AUTH, 'run', {}, every=4).status_code == 422
+    made = make_job(client, AUTH, 'run', {'filter': {'kind': 'movie', 'needs': ['extract', 'design']}}, every=30,
+                    name='Nightly')
+    assert made.status_code == 201 and made.headers['location'] == f"/v1/jobs/{made.json()['id']}"
+    job = made.json()
+    assert (job['name'], job['every'], job['state'], job['executions']) == ('Nightly', 30, 'active', 0)
+    assert job['next_at'] and job['progress'] is None and job['running_execution'] is None
+
+    edited = client.patch(f"/v1/jobs/{job['id']}", json={'every': 60, 'window': ['01:00-02:00']}, headers=AUTH).json()
+    assert (edited['every'], edited['window'], edited['name']) == (60, ['01:00-02:00'], 'Nightly')
+    assert client.patch(f"/v1/jobs/{job['id']}", json={'window': None}, headers=AUTH).json()['window'] is None
+    assert client.post(f"/v1/jobs/{job['id']}/pause", headers=AUTH).json()['state'] == 'paused'
+    assert client.post(f"/v1/jobs/{job['id']}/resume", headers=AUTH).json()['state'] == 'active'
+
+    ran = client.post(f"/v1/jobs/{job['id']}/run", headers=AUTH)
+    assert ran.status_code == 202 and ran.headers['location'] == f"/v1/executions/{ran.json()['id']}"
+    _until(lambda: client.get(ran.headers['location'], headers=AUTH).json()['state'] == 'succeeded')
+    execution = client.get(ran.headers['location'], headers=AUTH).json()
+    assert (execution['job_id'], execution['job_name'], execution['number'], execution['origin']) == \
+        (job['id'], 'Nightly', 1, 'schedule')
+    assert execution['request']['filter']['needs'] == ['extract', 'design'] and calls[-1][1] == 'design'
+    assert client.get(f"/v1/jobs/{job['id']}", headers=AUTH).json()['last_execution'] == execution['id']
+
+    removed = client.delete(f"/v1/jobs/{job['id']}", headers=AUTH)
+    assert removed.status_code == 200 and removed.json()['state'] == 'removed'
+    refused = client.post(f"/v1/jobs/{job['id']}/resume", headers=AUTH)
+    assert refused.status_code == 409 and refused.json()['title'] == 'Not now'
+    assert client.get('/v1/jobs/nope', headers=AUTH).status_code == 404
 
 
-def test_schedule_trigger_is_409_while_a_job_runs(profile):
+def test_run_now_is_409_while_another_execution_runs_and_a_one_offs_request_is_fixed(profile):
     release = threading.Event()
     running = threading.Event()
 
@@ -116,11 +135,15 @@ def test_schedule_trigger_is_409_while_a_job_runs(profile):
     app = create_app(manager, ServiceConfig(profile_path=str(profile), token=TOKEN), env={})
     try:
         with TestClient(app) as client:
-            first = client.post('/v1/schedule/trigger', headers=AUTH)
-            assert first.status_code == 202
-            assert running.wait(5)
-            busy = client.post('/v1/schedule/trigger', headers=AUTH)
+            schedule = make_job(client, AUTH, 'run', {}, every=5).json()
+            one_off = make_job(client, AUTH, 'scan', {})
+            assert one_off.status_code == 201 and running.wait(5)
+            busy = client.post(f"/v1/jobs/{schedule['id']}/run", headers=AUTH)
             assert busy.status_code == 409 and busy.json()['title'] == 'Service busy'
+            fixed = client.patch(f"/v1/jobs/{one_off.json()['id']}", json={'every': 10}, headers=AUTH)
+            assert fixed.status_code == 409 and 'fixed' in fixed.json()['detail']
+            status = client.get('/v1/status', headers=AUTH).json()
+            assert status['running_execution']['job_id'] == one_off.json()['id'] and status['waiting'] == 0
     finally:
         release.set()
         manager.stop(5)
@@ -217,7 +240,7 @@ def test_before_a_scan_titles_say_to_scan_first(service):
 
     response = client.get('/v1/titles', headers=AUTH)
 
-    assert response.status_code == 409 and 'POST /v1/jobs/scan' in response.json()['detail']
+    assert response.status_code == 409 and 'POST /v1/jobs' in response.json()['detail']
     assert client.get('/v1/status', headers=AUTH).json()['index'] is None
 
 
@@ -286,7 +309,7 @@ def test_an_unknown_source_is_a_422_naming_the_profiles_sources(service):
     response = client.get('/v1/titles', params={'source': 'films'}, headers=AUTH)
 
     assert response.status_code == 422 and response.json()['detail'] == 'no such source: films (the profile has: disk)'
-    assert client.post('/v1/jobs/scan', json={'sources': ['films']}, headers=AUTH).status_code == 422
+    assert make_job(client, AUTH, 'scan', {'sources': ['films']}).status_code == 422
 
 
 def test_a_plan_says_what_a_run_would_do_and_changes_nothing(service):
@@ -304,7 +327,7 @@ def test_a_plan_says_what_a_run_would_do_and_changes_nothing(service):
 def test_a_run_job_takes_the_filter_and_reports_a_typed_result(service):
     client, _, calls = service
 
-    job = _finish(client, client.post('/v1/jobs/run', json={'filter': {'kind': 'movie', 'year': '2026'}}, headers=AUTH))
+    job = _finish(client, make_job(client, AUTH, 'run', {'filter': {'kind': 'movie', 'year': '2026'}}))
 
     assert job['kind'] == 'run' and job['state'] == 'succeeded' and job['origin'] == 'api'
     assert job['request'] == {'filter': {'needs': [], 'new_since_scan': False, 'source': None, 'match': None, 'ids': [],
@@ -312,7 +335,7 @@ def test_a_run_job_takes_the_filter_and_reports_a_typed_result(service):
                                          'declined': None, 'out_of_date': None, 'adjusted': None, 'unmet': None,
                                          'several_runs': None},
                               'through': 'design', 'scan_first': True, 'retry_failed': False, 'redesign': False,
-                              'revise_to': 'design', 'audio_stream': None, 'window': None}
+                              'revise_to': 'design', 'audio_stream': None}
     assert job['result']['scan']['titles'] == 3 and job['result']['attempted'] == ['x'] and job['result']['failed'] == []
     assert job['progress'] == {'done': 1, 'total': 1, 'title': 'Alien', 'stage': 'design', 'id': 'x',
                                'per_hour': None, 'remaining_seconds': None, 'estimated_finish': None}   # finished: no estimate
@@ -322,7 +345,7 @@ def test_a_run_job_takes_the_filter_and_reports_a_typed_result(service):
 def test_a_misspelt_field_is_refused_not_a_wider_selection(service):
     client, _, calls = service
 
-    response = client.post('/v1/jobs/run', json={'filter': {'yeer': '2026'}}, headers=AUTH)
+    response = make_job(client, AUTH, 'run', {'filter': {'yeer': '2026'}})
 
     assert response.status_code == 422 and 'yeer' in response.json()['detail'] and calls == []
 
@@ -330,26 +353,35 @@ def test_a_misspelt_field_is_refused_not_a_wider_selection(service):
 def test_publish_commit_and_accept_are_403_unless_the_config_allows_them(service):
     client, _, _ = service
 
-    for body, path in (({'through': 'publish'}, '/v1/jobs/run'), ({'through': 'commit'}, '/v1/jobs/run'),
-                       ({}, '/v1/jobs/accept')):
-        response = client.post(path, json=body, headers=AUTH)
+    for body, kind in (({'through': 'publish'}, 'run'), ({'through': 'commit'}, 'run'), ({}, 'accept')):
+        response = make_job(client, AUTH, kind, body)
         assert response.status_code == 403 and 'allow_repository_writes' in response.json()['detail']
+    assert client.get('/v1/jobs', headers=AUTH).json() == {'jobs': []}   # refused before it was kept
     _scanned(client)
-    dry = _finish(client, client.post('/v1/jobs/accept', json={'dry_run': True}, headers=AUTH))
+    dry = _finish(client, make_job(client, AUTH, 'accept', {'dry_run': True}))
     assert dry['state'] == 'succeeded' and dry['result']['dry_run'] and dry['result']['not_for_review'] == 3
 
 
-def test_jobs_are_listed_newest_first_filtered_and_a_finished_one_cannot_be_cancelled(service):
+def test_jobs_and_executions_are_listed_newest_first_filtered_and_a_finished_one_cannot_be_cancelled(service):
     client, _, _ = service
     scan = _scanned(client)
-    run = _finish(client, client.post('/v1/jobs/run', json={}, headers=AUTH))
+    run = _finish(client, make_job(client, AUTH, 'run', {}))
 
-    assert [j['id'] for j in client.get('/v1/jobs', headers=AUTH).json()['jobs']] == [run['id'], scan['id']]
-    assert [j['id'] for j in client.get('/v1/jobs', params={'kind': 'scan'}, headers=AUTH).json()['jobs']] == [scan['id']]
-    assert client.get('/v1/jobs', params={'state': 'failed'}, headers=AUTH).json() == {'jobs': []}
-    response = client.post(f"/v1/jobs/{scan['id']}/cancel", headers=AUTH)
-    assert response.status_code == 409 and response.json()['title'] == 'Job finished'
-    assert client.get('/v1/jobs/nope', headers=AUTH).status_code == 404
+    jobs = client.get('/v1/jobs', headers=AUTH).json()['jobs']
+    assert [j['id'] for j in jobs] == [run['job_id'], scan['job_id']] and {j['state'] for j in jobs} == {'done'}
+    assert jobs[0]['progress'] == {'done': 1, 'total': 1} and jobs[0]['next_at'] is None
+    assert [j['id'] for j in client.get('/v1/jobs', params={'kind': 'scan'}, headers=AUTH).json()['jobs']] == \
+        [scan['job_id']]
+    assert client.get('/v1/jobs', params={'state': 'active'}, headers=AUTH).json() == {'jobs': []}
+    log = client.get('/v1/executions', headers=AUTH).json()
+    assert [e['id'] for e in log['executions']] == [run['id'], scan['id']] and log['running'] is None
+    assert log['next'] == []
+    assert [e['id'] for e in client.get('/v1/executions', params={'job': scan['job_id']},
+                                        headers=AUTH).json()['executions']] == [scan['id']]
+    assert client.get('/v1/executions', params={'state': 'failed'}, headers=AUTH).json()['executions'] == []
+    response = client.post(f"/v1/executions/{scan['id']}/cancel", headers=AUTH)
+    assert response.status_code == 409 and response.json()['title'] == 'Execution finished'
+    assert client.get('/v1/executions/nope', headers=AUTH).status_code == 404
 
 
 def test_the_status_counts_the_index_and_names_the_running_job(service):
@@ -359,7 +391,8 @@ def test_the_status_counts_the_index_and_names_the_running_job(service):
     status = client.get('/v1/status', headers=AUTH).json()
 
     assert status['index']['titles'] == 3 and status['index']['counts']['extract'] == 3
-    assert status['index']['sources'][0]['name'] == 'disk' and status['current_job'] is None and status['queued'] == 0
+    assert status['index']['sources'][0]['name'] == 'disk' and status['running_execution'] is None
+    assert status['waiting'] == 0 and 'schedule' not in status
 
 
 # --- following a job ----------------------------------------------------------------------------------------------------
@@ -394,8 +427,8 @@ def gated(profile):
     manager.stop(grace_seconds=5)
 
 
-def _read_stream(client, job_id, into):
-    with client.stream('GET', f'/v1/jobs/{job_id}/events', headers=AUTH) as response:
+def _read_stream(client, execution_id, into):
+    with client.stream('GET', f'/v1/executions/{execution_id}/events', headers=AUTH) as response:
         assert response.headers['content-type'].startswith('text/event-stream')
         assert response.headers['x-accel-buffering'] == 'no'   # a proxy passes each event on as it comes
         for line in response.iter_lines():
@@ -405,10 +438,11 @@ def _read_stream(client, job_id, into):
 
 def test_the_event_stream_sends_what_happened_then_follows_the_job_to_its_end(gated):
     client, entered, release = gated
-    job = client.post('/v1/jobs/scan', json={}, headers=AUTH).json()
+    job = make_job(client, AUTH, 'scan', {}).json()
     assert entered.wait(10)
     seen = []
-    reader = threading.Thread(target=_read_stream, args=(client, job['id'], seen))
+    execution_id = job['last_execution']
+    reader = threading.Thread(target=_read_stream, args=(client, execution_id, seen))
     reader.start()
     _until(lambda: len(seen) >= 2)   # the backlog: queued, running
 
@@ -419,21 +453,23 @@ def test_the_event_stream_sends_what_happened_then_follows_the_job_to_its_end(ga
     assert [(e['type'], e.get('state')) for e in seen] == [('state', 'queued'), ('state', 'running'),
                                                            ('run_progress', None), ('state', 'succeeded')]
     assert seen[2]['title'] == 'Heat' and [e['seq'] for e in seen] == sorted(e['seq'] for e in seen)
-    assert seen[0]['text'] == 'job queued' and seen[-1]['text'] == 'job succeeded'
+    assert seen[0]['text'] == 'execution queued' and seen[-1]['text'] == 'execution succeeded'
     assert all(None not in e.values() for e in seen)   # only the fields its type has
-    log = client.get(f"/v1/jobs/{job['id']}/log", headers=AUTH).json()
+    log = client.get(f"/v1/executions/{execution_id}/log", headers=AUTH).json()
     assert log == seen
-    assert client.get(f"/v1/jobs/{job['id']}/log", params={'after': seen[1]['seq']}, headers=AUTH).json() == seen[2:]
+    assert client.get(f"/v1/executions/{execution_id}/log", params={'after': seen[1]['seq']},
+                      headers=AUTH).json() == seen[2:]
 
 
 def test_the_stream_of_a_finished_job_is_its_history(gated):
     client, entered, release = gated
     release.set()
-    job = client.post('/v1/jobs/scan', json={}, headers=AUTH).json()
-    _until(lambda: client.get(f"/v1/jobs/{job['id']}", headers=AUTH).json()['state'] == 'succeeded')
+    job = make_job(client, AUTH, 'scan', {}).json()
+    execution_id = job['last_execution']
+    _until(lambda: client.get(f"/v1/executions/{execution_id}", headers=AUTH).json()['state'] == 'succeeded')
     seen = []
 
-    _read_stream(client, job['id'], seen)
+    _read_stream(client, execution_id, seen)
 
     assert seen[-1]['state'] == 'succeeded' and len(seen) == 4
 
@@ -486,7 +522,7 @@ def test_each_type_of_event_has_its_own_fields_and_says_in_words_what_they_mean(
     assert dumped({'seq': 4, 'at': 0.0, 'type': 'run_progress', 'done': 5, 'total': 5}) == {
         'seq': 4, 'at': '1970-01-01T00:00:00Z', 'type': 'run_progress', 'done': 5, 'total': 5,
         'text': '5 of 5 done; finished'}
-    assert dumped({'seq': 5, 'at': 0.0, 'type': 'state', 'state': 'running'})['text'] == 'job running'
+    assert dumped({'seq': 5, 'at': 0.0, 'type': 'state', 'state': 'running'})['text'] == 'execution running'
     assert dumped({'seq': 6, 'at': 0.0, 'type': 'event', 'title_id': 'h', 'stage': 'extract', 'kind': 'finished',
                    'text': '[12:00 extract] done'})['text'] == '[12:00 extract] done'
     with pytest.raises(ValueError):   # a type's fields are required, not optional
@@ -507,7 +543,7 @@ def test_the_published_event_schema_is_one_shape_per_type():
 ])
 def test_redesign_takes_1_to_500_ids_and_design_only(service, body):
     client, _, calls = service
-    response = client.post('/v1/jobs/run', json={**body, 'redesign': True}, headers=AUTH)
+    response = make_job(client, AUTH, 'run', {**body, 'redesign': True})
     assert response.status_code == 422
     assert calls == []
 
@@ -525,8 +561,7 @@ def test_titles_out_of_date_against_what_the_designer_up_now_says(service, monke
     assert titles(out_of_date=True) == []   # nothing designed yet: nothing out of date
     assert titles(out_of_date=False) == ['Alien', 'Dune', 'Heat']
     assert {t['design_version'] for t in client.get('/v1/titles', headers=AUTH).json()['titles']} == {None}
-    job = _finish(client, client.post('/v1/jobs/run', json={'filter': {'out_of_date': True}, 'redesign': True},
-                                      headers=AUTH))
+    job = _finish(client, make_job(client, AUTH, 'run', {'filter': {'out_of_date': True}, 'redesign': True}))
     assert job['request']['filter']['out_of_date'] is True and job['request']['redesign'] is True
 
 
@@ -535,5 +570,5 @@ def test_titles_out_of_date_against_what_the_designer_up_now_says(service, monke
                                   {'filter': {'out_of_date': False}}])
 def test_redesign_by_version_takes_out_of_date_true_without_ids(service, body):
     client, _, calls = service
-    assert client.post('/v1/jobs/run', json={**body, 'redesign': True}, headers=AUTH).status_code == 422
+    assert make_job(client, AUTH, 'run', {**body, 'redesign': True}).status_code == 422
     assert calls == []

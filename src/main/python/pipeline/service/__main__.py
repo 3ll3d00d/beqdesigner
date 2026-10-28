@@ -23,9 +23,9 @@ from pipeline.service.config import ServiceConfig, load_service_config
 from pipeline.service.context import load_context
 from pipeline.service.designer import DesignerProbe
 from pipeline.service.executions import ExecutionQueue
-from pipeline.service.scheduler import AutoScheduler
+from pipeline.service.jobbook import JobBook, migrate
 from pipeline.service.notify import Notifier
-from pipeline.service.work import executor, job_failed, merge_outcomes, remaining_titles
+from pipeline.service.work import executor, job_failed, remaining_titles
 
 logger = logging.getLogger('pipeline_service')
 
@@ -87,36 +87,36 @@ def build(argv: Optional[List[str]] = None, env: Optional[Mapping[str, str]] = N
     if not config.token and not args.no_auth:
         parser.error('no token: set BEQ_SERVICE_TOKEN (or BEQ_SERVICE_TOKEN_FILE), or use --no-auth on 127.0.0.1')
     from pipeline.service.api import create_app
-    manager = ExecutionQueue(executor(args.profile, env, allow_repository_writes=config.allow_repository_writes), state_dir=config.state_dir, history_limit=config.history_limit,
-                         allow_repository_writes=config.allow_repository_writes, failed=job_failed,
-                         remaining=remaining_titles, merge=merge_outcomes)
+    try:   # an older service's schedule and job history become jobs and executions, before the queue reads its history
+        migrate(config.state_dir, dict(config.schedule))
+    except (OSError, ValueError) as error:
+        parser.error(f'migrating the schedule and job history in {config.state_dir}: {error}')
+    manager = ExecutionQueue(executor(args.profile, env, allow_repository_writes=config.allow_repository_writes),
+                             state_dir=config.state_dir, history_limit=config.history_limit,
+                             allow_repository_writes=config.allow_repository_writes, failed=job_failed,
+                             remaining=remaining_titles)
     designer = DesignerProbe(args.profile, env)
     notifier = None
 
     def designer_down(reason: str) -> None:
         if notifier is not None:
             notifier.designer_unavailable(designer.last.name if designer.last else '', reason)
-    try:
-        scheduler = AutoScheduler(manager, config.state_dir, dict(config.schedule), designer=designer.unavailable,
-                                  on_designer_down=designer_down)
-    except (OSError, ValueError) as error:
-        manager.stop(grace_seconds=1)
-        parser.error(f'schedule: {error}')
+    book = JobBook(manager, config.state_dir, designer=designer.unavailable, on_designer_down=designer_down)
     try:
         notifier = Notifier(manager, config.profile_path, config.notify, env=env)
     except (OSError, ValueError) as error:
-        scheduler.stop()
+        book.stop()
         manager.stop(grace_seconds=1)
         parser.error(f'notify: {error}')
     try:
         app = create_app(manager, config, require_token=not args.no_auth, env=env, static_dir=args.static_dir,
-                         ui_dir=args.ui_dir, scheduler=scheduler, notifier=notifier, designer=designer)
+                         ui_dir=args.ui_dir, book=book, notifier=notifier, designer=designer)
     except ValueError as error:   # a --ui-dir that is not a built app
         notifier.stop()
-        scheduler.stop()
+        book.stop()
         manager.stop(grace_seconds=1)
         parser.error(str(error))
-    app.state.scheduler = scheduler
+    app.state.book = book
     app.state.notifier = notifier
     return app, manager, config
 
@@ -149,7 +149,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     try:
         server.run()
     finally:
-        app.state.scheduler.stop()
+        app.state.book.stop()
         manager.stop(grace_seconds=config.shutdown_grace_seconds)
         app.state.notifier.stop()
     return 0

@@ -1,24 +1,23 @@
 '''
-pipeline/service/work.py with job windows (design/job-windows.md §3): a run's window closing stops `run_stages` between
-titles, a redesign is sent back once and carries on as a plain run, the parts' reports merge into one result the API reads,
-and a run waiting for the work directory pauses rather than holding the worker.
+pipeline/service/work.py with job windows (design/job-windows.md, design/jobs-and-executions.md): a run's window closing
+stops `run_stages` between titles, a redesign is sent back once and its job carries on with a plain run of what was left,
+and a run waiting for the work directory stops rather than holding the worker.
 '''
 import json
 import threading
 import time
-from dataclasses import asdict
 from datetime import datetime, timezone
 
 import pytest
 
 import pipeline.service.executions as jobs
-from pipeline.library.run import LibraryRunReport
 from pipeline.library.selection import Selection
 from pipeline.library.stages import Progress, StagesReport
 from pipeline.service import work
 from pipeline.service.executions import ExecutionQueue, RunRequest, ScanRequest
+from pipeline.service.jobbook import JobBook
 from pipeline.service.models import run_result
-from pipeline.service.work import RunOutcome, executor, job_failed, merge_outcomes, remaining_titles
+from pipeline.service.work import RunOutcome, executor, job_failed, remaining_titles
 
 UTC = timezone.utc
 
@@ -81,9 +80,24 @@ def clock():
 @pytest.fixture
 def manager(profile, clock):
     made = ExecutionQueue(executor(str(profile), env={}, poll_seconds=0.01), failed=job_failed, clock=clock, tz=UTC,
-                      remaining=remaining_titles, merge=merge_outcomes)
+                          remaining=remaining_titles)
     yield made
     made.stop(grace_seconds=5)
+
+
+@pytest.fixture
+def book(manager, clock):
+    made = JobBook(manager, None, clock=clock, start=False)
+    yield made
+    made.stop()
+
+
+def _settle(book, condition):
+    deadline = time.time() + 30
+    while not condition():
+        assert time.time() < deadline, 'timed out'
+        book.tick()
+        time.sleep(0.005)
 
 
 def _scanned(manager, profile):
@@ -121,7 +135,7 @@ def stages_on(clock, runs, minutes=40):
     return stages
 
 
-def test_a_redesign_whose_window_closes_is_sent_back_once_and_carries_on_as_a_plain_run(manager, profile, clock,
+def test_a_redesign_whose_window_closes_is_sent_back_once_and_carries_on_as_a_plain_run(manager, book, profile, clock,
                                                                                         monkeypatch):
     ids = _scanned(manager, profile)
     runs, sent_back = [], []
@@ -130,18 +144,21 @@ def test_a_redesign_whose_window_closes_is_sent_back_once_and_carries_on_as_a_pl
     monkeypatch.setattr(work, 'revise_entry', lambda queue, title_id, *a, **k: (sent_back.append(title_id),
                                                                                 revise(queue, title_id, *a, **k))[1])
 
-    job = manager.submit(RunRequest(Selection(ids=tuple(ids)), scan_first=False, redesign=True), window=['01:00-02:00'])
-    _until(lambda: job.state == 'paused')
+    job = book.create('run', RunRequest(Selection(ids=tuple(ids)), scan_first=False, redesign=True),
+                      window=['01:00-02:00'])
+    _settle(book, lambda: job.pending is None)
+    first = manager.get(job.executions[0])
+    assert first.state == 'stopped' and first.stopped_because == 'window'
     assert runs == [tuple(ids)] and sent_back == ids   # all three sent back; two designed by 01:00 + 2 x 40 min
-    assert job.part_request.selection.ids == (ids[2],) and not job.part_request.redesign
+    assert job.remaining == (ids[2],) and job.state == 'active'
 
     clock.set('2026-10-27 01:00')
-    _until(lambda: job.finished)
-    assert job.state == 'succeeded', job.error
+    _settle(book, lambda: job.state == 'done')
+    second = manager.get(job.executions[1])
+    assert second.state == 'succeeded', second.error
     assert runs == [tuple(ids), (ids[2],)] and sent_back == ids   # not sent back again
-    result = run_result(job.result)
-    assert result.designed == ids and result.attempted == ids and not result.cancelled and result.not_run == []
-    assert result.selected == 3 and (job.progress.done, job.progress.total) == (3, 3)
+    assert not second.request.redesign and run_result(second.result).designed == [ids[2]]
+    assert run_result(first.result).designed == ids[:2] and book.progress(job) == (3, 3)
 
 
 def test_remaining_titles_are_what_a_run_stopped_before_and_none_once_it_stopped_for_another_reason():
@@ -153,38 +170,25 @@ def test_remaining_titles_are_what_a_run_stopped_before_and_none_once_it_stopped
     assert remaining_titles(None) is None   # it stopped before it planned anything: do it again
 
 
-def test_the_parts_merge_into_one_result_that_reads_and_fails_as_one_run():
-    first = StagesReport('design', 3, LibraryRunReport(designed=['a'], seasons={'s1': ['a']}), cancelled=True,
-                         attempted=['a'], not_run=['b', 'c'], counts={'design': 2})
-    second = StagesReport('design', 2, LibraryRunReport(designed=['b'], failed=[('c', 'boom')], seasons={'s2': ['b']}),
-                          attempted=['b', 'c'], counts={'design': 0})
-    merged = merge_outcomes([asdict(RunOutcome(None, first)), asdict(RunOutcome(None, second))])
-    result = run_result(merged)
-    assert (result.selected, result.designed, result.attempted) == (3, ['a', 'b'], ['a', 'b', 'c'])
-    assert (result.cancelled, result.not_run, result.counts, result.seasons) == \
-        (False, [], {'design': 0}, {'s1': ['a'], 's2': ['b']})
-    assert [p.id for p in result.failed] == ['c'] and job_failed(merged)
-    assert not job_failed(merge_outcomes([asdict(RunOutcome(None, first)),
-                                          asdict(RunOutcome(None, StagesReport('design', 2, attempted=['b', 'c'])))]))
-
-
-def test_a_run_waiting_for_the_work_directory_pauses_when_its_window_closes(manager, profile, clock, tmp_path,
-                                                                            monkeypatch):
+def test_a_run_waiting_for_the_work_directory_stops_when_its_window_closes(manager, book, profile, clock, tmp_path,
+                                                                           monkeypatch):
     from pipeline.service.lease import WorkDirLease
     ids = _scanned(manager, profile)
     runs = []
     monkeypatch.setattr(work, 'run_stages', stages_on(clock, runs, minutes=0))
     lease = WorkDirLease(str(tmp_path / 'work'), 'worklist-1', host='desk', pid=1).__enter__()
     try:   # a redesign does not join the work list's run: it waits for the lease
-        job = manager.submit(RunRequest(Selection(ids=tuple(ids)), scan_first=False, redesign=True),
-                             window=['01:00-02:00'])
-        _until(lambda: job.state == 'running')
+        job = book.create('run', RunRequest(Selection(ids=tuple(ids)), scan_first=False, redesign=True),
+                          window=['01:00-02:00'])
+        _until(lambda: manager.get(job.pending).state == 'running')
         clock.set('2026-10-26 02:00')
-        _until(lambda: job.state == 'paused')
-        assert manager.current is None and job.part_request is None   # it carries on with all of it
+        _settle(book, lambda: job.pending is None)
+        stopped = manager.get(job.executions[0])
+        assert stopped.state == 'stopped' and stopped.remaining is None and job.remaining is None   # all of it again
+        assert manager.current is None
     finally:
         lease.__exit__(None, None, None)
     clock.set('2026-10-27 01:00')
-    _until(lambda: job.finished)
-    assert job.state == 'succeeded', job.error
+    _settle(book, lambda: job.state == 'done')
+    assert manager.get(job.executions[1]).state == 'succeeded'
     assert runs == [tuple(ids)]

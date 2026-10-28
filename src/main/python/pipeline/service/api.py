@@ -8,7 +8,7 @@ import asyncio
 import hmac
 import os
 from contextlib import contextmanager
-from typing import Annotated, Callable, Iterator, List, Mapping, Optional
+from typing import Annotated, Any, Callable, Iterator, List, Mapping, Optional
 
 from fastapi import APIRouter, Depends, FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
@@ -32,9 +32,9 @@ from pipeline.service import models
 from pipeline.service.config import ServiceConfig
 from pipeline.service.context import JobContext, load_context
 from pipeline.service.designer import DesignerProbe, designs_out
-from pipeline.service.executions import FINISHED, AcceptRequest, ExecutionFinished, ExecutionQueue, ExecutionNotFound, RepositoryWritesRefused, \
-    RunRequest, ScanRequest
-from pipeline.service.scheduler import AutoScheduler
+from pipeline.service.executions import FINISHED, AcceptRequest, ExecutionFinished, ExecutionQueue, ExecutionNotFound, \
+    RepositoryWritesRefused, RunRequest, ScanRequest
+from pipeline.service.jobbook import JobBook, JobBusy, JobNotFound, JobRefused
 from pipeline.service.lease import read_lease
 from pipeline.service.notify import Notifier
 from pipeline.service import catalogue, edits, impact, visuals
@@ -45,7 +45,7 @@ from pipeline.review import entry_art_path, fit_text, has_measured_fit, read_ent
 PROBLEM_JSON = 'application/problem+json'
 
 # how a title that needs a run gets one, said where the service is asked (decision_blocked's run_hint)
-RUN_FROM_JOBS = 'Run it through design first (POST /v1/jobs/run).'
+RUN_FROM_JOBS = 'Run it through design first (POST /v1/jobs with kind run).'
 METADATA_IN_APP = 'in the Metadata panel, or the BEQDesigner app'   # PATCH /v1/titles/{id}/metadata
 DECISION_REFUSED = {'changed': 'Changed since it was read', 'blocked': 'Not offered now',
                     'metadata': 'Metadata incomplete', 'override': 'The designer rejected this design'}
@@ -123,7 +123,7 @@ def create_app(manager: ExecutionQueue, config: ServiceConfig, *, require_token:
                load: Callable[..., JobContext] = load_context, env: Optional[Mapping[str, str]] = None,
                static_dir: Optional[str] = None, ui_dir: Optional[str] = None, version: Optional[str] = None,
                checks: Optional[Callable[[], List[models.Check]]] = None,
-               scheduler: Optional[AutoScheduler] = None, notifier: Optional[Notifier] = None,
+               book: Optional[JobBook] = None, notifier: Optional[Notifier] = None,
                designer: Optional[DesignerProbe] = None, refresher: Optional[IndexRefresher] = None,
                render_queue: Optional[visuals.RenderQueue] = None, catalogue_url: str = CATALOGUE_URL,
                catalogue_get: Optional[Callable] = None,
@@ -148,10 +148,9 @@ def create_app(manager: ExecutionQueue, config: ServiceConfig, *, require_token:
     if require_token and not config.token:
         raise ValueError('a token is required: set BEQ_SERVICE_TOKEN (or BEQ_SERVICE_TOKEN_FILE)')
     designer = designer or DesignerProbe(config.profile_path, env, load)
-    scheduler = scheduler or AutoScheduler(manager, config.state_dir or None, dict(config.schedule), start=False,
-                                           designer=designer.unavailable,
-                                           on_designer_down=lambda reason: notifier.designer_unavailable(
-                                               designer.last.name if designer.last else '', reason))
+    book = book or JobBook(manager, config.state_dir or None, start=False, designer=designer.unavailable,
+                           on_designer_down=lambda reason: notifier.designer_unavailable(
+                               designer.last.name if designer.last else '', reason))
     notifier = notifier or Notifier(manager, config.profile_path, config.notify, env=env, start=False)
     render_queue = render_queue or visuals.RenderQueue()
     impact_checker = impact_checker or impact.ImpactChecker(config.state_dir or None)
@@ -185,7 +184,7 @@ def create_app(manager: ExecutionQueue, config: ServiceConfig, *, require_token:
     def read_index(ctx: JobContext) -> Iterator[LibraryIndex]:
         path = ctx.index_file
         if not path or not os.path.isfile(path):
-            raise ServiceProblem(409, 'Not scanned', 'the library has not been scanned yet: POST /v1/jobs/scan')
+            raise ServiceProblem(409, 'Not scanned', 'the library has not been scanned yet: POST /v1/jobs with kind scan')
         try:
             with LibraryIndex(path, readonly=True) as index:
                 yield index
@@ -237,11 +236,23 @@ def create_app(manager: ExecutionQueue, config: ServiceConfig, *, require_token:
 
     @app.exception_handler(ExecutionNotFound)
     async def _not_found(request: Request, error: ExecutionNotFound):
-        return _problem(404, 'No such job', f'no job {error.args[0]}')
+        return _problem(404, 'No such execution', f'no execution {error.args[0]}')
 
     @app.exception_handler(ExecutionFinished)
     async def _finished(request: Request, error: ExecutionFinished):
-        return _problem(409, 'Job finished', str(error))
+        return _problem(409, 'Execution finished', str(error))
+
+    @app.exception_handler(JobNotFound)
+    async def _no_job(request: Request, error: JobNotFound):
+        return _problem(404, 'No such job', f'no job {error.args[0]}')
+
+    @app.exception_handler(JobRefused)
+    async def _job_refused(request: Request, error: JobRefused):
+        return _problem(409, 'Not now', str(error))
+
+    @app.exception_handler(JobBusy)
+    async def _job_busy(request: Request, error: JobBusy):
+        return _problem(409, 'Service busy', str(error))
 
     @app.exception_handler(RepositoryWritesRefused)
     async def _refused(request: Request, error: RepositoryWritesRefused):
@@ -335,9 +346,8 @@ def create_app(manager: ExecutionQueue, config: ServiceConfig, *, require_token:
                                              last_ok=models.timestamp(s.last_ok), last_error=s.last_error,
                                              item_count=s.item_count) for s in summary.sources])
         current = manager.current
-        return models.ServiceStatus(version=version, index=index, queued=len(manager.queued),
-                                    current_job=models.job_model(current, windows=manager) if current else None,
-                                    schedule=models.Schedule.model_validate(scheduler.snapshot()),
+        return models.ServiceStatus(version=version, index=index, waiting=len(manager.queued),
+                                    running_execution=execution_view(current) if current else None,
                                     notify=notifier.outcomes(), designer=designer_status(),
                                     tmdb=bool(ctx.values.get('tmdb_api_key')),
                                     repository_writes=config.allow_repository_writes,
@@ -377,24 +387,6 @@ def create_app(manager: ExecutionQueue, config: ServiceConfig, *, require_token:
             return notifier.test(body.target)
         except KeyError:
             raise ServiceProblem(404, 'No such notification target', body.target) from None
-
-    @v1.get('/schedule', response_model=models.Schedule, tags=['schedule'], summary='Automatic extract/design schedule')
-    def get_schedule():
-        return models.Schedule.model_validate(scheduler.snapshot())
-
-    @v1.put('/schedule', response_model=models.Schedule, tags=['schedule'], summary='Save and enable or pause the schedule',
-            responses=_responses(422, 503))
-    def put_schedule(body: models.ScheduleUpdate):
-        check_sources(context(), body.filter)
-        return models.Schedule.model_validate(scheduler.update(body))
-
-    @v1.post('/schedule/trigger', status_code=202, response_model=models.Job, tags=['schedule'],
-             summary='Run one automatic tick now', responses={202: {'description': 'Queued.'}, **_responses(409)})
-    def trigger_schedule():
-        job = scheduler.trigger()
-        if job is None:
-            raise ServiceProblem(409, 'Service busy', 'a job is queued or running')
-        return accepted(job)
 
     @v1.get('/titles', response_model=models.TitlePage, tags=['titles'], summary='List titles, filtered',
             responses=_responses(409, 422, 503))
@@ -588,8 +580,10 @@ def create_app(manager: ExecutionQueue, config: ServiceConfig, *, require_token:
     edits.register(v1, edits.EditRoutes(context=context, read_index=read_index, review_row=review_row,
                                          review_entry=review_entry, in_flight=in_flight, review_model=review_model,
                                          refresh=refresher.request, problem=ServiceProblem, responses=_responses,
-                                         submit=manager.submit, repository_writes=config.allow_repository_writes,
-                                         windows=manager))
+                                         book=book, repository_writes=config.allow_repository_writes,
+                                         job_view=lambda job: job_view(job),
+                                         first_execution=lambda job: execution_view(manager.get(job.executions[0]))
+                                         if job.executions else None))
 
     impact.register(v1, impact.ImpactRoutes(context=context, read_index=read_index, designer=designer,
                                             checker=impact_checker, in_flight=in_flight, refresh=refresher.request,
@@ -642,58 +636,132 @@ def create_app(manager: ExecutionQueue, config: ServiceConfig, *, require_token:
                                          stages=list(p.stages)) for p in planned.planned],
             skipped=[models.SkippedTitle(id=s.id, title=s.title, reason=s.reason) for s in planned.skipped])
 
-    def accepted(job) -> JSONResponse:
-        body = models.job_model(job, windows=manager)
-        return JSONResponse(body.model_dump(mode='json'), status_code=202, headers={'Location': f'/v1/jobs/{job.id}'})
+    def job_name(execution) -> Optional[str]:
+        try:
+            return book.get(execution.job_id).name if execution.job_id else None
+        except JobNotFound:
+            return None
 
-    submitted = {202: {'description': 'Queued; `Location` names the job.'}, **_responses(403, 422, 503)}
+    def execution_view(execution):
+        return models.execution_model(execution, queue=manager, job_name=job_name(execution))
 
-    @v1.post('/jobs/scan', status_code=202, response_model=models.Job, tags=['jobs'], summary='List the sources again',
-             responses=submitted)
-    def submit_scan(body: models.ScanJobRequest):
-        check_sources(context(), names=tuple(body.sources))
-        return accepted(manager.submit(ScanRequest(sources=tuple(body.sources), allow_empty=body.allow_empty),
-                                       window=body.window))
+    def job_view(job):
+        return models.job_model(job, book, manager)
 
-    @v1.post('/jobs/run', status_code=202, response_model=models.Job, tags=['jobs'],
-             summary='Extract, design (and, if allowed, publish or commit) the titles a filter selects', responses=submitted)
-    def submit_run(body: models.RunJobRequest):
-        check_sources(context(), body.filter)
-        selection_of(body.filter)   # refused now, not when it runs, while no designer says its design version
-        return accepted(manager.submit(RunRequest(body.filter.to_selection(), body.through.value, body.scan_first,
-                                                  body.retry_failed, redesign=body.redesign, revise_to=body.revise_to,
-                                                  audio_stream=body.audio_stream), window=body.window))
+    def run_request(body: models.RunJobRequest) -> RunRequest:
+        return RunRequest(body.filter.to_selection(), body.through.value, body.scan_first, body.retry_failed,
+                          redesign=body.redesign, revise_to=body.revise_to, audio_stream=body.audio_stream)
 
-    @v1.post('/jobs/accept', status_code=202, response_model=models.Job, tags=['jobs'],
-             summary="Accept the designer's top pick for confident titles (needs allow_repository_writes, unless a dry run)",
-             responses=submitted)
-    def submit_accept(body: models.AcceptJobRequest):
-        check_sources(context(), body.filter)
-        return accepted(manager.submit(AcceptRequest(body.filter.to_selection(), body.threshold, body.dry_run),
-                                       window=body.window))
+    def request_of(body) -> Any:
+        ''' What a job is asked to do, checked now (unknown sources, a selection no designer can judge yet). '''
+        if body.kind == 'scan':
+            check_sources(context(), names=tuple(body.request.sources))
+            return ScanRequest(sources=tuple(body.request.sources), allow_empty=body.request.allow_empty)
+        check_sources(context(), body.request.filter)
+        selection_of(body.request.filter)   # refused now, not when it runs, while no designer says its design version
+        if body.kind == 'run':
+            return run_request(body.request)
+        return AcceptRequest(body.request.filter.to_selection(), body.request.threshold, body.request.dry_run)
 
-    @v1.get('/jobs', response_model=models.JobList, tags=['jobs'], summary='Jobs, newest first')
-    def jobs(state: Optional[models.JobState] = None, kind: Optional[models.JobKind] = None,
-             limit: Annotated[int, Query(ge=1, le=500)] = 50) -> models.JobList:
-        found = [job for job in manager.jobs() if (state is None or job.state == state.value)
+    job_responses = _responses(404, 409, 422)
+
+    @v1.get('/jobs', response_model=models.JobList, tags=['jobs'], summary='The jobs: what is done, when, newest first')
+    def jobs(state: Optional[models.JobState] = None, kind: Optional[models.JobKind] = None) -> models.JobList:
+        found = [job for job in book.all() if (state is None or job.state == state.value)
                  and (kind is None or job.kind == kind.value)]
-        return models.JobList(jobs=[models.job_model(job, windows=manager) for job in found[:limit]])
+        return models.JobList(jobs=[job_view(job) for job in found])
+
+    @v1.post('/jobs', status_code=201, response_model=models.Job, tags=['jobs'],
+             summary='Make a job: once (queued at once) or every N minutes, within its window',
+             responses={201: {'description': 'Made; `Location` names the job.'}, **_responses(403, 422, 503)})
+    def create_job(body: models.JobCreate):
+        request = request_of(body)
+        try:
+            job = book.create(body.kind, request, name=body.name, every=body.every, window=body.window)
+        except ValueError as error:
+            raise ServiceProblem(422, 'Invalid job', str(error))
+        return JSONResponse(job_view(job).model_dump(mode='json'), status_code=201,
+                            headers={'Location': f'/v1/jobs/{job.id}'})
 
     @v1.get('/jobs/{job_id}', response_model=models.Job, tags=['jobs'], summary='One job', responses=_responses(404))
     def job(job_id: str):
-        return models.job_model(manager.get(job_id), windows=manager)
+        return job_view(book.get(job_id))
 
-    @v1.post('/jobs/{job_id}/cancel', response_model=models.Job, tags=['jobs'],
-             summary='Cancel: a queued or paused job is dropped, a running one stops before its next title',
-             responses=_responses(404, 409))
-    def cancel(job_id: str):
-        return models.job_model(manager.cancel(job_id), windows=manager)
+    @v1.patch('/jobs/{job_id}', response_model=models.Job, tags=['jobs'],
+              summary="Change a job: its name and window; a recurring job's interval and run too", responses=job_responses)
+    def edit_job(job_id: str, body: models.JobUpdate):
+        sent = body.model_fields_set
+        changes = {}
+        if 'name' in sent:
+            changes['name'] = body.name or ''
+        if 'window' in sent:
+            changes['window'] = body.window
+        if 'every' in sent:
+            changes['every'] = body.every
+        if 'request' in sent and body.request is not None:
+            check_sources(context(), body.request.filter)
+            changes['request'] = run_request(body.request)
+        try:
+            return job_view(book.edit(job_id, **changes))
+        except JobRefused:
+            raise
+        except ValueError as error:
+            raise ServiceProblem(422, 'Invalid change', str(error))
 
-    @v1.put('/jobs/{job_id}/window', response_model=models.Job, tags=['jobs'],
-            summary="Change a queued, running or paused job's window (design/job-windows.md)",
-            responses=_responses(404, 409, 422))
-    def set_job_window(job_id: str, body: models.JobWindowUpdate):
-        return models.job_model(manager.set_window(job_id, body.window), windows=manager)
+    @v1.delete('/jobs/{job_id}', response_model=models.Job, tags=['jobs'],
+               summary='Remove a job: nothing more starts, and its running execution stops before its next title',
+               responses=_responses(404))
+    def remove_job(job_id: str):
+        return job_view(book.remove(job_id))
+
+    @v1.post('/jobs/{job_id}/pause', response_model=models.Job, tags=['jobs'],
+             summary='Pause a job: nothing more starts, and its running execution stops before its next title',
+             responses=job_responses)
+    def pause_job(job_id: str):
+        return job_view(book.pause(job_id))
+
+    @v1.post('/jobs/{job_id}/resume', response_model=models.Job, tags=['jobs'],
+             summary='Resume a job: a one-off carries on with what it had left, a recurring one is due now',
+             responses=job_responses)
+    def resume_job(job_id: str):
+        return job_view(book.resume(job_id))
+
+    @v1.post('/jobs/{job_id}/run', status_code=202, response_model=models.Execution, tags=['jobs'],
+             summary='Run a recurring job now, if nothing else is running or waiting',
+             responses={202: {'description': 'Queued; `Location` names the execution.'}, **job_responses})
+    def run_job(job_id: str):
+        execution = book.run_now(job_id)
+        return JSONResponse(execution_view(execution).model_dump(mode='json'), status_code=202,
+                            headers={'Location': f'/v1/executions/{execution.id}'})
+
+    @v1.get('/executions', response_model=models.ExecutionList, tags=['executions'],
+            summary='The log: the running execution, each job\'s next one, and every one kept, newest first')
+    def executions(job: Optional[str] = None, state: Optional[models.ExecutionState] = None,
+                   limit: Annotated[int, Query(ge=1, le=500)] = 50) -> models.ExecutionList:
+        found = [e for e in manager.jobs() if (job is None or e.job_id == job)
+                 and (state is None or e.state == state.value)]
+        current = manager.current
+        upcoming = []
+        for definition in book.all():
+            if definition.state == 'active' and (job is None or definition.id == job) and \
+                    (definition.pending is None or not manager.has_job(definition.pending)
+                     or manager.get(definition.pending).state == 'queued'):
+                upcoming.append(models.NextExecution(job_id=definition.id, job_name=definition.name,
+                                                     at=models.timestamp(book.next_at(definition))))
+        upcoming.sort(key=lambda n: (n.at is None, n.at or 0))
+        return models.ExecutionList(running=execution_view(current) if current and (job is None or current.job_id == job)
+                                    else None, next=upcoming, executions=[execution_view(e) for e in found[:limit]])
+
+    @v1.get('/executions/{execution_id}', response_model=models.Execution, tags=['executions'],
+            summary='One execution', responses=_responses(404))
+    def execution(execution_id: str):
+        return execution_view(manager.get(execution_id))
+
+    @v1.post('/executions/{execution_id}/cancel', response_model=models.Execution, tags=['executions'],
+             summary='Cancel: a queued execution is dropped, a running one stops before its next title. A one-off job '
+                     'whose execution is cancelled is removed', responses=_responses(404, 409))
+    def cancel(execution_id: str):
+        return execution_view(manager.cancel(execution_id))
 
     def default_window() -> models.DefaultWindow:
         ranges, now = manager.default_window, manager.now()
@@ -714,27 +782,28 @@ def create_app(manager: ExecutionQueue, config: ServiceConfig, *, require_token:
         manager.set_default_window(body.window)
         return default_window()
 
-    @v1.get('/jobs/{job_id}/log', response_model=List[models.JobEvent], response_model_exclude_none=True, tags=['jobs'],
-            summary="What the job has reported so far (the last 500 events)", responses=_responses(404))
-    def log(job_id: str, after: Annotated[int, Query(ge=0, description='Only events after this seq.')] = 0):
-        return [models.JobEvent.of(event) for event in manager.events(job_id, after)]
+    @v1.get('/executions/{execution_id}/log', response_model=List[models.JobEvent], response_model_exclude_none=True,
+            tags=['executions'], summary="What the execution has reported so far (the last 500 events)",
+            responses=_responses(404))
+    def log(execution_id: str, after: Annotated[int, Query(ge=0, description='Only events after this seq.')] = 0):
+        return [models.JobEvent.of(event) for event in manager.events(execution_id, after)]
 
-    @v1.get('/jobs/{job_id}/events', tags=['jobs'], summary='Follow a job: its events as they happen (Server-Sent Events)',
-            response_class=StreamingResponse,
-            responses={200: {'description': 'A stream of JobEvent, one per `data:` line, until the job ends.',
+    @v1.get('/executions/{execution_id}/events', tags=['executions'],
+            summary='Follow an execution: its events as they happen (Server-Sent Events)', response_class=StreamingResponse,
+            responses={200: {'description': 'A stream of JobEvent, one per `data:` line, until the execution ends.',
                              'content': {'text/event-stream': {'schema': {'$ref': '#/components/schemas/JobEvent'}}}},
                        **_responses(404)})
-    async def events(job_id: str, request: Request):
-        job_ = manager.get(job_id)
+    async def events(execution_id: str, request: Request):
+        execution_ = manager.get(execution_id)
         after = int(request.headers.get('last-event-id') or 0)
         loop = asyncio.get_running_loop()
         queue: asyncio.Queue = asyncio.Queue()
 
         def listener(job, event):
-            if job.id == job_id:
+            if job.id == execution_id:
                 loop.call_soon_threadsafe(queue.put_nowait, event)
         unsubscribe = manager.subscribe(listener)
-        backlog = manager.events(job_id, after)   # taken after subscribing, so nothing falls between the two
+        backlog = manager.events(execution_id, after)   # taken after subscribing, so nothing falls between the two
 
         def frame(event) -> str:
             return f"id: {event['seq']}\nevent: {event['type']}\ndata: {models.JobEvent.of(event).model_dump_json(exclude_none=True)}\n\n"
@@ -750,7 +819,7 @@ def create_app(manager: ExecutionQueue, config: ServiceConfig, *, require_token:
                     yield frame(event)
                     if ends(event):
                         return
-                if job_.finished:
+                if execution_.finished:
                     return
                 while True:
                     try:

@@ -1,4 +1,4 @@
-'''Outbound webhooks for completed service jobs (design/pipeline-service.md §9).'''
+'''Outbound webhooks for finished executions of the service's jobs (design/pipeline-service.md §9).'''
 import json
 import logging
 import os
@@ -88,7 +88,7 @@ def _index_details(profile_path: str, env: Mapping[str, str], ids: list[str]):
 
 
 def _parts(job: Execution):
-    result = models.job_model(job).result if job.result is not None else None
+    result = models.execution_model(job).result if job.result is not None else None
     designed, failed, count = [], [], 0
     if isinstance(result, models.RunResult):
         designed = result.designed
@@ -110,7 +110,13 @@ def _parts(job: Execution):
     return designed, failed, count
 
 
+# an execution that stopped (its job carries on) or was interrupted (the service stopped) is not news: its job's last is
+QUIET = ('stopped', 'interrupted')
+
+
 def events_for(job: Execution) -> list[models.NotifyEvent]:
+    if job.state in QUIET:
+        return []
     designed, failed, _ = _parts(job)
     events = []
     if designed:
@@ -134,10 +140,10 @@ def notification(job: Execution, event: models.NotifyEvent, resolve: Callable) -
                                    if id_ in rows else id_, message=redact_text(message))
               for id_, message in failures]
     return models.Notification(event=event,
-        job=models.NotifyJob(id=job.id, kind=job.kind, origin=job.origin, state=job.state,
+        job=models.NotifyJob(id=job.id, job_id=job.job_id, kind=job.kind, origin=job.origin, state=job.state,
                              started_at=models.timestamp(job.started_at), finished_at=models.timestamp(job.finished_at)),
         designed=titles, failed=failed, review_waiting=indexed_count if indexed_count is not None else reported_count,
-        links=models.NotifyLinks(job=f'/v1/jobs/{job.id}', docs='/docs'))
+        links=models.NotifyLinks(job=f'/v1/executions/{job.id}', docs='/docs'))
 
 
 def _body(target: Target, note: models.Notification) -> tuple[bytes, str]:
@@ -255,7 +261,7 @@ class Notifier:
                     designed=[models.NotifyTitle(id='sample', title='Sample title', year='2026', kind='movie',
                                                  confidence=0.9)],
                     failed=[models.NotifyFailure(id='sample', title='Sample title', message='Sample failure')],
-                    review_waiting=1, links=models.NotifyLinks(job='/v1/jobs/sample', docs='/docs'))
+                    review_waiting=1, links=models.NotifyLinks(job='/v1/executions/sample', docs='/docs'))
                 outcome = self._deliver(target, note)
         return outcome
 

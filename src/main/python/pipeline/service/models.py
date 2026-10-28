@@ -69,14 +69,27 @@ class JobKind(str, Enum):
     accept = 'accept'
 
 
-class JobState(str, Enum):
+class ExecutionState(str, Enum):
     queued = 'queued'
     running = 'running'
-    paused = 'paused'
     succeeded = 'succeeded'
     failed = 'failed'
     cancelled = 'cancelled'
+    stopped = 'stopped'
     interrupted = 'interrupted'
+
+
+class StoppedBecause(str, Enum):
+    window = 'window'
+    paused = 'paused'
+    removed = 'removed'
+
+
+class JobState(str, Enum):
+    active = 'active'
+    paused = 'paused'
+    done = 'done'
+    removed = 'removed'
 
 
 class JobOrigin(str, Enum):
@@ -117,17 +130,12 @@ def _ranges(value: Optional[List[str]]) -> Optional[List[str]]:
 
 Ranges = Annotated[List[str], Field(max_length=MAX_WINDOW_RANGES), AfterValidator(_ranges)]
 WINDOW_DESCRIPTION = ('The times of day it may run: daily "HH:MM-HH:MM" ranges in the service\'s time zone (one may cross '
-                      'midnight, 22:00-06:00); outside them it waits, and a run pauses between titles and carries on when '
-                      'they next open. null: the default window (/v1/job-window); []: any time.')
+                      'midnight, 22:00-06:00); outside them it waits, and a running execution stops between titles: its '
+                      'job carries on when they next open. null: the default window (/v1/job-window); []: any time.')
 
 
 class Windowed(Input):
     window: Optional[Ranges] = Field(None, description=WINDOW_DESCRIPTION)
-
-
-class JobWindowUpdate(Input):
-    ''' A queued, running or paused job's new window. '''
-    window: Optional[Ranges] = Field(description=WINDOW_DESCRIPTION)
 
 
 class DefaultWindowUpdate(Input):
@@ -521,13 +529,13 @@ class NextTitle(BaseModel):
 
 # --- plans and job requests ---------------------------------------------------------------------------------------------
 
-class ScanJobRequest(Windowed):
+class ScanJobRequest(Input):
     sources: List[str] = Field(default_factory=list, description="Sources to list again, by name; none is all of them.")
     allow_empty: bool = Field(False, description='A source that now lists nothing replaces its titles (else it keeps them: '
                                                  'an unmounted share).')
 
 
-class RunJobRequest(Windowed):
+class RunJobRequest(Input):
     filter: TitleFilter = Field(default_factory=TitleFilter)
     through: Through = Field(Through.design, description='Run every stage up to this one that each title still needs. '
                                                          'A title waiting for review is never taken past design.')
@@ -595,7 +603,8 @@ class ReviseFailure(BaseModel):
 class ReviseOutcome(BaseModel):
     revised: List[RevisedTitle] = Field(description='Sent back now (none when a job does it).')
     failed: List[ReviseFailure]
-    job: Optional['RunJob'] = Field(None, description='The run job doing it, when run was asked for.')
+    job: Optional['Job'] = Field(None, description='The one-off redesign job doing it, when run was asked for.')
+    execution: Optional['RunExecution'] = Field(None, description='Its first execution.')
 
 
 class AudioStream(BaseModel):
@@ -652,7 +661,7 @@ class TitleStreams(BaseModel):
     streams: List[AudioStream]
 
 
-class AcceptJobRequest(Windowed):
+class AcceptJobRequest(Input):
     filter: TitleFilter = Field(default_factory=TitleFilter)
     threshold: float = Field(DEFAULT_ACCEPT_THRESHOLD, ge=0, le=1, description="Accept the designer's top pick at least "
                                                                                'this confident.')
@@ -833,41 +842,139 @@ def with_rate(progress: Optional['Progress'], started_at: Optional[float], now: 
                                        'estimated_finish': timestamp(now + remaining)})
 
 
-class JobBase(BaseModel):
+class ExecutionBase(BaseModel):
     id: str
+    job_id: Optional[str] = Field(None, description='The job it is an execution of.')
+    job_name: Optional[str] = Field(None, description="That job's name, while the job is kept.")
+    number: int = Field(0, description="Which of its job's executions it is: 1, 2, ...")
     origin: JobOrigin
-    state: JobState
+    state: ExecutionState
+    stopped_because: Optional[StoppedBecause] = Field(None, description='stopped: its window closed, or its job was '
+                                                                        'paused or removed. Its job carries on with the '
+                                                                        'titles it had not started.')
     submitted_at: datetime
     started_at: Optional[datetime]
     finished_at: Optional[datetime]
     progress: Optional[Progress]
-    error: Optional[str] = Field(None, description='Why the job itself failed (a title that failed is in the result).')
-    joined_to: Optional[str] = Field(None, description='The run job this one joined: its titles went into that run, '
+    error: Optional[str] = Field(None, description='Why it failed (a title that failed is in the result).')
+    joined_to: Optional[str] = Field(None, description='The execution this one joined: its titles went into that run, '
                                                        'and it ends when that run does, with its result.')
-    window: Optional[List[str]] = Field(None, description='Its window as given (null: the default\'s; []: any time).')
+    window: Optional[List[str]] = Field(None, description="Its job's window (null: the default's; []: any time).")
     window_open: Optional[bool] = Field(None, description='Whether it may run now, with the default applied.')
-    waiting_until: Optional[datetime] = Field(None, description='A queued or paused job whose window is closed: when it '
-                                                                'next opens, and the job is taken or carries on.')
-    parts: int = Field(0, description='How many times it has been started: more than one once paused and resumed.')
-    paused_at: List[datetime] = Field([], description='When it paused, each time its window closed while it ran.')
+    waiting_until: Optional[datetime] = Field(None, description='A queued execution whose window is closed: when it '
+                                                                'next opens.')
 
 
-class ScanJob(JobBase):
+class ScanExecution(ExecutionBase):
     kind: Literal['scan'] = 'scan'
     request: ScanJobRequest
     result: Optional[ScanResult]
 
 
-class RunJob(JobBase):
+class RunExecution(ExecutionBase):
     kind: Literal['run'] = 'run'
     request: RunJobRequest
     result: Optional[RunResult]
 
 
-class AcceptJob(JobBase):
+class AcceptExecution(ExecutionBase):
     kind: Literal['accept'] = 'accept'
     request: AcceptJobRequest
     result: Optional[AcceptResult]
+
+
+Execution = Annotated[Union[ScanExecution, RunExecution, AcceptExecution], Field(discriminator='kind')]
+
+
+class NextExecution(BaseModel):
+    job_id: str
+    job_name: str
+    at: Optional[datetime] = Field(description='When it may start: null when it waits only for the one running.')
+
+
+class ExecutionList(BaseModel):
+    running: Optional[Execution] = Field(None, description='The execution running now.')
+    next: List[NextExecution] = Field(default_factory=list, description="Each active job's next execution, soonest first.")
+    executions: List[Execution] = Field(description='Every execution kept, newest first (the running one included).')
+
+
+# --- jobs (design/jobs-and-executions.md) -------------------------------------------------------------------------------
+
+EVERY_DESCRIPTION = 'Minutes from the end of one execution to the start of the next (at least 5); null: once.'
+
+
+class _JobCreateBase(Input):
+    name: str = Field('', max_length=200, description='What a person calls it; empty: what it does.')
+    every: Optional[int] = Field(None, ge=5, description=EVERY_DESCRIPTION + ' Only a run through extract or design '
+                                                                             'recurs.')
+    window: Optional[Ranges] = Field(None, description=WINDOW_DESCRIPTION)
+
+
+class ScanJobCreate(_JobCreateBase):
+    kind: Literal['scan']
+    request: ScanJobRequest = Field(default_factory=ScanJobRequest)
+
+
+class RunJobCreate(_JobCreateBase):
+    kind: Literal['run']
+    request: RunJobRequest = Field(default_factory=RunJobRequest)
+
+
+class AcceptJobCreate(_JobCreateBase):
+    kind: Literal['accept']
+    request: AcceptJobRequest = Field(default_factory=AcceptJobRequest)
+
+
+JobCreate = Annotated[Union[ScanJobCreate, RunJobCreate, AcceptJobCreate], Field(discriminator='kind')]
+
+
+class JobUpdate(Input):
+    ''' What changes: only the fields sent. A one-off's request is fixed; `every` and `request` are a recurring job's. '''
+    name: Optional[str] = Field(None, max_length=200)
+    window: Optional[Ranges] = Field(None, description=WINDOW_DESCRIPTION + ' Send null for the default.')
+    every: Optional[int] = Field(None, ge=5, description=EVERY_DESCRIPTION)
+    request: Optional[RunJobRequest] = Field(None, description="A recurring job's run, from its next execution.")
+
+
+class JobProgress(BaseModel):
+    done: int = Field(description='Title-stages done by its executions so far.')
+    total: Optional[int] = Field(None, description='How many its first execution set out to do.')
+
+
+class JobBase(BaseModel):
+    id: str
+    name: str
+    every: Optional[int] = Field(None, description=EVERY_DESCRIPTION)
+    window: Optional[List[str]] = Field(None, description="Its window as given (null: the default's; []: any time).")
+    state: JobState
+    created_at: datetime
+    next_at: Optional[datetime] = Field(None, description='When its next execution may start; null while paused, done, '
+                                                          'removed or running.')
+    progress: Optional[JobProgress] = Field(None, description='A one-off: over every execution so far.')
+    remaining: Optional[int] = Field(None, description='A one-off run that stopped: titles its next execution does.')
+    executions: int = Field(description='How many it has had.')
+    last_execution: Optional[str] = Field(None, description='The id of its latest execution.')
+    running_execution: Optional[Execution] = Field(None, description='Its execution queued or running.')
+    last_finished_at: Optional[datetime] = None
+    last_skip: Optional[str] = Field(None, description='A recurring job: why its last due tick did not start one (busy, '
+                                                       'or the designer did not answer).')
+    ended: Optional[str] = Field(None, description='Why it is done, when it ended by itself (a recurring job whose ids '
+                                                   'are all done).')
+
+
+class ScanJob(JobBase):
+    kind: Literal['scan'] = 'scan'
+    request: ScanJobRequest
+
+
+class RunJob(JobBase):
+    kind: Literal['run'] = 'run'
+    request: RunJobRequest
+
+
+class AcceptJob(JobBase):
+    kind: Literal['accept'] = 'accept'
+    request: AcceptJobRequest
 
 
 Job = Annotated[Union[ScanJob, RunJob, AcceptJob], Field(discriminator='kind')]
@@ -965,43 +1072,66 @@ class ReviewedOutcome(BaseModel):
     titles: List[ReviewedTitle]
 
 
-def job_model(job, now: Optional[float] = None, windows=None) -> Union[ScanJob, RunJob, AcceptJob]:
+def _request_model(kind: str, request: Any) -> Union[ScanJobRequest, RunJobRequest, AcceptJobRequest]:
+    data = _request_data(request)
+    if kind == 'scan':
+        return ScanJobRequest(sources=list(data.get('sources') or ()), allow_empty=bool(data.get('allow_empty')))
+    selection = TitleFilter.of(data.get('selection') or {})
+    if kind == 'run':
+        return RunJobRequest(filter=selection, through=data.get('through', 'design'),
+                             scan_first=bool(data.get('scan_first', True)), retry_failed=bool(data.get('retry_failed')),
+                             redesign=bool(data.get('redesign')), revise_to=data.get('revise_to') or 'design',
+                             audio_stream=data.get('audio_stream'))
+    return AcceptJobRequest(filter=selection, threshold=data.get('threshold', DEFAULT_ACCEPT_THRESHOLD),
+                            dry_run=bool(data.get('dry_run')))
+
+
+def execution_model(execution, now: Optional[float] = None, queue=None, job_name: Optional[str] = None) \
+        -> Union[ScanExecution, RunExecution, AcceptExecution]:
     '''
     An executions.Execution (live, or read back from the history) as its typed model.
-    :param now: the time, for a running job's rate and estimate (R9); default the clock.
-    :param windows: the JobManager, which says whether the job's window is open now (else that is left null).
+    :param now: the time, for a running execution's rate and estimate (R9); default the clock.
+    :param queue: the ExecutionQueue, which says whether its window is open now (else that is left null).
+    :param job_name: its job's name, while the job is kept.
     '''
     import time
-    progress = Progress(**_data(job.progress)) if job.progress else None
-    if job.state == 'running':
-        progress = with_rate(progress, job.started_at, time.time() if now is None else now)
-    window = getattr(job, 'window', None)
-    common = dict(id=job.id, origin=job.origin, state=job.state, submitted_at=timestamp(job.submitted_at),
-                  started_at=timestamp(job.started_at), finished_at=timestamp(job.finished_at),
-                  progress=progress, error=job.error or None,
-                  joined_to=getattr(job, 'joined_to', None), window=window, parts=getattr(job, 'parts', 0),
-                  paused_at=[timestamp(t) for t in getattr(job, 'paused_at', ())])
-    if windows is not None and not job.finished:
-        common.update(window_open=windows.window_of(job).is_open(time.time() if now is None else now),
-                      waiting_until=timestamp(windows.waiting_until(job)))
-    request = _request_data(job.request)
-    finished_ok = job.result is not None
-    if job.kind == 'scan':
-        return ScanJob(request=ScanJobRequest(sources=list(request.get('sources') or ()),
-                                              allow_empty=bool(request.get('allow_empty')), window=window),
-                       result=scan_result(job.result) if finished_ok else None, **common)
-    selection = TitleFilter.of(request.get('selection') or {})
-    if job.kind == 'run':
-        return RunJob(request=RunJobRequest(filter=selection, through=request.get('through', 'design'),
-                                            scan_first=bool(request.get('scan_first', True)),
-                                            retry_failed=bool(request.get('retry_failed')),
-                                            redesign=bool(request.get('redesign')),
-                                            revise_to=request.get('revise_to') or 'design',
-                                            audio_stream=request.get('audio_stream'), window=window),
-                      result=run_result(job.result) if finished_ok else None, **common)
-    return AcceptJob(request=AcceptJobRequest(filter=selection, threshold=request.get('threshold', DEFAULT_ACCEPT_THRESHOLD),
-                                              dry_run=bool(request.get('dry_run')), window=window),
-                     result=accept_result(job.result) if finished_ok else None, **common)
+    progress = Progress(**_data(execution.progress)) if execution.progress else None
+    if execution.state == 'running':
+        progress = with_rate(progress, execution.started_at, time.time() if now is None else now)
+    common = dict(id=execution.id, job_id=execution.job_id, job_name=job_name, number=execution.number,
+                  origin=execution.origin, state=execution.state, stopped_because=execution.stopped_because or None,
+                  submitted_at=timestamp(execution.submitted_at), started_at=timestamp(execution.started_at),
+                  finished_at=timestamp(execution.finished_at), progress=progress, error=execution.error or None,
+                  joined_to=execution.joined_to, window=execution.window)
+    if queue is not None and not execution.finished:
+        common.update(window_open=queue.window_of(execution).is_open(time.time() if now is None else now),
+                      waiting_until=timestamp(queue.waiting_until(execution)))
+    request = _request_model(execution.kind, execution.request)
+    result = execution.result
+    if execution.kind == 'scan':
+        return ScanExecution(request=request, result=scan_result(result) if result is not None else None, **common)
+    if execution.kind == 'run':
+        return RunExecution(request=request, result=run_result(result) if result is not None else None, **common)
+    return AcceptExecution(request=request, result=accept_result(result) if result is not None else None, **common)
+
+
+def job_model(job, book, queue, now: Optional[float] = None) -> Union[ScanJob, RunJob, AcceptJob]:
+    ''' A jobbook.Job as its typed model, with its next and running execution. '''
+    running = None
+    if job.pending is not None:
+        try:
+            running = execution_model(queue.get(job.pending), now, queue, job.name)
+        except KeyError:
+            running = None
+    done, total = book.progress(job)
+    common = dict(id=job.id, name=job.name, every=job.every, window=job.window, state=job.state,
+                  created_at=timestamp(job.created_at), next_at=timestamp(book.next_at(job)),
+                  progress=None if job.recurring else JobProgress(done=done, total=total),
+                  remaining=len(job.remaining) if job.remaining is not None and not job.recurring else None,
+                  executions=len(job.executions), last_execution=job.executions[-1] if job.executions else None,
+                  running_execution=running, last_finished_at=timestamp(job.last_finished_at),
+                  last_skip=job.last_skip or None, ended=job.ended or None, request=_request_model(job.kind, job.request))
+    return {'scan': ScanJob, 'run': RunJob, 'accept': AcceptJob}[job.kind](**common)
 
 
 class _JobEventBase(BaseModel):
@@ -1011,12 +1141,11 @@ class _JobEventBase(BaseModel):
 
 
 class StateEvent(_JobEventBase):
-    ''' The job entered a state; the stream ends with a finished one. '''
+    ''' The execution entered a state; the stream ends with a finished one. '''
     type: Literal['state']
-    state: str = Field(description='queued, running, cancelling, pausing, paused, succeeded, failed, cancelled or '
+    state: str = Field(description='queued, running, cancelling, stopping, succeeded, failed, cancelled, stopped or '
                                    'interrupted.')
-    resumes_at: Optional[datetime] = Field(None, description='paused: when its window next opens.')
-    part: Optional[int] = Field(None, description='running again after a pause: which part this is (2, 3, ...).')
+    because: Optional[str] = Field(None, description='stopping: its window closed, or its job was paused or removed.')
 
 
 class RunProgressEvent(_JobEventBase):
@@ -1061,8 +1190,6 @@ class JobEvent(RootModel[Annotated[Union[StateEvent, RunProgressEvent, ExtractPr
     def of(cls, event: Dict[str, Any]) -> 'JobEvent':
         ''' From the job manager's kept event, which has the same fields but the time as epoch seconds and no text yet. '''
         data = {k: v for k, v in event.items() if v is not None}
-        if isinstance(data.get('resumes_at'), (int, float)):
-            data['resumes_at'] = timestamp(data['resumes_at'])
         model = cls.model_validate({**data, 'at': timestamp(event['at']), 'text': event.get('text') or ''})
         if not model.root.text:
             model.root.text = _event_text(model.root.model_dump())
@@ -1078,12 +1205,11 @@ def _event_text(event: Dict[str, Any]) -> str:
     ''' The words for an event that carries only numbers: a state, a step of the run, ffmpeg's position. '''
     kind = event.get('type')
     if kind == 'state':
-        if event.get('resumes_at'):
-            local = event['resumes_at'].astimezone().strftime('%Y-%m-%d %H:%M')   # the service's time zone, as windows are
-            return f"job {event['state']}: its window is closed; it carries on at {local}"
-        if event.get('part'):
-            return f"job {event['state']} again (part {event['part']})"
-        return f"job {event['state']}"
+        because = {'window': 'its window closed', 'paused': 'its job was paused',
+                   'removed': 'its job was removed'}.get(event.get('because') or '')
+        if because:
+            return f"{event['state']}: {because}; it stops before its next title"
+        return f"execution {event['state']}"
     if kind == 'run_progress':
         doing = f"{event['stage']}: {event.get('title')}" if event.get('stage') else 'finished'
         return f"{event['done']} of {event['total']} done; {doing}"
@@ -1122,9 +1248,8 @@ class IndexStatus(BaseModel):
 class ServiceStatus(BaseModel):
     version: str
     index: Optional[IndexStatus] = Field(description='None until the first scan.')
-    current_job: Optional[Job]
-    queued: int
-    schedule: Optional['Schedule'] = None
+    running_execution: Optional[Execution] = Field(None, description='The execution running now.')
+    waiting: int = Field(0, description='Executions queued behind it, or waiting for their window.')
     notify: List['NotifyOutcome'] = Field(default_factory=list)
     designer: Optional['DesignerStatus'] = None
     tmdb: Optional[bool] = Field(None, description='Whether a TMDB key is set (TMDB_API_KEY): without one, titles are '
@@ -1181,25 +1306,12 @@ class DesignerStatus(BaseModel):
 
 
 class ScheduleUpdate(Input):
+    ''' An older service's schedule (schedule.json, or service.yaml's `schedule`): migrated to a recurring job. '''
     enabled: bool = False
     interval_minutes: int = Field(60, ge=5)
     filter: TitleFilter = Field(default_factory=TitleFilter)
     through: AutoThrough = AutoThrough.design
     retry_failed: bool = False
-
-
-class Schedule(ScheduleUpdate):
-    next_run_at: Optional[datetime] = None
-    last_run: Optional['ScheduleLastRun'] = None
-    last_skip: Optional[str] = None
-    ended: Optional[str] = Field(None, description='Why the schedule turned itself off: its filter lists ids, and a run '
-                                                   'left none of them to do. Cleared by the next save.')
-
-
-class ScheduleLastRun(BaseModel):
-    job_id: str
-    state: JobState
-    finished_at: Optional[datetime]
 
 
 class NotifyEvent(str, Enum):
@@ -1213,10 +1325,13 @@ class NotifyTest(Input):
 
 
 class NotifyJob(BaseModel):
+    ''' The execution a notification is about, and its job. '''
     id: str
+    job_id: Optional[str] = None
+    job_name: Optional[str] = None
     kind: JobKind
     origin: JobOrigin
-    state: JobState
+    state: ExecutionState
     started_at: Optional[datetime]
     finished_at: Optional[datetime]
 
@@ -1242,7 +1357,7 @@ class NotifyLinks(BaseModel):
 
 class Notification(BaseModel):
     event: NotifyEvent
-    job: Optional[NotifyJob] = Field(description='The job it is about; null for a scheduled run that was skipped '
+    job: Optional[NotifyJob] = Field(description='The execution it is about; null for a scheduled run that was skipped '
                                                  '(the designer did not answer), which `failed` names instead.')
     designed: List[NotifyTitle]
     failed: List[NotifyFailure]

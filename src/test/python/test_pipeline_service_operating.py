@@ -4,7 +4,6 @@ goes and when it should end.
 '''
 import json
 from datetime import datetime, timezone
-from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
@@ -31,11 +30,12 @@ def test_a_running_jobs_rate_and_estimate_come_from_how_far_it_has_got():
 @pytest.mark.parametrize('state, rated', [('running', True), ('succeeded', False)])
 def test_only_a_running_job_is_estimated(state, rated):
     from pipeline.library.stages import Progress
-    job = SimpleNamespace(id='j', origin='schedule', state=state, submitted_at=900.0, started_at=1000.0,
-                          finished_at=None if state == 'running' else 5000.0, kind='run', request=RunRequest(),
-                          progress=Progress(10, 30, 'Heat', 'design'), error='', result=None, joined_to=None)
+    from pipeline.service.executions import Execution
+    job = Execution(id='j', origin='schedule', state=state, submitted_at=900.0, started_at=1000.0,
+                    finished_at=None if state == 'running' else 5000.0, kind='run', request=RunRequest(),
+                    progress=Progress(10, 30, 'Heat', 'design'))
 
-    model = models.job_model(job, now=4600.0)
+    model = models.execution_model(job, now=4600.0)
 
     assert (model.progress.per_hour is not None) is rated and (model.progress.estimated_finish is not None) is rated
 

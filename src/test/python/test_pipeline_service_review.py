@@ -116,7 +116,7 @@ def test_a_title_that_needs_design_offers_reject_but_not_accept_and_says_where_t
     client, *_ = service
     review = _review(client, 'c')
     assert review['blocked']['accept'] == ('Not offered: this title needs design first (settings changed). '
-                                           'Run it through design first (POST /v1/jobs/run).')
+                                           'Run it through design first (POST /v1/jobs with kind run).')
     assert review['blocked']['reject'] == ''
 
 
@@ -237,7 +237,7 @@ def test_nothing_is_decided_on_a_title_a_run_has_in_hand_until_its_part_ends(ser
     client, gate, queue, _ = service
     gate.report = [_event('a', 'queued', ''), _event('b', 'queued', ''), _event('b', 'title_completed', '')]
     digest = _review(client)['digest']
-    job = client.post('/v1/jobs/scan', json={}, headers=AUTH).json()
+    job = client.post('/v1/jobs', json={'kind': 'scan'}, headers=AUTH).json()
     assert gate.entered.wait(10)
 
     review = _review(client)
@@ -250,7 +250,7 @@ def test_nothing_is_decided_on_a_title_a_run_has_in_hand_until_its_part_ends(ser
 
     gate.release.set()
     deadline = time.time() + 10
-    while client.get(f"/v1/jobs/{job['id']}", headers=AUTH).json()['state'] == 'running':
+    while client.get(f"/v1/executions/{job['last_execution']}", headers=AUTH).json()['state'] == 'running':
         assert time.time() < deadline
         time.sleep(0.01)
     assert _decide(client, decision='reject', digest=digest).status_code == 200
@@ -260,7 +260,7 @@ def test_a_progress_report_naming_a_title_puts_it_in_hand(service):
     from pipeline.library.stages import Progress
     client, gate, *_ = service
     gate.report = [Progress(0, 2, 'Dune', 'design', 'd')]
-    client.post('/v1/jobs/scan', json={}, headers=AUTH)
+    client.post('/v1/jobs', json={'kind': 'scan'}, headers=AUTH)
     assert gate.entered.wait(10)
     assert _review(client, 'd')['in_flight'] is True and _review(client, 'b')['in_flight'] is False
 

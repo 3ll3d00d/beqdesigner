@@ -85,7 +85,7 @@ def test_nothing_is_edited_on_a_title_a_run_has_in_hand(service):
     client, gate, *_ = service
     gate.report = [_event('a', 'queued', '')]
     review = _review(client)
-    client.post('/v1/jobs/scan', json={}, headers=AUTH)
+    client.post('/v1/jobs', json={'kind': 'scan'}, headers=AUTH)
     assert gate.entered.wait(10)
     for refused in (_edit(client, digest=review['metadata_digest'], texts={'note': 'x'}),
                     client.put('/v1/titles/a/artwork', json={'digest': review['metadata_digest'],
@@ -240,7 +240,7 @@ def test_a_published_title_needs_repository_writes_and_an_undesigned_one_has_not
 def test_a_title_a_run_has_in_hand_is_not_sent_back(service):
     client, gate, *_ = service
     gate.report = [_event('a', 'queued', '')]
-    client.post('/v1/jobs/scan', json={}, headers=AUTH)
+    client.post('/v1/jobs', json={'kind': 'scan'}, headers=AUTH)
     assert gate.entered.wait(10)
     body = _revise(client, ids=['a'], to='design').json()
     assert body['failed'] == [{'id': 'a', 'reason': RUNNING}]
@@ -283,7 +283,7 @@ def test_a_titles_streams_say_which_is_extracted_and_which_is_preferred(streams,
 def test_choosing_a_stream_is_a_run_job_and_one_not_listed_is_refused(streams, service):
     client, *_ = service
     answer = client.put('/v1/titles/a/stream', json={'audio_stream': 0}, headers=AUTH)
-    assert answer.status_code == 202, answer.text
+    assert answer.status_code == 201, answer.text
     request = answer.json()['request']
     assert (request['audio_stream'], request['revise_to'], request['filter']['ids']) == (0, 'extract', ['a'])
     refused = client.put('/v1/titles/a/stream', json={'audio_stream': 5}, headers=AUTH)
@@ -509,7 +509,7 @@ def test_streams_the_source_did_not_list_are_read_from_the_file(unlisted, servic
     body = client.get('/v1/titles/a/streams', headers=AUTH).json()
     assert body['probed'] is True and [s['text'][:12] for s in body['streams']] == ['1: TrueHD 7.', '2: AC3 5.1']
     answer = client.put('/v1/titles/a/stream', json={'audio_stream': 1}, headers=AUTH)
-    assert answer.status_code == 202 and answer.json()['request']['audio_stream'] == 1
+    assert answer.status_code == 201 and answer.json()['request']['audio_stream'] == 1
     assert client.put('/v1/titles/a/stream', json={'audio_stream': 2}, headers=AUTH).status_code == 422
 
 

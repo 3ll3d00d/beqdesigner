@@ -55,7 +55,7 @@ def test_payload_has_title_details_and_redacted_new_failures():
     assert note.job.id == 'job-1' and note.review_waiting == 4
     assert note.designed[0].title == 'Alien' and note.designed[0].confidence == 0.93
     assert len(note.failed) == 1 and 'secret123' not in note.failed[0].message
-    assert note.links.job == '/v1/jobs/job-1'
+    assert note.links.job == '/v1/executions/job-1'
 
 
 def test_target_defaults_filters_and_environment_secrets(tmp_path):
@@ -180,6 +180,12 @@ def test_delivery_retries_real_http_failures(receiver):
         manager.stop(5)
 
 
+@pytest.mark.parametrize('state', ['stopped', 'interrupted'])
+def test_an_execution_that_stopped_or_was_interrupted_is_not_news(state):
+    ''' Its job carries on with what it left: the execution that finishes the job says what it did. '''
+    assert events_for(_job(designed=['a'], failed=[('b', 'x')], state=state)) == []
+
+
 def test_a_job_is_saved_before_async_delivery_and_origin_filters_apply(tmp_path):
     recorded = []
     manager = ExecutionQueue(lambda job, control: ScanResult(1, 1, errors={'disk': 'offline'}), state_dir=str(tmp_path),
@@ -188,7 +194,7 @@ def test_a_job_is_saved_before_async_delivery_and_origin_filters_apply(tmp_path)
                                              'events': ['failed', 'job_finished'], 'origins': ['schedule']}],
                         resolve=lambda ids: ({}, 0),
                         send=lambda target, body, content_type: recorded.append(
-                            (json.loads((tmp_path / 'jobs.json').read_text())[-1]['state'], json.loads(body)['event'])))
+                            (json.loads((tmp_path / 'executions.json').read_text())[-1]['state'], json.loads(body)['event'])))
     try:
         manager.submit(ScanRequest(), origin='api')
         scheduled = manager.submit(ScanRequest(), origin='schedule')

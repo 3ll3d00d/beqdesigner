@@ -100,7 +100,7 @@ def test_a_real_process_serves_and_stops_cleanly_on_sigterm(profile, tmp_path):
                 time.sleep(0.1)
         assert health['status'] == 'ok'
         request = urllib.request.Request(f'http://127.0.0.1:{port}/v1/status', headers={'Authorization': 'Bearer secret-token'})
-        assert json.load(urllib.request.urlopen(request, timeout=5))['queued'] == 0
+        assert json.load(urllib.request.urlopen(request, timeout=5))['waiting'] == 0
     finally:
         process.send_signal(signal.SIGTERM)
         output = process.communicate(timeout=30)[0]

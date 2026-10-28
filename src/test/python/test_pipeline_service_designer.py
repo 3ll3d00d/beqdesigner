@@ -18,7 +18,6 @@ from pipeline.service.context import load_context
 from pipeline.service.designer import DesignerProbe
 from pipeline.service.executions import ExecutionQueue, RunRequest
 from pipeline.service.notify import Notifier
-from pipeline.service.scheduler import DESIGNER_RETRY_MINUTES, AutoScheduler
 from pipeline.library.selection import Selection
 
 TOKEN = 'test-token'
@@ -285,82 +284,6 @@ def test_the_probe_reuses_a_recent_answer(tmp_path, designer):
     now[0] += 2
     designer.health = 503
     assert probe.current().reachable is False and designer.asked == 2
-
-
-# --- the schedule ----------------------------------------------------------------------------------------------------
-
-def test_a_tick_is_skipped_while_the_designer_is_down_notified_once_and_resumed_when_it_is_back(tmp_path, designer):
-    now = [1000.0]
-    submitted, told = [], []
-    manager = ExecutionQueue(lambda job, control: submitted.append(job), clock=lambda: now[0])
-    probe = DesignerProbe(_profile(tmp_path, designer.url), {})
-    scheduler = AutoScheduler(manager, str(tmp_path), {'enabled': True, 'interval_minutes': 60},
-                              clock=lambda: now[0], start=False, designer=probe.unavailable,
-                              on_designer_down=told.append)
-    try:
-        designer.health = 503
-        now[0] += 3600
-        scheduler.tick()
-        snapshot = scheduler.snapshot()
-        assert manager.jobs() == [] and snapshot['last_skip'].startswith('designer unavailable: ')
-        assert 'HTTP 503' in snapshot['last_skip'] and len(told) == 1
-        assert snapshot['next_run_at'] == now[0] + DESIGNER_RETRY_MINUTES * 60   # sooner than the hour
-
-        now[0] += DESIGNER_RETRY_MINUTES * 60
-        scheduler.tick()                       # still down: skipped again, not notified again
-        assert manager.jobs() == [] and len(told) == 1
-
-        designer.health = {'status': 'ok'}
-        now[0] += DESIGNER_RETRY_MINUTES * 60
-        scheduler.tick()
-        assert len(manager.jobs()) == 1 and manager.jobs()[0].origin == 'schedule'
-        assert scheduler.snapshot()['last_skip'] is None and scheduler.designer_down == ''
-    finally:
-        scheduler.stop()
-        manager.stop(5)
-
-
-def test_a_new_outage_is_notified_again(tmp_path, designer):
-    now = [1000.0]
-    told = []
-    manager = ExecutionQueue(lambda job, control: None, clock=lambda: now[0])
-    probe = DesignerProbe(_profile(tmp_path, designer.url), {})
-    scheduler = AutoScheduler(manager, str(tmp_path), {'enabled': True, 'interval_minutes': 5},
-                              clock=lambda: now[0], start=False, designer=probe.unavailable,
-                              on_designer_down=told.append)
-    try:
-        for health in (503, {'status': 'ok'}, 503):
-            designer.health = health
-            now[0] += 3600
-            scheduler.tick()
-            _wait_idle(manager)
-        assert len(told) == 2
-    finally:
-        scheduler.stop()
-        manager.stop(5)
-
-
-def _wait_idle(manager):
-    import time
-    deadline = time.time() + 5
-    while manager.current is not None or manager.queued:
-        assert time.time() < deadline
-        time.sleep(0.005)
-
-
-def test_a_tick_through_extract_does_not_ask_the_designer(tmp_path, designer):
-    now = [1000.0]
-    manager = ExecutionQueue(lambda job, control: None, clock=lambda: now[0])
-    asked = []
-    scheduler = AutoScheduler(manager, str(tmp_path), {'enabled': True, 'interval_minutes': 5, 'through': 'extract'},
-                              clock=lambda: now[0], start=False, designer=lambda: asked.append(1) or 'down')
-    try:
-        now[0] += 600
-        scheduler.tick()
-        assert asked == [] and len(manager.jobs()) == 1
-    finally:
-        scheduler.stop()
-        manager.stop(5)
 
 
 # --- a run job --------------------------------------------------------------------------------------------------------

@@ -171,171 +171,6 @@
         ]
       }
     },
-    "/v1/schedule": {
-      "get": {
-        "tags": [
-          "schedule"
-        ],
-        "summary": "Automatic extract/design schedule",
-        "operationId": "get_schedule_v1_schedule_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Schedule"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      },
-      "put": {
-        "tags": [
-          "schedule"
-        ],
-        "summary": "Save and enable or pause the schedule",
-        "operationId": "put_schedule_v1_schedule_put",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ScheduleUpdate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Schedule"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Unprocessable Content",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/v1/schedule/trigger": {
-      "post": {
-        "tags": [
-          "schedule"
-        ],
-        "summary": "Run one automatic tick now",
-        "operationId": "trigger_schedule_v1_schedule_trigger_post",
-        "responses": {
-          "202": {
-            "description": "Queued.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "oneOf": [
-                    {
-                      "$ref": "#/components/schemas/ScanJob"
-                    },
-                    {
-                      "$ref": "#/components/schemas/RunJob"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AcceptJob"
-                    }
-                  ],
-                  "title": "Response Trigger Schedule V1 Schedule Trigger Post",
-                  "discriminator": {
-                    "propertyName": "kind",
-                    "mapping": {
-                      "scan": "#/components/schemas/ScanJob",
-                      "run": "#/components/schemas/RunJob",
-                      "accept": "#/components/schemas/AcceptJob"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
     "/v1/titles": {
       "get": {
         "tags": [
@@ -1837,7 +1672,7 @@
         "tags": [
           "edit"
         ],
-        "summary": "Extract and design a title from another audio stream: a run job",
+        "summary": "Extract and design a title from another audio stream: a one-off job",
         "operationId": "choose_v1_titles__title_id__stream_put",
         "security": [
           {
@@ -1866,12 +1701,31 @@
           }
         },
         "responses": {
-          "202": {
+          "201": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RunJob"
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ScanJob"
+                    },
+                    {
+                      "$ref": "#/components/schemas/RunJob"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AcceptJob"
+                    }
+                  ],
+                  "discriminator": {
+                    "propertyName": "kind",
+                    "mapping": {
+                      "scan": "#/components/schemas/ScanJob",
+                      "run": "#/components/schemas/RunJob",
+                      "accept": "#/components/schemas/AcceptJob"
+                    }
+                  },
+                  "title": "Response Choose V1 Titles  Title Id  Stream Put"
                 }
               }
             }
@@ -3408,297 +3262,12 @@
         ]
       }
     },
-    "/v1/jobs/scan": {
-      "post": {
-        "tags": [
-          "jobs"
-        ],
-        "summary": "List the sources again",
-        "operationId": "submit_scan_v1_jobs_scan_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ScanJobRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "202": {
-            "description": "Queued; `Location` names the job.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "oneOf": [
-                    {
-                      "$ref": "#/components/schemas/ScanJob"
-                    },
-                    {
-                      "$ref": "#/components/schemas/RunJob"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AcceptJob"
-                    }
-                  ],
-                  "title": "Response Submit Scan V1 Jobs Scan Post",
-                  "discriminator": {
-                    "propertyName": "kind",
-                    "mapping": {
-                      "scan": "#/components/schemas/ScanJob",
-                      "run": "#/components/schemas/RunJob",
-                      "accept": "#/components/schemas/AcceptJob"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Unprocessable Content",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/v1/jobs/run": {
-      "post": {
-        "tags": [
-          "jobs"
-        ],
-        "summary": "Extract, design (and, if allowed, publish or commit) the titles a filter selects",
-        "operationId": "submit_run_v1_jobs_run_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RunJobRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "202": {
-            "description": "Queued; `Location` names the job.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "oneOf": [
-                    {
-                      "$ref": "#/components/schemas/ScanJob"
-                    },
-                    {
-                      "$ref": "#/components/schemas/RunJob"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AcceptJob"
-                    }
-                  ],
-                  "title": "Response Submit Run V1 Jobs Run Post",
-                  "discriminator": {
-                    "propertyName": "kind",
-                    "mapping": {
-                      "scan": "#/components/schemas/ScanJob",
-                      "run": "#/components/schemas/RunJob",
-                      "accept": "#/components/schemas/AcceptJob"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Unprocessable Content",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/v1/jobs/accept": {
-      "post": {
-        "tags": [
-          "jobs"
-        ],
-        "summary": "Accept the designer's top pick for confident titles (needs allow_repository_writes, unless a dry run)",
-        "operationId": "submit_accept_v1_jobs_accept_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AcceptJobRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "202": {
-            "description": "Queued; `Location` names the job.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "oneOf": [
-                    {
-                      "$ref": "#/components/schemas/ScanJob"
-                    },
-                    {
-                      "$ref": "#/components/schemas/RunJob"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AcceptJob"
-                    }
-                  ],
-                  "title": "Response Submit Accept V1 Jobs Accept Post",
-                  "discriminator": {
-                    "propertyName": "kind",
-                    "mapping": {
-                      "scan": "#/components/schemas/ScanJob",
-                      "run": "#/components/schemas/RunJob",
-                      "accept": "#/components/schemas/AcceptJob"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Unprocessable Content",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
     "/v1/jobs": {
       "get": {
         "tags": [
           "jobs"
         ],
-        "summary": "Jobs, newest first",
+        "summary": "The jobs: what is done, when, newest first",
         "operationId": "jobs_v1_jobs_get",
         "security": [
           {
@@ -3737,18 +3306,6 @@
               ],
               "title": "Kind"
             }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 500,
-              "minimum": 1,
-              "default": 50,
-              "title": "Limit"
-            }
           }
         ],
         "responses": {
@@ -3781,6 +3338,118 @@
                 }
               }
             }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Make a job: once (queued at once) or every N minutes, within its window",
+        "operationId": "create_job_v1_jobs_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/ScanJobCreate"
+                  },
+                  {
+                    "$ref": "#/components/schemas/RunJobCreate"
+                  },
+                  {
+                    "$ref": "#/components/schemas/AcceptJobCreate"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "kind",
+                  "mapping": {
+                    "scan": "#/components/schemas/ScanJobCreate",
+                    "run": "#/components/schemas/RunJobCreate",
+                    "accept": "#/components/schemas/AcceptJobCreate"
+                  }
+                },
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Made; `Location` names the job.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ScanJob"
+                    },
+                    {
+                      "$ref": "#/components/schemas/RunJob"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AcceptJob"
+                    }
+                  ],
+                  "discriminator": {
+                    "propertyName": "kind",
+                    "mapping": {
+                      "scan": "#/components/schemas/ScanJob",
+                      "run": "#/components/schemas/RunJob",
+                      "accept": "#/components/schemas/AcceptJob"
+                    }
+                  },
+                  "title": "Response Create Job V1 Jobs Post"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         }
       }
@@ -3869,111 +3538,13 @@
             }
           }
         }
-      }
-    },
-    "/v1/jobs/{job_id}/cancel": {
-      "post": {
+      },
+      "patch": {
         "tags": [
           "jobs"
         ],
-        "summary": "Cancel: a queued or paused job is dropped, a running one stops before its next title",
-        "operationId": "cancel_v1_jobs__job_id__cancel_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "job_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Job Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "oneOf": [
-                    {
-                      "$ref": "#/components/schemas/ScanJob"
-                    },
-                    {
-                      "$ref": "#/components/schemas/RunJob"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AcceptJob"
-                    }
-                  ],
-                  "discriminator": {
-                    "propertyName": "kind",
-                    "mapping": {
-                      "scan": "#/components/schemas/ScanJob",
-                      "run": "#/components/schemas/RunJob",
-                      "accept": "#/components/schemas/AcceptJob"
-                    }
-                  },
-                  "title": "Response Cancel V1 Jobs  Job Id  Cancel Post"
-                }
-              }
-            }
-          },
-          "401": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "Unauthorized"
-          },
-          "404": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "Not Found"
-          },
-          "409": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "Conflict"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/jobs/{job_id}/window": {
-      "put": {
-        "tags": [
-          "jobs"
-        ],
-        "summary": "Change a queued, running or paused job's window (design/job-windows.md)",
-        "operationId": "set_job_window_v1_jobs__job_id__window_put",
+        "summary": "Change a job: its name and window; a recurring job's interval and run too",
+        "operationId": "edit_job_v1_jobs__job_id__patch",
         "security": [
           {
             "HTTPBearer": []
@@ -3995,7 +3566,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/JobWindowUpdate"
+                "$ref": "#/components/schemas/JobUpdate"
               }
             }
           }
@@ -4025,7 +3596,7 @@
                       "accept": "#/components/schemas/AcceptJob"
                     }
                   },
-                  "title": "Response Set Job Window V1 Jobs  Job Id  Window Put"
+                  "title": "Response Edit Job V1 Jobs  Job Id  Patch"
                 }
               }
             }
@@ -4069,6 +3640,652 @@
               }
             },
             "description": "Unprocessable Content"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Remove a job: nothing more starts, and its running execution stops before its next title",
+        "operationId": "remove_job_v1_jobs__job_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ScanJob"
+                    },
+                    {
+                      "$ref": "#/components/schemas/RunJob"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AcceptJob"
+                    }
+                  ],
+                  "discriminator": {
+                    "propertyName": "kind",
+                    "mapping": {
+                      "scan": "#/components/schemas/ScanJob",
+                      "run": "#/components/schemas/RunJob",
+                      "accept": "#/components/schemas/AcceptJob"
+                    }
+                  },
+                  "title": "Response Remove Job V1 Jobs  Job Id  Delete"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jobs/{job_id}/pause": {
+      "post": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Pause a job: nothing more starts, and its running execution stops before its next title",
+        "operationId": "pause_job_v1_jobs__job_id__pause_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ScanJob"
+                    },
+                    {
+                      "$ref": "#/components/schemas/RunJob"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AcceptJob"
+                    }
+                  ],
+                  "discriminator": {
+                    "propertyName": "kind",
+                    "mapping": {
+                      "scan": "#/components/schemas/ScanJob",
+                      "run": "#/components/schemas/RunJob",
+                      "accept": "#/components/schemas/AcceptJob"
+                    }
+                  },
+                  "title": "Response Pause Job V1 Jobs  Job Id  Pause Post"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
+    },
+    "/v1/jobs/{job_id}/resume": {
+      "post": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Resume a job: a one-off carries on with what it had left, a recurring one is due now",
+        "operationId": "resume_job_v1_jobs__job_id__resume_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ScanJob"
+                    },
+                    {
+                      "$ref": "#/components/schemas/RunJob"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AcceptJob"
+                    }
+                  ],
+                  "discriminator": {
+                    "propertyName": "kind",
+                    "mapping": {
+                      "scan": "#/components/schemas/ScanJob",
+                      "run": "#/components/schemas/RunJob",
+                      "accept": "#/components/schemas/AcceptJob"
+                    }
+                  },
+                  "title": "Response Resume Job V1 Jobs  Job Id  Resume Post"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
+    },
+    "/v1/jobs/{job_id}/run": {
+      "post": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Run a recurring job now, if nothing else is running or waiting",
+        "operationId": "run_job_v1_jobs__job_id__run_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Queued; `Location` names the execution.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ScanExecution"
+                    },
+                    {
+                      "$ref": "#/components/schemas/RunExecution"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AcceptExecution"
+                    }
+                  ],
+                  "discriminator": {
+                    "propertyName": "kind",
+                    "mapping": {
+                      "scan": "#/components/schemas/ScanExecution",
+                      "run": "#/components/schemas/RunExecution",
+                      "accept": "#/components/schemas/AcceptExecution"
+                    }
+                  },
+                  "title": "Response Run Job V1 Jobs  Job Id  Run Post"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
+    },
+    "/v1/executions": {
+      "get": {
+        "tags": [
+          "executions"
+        ],
+        "summary": "The log: the running execution, each job's next one, and every one kept, newest first",
+        "operationId": "executions_v1_executions_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "job",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Job"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ExecutionState"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecutionList"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/executions/{execution_id}": {
+      "get": {
+        "tags": [
+          "executions"
+        ],
+        "summary": "One execution",
+        "operationId": "execution_v1_executions__execution_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "execution_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Execution Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ScanExecution"
+                    },
+                    {
+                      "$ref": "#/components/schemas/RunExecution"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AcceptExecution"
+                    }
+                  ],
+                  "discriminator": {
+                    "propertyName": "kind",
+                    "mapping": {
+                      "scan": "#/components/schemas/ScanExecution",
+                      "run": "#/components/schemas/RunExecution",
+                      "accept": "#/components/schemas/AcceptExecution"
+                    }
+                  },
+                  "title": "Response Execution V1 Executions  Execution Id  Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/executions/{execution_id}/cancel": {
+      "post": {
+        "tags": [
+          "executions"
+        ],
+        "summary": "Cancel: a queued execution is dropped, a running one stops before its next title. A one-off job whose execution is cancelled is removed",
+        "operationId": "cancel_v1_executions__execution_id__cancel_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "execution_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Execution Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ScanExecution"
+                    },
+                    {
+                      "$ref": "#/components/schemas/RunExecution"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AcceptExecution"
+                    }
+                  ],
+                  "discriminator": {
+                    "propertyName": "kind",
+                    "mapping": {
+                      "scan": "#/components/schemas/ScanExecution",
+                      "run": "#/components/schemas/RunExecution",
+                      "accept": "#/components/schemas/AcceptExecution"
+                    }
+                  },
+                  "title": "Response Cancel V1 Executions  Execution Id  Cancel Post"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
           }
         }
       }
@@ -4163,13 +4380,13 @@
         ]
       }
     },
-    "/v1/jobs/{job_id}/log": {
+    "/v1/executions/{execution_id}/log": {
       "get": {
         "tags": [
-          "jobs"
+          "executions"
         ],
-        "summary": "What the job has reported so far (the last 500 events)",
-        "operationId": "log_v1_jobs__job_id__log_get",
+        "summary": "What the execution has reported so far (the last 500 events)",
+        "operationId": "log_v1_executions__execution_id__log_get",
         "security": [
           {
             "HTTPBearer": []
@@ -4177,12 +4394,12 @@
         ],
         "parameters": [
           {
-            "name": "job_id",
+            "name": "execution_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Job Id"
+              "title": "Execution Id"
             }
           },
           {
@@ -4209,7 +4426,7 @@
                   "items": {
                     "$ref": "#/components/schemas/JobEvent"
                   },
-                  "title": "Response Log V1 Jobs  Job Id  Log Get"
+                  "title": "Response Log V1 Executions  Execution Id  Log Get"
                 }
               }
             }
@@ -4247,13 +4464,13 @@
         }
       }
     },
-    "/v1/jobs/{job_id}/events": {
+    "/v1/executions/{execution_id}/events": {
       "get": {
         "tags": [
-          "jobs"
+          "executions"
         ],
-        "summary": "Follow a job: its events as they happen (Server-Sent Events)",
-        "operationId": "events_v1_jobs__job_id__events_get",
+        "summary": "Follow an execution: its events as they happen (Server-Sent Events)",
+        "operationId": "events_v1_executions__execution_id__events_get",
         "security": [
           {
             "HTTPBearer": []
@@ -4261,18 +4478,18 @@
         ],
         "parameters": [
           {
-            "name": "job_id",
+            "name": "execution_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Job Id"
+              "title": "Execution Id"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "A stream of JobEvent, one per `data:` line, until the job ends.",
+            "description": "A stream of JobEvent, one per `data:` line, until the execution ends.",
             "content": {
               "text/event-stream": {
                 "schema": {
@@ -4359,17 +4576,58 @@
   },
   "components": {
     "schemas": {
-      "AcceptJob": {
+      "AcceptExecution": {
         "properties": {
           "id": {
             "type": "string",
             "title": "Id"
           },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id",
+            "description": "The job it is an execution of."
+          },
+          "job_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Name",
+            "description": "That job's name, while the job is kept."
+          },
+          "number": {
+            "type": "integer",
+            "title": "Number",
+            "description": "Which of its job's executions it is: 1, 2, ...",
+            "default": 0
+          },
           "origin": {
             "$ref": "#/components/schemas/JobOrigin"
           },
           "state": {
-            "$ref": "#/components/schemas/JobState"
+            "$ref": "#/components/schemas/ExecutionState"
+          },
+          "stopped_because": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StoppedBecause"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "stopped: its window closed, or its job was paused or removed. Its job carries on with the titles it had not started."
           },
           "submitted_at": {
             "type": "string",
@@ -4420,7 +4678,7 @@
               }
             ],
             "title": "Error",
-            "description": "Why the job itself failed (a title that failed is in the result)."
+            "description": "Why it failed (a title that failed is in the result)."
           },
           "joined_to": {
             "anyOf": [
@@ -4432,7 +4690,7 @@
               }
             ],
             "title": "Joined To",
-            "description": "The run job this one joined: its titles went into that run, and it ends when that run does, with its result."
+            "description": "The execution this one joined: its titles went into that run, and it ends when that run does, with its result."
           },
           "window": {
             "anyOf": [
@@ -4447,7 +4705,7 @@
               }
             ],
             "title": "Window",
-            "description": "Its window as given (null: the default's; []: any time)."
+            "description": "Its job's window (null: the default's; []: any time)."
           },
           "window_open": {
             "anyOf": [
@@ -4472,23 +4730,7 @@
               }
             ],
             "title": "Waiting Until",
-            "description": "A queued or paused job whose window is closed: when it next opens, and the job is taken or carries on."
-          },
-          "parts": {
-            "type": "integer",
-            "title": "Parts",
-            "description": "How many times it has been started: more than one once paused and resumed.",
-            "default": 0
-          },
-          "paused_at": {
-            "items": {
-              "type": "string",
-              "format": "date-time"
-            },
-            "type": "array",
-            "title": "Paused At",
-            "description": "When it paused, each time its window closed while it ran.",
-            "default": []
+            "description": "A queued execution whose window is closed: when it next opens."
           },
           "kind": {
             "type": "string",
@@ -4522,10 +4764,215 @@
           "request",
           "result"
         ],
+        "title": "AcceptExecution"
+      },
+      "AcceptJob": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "every": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Every",
+            "description": "Minutes from the end of one execution to the start of the next (at least 5); null: once."
+          },
+          "window": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window",
+            "description": "Its window as given (null: the default's; []: any time)."
+          },
+          "state": {
+            "$ref": "#/components/schemas/JobState"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "next_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next At",
+            "description": "When its next execution may start; null while paused, done, removed or running."
+          },
+          "progress": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JobProgress"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A one-off: over every execution so far."
+          },
+          "remaining": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining",
+            "description": "A one-off run that stopped: titles its next execution does."
+          },
+          "executions": {
+            "type": "integer",
+            "title": "Executions",
+            "description": "How many it has had."
+          },
+          "last_execution": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Execution",
+            "description": "The id of its latest execution."
+          },
+          "running_execution": {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/ScanExecution"
+                  },
+                  {
+                    "$ref": "#/components/schemas/RunExecution"
+                  },
+                  {
+                    "$ref": "#/components/schemas/AcceptExecution"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "kind",
+                  "mapping": {
+                    "accept": "#/components/schemas/AcceptExecution",
+                    "run": "#/components/schemas/RunExecution",
+                    "scan": "#/components/schemas/ScanExecution"
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Running Execution",
+            "description": "Its execution queued or running."
+          },
+          "last_finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Finished At"
+          },
+          "last_skip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Skip",
+            "description": "A recurring job: why its last due tick did not start one (busy, or the designer did not answer)."
+          },
+          "ended": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended",
+            "description": "Why it is done, when it ended by itself (a recurring job whose ids are all done)."
+          },
+          "kind": {
+            "type": "string",
+            "const": "accept",
+            "title": "Kind",
+            "default": "accept"
+          },
+          "request": {
+            "$ref": "#/components/schemas/AcceptJobRequest"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "state",
+          "created_at",
+          "executions",
+          "request"
+        ],
         "title": "AcceptJob"
       },
-      "AcceptJobRequest": {
+      "AcceptJobCreate": {
         "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Name",
+            "description": "What a person calls it; empty: what it does.",
+            "default": ""
+          },
+          "every": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 5.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Every",
+            "description": "Minutes from the end of one execution to the start of the next (at least 5); null: once. Only a run through extract or design recurs."
+          },
           "window": {
             "anyOf": [
               {
@@ -4540,8 +4987,26 @@
               }
             ],
             "title": "Window",
-            "description": "The times of day it may run: daily \"HH:MM-HH:MM\" ranges in the service's time zone (one may cross midnight, 22:00-06:00); outside them it waits, and a run pauses between titles and carries on when they next open. null: the default window (/v1/job-window); []: any time."
+            "description": "The times of day it may run: daily \"HH:MM-HH:MM\" ranges in the service's time zone (one may cross midnight, 22:00-06:00); outside them it waits, and a running execution stops between titles: its job carries on when they next open. null: the default window (/v1/job-window); []: any time."
           },
+          "kind": {
+            "type": "string",
+            "const": "accept",
+            "title": "Kind"
+          },
+          "request": {
+            "$ref": "#/components/schemas/AcceptJobRequest"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "title": "AcceptJobCreate"
+      },
+      "AcceptJobRequest": {
+        "properties": {
           "filter": {
             "$ref": "#/components/schemas/TitleFilter"
           },
@@ -4747,14 +5212,6 @@
           "preferred"
         ],
         "title": "AudioStream"
-      },
-      "AutoThrough": {
-        "type": "string",
-        "enum": [
-          "extract",
-          "design"
-        ],
-        "title": "AutoThrough"
       },
       "Blocked": {
         "properties": {
@@ -5588,6 +6045,92 @@
         ],
         "title": "EndpointDesign"
       },
+      "ExecutionList": {
+        "properties": {
+          "running": {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/ScanExecution"
+                  },
+                  {
+                    "$ref": "#/components/schemas/RunExecution"
+                  },
+                  {
+                    "$ref": "#/components/schemas/AcceptExecution"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "kind",
+                  "mapping": {
+                    "accept": "#/components/schemas/AcceptExecution",
+                    "run": "#/components/schemas/RunExecution",
+                    "scan": "#/components/schemas/ScanExecution"
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Running",
+            "description": "The execution running now."
+          },
+          "next": {
+            "items": {
+              "$ref": "#/components/schemas/NextExecution"
+            },
+            "type": "array",
+            "title": "Next",
+            "description": "Each active job's next execution, soonest first."
+          },
+          "executions": {
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ScanExecution"
+                },
+                {
+                  "$ref": "#/components/schemas/RunExecution"
+                },
+                {
+                  "$ref": "#/components/schemas/AcceptExecution"
+                }
+              ],
+              "discriminator": {
+                "propertyName": "kind",
+                "mapping": {
+                  "accept": "#/components/schemas/AcceptExecution",
+                  "run": "#/components/schemas/RunExecution",
+                  "scan": "#/components/schemas/ScanExecution"
+                }
+              }
+            },
+            "type": "array",
+            "title": "Executions",
+            "description": "Every execution kept, newest first (the running one included)."
+          }
+        },
+        "type": "object",
+        "required": [
+          "executions"
+        ],
+        "title": "ExecutionList"
+      },
+      "ExecutionState": {
+        "type": "string",
+        "enum": [
+          "queued",
+          "running",
+          "succeeded",
+          "failed",
+          "cancelled",
+          "stopped",
+          "interrupted"
+        ],
+        "title": "ExecutionState"
+      },
       "ExtractProgressEvent": {
         "properties": {
           "seq": {
@@ -6148,21 +6691,56 @@
         ],
         "title": "JobOrigin"
       },
+      "JobProgress": {
+        "properties": {
+          "done": {
+            "type": "integer",
+            "title": "Done",
+            "description": "Title-stages done by its executions so far."
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total",
+            "description": "How many its first execution set out to do."
+          }
+        },
+        "type": "object",
+        "required": [
+          "done"
+        ],
+        "title": "JobProgress"
+      },
       "JobState": {
         "type": "string",
         "enum": [
-          "queued",
-          "running",
+          "active",
           "paused",
-          "succeeded",
-          "failed",
-          "cancelled",
-          "interrupted"
+          "done",
+          "removed"
         ],
         "title": "JobState"
       },
-      "JobWindowUpdate": {
+      "JobUpdate": {
         "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
           "window": {
             "anyOf": [
               {
@@ -6177,16 +6755,37 @@
               }
             ],
             "title": "Window",
-            "description": "The times of day it may run: daily \"HH:MM-HH:MM\" ranges in the service's time zone (one may cross midnight, 22:00-06:00); outside them it waits, and a run pauses between titles and carries on when they next open. null: the default window (/v1/job-window); []: any time."
+            "description": "The times of day it may run: daily \"HH:MM-HH:MM\" ranges in the service's time zone (one may cross midnight, 22:00-06:00); outside them it waits, and a running execution stops between titles: its job carries on when they next open. null: the default window (/v1/job-window); []: any time. Send null for the default."
+          },
+          "every": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 5.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Every",
+            "description": "Minutes from the end of one execution to the start of the next (at least 5); null: once."
+          },
+          "request": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RunJobRequest"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A recurring job's run, from its next execution."
           }
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "window"
-        ],
-        "title": "JobWindowUpdate",
-        "description": "A queued, running or paused job's new window. "
+        "title": "JobUpdate",
+        "description": "What changes: only the fields sent. A one-off's request is fixed; `every` and `request` are a recurring job's. "
       },
       "Kind": {
         "type": "string",
@@ -6291,6 +6890,38 @@
         ],
         "title": "Needs"
       },
+      "NextExecution": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "title": "Job Id"
+          },
+          "job_name": {
+            "type": "string",
+            "title": "Job Name"
+          },
+          "at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At",
+            "description": "When it may start: null when it waits only for the one running."
+          }
+        },
+        "type": "object",
+        "required": [
+          "job_id",
+          "job_name",
+          "at"
+        ],
+        "title": "NextExecution"
+      },
       "NextTitle": {
         "properties": {
           "id": {
@@ -6323,7 +6954,7 @@
                 "type": "null"
               }
             ],
-            "description": "The job it is about; null for a scheduled run that was skipped (the designer did not answer), which `failed` names instead."
+            "description": "The execution it is about; null for a scheduled run that was skipped (the designer did not answer), which `failed` names instead."
           },
           "designed": {
             "items": {
@@ -6396,6 +7027,28 @@
             "type": "string",
             "title": "Id"
           },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "job_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Name"
+          },
           "kind": {
             "$ref": "#/components/schemas/JobKind"
           },
@@ -6403,7 +7056,7 @@
             "$ref": "#/components/schemas/JobOrigin"
           },
           "state": {
-            "$ref": "#/components/schemas/JobState"
+            "$ref": "#/components/schemas/ExecutionState"
           },
           "started_at": {
             "anyOf": [
@@ -6439,7 +7092,8 @@
           "started_at",
           "finished_at"
         ],
-        "title": "NotifyJob"
+        "title": "NotifyJob",
+        "description": "The execution a notification is about, and its job. "
       },
       "NotifyLinks": {
         "properties": {
@@ -7421,13 +8075,43 @@
           "job": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/RunJob"
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/ScanJob"
+                  },
+                  {
+                    "$ref": "#/components/schemas/RunJob"
+                  },
+                  {
+                    "$ref": "#/components/schemas/AcceptJob"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "kind",
+                  "mapping": {
+                    "accept": "#/components/schemas/AcceptJob",
+                    "run": "#/components/schemas/RunJob",
+                    "scan": "#/components/schemas/ScanJob"
+                  }
+                }
               },
               {
                 "type": "null"
               }
             ],
-            "description": "The run job doing it, when run was asked for."
+            "title": "Job",
+            "description": "The one-off redesign job doing it, when run was asked for."
+          },
+          "execution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RunExecution"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Its first execution."
           }
         },
         "type": "object",
@@ -7453,7 +8137,7 @@
               }
             ],
             "title": "Window",
-            "description": "The times of day it may run: daily \"HH:MM-HH:MM\" ranges in the service's time zone (one may cross midnight, 22:00-06:00); outside them it waits, and a run pauses between titles and carries on when they next open. null: the default window (/v1/job-window); []: any time."
+            "description": "The times of day it may run: daily \"HH:MM-HH:MM\" ranges in the service's time zone (one may cross midnight, 22:00-06:00); outside them it waits, and a running execution stops between titles: its job carries on when they next open. null: the default window (/v1/job-window); []: any time."
           },
           "ids": {
             "items": {
@@ -7537,17 +8221,58 @@
         ],
         "title": "RevisedTitle"
       },
-      "RunJob": {
+      "RunExecution": {
         "properties": {
           "id": {
             "type": "string",
             "title": "Id"
           },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id",
+            "description": "The job it is an execution of."
+          },
+          "job_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Name",
+            "description": "That job's name, while the job is kept."
+          },
+          "number": {
+            "type": "integer",
+            "title": "Number",
+            "description": "Which of its job's executions it is: 1, 2, ...",
+            "default": 0
+          },
           "origin": {
             "$ref": "#/components/schemas/JobOrigin"
           },
           "state": {
-            "$ref": "#/components/schemas/JobState"
+            "$ref": "#/components/schemas/ExecutionState"
+          },
+          "stopped_because": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StoppedBecause"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "stopped: its window closed, or its job was paused or removed. Its job carries on with the titles it had not started."
           },
           "submitted_at": {
             "type": "string",
@@ -7598,7 +8323,7 @@
               }
             ],
             "title": "Error",
-            "description": "Why the job itself failed (a title that failed is in the result)."
+            "description": "Why it failed (a title that failed is in the result)."
           },
           "joined_to": {
             "anyOf": [
@@ -7610,7 +8335,7 @@
               }
             ],
             "title": "Joined To",
-            "description": "The run job this one joined: its titles went into that run, and it ends when that run does, with its result."
+            "description": "The execution this one joined: its titles went into that run, and it ends when that run does, with its result."
           },
           "window": {
             "anyOf": [
@@ -7625,7 +8350,7 @@
               }
             ],
             "title": "Window",
-            "description": "Its window as given (null: the default's; []: any time)."
+            "description": "Its job's window (null: the default's; []: any time)."
           },
           "window_open": {
             "anyOf": [
@@ -7650,23 +8375,7 @@
               }
             ],
             "title": "Waiting Until",
-            "description": "A queued or paused job whose window is closed: when it next opens, and the job is taken or carries on."
-          },
-          "parts": {
-            "type": "integer",
-            "title": "Parts",
-            "description": "How many times it has been started: more than one once paused and resumed.",
-            "default": 0
-          },
-          "paused_at": {
-            "items": {
-              "type": "string",
-              "format": "date-time"
-            },
-            "type": "array",
-            "title": "Paused At",
-            "description": "When it paused, each time its window closed while it ran.",
-            "default": []
+            "description": "A queued execution whose window is closed: when it next opens."
           },
           "kind": {
             "type": "string",
@@ -7700,10 +8409,215 @@
           "request",
           "result"
         ],
+        "title": "RunExecution"
+      },
+      "RunJob": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "every": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Every",
+            "description": "Minutes from the end of one execution to the start of the next (at least 5); null: once."
+          },
+          "window": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window",
+            "description": "Its window as given (null: the default's; []: any time)."
+          },
+          "state": {
+            "$ref": "#/components/schemas/JobState"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "next_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next At",
+            "description": "When its next execution may start; null while paused, done, removed or running."
+          },
+          "progress": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JobProgress"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A one-off: over every execution so far."
+          },
+          "remaining": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining",
+            "description": "A one-off run that stopped: titles its next execution does."
+          },
+          "executions": {
+            "type": "integer",
+            "title": "Executions",
+            "description": "How many it has had."
+          },
+          "last_execution": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Execution",
+            "description": "The id of its latest execution."
+          },
+          "running_execution": {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/ScanExecution"
+                  },
+                  {
+                    "$ref": "#/components/schemas/RunExecution"
+                  },
+                  {
+                    "$ref": "#/components/schemas/AcceptExecution"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "kind",
+                  "mapping": {
+                    "accept": "#/components/schemas/AcceptExecution",
+                    "run": "#/components/schemas/RunExecution",
+                    "scan": "#/components/schemas/ScanExecution"
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Running Execution",
+            "description": "Its execution queued or running."
+          },
+          "last_finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Finished At"
+          },
+          "last_skip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Skip",
+            "description": "A recurring job: why its last due tick did not start one (busy, or the designer did not answer)."
+          },
+          "ended": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended",
+            "description": "Why it is done, when it ended by itself (a recurring job whose ids are all done)."
+          },
+          "kind": {
+            "type": "string",
+            "const": "run",
+            "title": "Kind",
+            "default": "run"
+          },
+          "request": {
+            "$ref": "#/components/schemas/RunJobRequest"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "state",
+          "created_at",
+          "executions",
+          "request"
+        ],
         "title": "RunJob"
       },
-      "RunJobRequest": {
+      "RunJobCreate": {
         "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Name",
+            "description": "What a person calls it; empty: what it does.",
+            "default": ""
+          },
+          "every": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 5.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Every",
+            "description": "Minutes from the end of one execution to the start of the next (at least 5); null: once. Only a run through extract or design recurs."
+          },
           "window": {
             "anyOf": [
               {
@@ -7718,8 +8632,26 @@
               }
             ],
             "title": "Window",
-            "description": "The times of day it may run: daily \"HH:MM-HH:MM\" ranges in the service's time zone (one may cross midnight, 22:00-06:00); outside them it waits, and a run pauses between titles and carries on when they next open. null: the default window (/v1/job-window); []: any time."
+            "description": "The times of day it may run: daily \"HH:MM-HH:MM\" ranges in the service's time zone (one may cross midnight, 22:00-06:00); outside them it waits, and a running execution stops between titles: its job carries on when they next open. null: the default window (/v1/job-window); []: any time."
           },
+          "kind": {
+            "type": "string",
+            "const": "run",
+            "title": "Kind"
+          },
+          "request": {
+            "$ref": "#/components/schemas/RunJobRequest"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "title": "RunJobCreate"
+      },
+      "RunJobRequest": {
+        "properties": {
           "filter": {
             "$ref": "#/components/schemas/TitleFilter"
           },
@@ -8038,17 +8970,58 @@
         ],
         "title": "RunResult"
       },
-      "ScanJob": {
+      "ScanExecution": {
         "properties": {
           "id": {
             "type": "string",
             "title": "Id"
           },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id",
+            "description": "The job it is an execution of."
+          },
+          "job_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Name",
+            "description": "That job's name, while the job is kept."
+          },
+          "number": {
+            "type": "integer",
+            "title": "Number",
+            "description": "Which of its job's executions it is: 1, 2, ...",
+            "default": 0
+          },
           "origin": {
             "$ref": "#/components/schemas/JobOrigin"
           },
           "state": {
-            "$ref": "#/components/schemas/JobState"
+            "$ref": "#/components/schemas/ExecutionState"
+          },
+          "stopped_because": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StoppedBecause"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "stopped: its window closed, or its job was paused or removed. Its job carries on with the titles it had not started."
           },
           "submitted_at": {
             "type": "string",
@@ -8099,7 +9072,7 @@
               }
             ],
             "title": "Error",
-            "description": "Why the job itself failed (a title that failed is in the result)."
+            "description": "Why it failed (a title that failed is in the result)."
           },
           "joined_to": {
             "anyOf": [
@@ -8111,7 +9084,7 @@
               }
             ],
             "title": "Joined To",
-            "description": "The run job this one joined: its titles went into that run, and it ends when that run does, with its result."
+            "description": "The execution this one joined: its titles went into that run, and it ends when that run does, with its result."
           },
           "window": {
             "anyOf": [
@@ -8126,7 +9099,7 @@
               }
             ],
             "title": "Window",
-            "description": "Its window as given (null: the default's; []: any time)."
+            "description": "Its job's window (null: the default's; []: any time)."
           },
           "window_open": {
             "anyOf": [
@@ -8151,23 +9124,7 @@
               }
             ],
             "title": "Waiting Until",
-            "description": "A queued or paused job whose window is closed: when it next opens, and the job is taken or carries on."
-          },
-          "parts": {
-            "type": "integer",
-            "title": "Parts",
-            "description": "How many times it has been started: more than one once paused and resumed.",
-            "default": 0
-          },
-          "paused_at": {
-            "items": {
-              "type": "string",
-              "format": "date-time"
-            },
-            "type": "array",
-            "title": "Paused At",
-            "description": "When it paused, each time its window closed while it ran.",
-            "default": []
+            "description": "A queued execution whose window is closed: when it next opens."
           },
           "kind": {
             "type": "string",
@@ -8201,10 +9158,215 @@
           "request",
           "result"
         ],
+        "title": "ScanExecution"
+      },
+      "ScanJob": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "every": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Every",
+            "description": "Minutes from the end of one execution to the start of the next (at least 5); null: once."
+          },
+          "window": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window",
+            "description": "Its window as given (null: the default's; []: any time)."
+          },
+          "state": {
+            "$ref": "#/components/schemas/JobState"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "next_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next At",
+            "description": "When its next execution may start; null while paused, done, removed or running."
+          },
+          "progress": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JobProgress"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A one-off: over every execution so far."
+          },
+          "remaining": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining",
+            "description": "A one-off run that stopped: titles its next execution does."
+          },
+          "executions": {
+            "type": "integer",
+            "title": "Executions",
+            "description": "How many it has had."
+          },
+          "last_execution": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Execution",
+            "description": "The id of its latest execution."
+          },
+          "running_execution": {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/ScanExecution"
+                  },
+                  {
+                    "$ref": "#/components/schemas/RunExecution"
+                  },
+                  {
+                    "$ref": "#/components/schemas/AcceptExecution"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "kind",
+                  "mapping": {
+                    "accept": "#/components/schemas/AcceptExecution",
+                    "run": "#/components/schemas/RunExecution",
+                    "scan": "#/components/schemas/ScanExecution"
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Running Execution",
+            "description": "Its execution queued or running."
+          },
+          "last_finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Finished At"
+          },
+          "last_skip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Skip",
+            "description": "A recurring job: why its last due tick did not start one (busy, or the designer did not answer)."
+          },
+          "ended": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended",
+            "description": "Why it is done, when it ended by itself (a recurring job whose ids are all done)."
+          },
+          "kind": {
+            "type": "string",
+            "const": "scan",
+            "title": "Kind",
+            "default": "scan"
+          },
+          "request": {
+            "$ref": "#/components/schemas/ScanJobRequest"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "state",
+          "created_at",
+          "executions",
+          "request"
+        ],
         "title": "ScanJob"
       },
-      "ScanJobRequest": {
+      "ScanJobCreate": {
         "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Name",
+            "description": "What a person calls it; empty: what it does.",
+            "default": ""
+          },
+          "every": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 5.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Every",
+            "description": "Minutes from the end of one execution to the start of the next (at least 5); null: once. Only a run through extract or design recurs."
+          },
           "window": {
             "anyOf": [
               {
@@ -8219,8 +9381,26 @@
               }
             ],
             "title": "Window",
-            "description": "The times of day it may run: daily \"HH:MM-HH:MM\" ranges in the service's time zone (one may cross midnight, 22:00-06:00); outside them it waits, and a run pauses between titles and carries on when they next open. null: the default window (/v1/job-window); []: any time."
+            "description": "The times of day it may run: daily \"HH:MM-HH:MM\" ranges in the service's time zone (one may cross midnight, 22:00-06:00); outside them it waits, and a running execution stops between titles: its job carries on when they next open. null: the default window (/v1/job-window); []: any time."
           },
+          "kind": {
+            "type": "string",
+            "const": "scan",
+            "title": "Kind"
+          },
+          "request": {
+            "$ref": "#/components/schemas/ScanJobRequest"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "title": "ScanJobCreate"
+      },
+      "ScanJobRequest": {
+        "properties": {
           "sources": {
             "items": {
               "type": "string"
@@ -8307,141 +9487,6 @@
         ],
         "title": "ScanResult"
       },
-      "Schedule": {
-        "properties": {
-          "enabled": {
-            "type": "boolean",
-            "title": "Enabled",
-            "default": false
-          },
-          "interval_minutes": {
-            "type": "integer",
-            "minimum": 5.0,
-            "title": "Interval Minutes",
-            "default": 60
-          },
-          "filter": {
-            "$ref": "#/components/schemas/TitleFilter"
-          },
-          "through": {
-            "$ref": "#/components/schemas/AutoThrough",
-            "default": "design"
-          },
-          "retry_failed": {
-            "type": "boolean",
-            "title": "Retry Failed",
-            "default": false
-          },
-          "next_run_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Next Run At"
-          },
-          "last_run": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ScheduleLastRun"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "last_skip": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Skip"
-          },
-          "ended": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Ended",
-            "description": "Why the schedule turned itself off: its filter lists ids, and a run left none of them to do. Cleared by the next save."
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "Schedule"
-      },
-      "ScheduleLastRun": {
-        "properties": {
-          "job_id": {
-            "type": "string",
-            "title": "Job Id"
-          },
-          "state": {
-            "$ref": "#/components/schemas/JobState"
-          },
-          "finished_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Finished At"
-          }
-        },
-        "type": "object",
-        "required": [
-          "job_id",
-          "state",
-          "finished_at"
-        ],
-        "title": "ScheduleLastRun"
-      },
-      "ScheduleUpdate": {
-        "properties": {
-          "enabled": {
-            "type": "boolean",
-            "title": "Enabled",
-            "default": false
-          },
-          "interval_minutes": {
-            "type": "integer",
-            "minimum": 5.0,
-            "title": "Interval Minutes",
-            "default": 60
-          },
-          "filter": {
-            "$ref": "#/components/schemas/TitleFilter"
-          },
-          "through": {
-            "$ref": "#/components/schemas/AutoThrough",
-            "default": "design"
-          },
-          "retry_failed": {
-            "type": "boolean",
-            "title": "Retry Failed",
-            "default": false
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "ScheduleUpdate"
-      },
       "ServiceStatus": {
         "properties": {
           "version": {
@@ -8459,26 +9504,26 @@
             ],
             "description": "None until the first scan."
           },
-          "current_job": {
+          "running_execution": {
             "anyOf": [
               {
                 "oneOf": [
                   {
-                    "$ref": "#/components/schemas/ScanJob"
+                    "$ref": "#/components/schemas/ScanExecution"
                   },
                   {
-                    "$ref": "#/components/schemas/RunJob"
+                    "$ref": "#/components/schemas/RunExecution"
                   },
                   {
-                    "$ref": "#/components/schemas/AcceptJob"
+                    "$ref": "#/components/schemas/AcceptExecution"
                   }
                 ],
                 "discriminator": {
                   "propertyName": "kind",
                   "mapping": {
-                    "accept": "#/components/schemas/AcceptJob",
-                    "run": "#/components/schemas/RunJob",
-                    "scan": "#/components/schemas/ScanJob"
+                    "accept": "#/components/schemas/AcceptExecution",
+                    "run": "#/components/schemas/RunExecution",
+                    "scan": "#/components/schemas/ScanExecution"
                   }
                 }
               },
@@ -8486,21 +9531,14 @@
                 "type": "null"
               }
             ],
-            "title": "Current Job"
+            "title": "Running Execution",
+            "description": "The execution running now."
           },
-          "queued": {
+          "waiting": {
             "type": "integer",
-            "title": "Queued"
-          },
-          "schedule": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Schedule"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "title": "Waiting",
+            "description": "Executions queued behind it, or waiting for their window.",
+            "default": 0
           },
           "notify": {
             "items": {
@@ -8547,9 +9585,7 @@
         "type": "object",
         "required": [
           "version",
-          "index",
-          "current_job",
-          "queued"
+          "index"
         ],
         "title": "ServiceStatus"
       },
@@ -8655,32 +9691,19 @@
           "state": {
             "type": "string",
             "title": "State",
-            "description": "queued, running, cancelling, pausing, paused, succeeded, failed, cancelled or interrupted."
+            "description": "queued, running, cancelling, stopping, succeeded, failed, cancelled, stopped or interrupted."
           },
-          "resumes_at": {
+          "because": {
             "anyOf": [
               {
-                "type": "string",
-                "format": "date-time"
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Resumes At",
-            "description": "paused: when its window next opens."
-          },
-          "part": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Part",
-            "description": "running again after a pause: which part this is (2, 3, ...)."
+            "title": "Because",
+            "description": "stopping: its window closed, or its job was paused or removed."
           }
         },
         "type": "object",
@@ -8692,7 +9715,16 @@
           "state"
         ],
         "title": "StateEvent",
-        "description": "The job entered a state; the stream ends with a finished one. "
+        "description": "The execution entered a state; the stream ends with a finished one. "
+      },
+      "StoppedBecause": {
+        "type": "string",
+        "enum": [
+          "window",
+          "paused",
+          "removed"
+        ],
+        "title": "StoppedBecause"
       },
       "StreamChoice": {
         "properties": {

@@ -1,21 +1,21 @@
 '''
-Jobs (design/pipeline-service.md §5): a unit of queued work -- a scan, a run of a selection through a stage, or a bulk
-accept. One runs at a time, because the index, the review queue and the git working trees each have one writer; the
-others wait their turn in the order they came.
+Executions (design/jobs-and-executions.md §2.2): one continuous run of a job (pipeline.service.jobbook) -- a scan, a run
+of a selection through a stage, or a bulk accept. One runs at a time, because the index, the review queue and the git
+working trees each have one writer; the others wait their turn in the order they came.
 
-A running job is cancelled cooperatively, between titles (`run_stages(should_cancel=)`), so it leaves only whole titles
-done. What it reports as it goes -- progress, and the execution events the work list shows as Details -- is kept, redacted,
-in a bounded buffer per job and passed to listeners (the HTTP event stream). The last `history_limit` jobs are written to
-`<state_dir>/jobs.json`, atomically, as each changes state; a job found queued or running there at start-up is recorded
-`interrupted` and not resumed (a run is idempotent: the next one does what is still needed).
+A running execution is cancelled cooperatively, between titles (`run_stages(should_cancel=)`), so it leaves only whole
+titles done. What it reports as it goes -- progress, and the execution events the work list shows as Details -- is kept,
+redacted, in a bounded buffer per execution and passed to listeners (the HTTP event stream). The last `history_limit`
+executions are written to `<state_dir>/executions.json`, atomically, as each changes state; one found queued or running
+there at start-up is recorded `interrupted` (its job, if it has more to do, starts another).
 
-A job may be given an active window (design/job-windows.md): the times of day it may run, else the default window's. A
-queued job whose window is closed waits while others run; a running run whose window closes stops taking titles, as a
-cancel does, and is `paused` until its window opens, when it carries on with the titles it had not started (`parts`). A
-paused job, and a queued one waiting for its window, is kept across a restart.
+An execution has its job's window (design/job-windows.md): the times of day it may run, else the default window's. A
+queued one whose window is closed waits while others run; a running run whose window closes stops taking titles, as a
+cancel does, and ends `stopped` (`stopped_because` window), as it does when its job is paused or removed: the job then
+starts another execution for the titles it had not started.
 
-What a job *does* is the `execute` callable (`pipeline.service.work.execute` in the service), so this module knows nothing
-of profiles or indexes and is tested with a fake.
+What an execution *does* is the `execute` callable (`pipeline.service.work.execute` in the service), so this module knows
+nothing of profiles or indexes and is tested with a fake.
 '''
 import json
 import logging
@@ -39,14 +39,15 @@ logger = logging.getLogger('service_jobs')
 
 KINDS = ('scan', 'run', 'accept')
 ORIGINS = ('api', 'schedule')
-STATES = ('queued', 'running', 'paused', 'succeeded', 'failed', 'cancelled', 'interrupted')
+STATES = ('queued', 'running', 'succeeded', 'failed', 'cancelled', 'stopped', 'interrupted')
+STOPPED_BECAUSE = ('window', 'paused', 'removed')   # why an execution stopped before it had done everything
 # a run's execution events that put a title in its hands, and those that end its part in the run (pipeline.library.stages)
 IN_HAND_FROM = ('queued', 'stage_queued', 'stage_started')
 IN_HAND_UNTIL = ('title_completed', 'failed', 'skipped', 'cancelled')
-FINISHED = ('succeeded', 'failed', 'cancelled', 'interrupted')
+FINISHED = ('succeeded', 'failed', 'cancelled', 'stopped', 'interrupted')
 MAX_JOB_EVENTS = 500
 FFMPEG_EVENT_INTERVAL = 5.0   # seconds between kept ffmpeg updates for a title: ffmpeg sends one every 0.5s
-HISTORY_FILE = 'jobs.json'
+HISTORY_FILE = 'executions.json'
 WINDOW_FILE = 'job-window.json'   # the default window
 WINDOW_RECHECK_SECONDS = 30.0    # the worker looks again this often while every queued job waits for its window
 
@@ -138,8 +139,8 @@ class ExecutionFinished(ValueError):
 
 def resumed(request: RunRequest, remaining: tuple) -> RunRequest:
     '''
-    What a paused run carries on with: the titles it had not started, through the same stage, without scanning first. A
-    redesign sent every title back before it designed any, so it carries on as a plain run (design/job-windows.md §3).
+    What a stopped run's next execution does: the titles it had not started, through the same stage, without scanning
+    first. A redesign sent every title back before it designed any, so it carries on as a plain run.
     '''
     return replace(request, selection=Selection(ids=tuple(remaining)), scan_first=False, redesign=False,
                    revise_to='design', audio_stream=None)
@@ -153,7 +154,7 @@ def _selection_from_dict(data: Dict[str, Any]) -> Selection:
 
 
 def request_from_dict(kind: str, data: Dict[str, Any]) -> Any:
-    ''' A job's request read back from the history (a job kept across a restart). :raises: for one that is not. '''
+    ''' A request read back from a state file (a job kept across a restart). :raises: for one that is not. '''
     if kind == 'scan':
         return ScanRequest(sources=tuple(data.get('sources') or ()), allow_empty=bool(data.get('allow_empty')))
     values = dict(data, selection=_selection_from_dict(data.get('selection') or {}))
@@ -187,22 +188,16 @@ class Execution:
                                                                          # finished: {id: stage}; not decided on meanwhile
     # design/job-windows.md: the ranges it may run in (None: the default window's; []: any time)
     window: Optional[List[str]] = None
-    parts: int = 0                       # how many times it has been started (more than one once paused and resumed)
-    paused_at: List[float] = field(default_factory=list)
-    part_request: Any = None             # what the next part does, once paused: the titles left (None: the request)
-    earlier: List[Any] = field(default_factory=list, repr=False)   # the results of the parts before, as plain data
-    done_before: int = 0                 # the progress the parts before made, so the bar carries on from there
-    order: int = 0                       # its place in the queue, which a paused job goes back to
-    pausing: bool = field(default=False, repr=False)   # its window closed while it ran: it pauses when the part ends
+    job_id: Optional[str] = None         # the job it is an execution of (design/jobs-and-executions.md)
+    number: int = 0                      # which of its job's executions it is: 1, 2, ...
+    stopped_because: str = ''            # stopped: window, paused or removed
+    remaining: Optional[tuple] = None    # stopped: the titles it had not started (None: unknown, so all of them)
+    stopping: str = field(default='', repr=False)   # why it is to stop before its next title, while it runs
+    shutting_down: bool = field(default=False, repr=False)   # the service stopped it: it ends interrupted
 
     @property
     def finished(self) -> bool:
         return self.state in FINISHED
-
-    @property
-    def current_request(self) -> Any:
-        ''' What the part now running is to do. '''
-        return self.part_request if self.part_request is not None else self.request
 
 
 def _plain(value: Any) -> Any:
@@ -217,9 +212,9 @@ def execution_to_dict(job: Execution) -> Dict[str, Any]:
     return {'id': job.id, 'kind': job.kind, 'origin': job.origin, 'state': job.state, 'submitted_at': job.submitted_at,
             'started_at': job.started_at, 'finished_at': job.finished_at, 'request': _plain(job.request),
             'result': _plain(job.result), 'error': job.error, 'progress': _plain(job.progress),
-            'joined_to': job.joined_to, 'window': job.window, 'parts': job.parts, 'paused_at': job.paused_at,
-            'part_request': _plain(job.part_request), 'earlier': [_plain(r) for r in job.earlier],
-            'done_before': job.done_before, 'order': job.order}
+            'joined_to': job.joined_to, 'window': job.window, 'job_id': job.job_id, 'number': job.number,
+            'stopped_because': job.stopped_because,
+            'remaining': list(job.remaining) if job.remaining is not None else None}
 
 
 def execution_from_dict(data: Dict[str, Any]) -> Execution:
@@ -228,9 +223,9 @@ def execution_from_dict(data: Dict[str, Any]) -> Execution:
                state=data['state'], submitted_at=data.get('submitted_at') or 0.0, started_at=data.get('started_at'),
                finished_at=data.get('finished_at'), progress=Progress(**progress) if progress else None,
                result=data.get('result'), error=data.get('error') or '', joined_to=data.get('joined_to'),
-               window=data.get('window'), parts=data.get('parts') or 0, paused_at=list(data.get('paused_at') or ()),
-               part_request=data.get('part_request'), earlier=list(data.get('earlier') or ()),
-               done_before=data.get('done_before') or 0, order=data.get('order') or 0)
+               window=data.get('window'), job_id=data.get('job_id'), number=data.get('number') or 0,
+               stopped_because=data.get('stopped_because') or '',
+               remaining=tuple(data['remaining']) if data.get('remaining') is not None else None)
 
 
 class ExecutionControl:
@@ -243,13 +238,16 @@ class ExecutionControl:
     def cancelled(self) -> bool:
         return self.__job.cancel_requested
 
-    def paused(self) -> bool:
-        ''' Whether a run is to stop taking titles because its window has closed (it pauses, and carries on later). '''
-        return self.__manager is not None and self.__manager._window_closed(self.__job)
+    def stopping(self) -> bool:
+        '''
+        Whether a run is to stop taking titles without being cancelled: its window has closed, or its job was paused or
+        removed. It ends `stopped`, and its job carries on with what it had not started.
+        '''
+        return self.__manager is not None and self.__manager._stopping(self.__job)
 
     def should_stop(self) -> bool:
-        ''' Cancelled or paused: what a run polls between titles. '''
-        return self.cancelled() or self.paused()
+        ''' Cancelled or stopping: what a run polls between titles. '''
+        return self.cancelled() or self.stopping()
 
     def progress(self, progress) -> None:
         self.__manager._on_progress(self.__job, progress)
@@ -275,24 +273,21 @@ Listener = Callable[[Execution, dict], None]
 
 class ExecutionQueue:
     '''
-    :param execute: does a job: returns its result, or raises (the job then fails with the redacted message).
+    :param execute: does an execution: returns its result, or raises (it then fails with the redacted message).
     :param state_dir: where the history is kept; None keeps it in memory only.
     :param allow_repository_writes: False refuses publish, commit and bulk accept (RepositoryWritesRefused).
-    :param failed: says whether a finished job's result means it failed (a title failed, a publish was refused).
-    :param remaining: the titles a run's result says it had not started (not_run), so a paused run carries on with them;
-        () for none left, None to do the part again as it was (it stopped before it planned any).
-    :param merge: one result from the results of a paused job's parts, as plain data, oldest first.
+    :param failed: says whether a finished execution's result means it failed (a title failed, a publish was refused).
+    :param remaining: the titles a run's result says it had not started (not_run): () for none left, None for unknown (it
+        stopped before it planned any). A run told to stop that leaves titles (or None) ends `stopped`.
     :param tz: the zone windows are in; None is the service's local time.
     '''
 
     def __init__(self, execute: Execute, *, state_dir: Optional[str] = None, history_limit: int = 200,
                  allow_repository_writes: bool = False, failed: Callable[[Any], bool] = lambda result: False,
                  clock: Callable[[], float] = time.time,
-                 remaining: Callable[[Any], Optional[tuple]] = lambda result: None,
-                 merge: Callable[[List[Any]], Any] = lambda parts: parts[-1], tz: Optional[tzinfo] = None):
+                 remaining: Callable[[Any], Optional[tuple]] = lambda result: None, tz: Optional[tzinfo] = None):
         self.__execute = execute
         self.__remaining = remaining
-        self.__merge = merge
         self.__tz = tz
         self.__state_dir = state_dir
         self.__history_limit = history_limit
@@ -310,7 +305,6 @@ class ExecutionQueue:
         self.__executing: Optional[str] = None           # the job `execute` is doing (joined jobs are running too)
         self.__join_queues: Dict[str, Any] = {}           # executing run job id -> its JoinQueue
         self.__joined: Dict[str, List[str]] = {}          # host run job id -> the jobs that joined it, in order
-        self.__order = 0
         self.__default_window: List[str] = self.__load_default_window()
         self.__load_history()
         self.__worker = threading.Thread(target=self.__run, name='pipeline-service-jobs', daemon=True)
@@ -319,30 +313,26 @@ class ExecutionQueue:
     # --- asking --------------------------------------------------------------------------------------------------------
 
     def submit(self, request: Any, origin: str = 'api', *, if_idle: bool = False,
-               window: Optional[List[str]] = None) -> Optional[Execution]:
+               window: Optional[List[str]] = None, job_id: Optional[str] = None, number: int = 0) -> Optional[Execution]:
         '''
-        Queues the job the request describes.
+        Queues the execution the request describes.
         :param window: the ranges it may run in; None for the default window's, [] for any time.
+        :param job_id: the job it is an execution of, and `number`, which one.
         :raises ValueError: for a range that is not one.
         :raises RepositoryWritesRefused: for publish, commit or a bulk accept when the config does not allow them.
         :raises RuntimeError: while the service is stopping.
         '''
-        kind = _REQUEST_KINDS.get(type(request))
-        if kind is None:
-            raise TypeError(f'not a job request: {request!r}')
+        kind = self.check(request)
         if origin not in ORIGINS:
             raise ValueError(f'origin must be one of {", ".join(ORIGINS)}')
-        if writes_repositories(request) and not self.__allow_writes:
-            raise RepositoryWritesRefused('publish, commit and bulk accept are switched off: set allow_repository_writes '
-                                          'in the service config to allow them')
         with self.__lock:
             if self.__stopping:
                 raise RuntimeError('the service is stopping')
             if if_idle and (self.current is not None or any(self.__runnable(self.__jobs[i]) for i in self.__queue)):
-                return None   # a job waiting for its window, or paused, does not count: it is not in the way
-            self.__order += 1
+                return None   # one waiting for its window does not count: it is not in the way
             job = Execution(id=str(uuid.uuid4()), kind=kind, origin=origin, request=request, submitted_at=self.__clock(),
-                      window=None if window is None else ActiveWindow.of(window, self.__tz).texts(), order=self.__order)
+                            window=None if window is None else ActiveWindow.of(window, self.__tz).texts(),
+                            job_id=job_id, number=number)
             self.__jobs[job.id] = job
             if self.__join(job):
                 self.__save()
@@ -352,6 +342,20 @@ class ExecutionQueue:
             self.__save()
             self.__wake.notify_all()
             return job
+
+    def check(self, request: Any) -> str:
+        '''
+        What kind of execution the request is, if this queue would take it.
+        :raises TypeError: for one that is not a request.
+        :raises RepositoryWritesRefused: for publish, commit or a bulk accept when the config does not allow them.
+        '''
+        kind = _REQUEST_KINDS.get(type(request))
+        if kind is None:
+            raise TypeError(f'not a job request: {request!r}')
+        if writes_repositories(request) and not self.__allow_writes:
+            raise RepositoryWritesRefused('publish, commit and bulk accept are switched off: set allow_repository_writes '
+                                          'in the service config to allow them')
+        return kind
 
     def get(self, job_id: str) -> Execution:
         with self.__lock:
@@ -402,9 +406,9 @@ class ExecutionQueue:
             return ActiveWindow.of(job.window if job.window is not None else self.__default_window, self.__tz)
 
     def waiting_until(self, job: Execution) -> Optional[float]:
-        ''' When a queued or paused job's closed window next opens; None if it is open, or the job is not waiting. '''
+        ''' When a queued execution's closed window next opens; None if it is open, or it is not waiting. '''
         with self.__lock:
-            if job.state not in ('queued', 'paused'):
+            if job.state != 'queued':
                 return None
             window, now = self.window_of(job), self.__clock()
             return None if window.is_open(now) else window.next_open(now)
@@ -425,8 +429,9 @@ class ExecutionQueue:
 
     def set_window(self, job_id: str, ranges: Optional[List[str]]) -> Execution:
         '''
-        Changes a queued, running or paused job's window (None: the default's; []: any time). A running run whose new
-        window is closed pauses before its next title; a waiting job whose new window is open is taken when the worker is free.
+        Changes a queued or running execution's window (None: the default's; []: any time): its job's was changed. A
+        running run whose new window is closed stops before its next title; a waiting one whose new window is open is
+        taken when the worker is free.
         :raises ExecutionNotFound, ExecutionFinished, ValueError: for a bad range.
         '''
         texts = None if ranges is None else ActiveWindow.of(ranges, self.__tz).texts()
@@ -443,15 +448,41 @@ class ExecutionQueue:
     def __runnable(self, job: Execution) -> bool:
         return self.window_of(job).is_open(self.__clock())
 
-    def _window_closed(self, job: Execution) -> bool:
-        ''' ExecutionControl.paused(): a run whose window has closed stops taking titles, and pauses when its part ends. '''
+    def _stopping(self, job: Execution) -> bool:
+        '''
+        ExecutionControl.stopping(): a run told to stop (its job paused or removed), or whose window has closed, stops
+        taking titles, and ends `stopped` with the reason.
+        '''
         with self.__lock:
+            if job.stopping:
+                return True
             if job.kind != 'run' or job.cancel_requested or self.__stopping or self.__runnable(job):
                 return False
-            if not job.pausing:
-                job.pausing = True
-                self.__record(job, {'type': 'state', 'state': 'pausing'})
+            self.__begin_stopping(job, 'window')
             return True
+
+    def __begin_stopping(self, job: Execution, because: str) -> None:
+        job.stopping = because
+        self.__record(job, {'type': 'state', 'state': 'stopping', 'because': because})
+
+    def halt(self, execution_id: str, because: str) -> Execution:
+        '''
+        Its job was paused or removed (`because`): a queued execution ends `stopped` now, a running one stops before its
+        next title. :raises ExecutionNotFound, ExecutionFinished:
+        '''
+        if because not in STOPPED_BECAUSE:
+            raise ValueError(f'because must be one of {", ".join(STOPPED_BECAUSE)}')
+        with self.__lock:
+            job = self.get(execution_id)
+            if job.finished:
+                raise ExecutionFinished(f'execution {execution_id} has already {job.state}')
+            if job.state == 'queued':
+                self.__queue.remove(execution_id)
+                job.stopped_because = because
+                self.__finish(job, 'stopped')
+            elif not job.stopping and not job.cancel_requested:
+                self.__begin_stopping(job, because)
+            return job
 
     def cancel(self, job_id: str) -> Execution:
         '''
@@ -464,10 +495,8 @@ class ExecutionQueue:
             if job.finished:
                 raise ExecutionFinished(f'job {job_id} has already {job.state}')
             job.cancel_requested = True
-            if job.state in ('queued', 'paused'):
+            if job.state == 'queued':
                 self.__queue.remove(job_id)
-                if job.earlier:   # what its parts did, as a cancel of a running job reports it
-                    job.result = self.__merge(list(job.earlier))
                 self.__finish(job, 'cancelled')
             elif job.joined_to:   # its titles are in the host's run now: it is recorded cancelled when that ends
                 self.__record(job, {'type': 'state', 'state': 'cancelling'})
@@ -507,18 +536,19 @@ class ExecutionQueue:
 
     def stop(self, grace_seconds: float = 120.0) -> None:
         '''
-        No more jobs are taken; the running one is cancelled and waited for up to the grace; queued ones are cancelled,
-        except one paused or waiting for its window, which is kept for the next start.
+        No more executions are taken; the running one is stopped and waited for up to the grace, and it and the queued
+        ones end `interrupted` (their jobs start them again at the next start).
         '''
         with self.__lock:
             self.__stopping = True
             for job_id in list(self.__queue):
                 job = self.__jobs[job_id]
-                if job.state == 'queued' and self.__runnable(job):
-                    self.cancel(job_id)
+                self.__queue.remove(job_id)
+                job.error = 'the service stopped before it started'
+                self.__finish(job, 'interrupted')
             running = self.current
             if running is not None:
-                running.cancel_requested = True
+                running.cancel_requested = running.shutting_down = True
             self.__wake.notify_all()
         self.__worker.join(grace_seconds)
 
@@ -550,13 +580,12 @@ class ExecutionQueue:
                         break
                     self.__wake.wait(self.__wait_seconds())
                 if self.__stopping:
-                    return   # anything left in the queue is paused or waiting for its window, and is kept
+                    return
                 self.__queue.remove(job.id)
-                job.parts += 1
-                job.state, job.pausing = 'running', False
-                job.started_at = job.started_at or self.__clock()
+                job.state = 'running'
+                job.started_at = self.__clock()
                 self.__executing = job.id
-                self.__record(job, {'type': 'state', 'state': 'running', **({'part': job.parts} if job.parts > 1 else {})})
+                self.__record(job, {'type': 'state', 'state': 'running'})
                 self.__save()
             try:
                 result = self.__execute(job, ExecutionControl(self, job))
@@ -564,52 +593,32 @@ class ExecutionQueue:
                 logger.exception('job %s (%s) failed', job.id, job.kind)
                 with self.__lock:
                     job.error = redact_text(f'{type(error).__name__}: {error}')
-                    if job.earlier:
-                        job.result = self.__merge(list(job.earlier))
-                    self.__end_joins(job, None, 'failed')
-                    self.__finish(job, 'failed')
+                    state = 'interrupted' if job.shutting_down else 'failed'
+                    self.__end_joins(job, None, state)
+                    self.__finish(job, state)
                 continue
             with self.__lock:
-                if self.__pause(job, result):
-                    continue
-                if job.earlier:
-                    result = self.__merge(list(job.earlier) + [_plain(result)])
                 job.result = result
-                cancelled = job.cancel_requested or _cancelled(result)
-                state = 'cancelled' if cancelled else 'failed' if self.__failed(result) else 'succeeded'
+                state = self.__ended(job, result)
                 self.__end_joins(job, result, state)
                 self.__finish(job, state)
 
-    def __pause(self, job: Execution, result: Any) -> bool:
-        '''
-        A part that stopped because its window closed: the job is paused with the titles it had not started, in its place
-        in the queue. :return: False if it is to finish instead (cancelled meanwhile, or nothing left to do).
-        '''
-        pausing, job.pausing = job.pausing, False
-        if not pausing or job.cancel_requested or self.__stopping:
-            return False
-        remaining = self.__remaining(result)
-        if remaining is not None and not remaining:
-            return False   # it had started every title before its window closed
-        if result is not None:
-            job.earlier.append(_plain(result))
-            job.done_before = job.progress.done if job.progress else job.done_before
-        if remaining is not None:
-            job.part_request = resumed(job.current_request, tuple(remaining))
-        job.state = 'paused'
-        job.paused_at.append(self.__clock())
-        job.in_hand.clear()
-        self.__end_joins(job, None, 'paused')
-        self.__record(job, {'type': 'state', 'state': 'paused', 'resumes_at': self.window_of(job).next_open(self.__clock())})
-        self.__requeue(job)
-        self.__save()
-        return True
-
-    def __requeue(self, job: Execution) -> None:
-        ''' Back to its place: before the first job queued after it. '''
-        place = next((n for n, i in enumerate(self.__queue) if self.__jobs[i].order > job.order), len(self.__queue))
-        self.__queue.insert(place, job.id)
-        self.__wake.notify_all()
+    def __ended(self, job: Execution, result: Any) -> str:
+        ''' How an execution that returned ended: stopped (with why) if told to and it left titles, else as its result says. '''
+        if job.shutting_down and (result is None or _cancelled(result)):   # it stopped short: its job runs it again
+            job.error = job.error or 'the service stopped while it ran'
+            return 'interrupted'
+        if job.cancel_requested and not job.shutting_down:
+            return 'cancelled'
+        if job.stopping and (result is None or _cancelled(result)):
+            remaining = self.__remaining(result)
+            if remaining is None or remaining:
+                job.stopped_because = job.stopping
+                job.remaining = None if remaining is None else tuple(remaining)
+                return 'stopped'
+        if _cancelled(result):
+            return 'cancelled'
+        return 'failed' if self.__failed(result) else 'succeeded'
 
     # --- joining a run in progress (design/archive/library-sync/worklist-feedback.md F5) ------------------------------
 
@@ -651,7 +660,7 @@ class ExecutionQueue:
         not_joined = set(getattr(report, 'not_joined', ()) or ())
         requeue = []
         for job in joined:
-            if state == 'paused' and not job.cancel_requested:
+            if state in ('stopped', 'interrupted') and not job.cancel_requested:
                 job.state, job.started_at, job.joined_to = 'queued', None, None
                 self.__record(job, {'type': 'state', 'state': 'queued'})
                 requeue.append(job.id)
@@ -683,9 +692,6 @@ class ExecutionQueue:
     def _on_progress(self, job: Execution, progress) -> None:
         with self.__lock:
             if isinstance(progress, Progress):
-                if job.done_before:   # a resumed part counts on from where the parts before stopped
-                    progress = replace(progress, done=progress.done + job.done_before,
-                                       total=progress.total + job.done_before)
                 job.progress = progress
                 if progress.stage and progress.id:
                     job.in_hand[progress.id] = progress.stage
@@ -791,21 +797,6 @@ class ExecutionQueue:
             logger.exception('the default job window at %s cannot be read; jobs may run any time', path)
             return []
 
-    def __keep(self, job: Execution) -> bool:
-        '''
-        Whether a job the service stopped before it finished carries on after the restart: one paused, or queued while its
-        window was closed, whose request can be read back. A job that was running is not (the next run redoes its title).
-        '''
-        if job.state == 'paused' or (job.state == 'queued' and not self.window_of(job).is_open(self.__clock())):
-            try:
-                job.request = request_from_dict(job.kind, job.request or {})
-                if job.part_request is not None:
-                    job.part_request = request_from_dict(job.kind, job.part_request)
-                return True
-            except (TypeError, ValueError, KeyError, AttributeError):
-                logger.warning('job %s cannot be read back to carry on with, and is recorded interrupted', job.id)
-        return False
-
     def __load_history(self) -> None:
         if not self.__state_dir:
             return
@@ -825,14 +816,9 @@ class ExecutionQueue:
             except (KeyError, TypeError):
                 logger.warning('a job in %s could not be read, and is left out', path)
                 continue
-            if not job.finished and not self.__keep(job):   # the service stopped while it waited or ran
-                job.error = f'the service stopped while the job was {job.state}'
+            if not job.finished:   # the service stopped while it waited or ran: its job starts another
+                job.error = f'the service stopped while it was {job.state}'
                 job.state, job.finished_at = 'interrupted', now
-                if job.earlier:
-                    job.result = self.__merge(list(job.earlier))
             self.__jobs[job.id] = job
-        self.__order = max((job.order for job in self.__jobs.values()), default=0)
-        for job in sorted((j for j in self.__jobs.values() if not j.finished), key=lambda j: j.order):
-            self.__queue.append(job.id)
         self.__trim()
         self.__save()

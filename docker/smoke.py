@@ -173,8 +173,11 @@ def smoke(image: str, port: int, designer_image: str = '') -> None:
             check_browser_app(port)
             if designer_image:   # the service says when it can reach the designer (/v1/status, TODO R2)
                 assert wait_for(lambda: request(port, '/v1/status')['designer']['reachable'])
-            submitted = request(port, '/v1/jobs/run', {'filter': {'match': 'Smoke Movie'}, 'through': 'design'})
-            job = wait_for(lambda: (state if (state := request(port, f'/v1/jobs/{submitted["id"]}'))['state']
+            submitted = request(port, '/v1/jobs', {'kind': 'run', 'name': 'Smoke',
+                                                   'request': {'filter': {'match': 'Smoke Movie'}, 'through': 'design'}})
+            execution = submitted['last_execution']   # a one-off is queued at once (its window is the default: any time)
+            assert execution, submitted
+            job = wait_for(lambda: (state if (state := request(port, f'/v1/executions/{execution}'))['state']
                                     not in ('queued', 'running') else None), seconds=300)
             assert job['state'] == 'succeeded', job
             entries = list((root / 'queue').glob('*.json'))

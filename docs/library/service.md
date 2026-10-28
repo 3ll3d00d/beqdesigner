@@ -98,41 +98,73 @@ Every call under `/v1` needs the token as `Authorization: Bearer <token>`. `/hea
 
 Stopping it (Ctrl-C, or `SIGTERM`) lets the title in hand finish, then stops.
 
+### Jobs and executions
+
+A **job** is what you ask the service to do -- list the sources again (`scan`), extract and design what a filter selects
+(`run`), or bulk accept (`accept`) -- once, or every so many minutes. Each continuous run that does it is an
+**execution**: a job that has to stop (its window closed, or you paused it) has several, and the next one carries on with
+the titles the last had not started.
+
+```
+curl -X POST http://nas:8080/v1/jobs \
+     -H "Authorization: Bearer $BEQ_SERVICE_TOKEN" -H 'Content-Type: application/json' \
+     -d '{"kind": "run", "request": {"filter": {"kind": "movie", "year": "2026"}, "through": "design"}}'
+```
+
+- **Once** (no `every`): it starts at once (or when its window opens), and is `done` when an execution finishes its
+  titles. Cancelling its execution (`POST /v1/executions/{id}/cancel`) removes the job.
+- **Recurring** (`"every": 30`, minutes, at least 5): an execution starts that long after the last one finished, within
+  its window. Only a run through `extract` or `design` recurs; it always works on titles that still need extract or
+  design, and never publishes. A tick due while another execution runs or waits is skipped (`last_skip` says `busy`),
+  so they never pile up. `POST /v1/jobs/{id}/run` runs it now, or answers 409 while something else runs.
+- `POST /v1/jobs/{id}/pause` stops its running execution before its next title (designs in progress finish) and starts
+  nothing more; `/resume` carries on. `PATCH /v1/jobs/{id}` changes its `name` and `window`, and a recurring job's
+  `every` and `request`; a one-off job's request is fixed. `DELETE /v1/jobs/{id}` removes it.
+- Before a recurring execution through design the service asks the designer's `/health`. If nothing answers (or a proxy
+  in front of it answers 502, 503 or 504) the tick is skipped, `last_skip` says why, it is tried again within 5 minutes,
+  and `failed` is notified once for the outage, not at every skipped tick. A designer that answers anything else,
+  including one too old to serve `/health`, counts as up. A one-off run through design asked for while the designer is
+  down fails at once, saying so, before anything is extracted.
+- A recurring job whose filter lists `ids` ends itself (`done`, and `ended` says why) once an execution leaves none of
+  those titles to do: each is designed (or extracted), failed, or needs your attention. A title the run could not reach
+  keeps it going, as does a failure when `retry_failed` is on. A filter without `ids` keeps going, since titles added
+  later may match it.
+
+Jobs are kept in `<work dir>/service/jobs.json` and the last `history_limit` executions in `executions.json`. An
+execution that was running when the service stopped is `interrupted`, and its job carries on at the next start.
+
 ### When jobs may run
 
 A job can be given a **window**: the times of day it may run, as daily ranges in the service's time zone (the
-container's `TZ`), e.g. `"window": ["01:00-07:00"]` on `POST /v1/jobs/run`, `/v1/jobs/scan`, `/v1/jobs/accept` or
+container's `TZ`), e.g. `"window": ["01:00-07:00"]` on `POST /v1/jobs`, `PATCH /v1/jobs/{id}` or
 `POST /v1/revise` with `run`. A range may cross midnight (`22:00-06:00`), and several may be given.
 
-- Outside its window a queued job waits (`waiting_until` says until when) while other jobs run.
+- Outside its window a job does not start (`next_at` says when it will).
 - A run whose window closes stops taking titles: the ones being designed or extracted finish (a title only waiting for
-  a designer slot is left), then it is `paused` and carries on with the
-  titles it had left when the window next opens. It stays one job, with one progress bar, log and result (`parts`
-  counts how many times it started).
+  a designer slot is left), then the execution ends `stopped` (`stopped_because: window`) and its job starts another
+  for the titles it had left when the window next opens.
 - A scan or accept that is running when its window closes finishes.
 - A job given no window follows the default (`GET`/`PUT /v1/job-window`); the default starts as any time. Give
   `"window": []` for a job that may run any time whatever the default says.
-- A paused job, or one waiting for its window, is kept when the service restarts.
 
 ### What you can ask it
 
 | Call | Does |
 |---|---|
-| `POST /v1/jobs/scan` | list the sources again (the work list's *Rescan*) |
-| `POST /v1/jobs/run` | extract and design the titles a filter selects |
+| `POST /v1/jobs` | make a job: list the sources again (`scan`, the work list's *Rescan*), extract and design the titles a filter selects (`run`), or bulk accept (`accept`, see below); once, or `every` N minutes |
+| `GET /v1/jobs`, `/v1/jobs/{id}` | the jobs, and one job with its next and running execution |
+| `PATCH /v1/jobs/{id}`, `DELETE /v1/jobs/{id}` | change a job (its name and window; a recurring job's interval and run), or remove it |
+| `POST /v1/jobs/{id}/pause`, `/resume` | pause a job (its running execution stops before its next title), or carry on |
+| `POST /v1/jobs/{id}/run` | run a recurring job now; 409 while another execution runs or waits |
 | `GET /v1/titles`, `/v1/titles/{id}` | the titles a filter selects and what each needs, or one title |
 | `POST /v1/plan` | what a run would do, and what it would skip and why -- changing nothing |
-| `GET /v1/jobs`, `/v1/jobs/{id}` | the jobs, and one job with its result |
-| `GET /v1/jobs/{id}/events` | follow a job as it runs (Server-Sent Events) |
-| `GET /v1/jobs/{id}/log` | what a job has reported so far, as a list |
-| `POST /v1/jobs/{id}/cancel` | cancel: a waiting or paused job is dropped, a running one stops after the title in hand |
-| `PUT /v1/jobs/{id}/window` | change the times of day a queued, running or paused job may run (see "When jobs may run" below) |
+| `GET /v1/executions`, `/v1/executions/{id}` | the log: the running execution, each job's next one, and every one kept (`?job=`, `?state=`); one with its result |
+| `GET /v1/executions/{id}/events` | follow an execution as it runs (Server-Sent Events) |
+| `GET /v1/executions/{id}/log` | what an execution has reported so far, as a list |
+| `POST /v1/executions/{id}/cancel` | cancel: a queued execution is dropped, a running one stops after the title in hand; a one-off job whose execution is cancelled is removed |
 | `GET /v1/job-window`, `PUT /v1/job-window` | the default window: when a job given none may run |
-| `GET /v1/status` | the counts the work list's strip shows, the job running now, the schedule and whether the designer answers |
-| `GET /v1/schedule`, `PUT /v1/schedule` | read or save the automatic extract/design schedule |
-| `POST /v1/schedule/trigger` | run one scheduled tick now; returns 409 while a job is queued or running |
+| `GET /v1/status` | the counts the work list's strip shows, the execution running now, how many wait, and whether the designer answers |
 | `POST /v1/notify/test` | send a sample of each configured event to one notification target |
-| `POST /v1/jobs/accept` | bulk accept (see below) |
 | `GET /v1/titles/{id}/review` | what a person decides a title on: its designs, metadata problems, and whether Accept and Reject are offered |
 | `GET /v1/titles/{id}/chart` | the title's measured curves, and the same after one design (`?candidate=`) or several (`?candidates=all` or `0,2`); `smoothing` (`1`-`48` for 1/N octave, `sg`) and `responses=true` (each design's own response) |
 | `POST /v1/titles/{id}/decision` | accept a design, or reject the title (see "Deciding a title" below) |
@@ -153,16 +185,10 @@ container's `TZ`), e.g. `"window": ["01:00-07:00"]` on `POST /v1/jobs/run`, `/v1
 | `POST /v1/impact`, `GET /v1/impact` | ask the designer which out-of-date designs a redesign now could move (all of them, or `ids`), in the background; then the answer: each title's tier (will move, likely, possible, unaffected, unknown) and why. Needs a designer that answers it (contract 1.6) |
 | `POST /v1/reviewed` | keep these titles' designs (`ids`) at the design version a redesign now would use: they stop showing as out of date. Nothing about the design changes |
 | `GET /v1/titles/{id}/streams` | the title's audio streams and the one extracted |
-| `PUT /v1/titles/{id}/stream` | extract and design the title from another audio stream: a run job |
+| `PUT /v1/titles/{id}/stream` | extract and design the title from another audio stream: a one-off job |
 | `GET /health`, `/ready` | is it up; is it able to work |
 
-A run selects titles with the same filters as the work list, plus two it has no box for:
-
-```
-curl -X POST http://nas:8080/v1/jobs/run \
-     -H "Authorization: Bearer $BEQ_SERVICE_TOKEN" -H 'Content-Type: application/json' \
-     -d '{"filter": {"kind": "movie", "year": "2026"}, "through": "design"}'
-```
+A run's `request.filter` selects titles with the same filters as the work list, plus two it has no box for:
 
 | Field | Selects |
 |---|---|
@@ -172,7 +198,7 @@ curl -X POST http://nas:8080/v1/jobs/run \
 | `kind` | `movie` or `tv` |
 | `year` | `2026`, `<1960`, `>=2020` or `1990-1999`: the language of an [ignore rule](setup.md)'s year. A title with no year never matches -- a filesystem source knows a title's year only once TMDB has named it |
 
-`through` is `extract` or `design`, as the work list's action button. `publish` and `commit`, and bulk accept (`POST /v1/jobs/accept`), are refused unless the settings file allows them (`allow_repository_writes: true`); a dry run of bulk accept is always allowed. A misspelt field is an error, not a wider selection.
+`through` is `extract` or `design`, as the work list's action button. `publish` and `commit`, and bulk accept (`POST /v1/jobs` with `kind: accept`), are refused unless the settings file allows them (`allow_repository_writes: true`); a dry run of bulk accept is always allowed. A misspelt field is an error, not a wider selection.
 
 ### Deciding a title
 
@@ -207,13 +233,13 @@ The interface is published as an OpenAPI document, [`docs/schema/service.openapi
 ```yaml
 listen: {host: 0.0.0.0, port: 8080}
 allow_repository_writes: false   # publish, commit and bulk accept over HTTP
-history_limit: 200               # finished jobs remembered, in <work dir>/service/jobs.json
+history_limit: 200               # finished executions remembered, in <work dir>/service/executions.json
 shutdown_grace_seconds: 120
-schedule:
+schedule:                        # read once: the first start makes it the recurring job below
   enabled: false
-  interval_minutes: 60           # at least 5; measured from a scheduled job's finish
-  through: design                # extract or design only
-  filter: {kind: movie}          # optional; needs is always extract or design
+  interval_minutes: 60
+  through: design
+  filter: {kind: movie}
   retry_failed: false
 notify:
   - name: phone
@@ -223,22 +249,13 @@ notify:
     origins: [schedule]
 ```
 
-When enabled, a tick scans the sources and works on titles still needing extract or design. It leaves designs in the
-review queue. A tick due while another job is active is skipped, so scheduled jobs never accumulate. Before a tick
-through design the service asks the designer's `/health`. If nothing answers (or a proxy in front of it answers 502, 503
-or 504) the tick is skipped, `last_skip` says why, it is tried again within 5 minutes, and `failed` is notified once for
-the outage, not at every skipped tick. A designer that answers anything else, including a designer too old to serve
-`/health`, counts as up. A run job through design that you submit while the designer is down fails at once, saying so,
-before anything is extracted. Saving the schedule
-through `PUT /v1/schedule` writes `<work dir>/service/schedule.json`; that file takes precedence over `service.yaml` on
-restart. Set `enabled: false` to pause it without losing its other settings.
+An older service kept one automatic schedule. The first start of this release makes it a recurring job, *Extract &
+design new titles* (active if the schedule was enabled, paused if not), from `<work dir>/service/schedule.json` (renamed
+`schedule.json.migrated`) or else `service.yaml`'s `schedule`; each job of the old history becomes an execution, and a
+windowed run that was paused carries on as a one-off job. After that, `schedule` in `service.yaml` is not read.
 
-A schedule whose filter lists `ids` turns itself off once a run leaves none of those titles to do: each is designed (or
-extracted, `through: extract`), failed, or needs your attention. `enabled` becomes `false` and `ended` says why. A title
-the run could not reach (the designer or the media was unavailable) keeps it going, as does a failure when
-`retry_failed` is on. A filter without `ids` keeps ticking, since titles added later may match it.
-
-Notifications are sent after a job finishes. `review_waiting` fires when a run
+Notifications are sent after an execution finishes (not when one stops for its window or a pause: its job carries on,
+and the execution that finishes it sends them). `review_waiting` fires when a run
 designed titles, including a designer decline; `failed` fires for a new title,
 source, publish or job failure; `job_finished` can be enabled for every job.
 Earlier failures skipped by the pipeline do not trigger another `failed`
@@ -325,7 +342,7 @@ Not in the browser: projects, settings and Review Folder. Use the app for those.
 file allows them (`allow_repository_writes: true`) and the profile names the filter repository; bulk accept is not offered.
 
 Behind a reverse proxy, the live progress is a long-lived response (Server-Sent Events). The service asks nginx not to
-buffer it (`X-Accel-Buffering: no`); another proxy may need buffering turned off for `/v1/jobs/*/events`.
+buffer it (`X-Accel-Buffering: no`); another proxy may need buffering turned off for `/v1/executions/*/events`.
 
 ### The service and the work list together
 
@@ -350,7 +367,7 @@ title" above). For the app, one layout is supported:
 * **While a run is going, review with *Tools > Review Folder...*** on the shared queue folder. It works on the queue
   entries only. The work list also keeps the discovery index (a database file in the work folder) up to date as you
   decide, and a database file is not safe to write from two machines at once over a network share. Use the work list
-  from the desktop when the service is idle (`GET /v1/status` shows `current_job`), and start runs through the service
+  from the desktop when the service is idle (`GET /v1/status` shows `running_execution`), and start runs through the service
   rather than from the desktop's work list.
 
 A title's poster is kept in its own work folder, so it shows on the desktop whatever path the container recorded, and a
@@ -365,19 +382,21 @@ At about two minutes a title, a catalogue of a thousand titles is days of work. 
    (`designer_reachable`) and whether TMDB is looked up (`tmdb`). Without `TMDB_API_KEY` the service still designs, with
    only the metadata the library has (no TMDB title, year, artwork or ids), which you then fill in on each title page;
    set the key (see [Starting it](#starting-it)) unless that is what you want.
-2. **Scan first:** `POST /v1/jobs/scan`. `GET /v1/titles?needs=extract` then lists what a run would work on, and
+2. **Scan first:** `POST /v1/jobs` with `{"kind": "scan"}`. `GET /v1/titles?needs=extract` then lists what a run would work on, and
    `POST /v1/plan` shows it for a filter without running anything.
 3. **Run a small batch**, for example one year or one source:
-   `POST /v1/jobs/run` with `{"filter": {"year": "2019", "needs": ["extract", "design"]}, "through": "design"}`. Look at
+   `POST /v1/jobs` with `{"kind": "run", "request": {"filter": {"year": "2019", "needs": ["extract", "design"]}}}`. Look at
    the first results in the work list or Review Folder before going on: a wrong path mapping, stream choice or designer
    setting shows in the first few titles, not after a thousand.
-4. **Then enable the schedule** (`PUT /v1/schedule` with `"enabled": true`). Each tick runs whatever still needs
-   extract or design, so it carries the catalogue on from where the batches left it.
+4. **Then resume the recurring job** *Extract & design new titles* (`POST /v1/jobs/{id}/resume`), or make one
+   (`POST /v1/jobs` with `"every": 60`). Each execution runs whatever still needs extract or design, so it carries the
+   catalogue on from where the batches left it.
 
-While a job runs, `GET /v1/status`'s `current_job.progress` says how far it has got (`done` of `total` title-stages), how
+While an execution runs, `GET /v1/status`'s `running_execution.progress` says how far it has got (`done` of `total` title-stages), how
 many it finishes an hour (`per_hour`), and at that rate how long the rest will take (`remaining_seconds`) and when it
 should end (`estimated_finish`). The first titles of a run are the least reliable guide: a cold designer takes longer.
 
-**A restart mid-run** (the container stopped, or the machine) loses nothing that was finished. The job is recorded as
-`interrupted` and is not resumed: the title in hand at the time is done again from the start by the next run or tick,
-and every title already designed stays designed. A run only ever does what is still needed.
+**A restart mid-run** (the container stopped, or the machine) loses nothing that was finished. The execution is recorded
+as `interrupted`; a one-off job starts another at the next start, and a recurring one at its next interval. The title in
+hand at the time is done again from the start, and every title already designed stays designed. A run only ever does
+what is still needed.

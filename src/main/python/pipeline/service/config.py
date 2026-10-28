@@ -5,10 +5,10 @@ in the image: `NAME` or, for Docker secrets, `NAME_FILE` naming a file that hold
 
     listen: {host: 0.0.0.0, port: 8080}
     allow_repository_writes: false     # publish, commit and bulk accept over HTTP (never from the schedule)
-    history_limit: 200                 # finished jobs kept
-    shutdown_grace_seconds: 120        # how long a stop waits for the running job's title in hand
-    state_dir: /work/service           # jobs.json, the schedule, the lease's heartbeat; default <work_dir>/service
-    schedule: {...}                    # auto mode (chunk S4)
+    history_limit: 200                 # finished executions kept
+    shutdown_grace_seconds: 120        # how long a stop waits for the running execution's title in hand
+    state_dir: /work/service           # jobs.json, executions.json, the lease's heartbeat; default <work_dir>/service
+    schedule: {...}                    # an older service's schedule: the recurring job made at the first start
     notify: [...]                      # webhooks (chunk S6)
 '''
 import os
