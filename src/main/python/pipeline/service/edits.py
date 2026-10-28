@@ -24,7 +24,7 @@ from pipeline.library.projects import EDITED_TOOLTIP, LEVEL_WARN, badge, project
 from pipeline.library.revise import revise_entry
 from pipeline.designer.contract import BiquadSpec
 from pipeline.designer.convert import ContractViolation
-from pipeline.library.variants import VariantRefused, discard_variant, save_edited, use_variant
+from pipeline.library.variants import VariantRefused, discard_variant, discard_variants, save_edited, use_variant
 from pipeline.library.selection import Selection
 from pipeline.library.streams import describe_streams, preferred_stream, probe_stream_details
 from pipeline.metadata import BeqMetadata
@@ -313,6 +313,18 @@ def register(v1: APIRouter, deps: EditRoutes) -> None:
         ctx, settings, row = as_looked_at(title_id, digest)
         try:
             discard_variant(settings.queue_dir, title_id, variant_id)
+        except VariantRefused as refused:
+            raise Problem(409, 'Not now', str(refused))
+        return written(ctx, settings, row, title_id)
+
+    @v1.delete('/titles/{title_id}/variants', response_model=models.Review, tags=['edit'],
+               summary="Discard every one of a title's earlier design runs (the current one is kept)",
+               responses=responses(404, 409, 503))
+    def discard_all(title_id: str,
+                    digest: Annotated[str, Query(description="The Review's digest: what was looked at.")]) -> models.Review:
+        ctx, settings, row = as_looked_at(title_id, digest)
+        try:
+            discard_variants(settings.queue_dir, title_id)
         except VariantRefused as refused:
             raise Problem(409, 'Not now', str(refused))
         return written(ctx, settings, row, title_id)

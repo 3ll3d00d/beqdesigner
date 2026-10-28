@@ -299,7 +299,7 @@ def test_navigation_and_decision_buttons_share_the_top_row(qtbot, tmp_path):
     assert page.navLayout.indexOf(bar.projects) >= 0
     assert page.filterTabLayout.indexOf(bar.projects) == -1
     assert bar.openProjectButton.menu().actions() == [bar.monoAction, bar.multichannelAction]
-    assert bar.reviseButton.menu().actions() == [bar.reviseAction, bar.audioStreamAction]
+    assert bar.reviseButton.menu().actions() == [bar.reviseAction, bar.audioStreamAction, bar.oldDesignsAction]
 
 
 # --- through the real BeqDesigner ------------------------------------------------------------------------------------------------

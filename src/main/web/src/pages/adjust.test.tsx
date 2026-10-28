@@ -70,6 +70,10 @@ function routes(over: Parameters<typeof review>[0] = {}, kinds: Record<string, u
       used.push([params.v, await request.json()])
       return json(review({ ...over, variant_id: String(params.v), variants: [] }))
     }),
+    http.delete('/v1/titles/a/variants', ({ request }) => {
+      used.push(['discard all', new URL(request.url).searchParams.get('digest')])
+      return json(review({ ...over, variants: [] }))
+    }),
     http.delete('/v1/titles/a/variants/:v', ({ params }) => {
       used.push(['discard', params.v])
       return json(review({ ...over, variants: [] }))
@@ -228,6 +232,27 @@ describe('the design runs', () => {
     await userEvent.click(within(panel).getByRole('button', { name: 'Keep it' }))
     await userEvent.click(within(panel).getByRole('button', { name: 'Use this one' }))
     await waitFor(() => expect(used).toEqual([['v1', { digest: 'd1' }]]))
+  })
+
+  it('discard every earlier run at once after asking, offered only when there is more than one', async () => {
+    const { used } = routes({ ...answered, variant_id: 'v3', variants: [V1, { ...V1, variant_id: 'v2' }] })
+    renderApp('/titles/a')
+    const panel = await screen.findByRole('region', { name: /^Design runs/ })
+    await userEvent.click(within(panel).getByRole('button', { name: 'Discard all earlier runs…' }))
+    await userEvent.click(within(panel).getByRole('button', { name: 'Keep them' }))
+    expect(used).toEqual([])
+    await userEvent.click(within(panel).getByRole('button', { name: 'Discard all earlier runs…' }))
+    await userEvent.click(within(panel).getByRole('button', { name: 'Discard all 2' }))
+    await waitFor(() => expect(used).toEqual([['discard all', 'd1']]))
+    expect(await within(panel).findByText(/No earlier design runs/)).toBeInTheDocument()
+  })
+
+  it('offer no discard-all for one earlier run: its own Discard does that', async () => {
+    routes(answered)
+    renderApp('/titles/a')
+    const panel = await screen.findByRole('region', { name: /^Design runs/ })
+    expect(within(panel).getByRole('button', { name: 'Discard…' })).toBeInTheDocument()
+    expect(within(panel).queryByRole('button', { name: 'Discard all earlier runs…' })).not.toBeInTheDocument()
   })
 
   it('are not used again on a decided title', async () => {

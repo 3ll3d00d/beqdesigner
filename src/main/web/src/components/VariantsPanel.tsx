@@ -1,10 +1,11 @@
 // A title's design runs (design/web-parity.md WP7): the current one and every earlier one kept, each with what the
 // designer was asked to change and what it did with each ask. Their designs are picked from and compared in the review's
-// one list of designs; here an earlier run can be made current again (the current one is kept) or discarded.
+// one list of designs; here an earlier run can be made current again (the current one is kept) or discarded, one at a
+// time or all at once.
 import { useState } from 'react'
 
 import type { Schemas } from '../api/client'
-import { useDiscardVariant, useUseVariant } from '../api/hooks'
+import { useDiscardAllVariants, useDiscardVariant, useUseVariant } from '../api/hooks'
 import { describeAsk } from './AdjustmentsEditor'
 
 type Review = Schemas['Review']
@@ -44,10 +45,11 @@ const when = (at?: string | null) => (at ? new Date(at).toLocaleString() : 'when
 export function VariantsPanel({ review }: { review: Review }) {
   const use = useUseVariant(review.id)
   const discard = useDiscardVariant(review.id)
+  const discardAll = useDiscardAllVariants(review.id)
   const [discarding, setDiscarding] = useState<string | null>(null)
   const decided = review.status === 'accepted' || review.status === 'published'
-  const busy = use.isPending || discard.isPending || review.in_flight
-  const failed = use.error ?? discard.error
+  const busy = use.isPending || discard.isPending || discardAll.isPending || review.in_flight
+  const failed = use.error ?? discard.error ?? discardAll.error
   const pending = review.adjustments.length > 0 && JSON.stringify(review.adjustments) !== JSON.stringify(review.adjusted_with)
   return (
     <section className="card variants" aria-labelledby="variants-heading">
@@ -59,6 +61,21 @@ export function VariantsPanel({ review }: { review: Review }) {
           a as { kind: string; params?: Record<string, unknown>; text?: string | null })).join('; ')}.</p>}
       </div>
       {review.variants.length === 0 && <p className="muted">No earlier design runs: a redesign keeps this one here.</p>}
+      {review.variants.length > 1 && (
+        <div className="actions">
+          {discarding === '*' ? (
+            <>
+              <button type="button" className="danger small" disabled={busy}
+                      onClick={() => discardAll.mutate({ digest: review.digest }, { onSettled: () => setDiscarding(null) })}>
+                Discard all {review.variants.length}</button>
+              <button type="button" className="secondary small" onClick={() => setDiscarding(null)}>Keep them</button>
+            </>
+          ) : (
+            <button type="button" className="secondary small" disabled={busy} onClick={() => setDiscarding('*')}>
+              Discard all earlier runs…</button>
+          )}
+        </div>
+      )}
       {[...review.variants].reverse().map((v) => (
         <div key={v.variant_id} className="variant">
           <strong>{v.variant_id}</strong>

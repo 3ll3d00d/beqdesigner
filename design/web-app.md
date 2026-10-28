@@ -249,7 +249,8 @@ the current run back if the accept is refused. *Edit filters…* edits a design 
 `VariantsPanel` (*Design runs (N)*) lists the current design run (`variant_id`, `designed_at`, `adjusted_with` and each
 ask's outcome, `outcomeText()`; what the next design is asked when it differs) and the earlier ones newest first, with
 *Use this one* (disabled on an accepted or published title) and *Discard…* (asks first), which send the review's
-`digest`.
+`digest`; with two or more earlier runs, *Discard all earlier runs…* (asks first) forgets them all
+(`DELETE /v1/titles/{id}/variants`, `variants.discard_variants()`), keeping the current one.
 
 ### 4.7 Editing a design
 

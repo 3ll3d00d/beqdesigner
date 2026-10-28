@@ -6,6 +6,8 @@ What the title page can do to a title besides decide it -- design/archive/librar
   gotcha 3). A button is enabled only while its file exists, and a badge says whether a project was **modified since
   design** (`pipeline.library.projects`; its tooltip says what that means for the title). The badge is read when a title is
   shown, and again whenever the window becomes active -- a person edits in the main window, saves the project, and comes back.
+* **Old designs...** (`model.worklist_old_designs`): delete some or all of the title's earlier design runs; the current
+  design is kept.
 * **Reopen / Revise...** (`model.worklist_revise`): send the title back for review, redesign or re-extraction. It changes
   state only (nothing is redesigned or published now), tells the person what will happen before it does anything, records
   their reason in the reviewer note, and shows what it did on the page. Nothing is revised while a run is working on the
@@ -29,12 +31,15 @@ from pipeline.library.projects import EDITED_TOOLTIP, LEVEL_WARN, MONO, MULTICHA
 from model.worklist_title_text import REDO_IN_WORK_LIST
 from model.worklist_revise import ReviseContext, ReviseDialog, ReviseSummary, revise_problem, revise_titles, \
     summarise_outcome
+from model.worklist_old_designs import ask_old_designs
 from pipeline.config import AnalysisConfig
+from pipeline.library.variants import VariantRefused, discard_variants
 from pipeline.review import QueueEntry, read_entry
 
 logger = logging.getLogger('worklist')
 
 AskRevise = Callable[[ReviseSummary, Optional[ReviseContext], str], Optional[Tuple[str, str]]]
+AskOldDesigns = Callable[[str, List[dict]], Optional[List[str]]]   # (title, earlier runs) -> the ids to delete, or None
 
 
 @dataclass
@@ -67,6 +72,7 @@ class TitleHooks:
     open_run_details: Optional[Callable[[str], None]] = None
     open_jriver_preferences: Optional[Callable[[], None]] = None
     choose_audio_stream: Optional[Callable[[str], bool]] = None
+    ask_old_designs: Optional[AskOldDesigns] = None   # the OldDesignsDialog unless given
 
 
 class TitleActionsBar(QWidget):
@@ -80,6 +86,7 @@ class TitleActionsBar(QWidget):
     retry_requested = Signal()
     jriver_preferences_requested = Signal()
     audio_stream_requested = Signal()
+    old_designs_requested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -107,6 +114,7 @@ class TitleActionsBar(QWidget):
         menu = QMenu(self.reviseButton)
         self.reviseAction = menu.addAction('Reopen / Revise...')
         self.audioStreamAction = menu.addAction('Choose audio stream...')
+        self.oldDesignsAction = menu.addAction('Old designs...')
         self.reviseButton.setMenu(menu)
         self.retryButton = QPushButton('Retry failed extraction')
         self.detailsButton = QPushButton('Run Details')
@@ -119,6 +127,7 @@ class TitleActionsBar(QWidget):
         self.reviseButton.clicked.connect(lambda: self.revise_requested.emit())
         self.reviseAction.triggered.connect(lambda: self.revise_requested.emit())
         self.audioStreamAction.triggered.connect(lambda: self.audio_stream_requested.emit())
+        self.oldDesignsAction.triggered.connect(lambda: self.old_designs_requested.emit())
         self.retryButton.clicked.connect(self.retry_requested.emit)
         self.jriverPreferencesButton.clicked.connect(self.jriver_preferences_requested.emit)
         for widget in (self.reviseButton, self.retryButton, self.jriverPreferencesButton, self.detailsButton):
@@ -183,6 +192,7 @@ class TitleActions:
         self._bar.retry_requested.connect(self.retry_failed)
         self._bar.jriver_preferences_requested.connect(self.open_jriver_preferences)
         self._bar.audio_stream_requested.connect(self.choose_audio_stream)
+        self._bar.old_designs_requested.connect(lambda: self.delete_old_designs())
 
     @property
     def actions_bar(self) -> TitleActionsBar:
@@ -313,8 +323,16 @@ class TitleActions:
         self._bar.audioStreamAction.setEnabled(can_choose_stream)
         self._bar.audioStreamAction.setToolTip('Choose the source audio stream, then re-extract and redesign this title.'
                                                if can_choose_stream else 'Wait for the current run to finish before changing stream.')
-        # choosing the stream is how a failed extraction is put right, which is when Revise itself may not be offered
-        self._bar.reviseButton.setEnabled(not blocked or can_choose_stream)
+        earlier = len(self._entry.variants) if self._entry is not None else 0
+        running = self._title_id in self._running()
+        self._bar.oldDesignsAction.setEnabled(bool(earlier) and not running)
+        self._bar.oldDesignsAction.setText(f'Old designs ({earlier})...' if earlier else 'Old designs...')
+        self._bar.oldDesignsAction.setToolTip('Delete earlier design runs of this title; the current design is kept.'
+                                              if earlier and not running else
+                                              'Wait for the current run to finish.' if earlier else
+                                              'No earlier design runs: a redesign keeps the current one.')
+        # choosing the stream, or deleting old designs, may be wanted when Revise itself is not offered
+        self._bar.reviseButton.setEnabled(not blocked or can_choose_stream or bool(earlier))
         self._bar.reviseButton.setToolTip(revise_tip if not blocked or not can_choose_stream else
                                           f'{blocked} The menu can still choose another audio stream.')
 
@@ -328,6 +346,34 @@ class TitleActions:
         if retry is None:
             return False
         return retry(self._title_id)
+
+    def delete_old_designs(self) -> bool:
+        '''
+        Asks which of the title's earlier design runs to delete, and deletes them; the current design is kept.
+        :return: True if any was deleted. False if there were none, it was refused or cancelled -- and the page says why.
+        '''
+        if self._title_id in self._running():
+            self._say('A run is working on this title: wait for it to finish before deleting its old designs.',
+                      problem=True)
+            return False
+        self._read_entry()
+        entry = self._entry
+        if entry is None or not entry.variants:
+            self._say('This title has no earlier design runs to delete.', problem=True)
+            return False
+        title = str(entry.meta.get('title') or self._title_id)
+        ask = self._hooks.ask_old_designs or (lambda name, runs: ask_old_designs(self, name, runs))
+        chosen = ask(title, list(entry.variants))
+        if not chosen:
+            return False
+        try:
+            discard_variants(self._queue_dir(), self._title_id, chosen)
+        except (VariantRefused, OSError) as error:
+            self._say(f'Not deleted: {error}', problem=True)
+            return False
+        self.reload()
+        self._say(f'Deleted {len(chosen)} old design{"" if len(chosen) == 1 else "s"}; the current design is kept.')
+        return True
 
     def choose_audio_stream(self) -> bool:
         chooser = self._hooks.choose_audio_stream

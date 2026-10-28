@@ -434,6 +434,17 @@ def test_a_run_is_discarded_but_never_the_current_one(two_runs):
     assert gone.status_code == 200 and gone.json()['variants'] == [] and read_entry(queue, 'a').variants == []
 
 
+def test_every_earlier_run_is_discarded_at_once_as_looked_at(two_runs):
+    client, queue = two_runs
+    digest = _review(client)['digest']
+    stale = client.delete('/v1/titles/a/variants', params={'digest': 'old'}, headers=AUTH)
+    assert (stale.status_code, stale.json()['title']) == (409, 'Changed since it was read')
+    gone = client.delete('/v1/titles/a/variants', params={'digest': digest}, headers=AUTH)
+    assert gone.status_code == 200, gone.text
+    assert gone.json()['variants'] == [] and gone.json()['variant_id'] == 'v2' and read_entry(queue, 'a').variants == []
+    assert client.delete('/v1/titles/zz/variants', params={'digest': digest}, headers=AUTH).status_code == 404
+
+
 # --- editing a design (WP8) ----------------------------------------------------------------------------------------------
 
 SHELF = {'type': 'low_shelf', 'freq_hz': 20.0, 'gain_db': 5.0, 'q': 0.7, 'count': 2}

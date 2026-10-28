@@ -9,7 +9,8 @@ from pipeline.designer.contract import AdjustmentOutcome, BiquadSpec, DesignCand
 from pipeline.designer.registry import register_designer, unregister_designer
 from pipeline.library.design_cache import design_if_needed
 from pipeline.library.source import LibraryItem
-from pipeline.library.variants import VariantRefused, discard_variant, next_variant_id, use_variant, variant_view
+from pipeline.library.variants import VariantRefused, discard_variant, discard_variants, next_variant_id, use_variant, \
+    variant_view
 from pipeline.orchestrate import Session
 from pipeline.review import read_entry, update_entry
 from review_entry_fixture import write_entry
@@ -94,6 +95,26 @@ def test_a_variant_is_discarded_only_when_it_is_not_the_current_one(title):
     assert discard_variant(queue, 'heat', 'v1').variants == []
     with pytest.raises(VariantRefused, match='no variant v1'):
         discard_variant(queue, 'heat', 'v1')
+
+
+def test_several_or_all_earlier_variants_are_discarded_at_once_and_the_current_one_is_kept(title):
+    queue, redesign = title
+    for _ in range(4):
+        redesign()
+    entry = read_entry(queue, 'heat')
+    current, earlier = entry.variant_id, [v['variant_id'] for v in entry.variants]
+    assert len(earlier) == 3
+
+    with pytest.raises(VariantRefused, match='current design'):
+        discard_variants(queue, 'heat', [earlier[0], current])
+    with pytest.raises(VariantRefused, match='no variant nope'):
+        discard_variants(queue, 'heat', [earlier[0], 'nope'])
+    assert len(read_entry(queue, 'heat').variants) == 3   # a refusal discards nothing
+
+    assert [v['variant_id'] for v in discard_variants(queue, 'heat', [earlier[1]]).variants] == [earlier[0], earlier[2]]
+    kept = discard_variants(queue, 'heat')
+    assert kept.variants == [] and kept.variant_id == current and kept.candidates == entry.candidates
+    assert discard_variants(queue, 'heat').variants == []   # nothing left: nothing to do
 
 
 def test_an_earlier_variant_can_be_viewed_without_changing_anything(title):

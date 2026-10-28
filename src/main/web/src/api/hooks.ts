@@ -604,6 +604,19 @@ export function useDiscardVariant(id: string) {
   })
 }
 
+/** Discard every earlier design run of a title, keeping the current one. */
+export function useDiscardAllVariants(id: string) {
+  const { client } = useAuth()
+  const queries = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ digest }: { digest: string }) =>
+      unwrap(await client.DELETE('/v1/titles/{title_id}/variants', {
+        params: { path: { title_id: id }, query: { digest } } })),
+    onSuccess: (review) => queries.setQueryData(keys.review(id), review),
+    onError: () => void queries.invalidateQueries({ queryKey: keys.review(id) }),
+  })
+}
+
 /** Save a person's edit of a design: a new design run (design/web-parity.md WP8). */
 export function useSaveEdited(id: string) {
   const { client } = useAuth()

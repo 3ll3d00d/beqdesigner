@@ -180,6 +180,7 @@ container's `TZ`), e.g. `"window": ["01:00-07:00"]` on `POST /v1/jobs`, `PATCH /
 | `GET /v1/titles/{id}/catalogue/{id}/chart` | one published BEQ (its `index` in the list, as the second id)'s response, and the title's curves under it (`smoothing` as the chart) |
 | `POST /v1/titles/{id}/variants/{id}/use` | make an earlier design run of the title its current one again (the current one is kept) |
 | `DELETE /v1/titles/{id}/variants/{id}` | discard one of the title's earlier design runs |
+| `DELETE /v1/titles/{id}/variants` | discard every one of the title's earlier design runs (the current one is kept) |
 | `PUT /v1/titles/{id}/edited` | save your edit of one of the title's designs as a new design run (the current one is kept) |
 | `GET /v1/titles/{id}/projects` | the title's `.beq` projects and whether you edited them since the design (what is saved in one is what gets published) |
 | `POST /v1/revise` | send titles back to review, design or extract (`ids`, `to`, `reason`): now, or with `run` in one run job |
@@ -327,7 +328,8 @@ otherwise it lasts until the tab is closed. The token is checked with the servic
   current one and the earlier ones, each with what the designer was asked to change and what it did with each ask
   (honoured, adapted, declined, not understood, or not acknowledged by a designer older than contract 1.5). Tick an
   earlier one to draw its designs dashed on the chart; *Use this one* makes it current again (the current one is kept);
-  *Discard…* forgets it.
+  *Discard…* forgets it, and *Discard all earlier runs…* (when there are two or more) forgets every earlier one at
+  once; the current design is always kept.
 * **Editing a design:** *Edit filters…* opens the highlighted design's sections (type, frequency, Q, gain, how many
   stacked) with your edit drawn live beside it; *Add a low shelf* for more bass, *Add a peak*, reorder or remove.
   *Save as a new design* makes it the title's current design run, to review and accept like any other; the one it

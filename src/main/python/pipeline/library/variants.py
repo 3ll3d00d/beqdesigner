@@ -6,12 +6,12 @@ The queue entry's own design fields are the **current** variant (`QueueEntry.var
 published and charted, as before, so nothing that reads an entry has to know about variants. `QueueEntry.variants` holds
 the others, each those same fields as a dict (`VARIANT_FIELDS`), newest last. A redesign keeps the current one there
 before it replaces it (`kept_variants()`, called by `design_cache.design_if_needed`); `use_variant()` swaps one back in;
-`discard_variant()` forgets one. The adjustments a design was made with (`adjusted_with`) go with its variant, so they
+`discard_variant()` forgets one, `discard_variants()` several or all. The adjustments a design was made with (`adjusted_with`) go with its variant, so they
 are never lost; using a variant asks them again of the next design.
 '''
 import re
 from dataclasses import asdict, fields, replace
-from typing import List, Optional
+from typing import Iterable, List, Optional
 
 from pipeline.review import CandidateSummary, QueueEntry, read_entry, write_queue_entry
 
@@ -135,6 +135,27 @@ def discard_variant(queue_dir: str, entry_id: str, variant_id: str) -> QueueEntr
     if len(kept) == len(entry.variants):
         raise VariantRefused(f'{entry_id} has no variant {variant_id}')
     updated = replace(entry, variants=kept)
+    write_queue_entry(queue_dir, updated)
+    return updated
+
+
+def discard_variants(queue_dir: str, entry_id: str, variant_ids: Optional[Iterable[str]] = None) -> QueueEntry:
+    '''
+    Forgets several earlier variants at once, in one write: those named, or every one (None). The current one is kept.
+    :raises VariantRefused: for the current variant, or one the title does not have (nothing is discarded then).
+    '''
+    entry = read_entry(queue_dir, entry_id)
+    current = entry.variant_id or 'v1'
+    known = {v.get('variant_id') for v in entry.variants}
+    wanted = set(known) if variant_ids is None else set(variant_ids)
+    if current in wanted:
+        raise VariantRefused(f'{current} is the current design of {entry_id}: use another before discarding it')
+    unknown = sorted(wanted - known)
+    if unknown:
+        raise VariantRefused(f'{entry_id} has no variant {", ".join(unknown)}')
+    if not wanted:
+        return entry
+    updated = replace(entry, variants=[v for v in entry.variants if v.get('variant_id') not in wanted])
     write_queue_entry(queue_dir, updated)
     return updated
 

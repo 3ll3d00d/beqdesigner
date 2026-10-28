@@ -20,6 +20,9 @@ At the top is the title and year, its source, and a line saying where it is (*Wa
 
 * **Candidates**: the filters the designer proposed, best first, each with its confidence, method and the gain change it implies. The highlighted one is the one that will be accepted. Press `1` to `9` to pick one, or click.
 * **Rejected by the designer**: some designers also return the designs they built and judged unfit to publish, with their reasons. They are listed after the candidates under their own heading, in italics, numbered on from the candidates (so `1` to `9` reach them too); hover over one to see why it was rejected.
+* **Old designs** (*Revise > Old designs (N)...*): each redesign keeps the title's earlier design runs. This lists them,
+  newest first, to tick and *Delete selected*, or *Delete all*; the current design is always kept. It is not offered
+  while a run is working on the title.
 * **Audio stream** (*Revise > Choose audio stream...*): which of the title's audio streams is extracted, each listed with its codec, layout, language, sample rate and bitrate (read from the file when the library does not list them). Unless you choose, the stream JRiver plays is used (its *Playback Info*), matched against the file when the title is extracted. If the two do not agree, the first stream is used and Run Details says why. Choosing a stream sends the title back to be extracted again, and your choice is kept when the library is scanned again.
 * **Commentary**: what the designer said about the highlighted candidate. It ends with the **bass management sent to the designer**, the playback chain its clipping figures are for. "None sent" means the designer assumed its own chain; the designer's own clipping note says which chain it used. beqforge 0.2.0 takes only the crossover frequency from what is sent and assumes the rest (its fixed LR4 crossovers and LFE level), so read its clipping figures as an estimate.
 
