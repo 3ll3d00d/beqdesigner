@@ -165,6 +165,14 @@ class MagnitudeData:
         :param filt: the filter in MagnitudeData form.
         :return: the filtered response.
         '''
+        if self.x.size == filt.x.size and not np.allclose(self.x, filt.x):
+            # as many points over another span (a 1 kHz curve, a 96 kHz filter): adding them point by point would apply
+            # the filter's response at the wrong frequencies, so it is read at this data's own
+            _, interp_y = interp(filt.x, filt.y, self.x)
+            return MagnitudeData(self.__name, f"{self.__description}-filtered", self.x, self.y + interp_y,
+                                 colour=self.colour,
+                                 linestyle='-',
+                                 smooth_type=self.__smooth_type)
         if self.x.size != filt.x.size:
             logger.debug(f"Interpolating filt {filt.x.size} vs self {self.x.size}")
             if self.x.size > filt.x.size:

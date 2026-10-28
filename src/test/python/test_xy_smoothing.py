@@ -55,3 +55,14 @@ def test_magnitude_data_and_the_main_windows_choices_use_it():
     assert smooth(X, np.full_like(X, -20.0))[1][0] == -20.0   # no smoothing
     with pytest.raises(ValueError):
         smooth_octave(X, X, 0)
+
+
+def test_a_filter_with_as_many_points_over_another_span_is_read_at_the_datas_frequencies():
+    from model.xy import MagnitudeData
+    data = MagnitudeData('track', '', np.linspace(0.0, 500.0, 101), np.zeros(101))
+    filt = MagnitudeData('filter', '', np.linspace(0.0, 1000.0, 101), np.linspace(0.0, 1000.0, 101) / 100)   # 1 dB per 100 Hz
+    filtered = data.filter(filt)
+    assert np.array_equal(filtered.x, data.x)
+    assert filtered.y[np.argmin(np.abs(data.x - 300))] == pytest.approx(3.0)   # not 6, the filter at 600 Hz
+    same = data.filter(MagnitudeData('filter', '', data.x, np.ones(101)))
+    assert np.allclose(same.y, 1.0)

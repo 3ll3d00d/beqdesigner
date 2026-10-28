@@ -43,3 +43,23 @@ def test_the_response_is_the_same_whatever_the_smoothing(entry):
     plain = workbench_curves(entry, [0], None, responses=True)[-1].data
     smoothed = workbench_curves(entry, [0], 3, responses=True)[-1].data
     assert np.array_equal(plain.x, smoothed.x) and np.array_equal(plain.y, smoothed.y)
+
+
+def test_a_published_beq_is_applied_at_the_tracks_own_frequencies(tmp_path):
+    ''' A 1 kHz extraction's curve and a 96 kHz catalogue filter have as many points (32769) over different spans: each
+    published BEQ must lift the track by its own response at each frequency, not by its response at another one. '''
+    from pipeline.library.review_chart import published_curves
+    write_entry(str(tmp_path), 'b')
+    x = np.linspace(0.0, 500.0, 32769)
+    entry = replace(read_entry(str(tmp_path), 'b'), curve=xydata_to_json(MagnitudeData('avg', '', x, np.full(x.size, -60.0))),
+                    peak_curve=None)
+    under = {}
+    for gain in (10.0, 2.0):
+        response, average = published_curves(entry, [{'type': 'LowShelf', 'freq': 30, 'q': 0.707, 'gain': gain}], 'a')
+        assert response.data.x.size == average.data.x.size == 32769 and response.data.x[-1] > 47000
+        at = int(np.argmin(np.abs(average.data.x - 20.0)))
+        assert average.data.x[-1] == 500.0
+        lift = np.interp(20.0, response.data.x, response.data.y)
+        assert average.data.y[at] == pytest.approx(-60.0 + lift, abs=0.05) and lift > gain * 0.8
+        under[gain] = average.data.y[at]
+    assert under[10.0] - under[2.0] > 6   # two authors' BEQs no longer draw the same curve
