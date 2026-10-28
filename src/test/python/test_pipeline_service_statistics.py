@@ -163,10 +163,11 @@ def test_the_queue_keeps_a_record_of_each_title_from_the_runs_events(tmp_path):
                           'endpoint': 'http://one', 'release': '0.3.1', 'version': '8', 'sent': 10.5, 'answered': 70.25,
                           'call': 'designed', 'design_end': 100.0, 'ended': 100.0, 'end': 'title_completed',
                           'message': 'Alien'}
-        saved = json.loads((tmp_path / 'executions.json').read_text())
-        assert saved[0]['titles']['a']['endpoint'] == 'http://one'   # kept with the execution, for the history
     finally:
         queue.stop(5)
+    # read once the queue has stopped writing (Windows: its os.replace may be swapping the file in as a test opens it)
+    saved = json.loads((tmp_path / 'executions.json').read_text())
+    assert saved[0]['titles']['a']['endpoint'] == 'http://one'   # kept with the execution, for the history
     again = ExecutionQueue(lambda e, c: None, state_dir=str(tmp_path))
     try:
         assert statistics(again.get(execution.id)).designers[0].designed == 1
