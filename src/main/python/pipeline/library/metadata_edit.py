@@ -30,7 +30,7 @@ TMDB_EXTRAS = ('overview', 'genres', 'collection')   # from a TMDB reload: kept,
 FILL_FROM_TMDB = ('title', 'alt_title', 'year', 'rating', 'runtime', 'the_movie_db')
 INDEXED_STATUSES = ('pending', 'accepted', 'published')   # the index says "metadata incomplete" of these, and of no other
 AUDIO_TYPES = ('Atmos', 'TrueHD 7.1', 'TrueHD 5.1', 'DTS:X', 'DTS-HD MA 7.1', 'DTS-HD MA 6.1',
-               'DTS-HD MA 5.1', 'DD+ Atmos', 'DD+', 'DD 5.1', 'LPCM 7.1', 'LPCM 5.1')
+               'DTS-HD MA 5.1', 'DD+ Atmos', 'DD+', 'DD 5.1', 'LPCM 7.1', 'LPCM 5.1', 'LPCM 2.0')
 SOURCES = ('Disc', 'Apple TV+', 'Amazon', 'DC Universe', 'Disney+', 'HBOMax', 'Hulu', 'iTunes', 'Netflix',
            'Paramount+', 'Peacock')
 LANGUAGES = ('English', 'Danish', 'French', 'German', 'Italian', 'Norwegian', 'Portuguese', 'Russian', 'Spanish',

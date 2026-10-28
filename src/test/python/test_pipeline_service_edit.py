@@ -34,6 +34,7 @@ def test_the_fields_are_the_title_pages_in_order_with_their_choices(service):
     assert [f['key'] for f in fields][:3] == ['title', 'year', 'audio_types']
     audio = fields[2]
     assert audio['kind'] == 'choices' and 'Atmos' in audio['choices'] and audio['group'] == 'essentials'
+    assert audio['choices'][-3:] == ['LPCM 7.1', 'LPCM 5.1', 'LPCM 2.0']   # a stereo PCM track is offered too
     assert next(f for f in fields if f['key'] == 'gain')['group'] == 'more'
 
 

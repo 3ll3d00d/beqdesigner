@@ -73,3 +73,9 @@ def test_a_reload_looks_up_by_id_else_by_title_and_year(monkeypatch):
     edit.tmdb_reload('key', '348', 'Alien', '1979', 'movie')
     edit.tmdb_reload('key', '', 'Alien', '1979', 'tv')
     assert calls == [('id', '348', 'movie'), ('title', 'Alien', '1979', 'tv')]
+
+
+def test_lpcm_2_0_is_an_audio_type_a_person_can_pick_and_it_is_kept_as_typed():
+    assert 'LPCM 2.0' in edit.AUDIO_TYPES
+    changes = edit.changes_from_texts({'audio_types': 'LPCM 2.0, DTS-HD MA 5.1'})
+    assert changes['audio_types'] == ['LPCM 2.0', 'DTS-HD MA 5.1']
