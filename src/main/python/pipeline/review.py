@@ -410,7 +410,7 @@ def design_and_queue(session: Session, entry_id: str, wav_path: str, designer: s
                      multichannel_wav_path: Optional[str] = None, channel_layout_name: str = 'unknown',
                      project_dir: Optional[str] = None,
                      on_projects: Optional[Callable[[dict], None]] = None,
-                     adjustments: Optional[Sequence[dict]] = None) -> QueueEntry:
+                     adjustments: Optional[Sequence[dict]] = None, keep: Optional[dict] = None) -> QueueEntry:
     '''
     Loads an *already-extracted* wav file, designs it, and writes one
     QueueEntry to queue_dir -- the load+design+curve+write half of
@@ -441,6 +441,9 @@ def design_and_queue(session: Session, entry_id: str, wav_path: str, designer: s
         bool|None}; False = an existing human-edited project was left alone) whenever projects were attempted.
     :param adjustments: what a person asked the designer to change (QueueEntry.adjustments), sent with the request (1.5)
         and kept on the entry with the designer's answers.
+    :param keep: QueueEntry fields set on the new entry in the same write (what a redesign carries over from the entry it
+        replaces: its earlier design runs, note, artwork, fingerprints), so no reader ever sees the new design without
+        them, even while the projects are written.
     :return: the written QueueEntry.
     '''
     from model.codec import xydata_to_json
@@ -463,6 +466,8 @@ def design_and_queue(session: Session, entry_id: str, wav_path: str, designer: s
     entry.adjusted_with = [dict(a) for a in adjustments or ()]
     entry.designed_at = datetime.now(timezone.utc).isoformat(timespec='seconds')
     entry.designer_build = entry.designer_build or designer_build(entry)   # 1.4 says it; before, its commentary did
+    if keep:
+        entry = replace(entry, **keep)
     write_queue_entry(queue_dir, entry)
     if project_dir is not None:
         from pipeline.publish.project import write_title_projects_if_safe

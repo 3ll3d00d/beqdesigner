@@ -250,7 +250,8 @@ def test_a_title_designed_by_the_real_design_path_agrees_with_the_check_until_th
 
     def fake_design(session, entry_id, wav_path, designer, queue_dir, **kwargs):
         entry = QueueEntry(id=entry_id, fs=1000, meta=kwargs.get('meta') or {}, curve={},
-                           candidates=[CandidateSummary(filters={}, confidence=0.9, method='fitted', mv_adjust_db=0.0)])
+                           candidates=[CandidateSummary(filters={}, confidence=0.9, method='fitted', mv_adjust_db=0.0)],
+                           **(kwargs.get('keep') or {}))   # what the real one writes with the design (its keep)
         write_queue_entry(queue_dir, entry)
         return entry
 

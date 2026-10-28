@@ -248,7 +248,7 @@ def test_a_redesign_actually_happens_on_the_next_design_pass_and_keeps_what_a_pe
 
     def fake_design(session, entry_id, wav_path, designer, queue_dir, **kwargs):
         calls.append(entry_id)
-        entry = QueueEntry(id=entry_id, fs=1000, meta=kwargs.get('meta') or {}, curve={})
+        entry = replace(QueueEntry(id=entry_id, fs=1000, meta=kwargs.get('meta') or {}, curve={}), **(kwargs.get('keep') or {}))
         write_queue_entry(queue_dir, entry)
         return entry
 

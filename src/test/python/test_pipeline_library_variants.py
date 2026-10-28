@@ -141,3 +141,30 @@ def test_a_redesign_starts_with_no_review_and_the_run_it_replaces_keeps_its_own(
     update_entry(queue, 'heat', reviewed_at=[{'design_version': 7, 'design_settings': None, 'at': 'x', 'by': None}])
     second = redesign()
     assert second.reviewed_at == [] and second.variants[0]['reviewed_at'][0]['design_version'] == 7
+
+
+def test_the_entry_on_disk_keeps_its_history_while_the_projects_are_written(title, tmp_path, monkeypatch):
+    ''' A redesign wrote the new design, then spent tens of seconds writing its projects before it added the earlier runs,
+    the note and the fingerprints back: a reader in between (the review page) saw no earlier design runs. '''
+    import pipeline.publish.project as project
+    from pipeline.library.source import LibraryItem
+    queue, redesign = title
+    redesign()
+    update_entry(queue, 'heat', reviewer_note='a person wrote this')
+    seen = []
+
+    def projects(*args, **kwargs):
+        on_disk = read_entry(queue, 'heat')
+        seen.append((on_disk.variant_id, [v['variant_id'] for v in on_disk.variants], on_disk.reviewer_note,
+                     on_disk.design_fingerprint is not None))
+        return {'mono': True, 'multichannel': None}
+
+    monkeypatch.setattr(project, 'write_title_projects_if_safe', projects)
+    item = LibraryItem(id='heat', source_path=str(tmp_path / 'heat.mkv'), display_name='Heat', fingerprint='s')
+    project_dir = tmp_path / 'work' / 'heat'
+    project_dir.mkdir(parents=True)
+    result = design_if_needed(Session(), item, str(tmp_path / 'mono.wav'), DESIGNER, queue, AnalysisConfig(), force=True,
+                              project_dir=str(project_dir))
+
+    assert seen == [('v2', ['v1'], 'a person wrote this', True)]
+    assert result.entry.variant_id == 'v2' and read_entry(queue, 'heat').variant_id == 'v2'

@@ -187,7 +187,7 @@ is *adapted*, applied as db 15.75 ("capped at 15 dB; the realised design peaks a
 lists *Design runs (5)* with the outcome. Every chunk is now in the browser, and web-app.md §1 lists no title-page work
 that stays in the desktop app.
 
-Two things seen on the way, not fixed here:
+Two things seen on the way, both fixed the same day (`84d5d94` the note, the commit after it the write):
 - For the 33 s between the design's write (`review.design_and_queue`, 16:43:21) and `design_if_needed`'s update
   (16:43:54), spent writing the projects, the entry on disk had no `variants`, `variant_id` or reviewer note. A
   reader in that window, such as the review page, shows "No earlier design runs", and a crash in it would lose the

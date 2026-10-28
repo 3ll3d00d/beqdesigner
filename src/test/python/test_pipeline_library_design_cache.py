@@ -27,7 +27,7 @@ def _candidate():
 def _install_fake_design(monkeypatch, calls):
     def fake_design(session, entry_id, wav_path, designer, queue_dir, **kwargs):
         calls.append((entry_id, wav_path, designer, kwargs))
-        entry = replace(_entry(), meta=kwargs.get('meta') or {})  # like the real design_and_queue()
+        entry = replace(_entry(), meta=kwargs.get('meta') or {}, **(kwargs.get('keep') or {}))  # like the real design_and_queue()
         write_queue_entry(queue_dir, entry)
         return entry
 
@@ -287,7 +287,7 @@ def test_result_flags_a_preserved_project_edit_only_when_a_project_was_skipped(t
     item = _item(tmp_path)
 
     def fake_design(session, entry_id, wav_path, designer, queue_dir, on_projects=None, **kwargs):
-        entry = _entry()
+        entry = replace(_entry(), **(kwargs.get('keep') or {}))
         write_queue_entry(queue_dir, entry)
         on_projects(projects.pop())
         return entry
