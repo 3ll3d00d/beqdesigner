@@ -49,6 +49,10 @@ class JRiverDSP:
         return self.__output_format
 
     @property
+    def use_atmos_channels(self) -> bool:
+        return self.__use_atmos_channels
+
+    @property
     def filename(self):
         return self.__filename
 

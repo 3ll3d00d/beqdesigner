@@ -379,6 +379,11 @@ mechanism, which draws from a *version-dependent* pool: legacy numbered
 which only changes the `use_atmos_channels=True` branch: Extra-only for a
 padded instance, Atmos+Extra combined otherwise.
 
+Anything that checks a channel against a format must pass the dsp's flag
+(`JRiverDSP.use_atmos_channels`): the `output_channel_indexes` property and
+`has_channels`'s default are the legacy pool, which is how the MSO import
+dialog came to refuse `LW`/`RW` on a 35.0.39+ "16 channels" config.
+
 This was originally found from a real MC35 production config (a 7.1 +
 8-padding format) whose PEQ block used *both* legacy spare channels (`C9`-`C13`,
 via `XOBM`/`Multiway`) *and* one isolated Atmos-channel `Mix` (a height-channel

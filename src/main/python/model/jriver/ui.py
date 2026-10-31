@@ -752,7 +752,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         self.__show_mso_dialog(on_save, existing=existing)
 
     def __show_mso_dialog(self, on_save: Callable[[MSOFilter], None], existing: MSOFilter = None):
-        MSODialog(existing, on_save, self.dsp.output_format, self).exec()
+        MSODialog(existing, on_save, self.dsp.output_format, self, use_atmos_channels=self.dsp.use_atmos_channels).exec()
 
     def __populate_add_filter_menu(self, menu: QMenu) -> QMenu:
         '''
@@ -1289,8 +1289,9 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
 class MSODialog(QDialog, Ui_msoDialog):
 
     def __init__(self, mso_filter: Optional[MSOFilter], on_change: Callable[[MSOFilter], None],
-                 output_format: OutputFormat, parent):
+                 output_format: OutputFormat, parent, use_atmos_channels: bool = False):
         super(MSODialog, self).__init__(parent)
+        self.__use_atmos_channels = use_atmos_channels
         self.setupUi(self)
         self.fileSelect.setIcon(qta.icon('fa5s.folder-open'))
         self.file.setReadOnly(True)
@@ -1317,7 +1318,7 @@ class MSODialog(QDialog, Ui_msoDialog):
             for f in self.__mso_filter:
                 self.filterList.addItem(str(f))
             if self.__mso_filter.filters:
-                bad_filters = [f for f in self.__mso_filter if not self.__output_format.has_channels(f.channels)]
+                bad_filters = [f for f in self.__mso_filter if not self.__output_format.has_channels(f.channels, self.__use_atmos_channels)]
                 if bad_filters:
                     bad_channels = ', '.join(sorted(list(set(c for f in bad_filters for c in f.channel_names))))
                     reason = f"Unsupported channels for {self.__output_format.display_name} - {bad_channels}"

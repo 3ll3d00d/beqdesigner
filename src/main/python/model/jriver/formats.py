@@ -261,8 +261,14 @@ class OutputFormat:
                 return f
         raise ValueError(f"Unsupported count {count}")
 
-    def has_channels(self, channels: List[int]):
-        return set(self.output_channel_indexes).issuperset(set(channels))
+    def has_channels(self, channels: List[int], use_atmos_channels: bool = False):
+        '''
+        :param channels: the channel indexes to check.
+        :param use_atmos_channels: whether this format is interpreted under the 35.0.39+ scheme - it must
+        match the dsp's own flag, otherwise e.g. a 16 channel format's LW/RW are reported as missing.
+        :return: true if every channel is an output channel of this format.
+        '''
+        return set(self.get_output_channel_indexes(use_atmos_channels)).issuperset(set(channels))
 
     def migrate_channel_index(self, idx: int, use_atmos_channels: bool) -> int:
         '''
