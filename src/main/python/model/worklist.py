@@ -243,6 +243,7 @@ class _ScanJob(QRunnable):
 
 
 AUTO_RESCAN_AFTER_S = 12 * 3600   # opening the window rescans when the last scan is older than this
+INDEX_POLL_MS = 30_000            # how often the window looks for another program's change to the index
 
 class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkListBulk, WorkListDesignFilter, QMainWindow,
                      Ui_workListWindow):
@@ -319,6 +320,7 @@ class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkL
         self._index: Optional[LibraryIndex] = None
         self._index_file: Optional[str] = None
         self._index_error = ''      # why an index file that exists could not be opened or read
+        self._index_stamp = None    # the index file's (mtime, size) when the rows were last read from it
         self._closed = False        # closed (hidden) by the person: nothing may reopen the index until it is shown again
         self._sources_seen: List[SourceRow] = []
         self._last_scan_at: Optional[float] = None
@@ -348,6 +350,10 @@ class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkL
         self._step_timer = QTimer(self)   # the panel's "Now" line counts the seconds of the step in hand
         self._step_timer.setInterval(1000)
         self._step_timer.timeout.connect(self._refresh_source_status)
+        # another program (the service, the web app, the command line) may write the index: look for that while shown
+        self._index_poll_timer = QTimer(self)
+        self._index_poll_timer.setInterval(INDEX_POLL_MS)
+        self._index_poll_timer.timeout.connect(self.refresh_if_index_changed)
 
         self._configure_actions()
         self._configure_titles()
@@ -753,6 +759,7 @@ class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkL
         if self._closed:   # a scan or a run that ends after the window was closed must not open the index again
             return
         self._open_index(self._setup.index_file)  # a scan may have just created it
+        self._index_stamp = self._read_index_stamp()   # before the read: a write during it is seen by the next look
         selected = self.selected_ids()
         scroll = self.workTable.verticalScrollBar().value()
         rows: List[TitleRow] = []
@@ -787,6 +794,30 @@ class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkL
         if self._title_open:
             self._title_page.reload()   # the rows behind its header, and the entry, may have changed
         self._refresh_drift()           # (asks a worker; the banner follows the answer)
+
+    def _read_index_stamp(self) -> Optional[Tuple[int, int]]:
+        ''' The index file's modification time and size: any program's committed write changes them. None if there is none. '''
+        try:
+            stat = os.stat(self._setup.index_file) if self._setup.index_file else None
+        except OSError:
+            return None
+        return (stat.st_mtime_ns, stat.st_size) if stat else None
+
+    def refresh_if_index_changed(self) -> bool:
+        '''
+        Reads the index again if its file changed since the rows were read: another program -- the pipeline service, the web
+        app, the command line, another desktop -- scanned, ran or decided. Only the file is looked at (no lock is taken)
+        until it has changed. Not while the window is closed, a scan, an index read or a bulk job is going (each reads the
+        index when it ends), nor while a title page is open or its decisions are unread (leaving it reads the index).
+        True if it read the index.
+        '''
+        if self._closed or self._blocking() or self._title_open or self._index_dirty:
+            return False
+        if self._read_index_stamp() == self._index_stamp:
+            return False
+        logger.debug('%s changed since it was read: reading it again', self._setup.index_file)
+        self.refresh_from_index()
+        return True
 
     def _populate_sources(self, sources: List[SourceRow]) -> None:
         wanted = self.sourceCombo.currentData()
@@ -1107,15 +1138,20 @@ class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkL
     def changeEvent(self, event) -> None:
         '''
         The window becoming active again: a person opened a project in the main window, edited it and saved it, and comes
-        back -- the title page reads the projects' state again, so the "modified since design" badge is right.
+        back -- the title page reads the projects' state again, so the "modified since design" badge is right. With no title
+        page open, the list is read again if another program wrote the index meanwhile (refresh_if_index_changed()).
         '''
-        if event.type() == QEvent.Type.ActivationChange and self.isActiveWindow() and self._title_open:
-            self._title_page.refresh_projects()
+        if event.type() == QEvent.Type.ActivationChange and self.isActiveWindow():
+            if self._title_open:
+                self._title_page.refresh_projects()
+            else:
+                self.refresh_if_index_changed()   # another program may have written the index while this was behind it
         super().changeEvent(event)
 
     def showEvent(self, event) -> None:
         if self._closed:   # shown again without the app's reload(): read the settings and the index again
             self.reload()
+        self._index_poll_timer.start()
         super().showEvent(event)
 
     def _ask_cancel_run(self) -> bool:
@@ -1148,5 +1184,6 @@ class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkL
         self._sync_index_now()   # a decision not yet in the index is read now: nothing is left to wait for a worker
         self._preferences.set(WORKLIST_GEOMETRY, self.saveGeometry())
         self._closed = True
+        self._index_poll_timer.stop()
         self._close_index()  # a scan or run in flight has its own connection
         super().closeEvent(event)

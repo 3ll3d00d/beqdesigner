@@ -369,7 +369,13 @@ belongs to no title (a repository that could not be committed or pushed) is on
 the run status line, whole in its tooltip. While its run goes, the action
 button and *Retry failed* add extract/design work to it; Publish, Commit and a
 bulk accept or revise wait and start in order when it ends, and Cancel drops
-them (see *Runs, the lease and joining* below). A
+them (see *Runs, the lease and joining* below). Another
+program's write to the index (the service, the web app, the CLI) is shown
+without a rescan: every 30 s while the window is shown, and when it becomes
+active, the window compares the index file's mtime and size with those it last
+read and reads it again if they differ (`refresh_if_index_changed()`; not while
+a scan, index read, bulk job or title page is in hand, each of which reads it
+when it ends). A
 title page replaces the table in the same window and preserves selection and
 scroll position when closed. Its header places navigation, the title and
 notices/action messages and decision/workflow controls left to right in one
