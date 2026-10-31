@@ -104,12 +104,8 @@ def _responses(*statuses: int) -> dict:
 
 def read_version() -> str:
     ''' The release this is (`src/main/python/VERSION`, written by CI), as the app reads it. '''
-    path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'VERSION')
-    try:
-        with open(path, encoding='utf-8') as f:
-            return f.read().strip() or '0.0.0-alpha.1'
-    except OSError:
-        return '0.0.0-alpha.1'
+    from model.version import read_version
+    return read_version(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 
 def _without_repeated_fit(candidate):

@@ -40,8 +40,8 @@ def test_a_version_file_is_read(versions, tmp_path):
 
 def test_without_a_version_file_the_app_s_own_default_is_used(versions, tmp_path):
     assert versions.bundle_versions_from(str(tmp_path / 'missing')) == ('0.0.0', '0.0.0-alpha.1')
-    with open(os.path.join(os.path.dirname(__file__), '..', '..', 'main', 'python', 'app.py')) as app:
-        assert f"'{versions.DEFAULT_VERSION}'" in app.read()
+    from model.version import DEFAULT_VERSION
+    assert versions.DEFAULT_VERSION == DEFAULT_VERSION
 
 
 def test_the_spec_gives_the_bundle_both_versions():

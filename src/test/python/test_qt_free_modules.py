@@ -28,6 +28,7 @@ def _pipeline_modules():
 # to use it.
 QT_FREE_MODEL = (
     'model.preferences',
+    'model.version',
     'model.limits',
     'model.dsp_type',
     'model.minidsp',

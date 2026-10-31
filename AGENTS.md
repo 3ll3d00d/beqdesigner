@@ -297,7 +297,8 @@ renders the notes.
 - **Generated UI.** `.ui` → `.py` with `pyuic6` (`ui/convert.sh`). Edit the
   `.ui`, regenerate, commit both.
 - **Version** comes from `src/main/python/VERSION`, which CI writes from the
-  release tag; from source it falls back to `0.0.0-alpha.1`. `pyproject.toml`
+  release tag; from source there is none and `model/version.py` falls back to
+  `0.0.0-alpha.1` quietly (the app and the service both read it there). `pyproject.toml`
   declares the version `dynamic` and keeps no number of its own (the app is
   never built as a package), so nothing has to be bumped by hand.
 - Optional external tools: `ffmpeg`/`ffprobe` (extraction, remux, analysis),
