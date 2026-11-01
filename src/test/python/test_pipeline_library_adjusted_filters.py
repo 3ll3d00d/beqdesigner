@@ -53,7 +53,9 @@ def index(tmp_path):
     (Selection(adjusted=False), ['bare', 'plain']),
     (Selection(unmet=True), ['unmet']),
     (Selection(several_runs=True), ['unmet']),
-    (Selection(several_runs=False), ['asked', 'bare', 'plain'])])
+    (Selection(several_runs=False), ['asked', 'bare', 'plain']),
+    (Selection(designed=True), ['asked', 'plain', 'unmet']),
+    (Selection(designed=False), ['bare'])])
 def test_the_filters_select_by_what_the_index_keeps(index, selection, ids):
     assert sorted(r.id for r in selection.rows(index)) == ids
 
@@ -64,6 +66,8 @@ def test_a_row_says_the_facts_and_a_title_with_no_entry_has_no_runs(index):
     assert rows['bare'].design_runs == 0
     assert Selection(adjusted=True, unmet=False, several_runs=True).describe() == \
         'asked to change something, with every adjustment honoured, with earlier design runs'
+    assert Selection(designed=True).describe() == 'designed'
+    assert Selection(designed=False).describe() == 'not designed'
 
 
 def test_the_designs_to_choose_from_count_every_kept_run(tmp_path):
@@ -89,3 +93,13 @@ def test_a_row_counts_the_designs_of_every_run_and_falls_back_to_the_current_run
         found = {r.id: r for r in opened.titles()}
     assert found['two'].choices == found['two'].design_choices == 2 + len(read_entry(str(tmp_path / 'q'), 'two').candidates)
     assert (found['old'].design_choices, found['old'].choices) == (0, 4)
+
+
+def test_the_titles_sort_by_design_version_adjustments_and_answers_with_the_titles_lacking_one_last(index):
+    from pipeline.service.models import TitleQuery
+    rows = index.titles()
+    order = lambda **q: [r.id for r in TitleQuery(**q).order(rows)]
+    assert set(order(sort='adjusted')[:2]) == {'asked', 'unmet'} and set(order(sort='adjusted')[2:]) == {'bare', 'plain'}
+    assert order(sort='unmet', descending=True)[:2] == ['unmet', 'asked']   # 1 not honoured, then 0
+    assert order(sort='design_version')[-1] == 'bare'                       # not designed: last either way
+    assert order(sort='design_version', descending=True)[-1] == 'bare'

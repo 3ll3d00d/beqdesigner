@@ -3333,6 +3333,11 @@ export interface components {
              * @description true: only titles keeping earlier design runs (variants); false: only titles with one.
              */
             several_runs?: boolean | null;
+            /**
+             * Designed
+             * @description true: only titles with a design, at any design version (one the designer declined included); false: only titles without one.
+             */
+            designed?: boolean | null;
         };
         /** TitleMessage */
         TitleMessage: {
@@ -3380,7 +3385,7 @@ export interface components {
          * @description A column of the titles table to order by; without one, work-list order (tier, then oldest waiting first).
          * @enum {string}
          */
-        TitleSort: "title" | "year" | "kind" | "source" | "needs" | "detail" | "confidence" | "candidate_count" | "flags";
+        TitleSort: "title" | "year" | "kind" | "source" | "needs" | "detail" | "confidence" | "candidate_count" | "flags" | "design_version" | "adjusted" | "unmet";
         /** TitleStreams */
         TitleStreams: {
             /**
@@ -3693,6 +3698,8 @@ export interface operations {
                 unmet?: boolean | null;
                 /** @description true: only titles keeping earlier design runs (variants); false: only titles with one. */
                 several_runs?: boolean | null;
+                /** @description true: only titles with a design, at any design version (one the designer declined included); false: only titles without one. */
+                designed?: boolean | null;
                 /** @description Include titles that need nothing (as the work list does only on Done). */
                 include_done?: boolean;
                 /** @description Order by this column (work-list order within equal values); a title without a year or confidence comes last either way. */
@@ -5472,6 +5479,8 @@ export interface operations {
                 unmet?: boolean | null;
                 /** @description true: only titles keeping earlier design runs (variants); false: only titles with one. */
                 several_runs?: boolean | null;
+                /** @description true: only titles with a design, at any design version (one the designer declined included); false: only titles without one. */
+                designed?: boolean | null;
                 /** @description The title just decided (or open): the next one after it is found. Absent: the first waiting title in the list. */
                 after?: string | null;
             };

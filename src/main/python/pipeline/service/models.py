@@ -174,13 +174,16 @@ class TitleFilter(Input):
                                                     'adjustment asked (adapted, declined, not understood or unanswered).')
     several_runs: Optional[bool] = Field(None, description='true: only titles keeping earlier design runs (variants); '
                                                            'false: only titles with one.')
+    designed: Optional[bool] = Field(None, description='true: only titles with a design, at any design version (one the '
+                                                       'designer declined included); false: only titles without one.')
 
     def to_selection(self) -> Selection:
         return Selection(needs=tuple(n.value for n in self.needs), source=self.source, match=self.match,
                          ids=tuple(self.ids), new_since_scan=self.new_since_scan,
                          kind=self.kind.value if self.kind else None, year=self.year, detail=self.detail,
                          flags=tuple(f.value for f in self.flags), declined=self.declined, out_of_date=self.out_of_date,
-                         adjusted=self.adjusted, unmet=self.unmet, several_runs=self.several_runs)
+                         adjusted=self.adjusted, unmet=self.unmet, several_runs=self.several_runs,
+                         designed=self.designed)
 
     @classmethod
     def of(cls, selection: Any) -> 'TitleFilter':
@@ -190,7 +193,8 @@ class TitleFilter(Input):
                    source=data.get('source'), match=data.get('match'), ids=list(data.get('ids') or ()),
                    kind=data.get('kind'), year=data.get('year'), detail=data.get('detail'),
                    flags=list(data.get('flags') or ()), declined=data.get('declined'), out_of_date=data.get('out_of_date'),
-                   adjusted=data.get('adjusted'), unmet=data.get('unmet'), several_runs=data.get('several_runs'))
+                   adjusted=data.get('adjusted'), unmet=data.get('unmet'), several_runs=data.get('several_runs'),
+                   designed=data.get('designed'))
 
 
 class TitleSort(str, Enum):
@@ -204,6 +208,9 @@ class TitleSort(str, Enum):
     confidence = 'confidence'
     candidate_count = 'candidate_count'
     flags = 'flags'
+    design_version = 'design_version'
+    adjusted = 'adjusted'
+    unmet = 'unmet'
 
 
 class TitleQuery(TitleFilter):
@@ -241,6 +248,9 @@ _SORT_KEYS = {
     TitleSort.confidence: lambda r: r.confidence,
     TitleSort.candidate_count: lambda r: r.choices,
     TitleSort.flags: lambda r: ', '.join(r.flags) or None,
+    TitleSort.design_version: lambda r: r.design_identity.version if r.design_identity else None,
+    TitleSort.adjusted: lambda r: 1 if r.adjusted else None,
+    TitleSort.unmet: lambda r: r.unmet_adjustments if r.adjusted else None,
 }
 
 

@@ -301,10 +301,13 @@ discriminator in the schema; the SSE `event:` line is the same `type`). Each has
 (true: designs the designer declined, waiting for review; false: the rest) and
 `out_of_date` (true: designs a redesign now could answer differently, by design
 version and settings, [design-version.md](design-version.md); false: the rest)
-are the titles table's; the CLI has no flag for them. `out_of_date` is judged
+and `designed` (true: titles with a design at any version, declined included;
+false: titles without one) are the titles table's; the CLI has no flag for them. `out_of_date` is judged
 against the designer probe's recent answer on the read routes and asked again
 when a job starts; while no designer that is up says its design version it is
-a 409 (a job fails). Each title carries its `design_version`.
+a 409 (a job fails). Each title carries its `design_version`. `sort` also takes
+`design_version`, `adjusted` and `unmet` (how many asks were not honoured), each
+with the titles that have none last.
 
 Every field is optional and they are ANDed; `{}` is every title. On
 `GET /v1/titles` they are query parameters (`needs` repeated,

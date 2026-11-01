@@ -283,6 +283,9 @@ def test_titles_are_sorted_by_any_column_and_filtered_on_detail_and_flags(servic
     assert titles(flags=['Gone']) == []
     assert titles(declined=True) == []   # the fixture's titles are not designed yet
     assert sorted(titles(declined=False)) == ['Alien', 'Dune', 'Heat']
+    assert titles(designed=True) == [] and sorted(titles(designed=False)) == ['Alien', 'Dune', 'Heat']
+    for column in ('design_version', 'adjusted', 'unmet'):   # none has one: all last, in work-list order
+        assert sorted(titles(sort=column)) == ['Alien', 'Dune', 'Heat']
     out_of_date = client.get('/v1/titles', params={'out_of_date': True}, headers=AUTH)
     assert out_of_date.status_code == 409 and 'design version' in out_of_date.json()['detail']   # nobody says one
     assert client.get('/v1/titles', params={'sort': 'colour'}, headers=AUTH).status_code == 422
@@ -333,7 +336,7 @@ def test_a_run_job_takes_the_filter_and_reports_a_typed_result(service):
     assert job['request'] == {'filter': {'needs': [], 'new_since_scan': False, 'source': None, 'match': None, 'ids': [],
                                          'kind': 'movie', 'year': '2026', 'detail': None, 'flags': [],
                                          'declined': None, 'out_of_date': None, 'adjusted': None, 'unmet': None,
-                                         'several_runs': None},
+                                         'several_runs': None, 'designed': None},
                               'through': 'design', 'scan_first': True, 'retry_failed': False, 'redesign': False,
                               'revise_to': 'design', 'audio_stream': None}
     assert job['result']['scan']['titles'] == 3 and job['result']['attempted'] == ['x'] and job['result']['failed'] == []

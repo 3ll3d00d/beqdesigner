@@ -64,6 +64,8 @@ class Selection:
     :param unmet: True for only titles where the designer did not honour every adjustment asked (adapted, declined, not
         understood or unanswered); False for the others; None for either.
     :param several_runs: True for only titles that keep more than one design run (variants), False for one; None either.
+    :param designed: True for only titles with a design (any design version, declined included), False for only titles
+        without one; None for either.
     :param current: what a redesign now would be made with (the designers that are up say it); needed by `out_of_date`,
         and not part of what is selected, so two selections that differ only in it are equal.
     '''
@@ -81,6 +83,7 @@ class Selection:
     adjusted: Optional[bool] = None
     unmet: Optional[bool] = None
     several_runs: Optional[bool] = None
+    designed: Optional[bool] = None
     current: Optional[CurrentIdentity] = field(default=None, compare=False, repr=False)
 
     def __post_init__(self):
@@ -134,6 +137,8 @@ class Selection:
             rows = [r for r in rows if (r.unmet_adjustments > 0) is self.unmet]
         if self.several_runs is not None:
             rows = [r for r in rows if (r.design_runs > 1) is self.several_runs]
+        if self.designed is not None:
+            rows = [r for r in rows if (r.design_identity is not None) is self.designed]
         if self.out_of_date is not None:
             if self.current is None:
                 raise ValueError('no designer that is up says its design version, so no title can be judged out of date')
@@ -172,6 +177,8 @@ class Selection:
             parts.append('with an adjustment not honoured' if self.unmet else 'with every adjustment honoured')
         if self.several_runs is not None:
             parts.append('with earlier design runs' if self.several_runs else 'with one design run')
+        if self.designed is not None:
+            parts.append('designed' if self.designed else 'not designed')
         if self.out_of_date is not None:
             parts.append('designed out of date' if self.out_of_date else 'not designed out of date')
         return ', '.join(parts) or 'every title'

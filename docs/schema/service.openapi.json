@@ -423,6 +423,24 @@
             "description": "true: only titles keeping earlier design runs (variants); false: only titles with one."
           },
           {
+            "name": "designed",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "true: only titles with a design, at any design version (one the designer declined included); false: only titles without one.",
+              "title": "Designed"
+            },
+            "description": "true: only titles with a design, at any design version (one the designer declined included); false: only titles without one."
+          },
+          {
             "name": "include_done",
             "in": "query",
             "required": false,
@@ -3207,6 +3225,24 @@
               "title": "Several Runs"
             },
             "description": "true: only titles keeping earlier design runs (variants); false: only titles with one."
+          },
+          {
+            "name": "designed",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "true: only titles with a design, at any design version (one the designer declined included); false: only titles without one.",
+              "title": "Designed"
+            },
+            "description": "true: only titles with a design, at any design version (one the designer declined included); false: only titles without one."
           },
           {
             "name": "after",
@@ -10796,6 +10832,18 @@
             ],
             "title": "Several Runs",
             "description": "true: only titles keeping earlier design runs (variants); false: only titles with one."
+          },
+          "designed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Designed",
+            "description": "true: only titles with a design, at any design version (one the designer declined included); false: only titles without one."
           }
         },
         "additionalProperties": false,
@@ -10898,7 +10946,10 @@
           "detail",
           "confidence",
           "candidate_count",
-          "flags"
+          "flags",
+          "design_version",
+          "adjusted",
+          "unmet"
         ],
         "title": "TitleSort",
         "description": "A column of the titles table to order by; without one, work-list order (tier, then oldest waiting first). "
