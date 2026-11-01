@@ -105,9 +105,10 @@ export const DESIGN_CHOICES = [
   { value: 'none', label: 'Not designed', filter: { designed: false } },
   { value: 'stale', label: 'Stale', filter: { out_of_date: true } },
   { value: 'current', label: 'Current', filter: { designed: true, out_of_date: false } },
+  { value: 'superseding', label: 'Newer than accepted', filter: { superseding: true } },
 ] as const satisfies readonly { value: string; label: string; filter: TitleFilter }[]
 
-const DESIGN_FIELDS = ['designed', 'declined', 'out_of_date'] as const
+const DESIGN_FIELDS = ['designed', 'declined', 'out_of_date', 'superseding'] as const
 
 /** Which of DESIGN_CHOICES `filter` is; 'other' for a mix none of them makes (an old link, say). */
 export function designChoice(filter: TitleFilter): string {
@@ -118,16 +119,23 @@ export function designChoice(filter: TitleFilter): string {
 
 const DECLINED_DETAIL = 'designer declined:'
 
-/** Its design's version, and whether that is stale: another version than the designer's now and not kept at it. */
+/**
+ * Its design's version, and whether that is stale (another version than the designer's now, not kept at it); beside it,
+ * while that design waits for a decision, the design a person last accepted or published, which still stands.
+ */
 function DesignVersion({ title, current }: { title: Schemas['Title']; current: number | null }) {
-  if (title.design_version === null || title.design_version === undefined) return <>—</>
-  const stale = current !== null && title.design_version !== current
+  const designed = title.design_version !== null && title.design_version !== undefined
+  const stale = designed && current !== null && title.design_version !== current
     && !(title.reviewed_at ?? []).some((r) => r.design_version === current)
   return (
     <>
-      v{title.design_version}
-      {title.detail.startsWith(DECLINED_DETAIL) && <> <span className="badge">declined</span></>}
+      {designed ? `v${title.design_version}` : '—'}
+      {designed && title.detail.startsWith(DECLINED_DETAIL) && <> <span className="badge">declined</span></>}
       {stale && <> <span className="badge warn" title={`the designer now designs with v${current}`}>stale</span></>}
+      {title.accepted_status && <> <span className={`badge status-${title.accepted_status}`}
+        title={`this design waits for a decision; the one ${title.accepted_status} before it still stands`}>
+        {title.accepted_status} {title.accepted_design_version === null || title.accepted_design_version === undefined
+          ? 'earlier' : `v${title.accepted_design_version}`}</span></>}
     </>
   )
 }
@@ -194,7 +202,7 @@ function FilterRow({ filter, sources, onChange }: {
       <td>
         <select aria-label="Filter design version" value={designChoice(filter)} onChange={(e) => {
           const chosen = DESIGN_CHOICES.find((c) => c.value === e.target.value)
-          if (chosen) set({ designed: null, declined: null, out_of_date: null, ...chosen.filter })
+          if (chosen) set({ designed: null, declined: null, out_of_date: null, superseding: null, ...chosen.filter })
         }}>
           {DESIGN_CHOICES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
           {designChoice(filter) === 'other' && <option value="other" disabled>As in the address</option>}

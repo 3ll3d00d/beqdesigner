@@ -130,6 +130,10 @@ class QueueEntry:
     reviewed_at: List[dict] = field(default_factory=list)   # 1.6: identities a person kept that design at, rather than
                                                # redesign it ({design_version, design_settings, at, by}); it is not out
                                                # of date against them. A redesign or an edit starts with none
+    accepted: Optional[dict] = None           # the design a person last accepted or published, recorded when the title
+                                               # was sent back after it ({variant_id, candidate_index, design_version,
+                                               # design_settings, status, published_at, sent_back_at}); shown while the
+                                               # title's current design is undecided, replaced at the next send-back
     variants: List[dict] = field(default_factory=list)   # the title's earlier design runs, kept until a person discards
                                                # one (pipeline.library.variants): each the design fields of a QueueEntry
 
@@ -266,7 +270,7 @@ def _summary_from_dict(c: dict) -> CandidateSummary:
 
 
 # written only when known, so a reader from before them (which refuses a field it does not know) meets them only then
-_WRITTEN_WHEN_KNOWN = ('design_version', 'design_settings', 'variant_id', 'designed_at', 'run_record')
+_WRITTEN_WHEN_KNOWN = ('design_version', 'design_settings', 'variant_id', 'designed_at', 'run_record', 'accepted')
 _WRITTEN_WHEN_ANY = ('adjustments', 'adjusted_with', 'adjustment_outcomes', 'variants', 'reviewed_at')
 
 

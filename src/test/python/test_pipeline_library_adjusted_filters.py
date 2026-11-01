@@ -103,3 +103,22 @@ def test_the_titles_sort_by_design_version_adjustments_and_answers_with_the_titl
     assert order(sort='unmet', descending=True)[:2] == ['unmet', 'asked']   # 1 not honoured, then 0
     assert order(sort='design_version')[-1] == 'bare'                       # not designed: last either way
     assert order(sort='design_version', descending=True)[-1] == 'bare'
+
+
+def test_a_title_whose_newer_design_waits_beside_an_accepted_one_is_selected_and_said(tmp_path):
+    def summary(entry_id, **fields):
+        return EntryFacts.of(_entry(tmp_path / 'q', entry_id, **fields), 1, 2).to_json()
+    accepted = {'variant_id': 'v1', 'candidate_index': 0, 'design_version': 8, 'status': 'published'}
+    make_index(tmp_path, [
+        dict(title_row('newer', 'Newer', needs='review'), entry_summary=summary('newer', accepted=accepted)),
+        dict(title_row('plain', 'Plain', needs='review'), entry_summary=summary('plain'))])
+    with LibraryIndex(index_path(str(tmp_path)), readonly=True) as opened:
+        rows = {r.id: r for r in opened.titles()}
+        assert (rows['newer'].accepted_version, rows['newer'].accepted_status) == (8, 'published')
+        assert (rows['plain'].accepted_version, rows['plain'].accepted_status) == (None, None)
+        assert [r.id for r in Selection(superseding=True).rows(opened)] == ['newer']
+        assert [r.id for r in Selection(superseding=False).rows(opened)] == ['plain']
+        from pipeline.service.models import Title
+        title = Title.of(rows['newer'])
+        assert (title.accepted_design_version, title.accepted_status) == (8, 'published')
+    assert Selection(superseding=True).describe() == 'with a newer design than the one accepted'

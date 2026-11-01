@@ -128,6 +128,21 @@
       }
     },
     "run_record": { "type": "string", "description": "contract 1.6: the designer's record of the design here, relative to its shared root; sent back unchanged to its POST /impact. Absent when it named none." },
+    "accepted": {
+      "type": ["object", "null"],
+      "description": "the design a person last accepted or published, recorded when the title was sent back after it (pipeline.library.revise); shown while the title's current design is undecided, replaced at the next send-back. Absent when none",
+      "properties": {
+        "variant_id": { "type": "string", "description": "the design run it was: in variants, or the entry's own after a reopen" },
+        "candidate_index": { "type": ["integer", "null"], "minimum": 0 },
+        "design_version": { "type": ["integer", "null"], "minimum": 0 },
+        "design_settings": { "type": ["string", "null"] },
+        "status": { "enum": ["accepted", "published"] },
+        "published_at": { "type": ["string", "null"], "description": "UTC ISO-8601" },
+        "sent_back_at": { "type": ["string", "null"], "description": "UTC ISO-8601" }
+      },
+      "required": ["variant_id", "status"],
+      "additionalProperties": true
+    },
     "variants": {
       "type": "array",
       "description": "the title's earlier design runs, kept until a person discards one (pipeline.library.variants): each the design fields of an entry",

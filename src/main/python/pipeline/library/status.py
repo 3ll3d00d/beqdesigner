@@ -251,6 +251,9 @@ class EntryFacts:
     # 1.6: the design's run record and the identities a person kept it at, as (version, settings) pairs
     run_record: Optional[str] = None
     reviewed: tuple = ()
+    # the design a person last accepted or published, while the one here is undecided (QueueEntry.accepted)
+    accepted_version: Optional[int] = None
+    accepted_status: Optional[str] = None
 
     def __post_init__(self):
         object.__setattr__(self, 'adjustments', tuple(self.adjustments or ()))   # a list, read back from JSON
@@ -266,7 +269,7 @@ class EntryFacts:
                    inode, ctime_ns, entry.published_stem, tuple(entry.adjustments), bool(entry.adjusted_with),
                    unmet_adjustments(entry), 1 + len(entry.variants),
                    len(entry.candidates) + sum(len(v.get('candidates') or []) for v in entry.variants),
-                   entry.run_record, reviewed_identities(entry.reviewed_at))
+                   entry.run_record, reviewed_identities(entry.reviewed_at), *_superseded(entry))
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), sort_keys=True)
@@ -289,6 +292,15 @@ class EntryFacts:
 
 
 _FACT_FIELDS = frozenset(f.name for f in fields(EntryFacts))
+
+
+def _superseded(entry: QueueEntry) -> Tuple[Optional[int], Optional[str]]:
+    ''' The version and status of the design a person last decided, while the entry's own design is undecided. '''
+    accepted = entry.accepted if isinstance(entry.accepted, dict) else None
+    if accepted is None or entry.status in ('accepted', 'published'):
+        return None, None
+    version = accepted.get('design_version')
+    return (version if isinstance(version, int) else None), str(accepted.get('status') or 'accepted')
 
 
 def unmet_adjustments(entry: QueueEntry) -> int:

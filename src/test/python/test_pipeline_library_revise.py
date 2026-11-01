@@ -391,3 +391,50 @@ def test_revise_entry_dispatches_on_the_target_and_rejects_an_unknown_one(tmp_pa
     with pytest.raises(ValueError, match='to must be one of'):
         revise_entry(queue_dir, 'one', 'everything')
     assert REVISE_TARGETS == ('review', 'design', 'extract')
+
+
+def test_sending_back_an_accepted_design_records_it_so_a_newer_one_is_seen_beside_it(tmp_path):
+    from pipeline.library.status import EntryFacts
+    queue_dir = str(tmp_path / 'queue')
+    _queue_entry(queue_dir, 'one', 'Heat')
+    update_entry(queue_dir, 'one', design_version=8, design_settings='s8', variant_id='v2')
+
+    redesign_entry(queue_dir, 'one', 'v9 could move it')
+
+    entry = read_entry(queue_dir, 'one')
+    assert {k: entry.accepted[k] for k in ('variant_id', 'candidate_index', 'design_version', 'design_settings',
+                                           'status', 'published_at')} == \
+        {'variant_id': 'v2', 'candidate_index': 0, 'design_version': 8, 'design_settings': 's8', 'status': 'accepted',
+         'published_at': None}
+    assert entry.accepted['sent_back_at']
+    facts = EntryFacts.of(entry, 1, 2)
+    assert (facts.accepted_version, facts.accepted_status) == (8, 'accepted')
+    assert EntryFacts.from_json(facts.to_json()) == facts
+
+    # the newer design decided: it is the accepted one now, so nothing is shown beside it
+    update_entry(queue_dir, 'one', status='accepted', chosen_candidate_index=0, design_version=9)
+    facts = EntryFacts.of(read_entry(queue_dir, 'one'), 1, 2)
+    assert (facts.accepted_version, facts.accepted_status) == (None, None)
+
+
+def test_sending_back_a_published_design_records_it_as_published(tmp_path, repos):
+    queue_dir = _published_and_committed(tmp_path, repos)
+    redesign_entry(queue_dir, 'one', **_where(repos))
+    accepted = read_entry(queue_dir, 'one').accepted
+    assert accepted['status'] == 'published' and accepted['published_at']
+
+
+def test_sending_back_an_undecided_design_records_nothing_and_keeps_what_was_recorded(tmp_path):
+    queue_dir = str(tmp_path / 'queue')
+    _queue_entry(queue_dir, 'one', 'Heat')
+    update_entry(queue_dir, 'one', status='rejected', chosen_candidate_index=None)
+    redesign_entry(queue_dir, 'one')
+    assert read_entry(queue_dir, 'one').accepted is None
+    with open(os.path.join(queue_dir, 'one.json')) as f:
+        assert 'accepted' not in json.load(f)   # written only when there is one
+
+    update_entry(queue_dir, 'one', status='accepted', chosen_candidate_index=0, design_version=7)
+    redesign_entry(queue_dir, 'one')
+    update_entry(queue_dir, 'one', design_version=8)                    # redesigned at v8, still waiting
+    redesign_entry(queue_dir, 'one')                                    # and sent back again before anyone decided
+    assert read_entry(queue_dir, 'one').accepted['design_version'] == 7  # the v7 that was accepted still stands

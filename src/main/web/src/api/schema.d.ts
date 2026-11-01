@@ -3228,6 +3228,16 @@ export interface components {
              * @default []
              */
             reviewed_at: components["schemas"]["DesignIdentityView"][];
+            /**
+             * Accepted Design Version
+             * @description While its current design waits for a decision: the design version of the design a person last accepted or published (null: none, or unknown).
+             */
+            accepted_design_version?: number | null;
+            /**
+             * Accepted Status
+             * @description While its current design waits for a decision: whether the design a person last decided was accepted or published; null when there is none.
+             */
+            accepted_status?: ("accepted" | "published") | null;
         };
         /**
          * TitleEvent
@@ -3338,6 +3348,11 @@ export interface components {
              * @description true: only titles with a design, at any design version (one the designer declined included); false: only titles without one.
              */
             designed?: boolean | null;
+            /**
+             * Superseding
+             * @description true: only titles whose current design waits for a decision while an earlier design a person accepted or published stands; false: the others.
+             */
+            superseding?: boolean | null;
         };
         /** TitleMessage */
         TitleMessage: {
@@ -3700,6 +3715,8 @@ export interface operations {
                 several_runs?: boolean | null;
                 /** @description true: only titles with a design, at any design version (one the designer declined included); false: only titles without one. */
                 designed?: boolean | null;
+                /** @description true: only titles whose current design waits for a decision while an earlier design a person accepted or published stands; false: the others. */
+                superseding?: boolean | null;
                 /** @description Include titles that need nothing (as the work list does only on Done). */
                 include_done?: boolean;
                 /** @description Order by this column (work-list order within equal values); a title without a year or confidence comes last either way. */
@@ -5481,6 +5498,8 @@ export interface operations {
                 several_runs?: boolean | null;
                 /** @description true: only titles with a design, at any design version (one the designer declined included); false: only titles without one. */
                 designed?: boolean | null;
+                /** @description true: only titles whose current design waits for a decision while an earlier design a person accepted or published stands; false: the others. */
+                superseding?: boolean | null;
                 /** @description The title just decided (or open): the next one after it is found. Absent: the first waiting title in the list. */
                 after?: string | null;
             };

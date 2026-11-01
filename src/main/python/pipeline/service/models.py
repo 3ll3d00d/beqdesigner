@@ -176,6 +176,9 @@ class TitleFilter(Input):
                                                            'false: only titles with one.')
     designed: Optional[bool] = Field(None, description='true: only titles with a design, at any design version (one the '
                                                        'designer declined included); false: only titles without one.')
+    superseding: Optional[bool] = Field(None, description='true: only titles whose current design waits for a decision '
+                                                          'while an earlier design a person accepted or published '
+                                                          'stands; false: the others.')
 
     def to_selection(self) -> Selection:
         return Selection(needs=tuple(n.value for n in self.needs), source=self.source, match=self.match,
@@ -183,7 +186,7 @@ class TitleFilter(Input):
                          kind=self.kind.value if self.kind else None, year=self.year, detail=self.detail,
                          flags=tuple(f.value for f in self.flags), declined=self.declined, out_of_date=self.out_of_date,
                          adjusted=self.adjusted, unmet=self.unmet, several_runs=self.several_runs,
-                         designed=self.designed)
+                         designed=self.designed, superseding=self.superseding)
 
     @classmethod
     def of(cls, selection: Any) -> 'TitleFilter':
@@ -194,7 +197,7 @@ class TitleFilter(Input):
                    kind=data.get('kind'), year=data.get('year'), detail=data.get('detail'),
                    flags=list(data.get('flags') or ()), declined=data.get('declined'), out_of_date=data.get('out_of_date'),
                    adjusted=data.get('adjusted'), unmet=data.get('unmet'), several_runs=data.get('several_runs'),
-                   designed=data.get('designed'))
+                   designed=data.get('designed'), superseding=data.get('superseding'))
 
 
 class TitleSort(str, Enum):
@@ -292,6 +295,12 @@ class Title(BaseModel):
     reviewed_at: List['DesignIdentityView'] = Field([], description='The identities a person kept its design at rather '
                                                                     'than redesign it (contract 1.6): it is not out of '
                                                                     'date against them.')
+    accepted_design_version: Optional[int] = Field(None, description='While its current design waits for a decision: '
+                                                                     'the design version of the design a person last '
+                                                                     'accepted or published (null: none, or unknown).')
+    accepted_status: Optional[Literal['accepted', 'published']] = Field(
+        None, description='While its current design waits for a decision: whether the design a person last decided was '
+                          'accepted or published; null when there is none.')
 
     @classmethod
     def of(cls, row) -> 'Title':
@@ -306,7 +315,9 @@ class Title(BaseModel):
                    adjusted=row.adjusted, unmet_adjustments=row.unmet_adjustments, design_runs=row.design_runs,
                    design_choices=row.choices,
                    reviewed_at=[DesignIdentityView(design_version=v, design_settings=s)
-                                for v, s in (row.design_identity.reviewed if row.design_identity else ())])
+                                for v, s in (row.design_identity.reviewed if row.design_identity else ())],
+                   accepted_design_version=row.accepted_version,
+                   accepted_status=row.accepted_status if row.accepted_status in ('accepted', 'published') else None)
 
 
 class DesignIdentityView(BaseModel):

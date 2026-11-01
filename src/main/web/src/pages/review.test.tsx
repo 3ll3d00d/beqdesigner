@@ -165,22 +165,25 @@ describe('titles', () => {
     server.use(statusRoute(status({ index: index(), designer })),
                http.get('/v1/titles', ({ request }) => {
                  asked.push(new URL(request.url).searchParams)
-                 return json({ total: 4, offset: 0, limit: 100, titles: [
+                 return json({ total: 6, offset: 0, limit: 100, titles: [
                    title('a', { design_version: 9 }),
                    title('b', { design_version: 8, detail: 'designer declined: no qualifying loud events' }),
                    title('c', { design_version: 8, reviewed_at: [{ design_version: 9, design_settings: 's' }] }),
-                   title('d', { design_version: null })] })
+                   title('d', { design_version: null }),
+                   title('e', { design_version: 9, accepted_design_version: 8, accepted_status: 'published' }),
+                   title('f', { design_version: null, accepted_design_version: 7, accepted_status: 'accepted' })] })
                }))
     const router = renderApp('/titles')
     const table = await screen.findByRole('table')
     const versions = () => within(table).getAllByRole('row').slice(2).map((r) => r.querySelectorAll('td')[9]?.textContent)
-    await waitFor(() => expect(versions()).toEqual(['v9', 'v8 declined stale', 'v8', '—']))   // c was kept at v9
+    // c was kept at v9; e's v9 waits beside the v8 in the catalogue; f is being extracted again after v7 was accepted
+    await waitFor(() => expect(versions()).toEqual(['v9', 'v8 declined stale', 'v8', '—', 'v9 published v8', '— accepted v7']))
 
     const choose = async (label: string, search: string, sent: Record<string, string>) => {
       await userEvent.selectOptions(screen.getByLabelText('Filter design version'), label)
       await waitFor(() => expect(router.state.location.search).toBe(search))
       await waitFor(() => expect(Object.fromEntries(['designed', 'declined', 'out_of_date']
-        .filter((k) => asked.at(-1)?.has(k)).map((k) => [k, asked.at(-1)!.get(k)]))).toEqual(sent))
+        .concat('superseding').filter((k) => asked.at(-1)?.has(k)).map((k) => [k, asked.at(-1)!.get(k)]))).toEqual(sent))
     }
     await choose('Has a design', '?declined=false&designed=true', { designed: 'true', declined: 'false' })
     await choose('Declined', '?declined=true', { declined: 'true' })
@@ -188,6 +191,8 @@ describe('titles', () => {
     await choose('Not designed', '?designed=false', { designed: 'false' })
     await choose('Current', '?out_of_date=false&designed=true', { designed: 'true', out_of_date: 'false' })
     await choose('Stale', '?out_of_date=true', { out_of_date: 'true' })
+    await choose('Newer than accepted', '?superseding=true', { superseding: 'true' })
+    expect(screen.getByText(/with a newer design than the one accepted/)).toBeInTheDocument()
     await choose('Any', '', {})
     expect(screen.queryByLabelText('Designer')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Design version')).not.toBeInTheDocument()

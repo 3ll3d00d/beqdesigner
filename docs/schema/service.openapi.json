@@ -441,6 +441,24 @@
             "description": "true: only titles with a design, at any design version (one the designer declined included); false: only titles without one."
           },
           {
+            "name": "superseding",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "true: only titles whose current design waits for a decision while an earlier design a person accepted or published stands; false: the others.",
+              "title": "Superseding"
+            },
+            "description": "true: only titles whose current design waits for a decision while an earlier design a person accepted or published stands; false: the others."
+          },
+          {
             "name": "include_done",
             "in": "query",
             "required": false,
@@ -3243,6 +3261,24 @@
               "title": "Designed"
             },
             "description": "true: only titles with a design, at any design version (one the designer declined included); false: only titles without one."
+          },
+          {
+            "name": "superseding",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "true: only titles whose current design waits for a decision while an earlier design a person accepted or published stands; false: the others.",
+              "title": "Superseding"
+            },
+            "description": "true: only titles whose current design waits for a decision while an earlier design a person accepted or published stands; false: the others."
           },
           {
             "name": "after",
@@ -10595,6 +10631,34 @@
             "title": "Reviewed At",
             "description": "The identities a person kept its design at rather than redesign it (contract 1.6): it is not out of date against them.",
             "default": []
+          },
+          "accepted_design_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted Design Version",
+            "description": "While its current design waits for a decision: the design version of the design a person last accepted or published (null: none, or unknown)."
+          },
+          "accepted_status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "accepted",
+                  "published"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted Status",
+            "description": "While its current design waits for a decision: whether the design a person last decided was accepted or published; null when there is none."
           }
         },
         "type": "object",
@@ -10844,6 +10908,18 @@
             ],
             "title": "Designed",
             "description": "true: only titles with a design, at any design version (one the designer declined included); false: only titles without one."
+          },
+          "superseding": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Superseding",
+            "description": "true: only titles whose current design waits for a decision while an earlier design a person accepted or published stands; false: the others."
           }
         },
         "additionalProperties": false,

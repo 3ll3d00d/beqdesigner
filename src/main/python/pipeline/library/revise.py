@@ -19,6 +19,7 @@ pushed* means the catalogue already holds them, so they are left in place and th
 same catalogue path is rewritten and committed again.
 '''
 import os
+from datetime import datetime, timezone
 from dataclasses import dataclass, field
 from typing import List, Optional
 
@@ -81,10 +82,19 @@ def _send_back(queue_dir: str, entry_id: str, to: str, reason: str, *, xml_repo:
         # (a dirty committed filter record is a revision already begun -- by an earlier reopen, or by a republish, which counts
         # it -- so it is not counted again)
     note = _NOTES[to] + (f': {reason}' if reason else '')
+    if entry.status in ('accepted', 'published'):   # what a person decided stays visible beside the design that follows
+        fields['accepted'] = accepted_record(entry)
     updated = update_entry(queue_dir, entry_id, status='pending', chosen_candidate_index=None,
                            published_digest=None, published_at=None, revision=revision,
                            reviewer_note=_with_note(entry.reviewer_note, note), **fields)
     return ReviseResult(updated, reverted)
+
+
+def accepted_record(entry: QueueEntry) -> dict:
+    ''' What QueueEntry.accepted keeps of an accepted or published entry's design. '''
+    return {'variant_id': entry.variant_id or 'v1', 'candidate_index': entry.chosen_candidate_index,
+            'design_version': entry.design_version, 'design_settings': entry.design_settings, 'status': entry.status,
+            'published_at': entry.published_at, 'sent_back_at': datetime.now(timezone.utc).isoformat(timespec='seconds')}
 
 
 def reopen_entry(queue_dir: str, entry_id: str, reason: str = '', *, xml_repo: Optional[RepoTarget] = None,

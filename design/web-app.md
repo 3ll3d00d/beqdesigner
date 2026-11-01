@@ -127,9 +127,11 @@ message. Tests: `test_pipeline_library_decide.py`.
     text is sent once typing pauses); both are the service's (`sort`/`descending`, the filter), so they hold across pages,
     and both live in the address bar (`filterToQuery`/`sortToQuery`, so a list can be linked to). *New since the last
     scan* and *Include titles that need nothing* sit above it. The *Design version* column shows the version of the
-    title's design, badged *declined* and *stale* (another version than the designer's now, not kept at it); its one
-    filter folds the service's `designed`, `declined` and `out_of_date` together (*Has a design*: designed and not
-    declined; *Declined*; *Not designed*; *Stale*: out of date; *Current*: designed and not out of date; a mix none of
+    title's design, badged *declined* and *stale* (another version than the designer's now, not kept at it), and, while
+    that design waits for a decision, the design a person last accepted or published, which still stands (e.g. *v9
+    published v8*: `accepted_status`, `accepted_design_version`); its one filter folds the service's `designed`,
+    `declined`, `out_of_date` and `superseding` together (*Has a design*: designed and not declined; *Declined*; *Not
+    designed*; *Stale*: out of date; *Current*: designed and not out of date; *Newer than accepted*; a mix none of
     them makes, from an old link, shows as *As in the address*). *Adjustments* (asked or not) and *Answers* (all
     honoured, or how many were not) are contract 1.5's asks (`adjusted`, `unmet`, read from the index's entry summary),
     each a column with its own filter; how many design runs a title keeps is the review page's to show, and the *Designs* column counts the designs

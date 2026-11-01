@@ -393,6 +393,9 @@ class TitleRow:
     design_runs: int = 0
     design_choices: int = 0   # the designs to choose from in every run kept; 0: not known (see choices())
     run_record: Optional[str] = None   # 1.6: its design's run record, sent back to the designer's /impact
+    # the design a person last accepted or published, while its current design waits (QueueEntry.accepted)
+    accepted_version: Optional[int] = None
+    accepted_status: Optional[str] = None
 
     @property
     def choices(self) -> int:
@@ -434,7 +437,9 @@ def _adjustment_facts(summary: str) -> dict:
         return {}
     return {'adjusted': bool(facts.get('adjusted')), 'unmet_adjustments': int(facts.get('unmet') or 0),
             'design_runs': int(facts.get('runs') or 1), 'design_choices': int(facts.get('choices') or 0),
-            'run_record': facts.get('run_record') if isinstance(facts.get('run_record'), str) else None}
+            'run_record': facts.get('run_record') if isinstance(facts.get('run_record'), str) else None,
+            'accepted_version': facts.get('accepted_version') if isinstance(facts.get('accepted_version'), int) else None,
+            'accepted_status': facts.get('accepted_status') if isinstance(facts.get('accepted_status'), str) else None}
 
 
 def _design_identity(summary: str) -> Optional[DesignIdentity]:
