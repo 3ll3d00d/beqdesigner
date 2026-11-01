@@ -131,7 +131,9 @@ message. Tests: `test_pipeline_library_decide.py`.
     to choose from in all of them (`design_choices`), *Review next waiting*, *Redesign out of date…* (shown with *Out of date*: one
     redesign job by version after an inline confirmation) with, under it, *Check what a redesign would move*
     (`components/ImpactPanel.tsx`, contract 1.6, [redesign scope](redesign-scope.md)): the designer's answer by tier --
-    will move, unknown (read as will move), likely, might, unaffected -- each title with its score and reasons, an answer
+    will move, unknown (read as will move), likely, might, unaffected -- each title with its score and reasons, the changes
+    folded under *What changed*, newest first, one per line with what each was measured on ("moved means" said once when
+    they share it), an answer
     for another design version than the designer's now marked stale; *Select those likely to move* / *the rest*, then
     *Redesign selected* (`/v1/revise` to design, in one run) or *Keep selected* (`/v1/reviewed`, each refusal named), and *Publish accepted…* / *Commit published…*:
     a plan of the filter with `needs` publish (or commit) says how many, an inline confirmation names the repositories,

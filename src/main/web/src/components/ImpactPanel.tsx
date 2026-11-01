@@ -26,11 +26,38 @@ export function expectedMovers(titles: Schemas['ImpactTitle'][]): number {
 
 const about = (n: number) => `about ${Math.round(n).toLocaleString()}`
 
-/** A change as a person reads it: what it is, what counts as moved, and what its scores were measured on. */
-export function describeChange(c: Schemas['ImpactChangeView']): string {
-  const basis = (c.basis ?? []).map((b) => `${b.class.replace(/_/g, ' ')} ${b.moved} of ${b.measured}`).join(', ')
-  return [`v${c.design_version} ${c.summary}`, c.moved ? `moved means ${c.moved}` : '',
-          basis ? `measured: ${basis}` : ''].filter(Boolean).join('; ')
+/** What a change's scores were measured on, as a person reads it: "declined after fit 18 of 34 (53%)". */
+export function describeBasis(c: Schemas['ImpactChangeView']): string {
+  return (c.basis ?? []).map((b) => `${b.class.replace(/_/g, ' ')} ${b.moved} of ${b.measured}`
+    + (b.measured ? ` (${Math.round(100 * b.moved / b.measured)}%)` : '')).join(' · ')
+}
+
+/** The changes a redesign would bring, newest first, each on its own line; "moved means" once when they all share it. */
+export function ChangeList({ changes }: { changes: Schemas['ImpactChangeView'][] }) {
+  if (!changes.length) return null
+  const newest = [...changes].sort((a, b) => b.design_version - a.design_version)
+  const meanings = [...new Set(newest.map((c) => c.moved).filter(Boolean))]
+  const shared = meanings.length === 1 && newest.every((c) => c.moved === meanings[0]) ? meanings[0] : null
+  const versions = newest.map((c) => c.design_version)
+  const span = versions.length > 1 ? `v${versions[versions.length - 1]}–v${versions[0]}` : `v${versions[0]}`
+  return (
+    <details className="impact-changes">
+      <summary>What changed: {count(newest.length, 'change')} ({span})</summary>
+      <ul>
+        {newest.map((c) => {
+          const basis = describeBasis(c)
+          return (
+            <li key={`${c.design_version}-${c.id}`}>
+              <strong>v{c.design_version}</strong> {c.summary}
+              {basis && <div className="muted">Measured: {basis}</div>}
+              {!shared && c.moved && <div className="muted">Moved means {c.moved}</div>}
+            </li>
+          )
+        })}
+      </ul>
+      {shared && <p className="muted">Moved means {shared}</p>}
+    </details>
+  )
 }
 
 /** What became of a title chosen here. */
@@ -90,8 +117,8 @@ export function ImpactPanel({ link }: { link: (id: string) => string }) {
               const n = answer.titles.filter((t) => t.tier === tier).length
               return n ? `${label}: ${n.toLocaleString()}` : null
             }).filter(Boolean).join(' · ')}
-            {answer.changes.length > 0 && <> — changes: {answer.changes.map(describeChange).join(' · ')}</>}
           </p>
+          <ChangeList changes={answer.changes} />
           <p className="muted">The designer expects {about(expectedMovers(open))} of {count(open.length, 'title')} to
             move (its scores are estimated probabilities; an unknown counts as one).</p>
           <div className="actions" role="group" aria-label="Choose titles">

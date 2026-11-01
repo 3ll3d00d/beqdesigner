@@ -77,8 +77,9 @@ describe('Which out-of-date designs to redesign', () => {
       ['Will move (1)', 'Unknown: read as will move (1)', 'Likely to move (1)', 'Unaffected (1)'])
     expect(panel).toHaveTextContent('fit.choice: a threshold moved past it')
     expect(panel).toHaveTextContent('the designer named no run record for this design')
-    expect(panel).toHaveTextContent('v7 the fitter chooses among near-equal fits; moved means swapped designed/declined '
-                                    + 'or moved > 1 dB; measured: declined after fit 18 of 34')
+    expect(within(panel).getAllByRole('listitem').find((li) => li.textContent?.startsWith('v7'))).toHaveTextContent(
+      'v7 the fitter chooses among near-equal fits' + 'Measured: declined after fit 18 of 34 (53%)')
+    expect(panel).toHaveTextContent('Moved means swapped designed/declined or moved > 1 dB')
     expect(panel).toHaveTextContent('The designer expects about 3 of 4 titles to move')   // 1 + 1 (unknown) + 0.7 + 0
     expect(within(panel).getByRole('link', { name: 'Alien' })).toHaveAttribute('href', '/titles/a?out_of_date=true')
   })
@@ -105,6 +106,22 @@ describe('Which out-of-date designs to redesign', () => {
     await waitFor(() => expect(sent.reviewed).toEqual([{ ids: ['d', 'b'] }]))
     expect(await within(panel).findByText(/Kept 1 design at design version 7\. Not kept: b \(a run is working/))
       .toBeInTheDocument()
+  })
+
+  it('lists the changes newest first, one per line, saying what "moved" means once when they share it', async () => {
+    const moved = 'swapped designed/declined or moved > 1 dB'
+    routes(() => check({ design_version: 9, changes: [
+      { design_version: 7, id: 'fit-choice', summary: 'fit choice', moved, basis: [{ class: 'no_fit', measured: 8, moved: 0 }] },
+      { design_version: 9, id: 'ceiling', summary: 'a 60 Hz ceiling', moved, basis: [{ class: 'designed_all_passed', measured: 65, moved: 54 }] },
+      { design_version: 8, id: 'linear', summary: 'linear scoring', moved, basis: [] },
+    ] }), sentTo(), 9)
+    renderApp('/titles?out_of_date=true')
+    const changes = (await screen.findByText('What changed: 3 changes (v7–v9)')).closest('details')!
+    const items = within(changes).getAllByRole('listitem')
+    expect(items.map((li) => li.querySelector('strong')?.textContent)).toEqual(['v9', 'v8', 'v7'])
+    expect(items[0]).toHaveTextContent('a 60 Hz ceiling' + 'Measured: designed all passed 54 of 65 (83%)')
+    expect(items[1]).not.toHaveTextContent('Measured')
+    expect(within(changes).getAllByText(`Moved means ${moved}`)).toHaveLength(1)
   })
 
   it('says a check made at another design version is stale', async () => {

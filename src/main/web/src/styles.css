@@ -169,6 +169,11 @@ h3 { font-size: 0.95rem; margin: 0.9rem 0 0.4rem; color: var(--muted); }
 .impact-tier h3 { font-size: 1rem; margin: 0.8rem 0 0.3rem; }
 .impact-tier > ul { list-style: none; padding-left: 0; margin: 0; }
 .impact-tier > ul > li { padding: 0.15rem 0; }
+.impact-changes { margin: 0.3rem 0; }
+.impact-changes summary { cursor: pointer; }
+.impact-changes ul { margin: 0.3rem 0; padding-left: 1.2rem; }
+.impact-changes li { margin: 0.3rem 0; }
+.impact-changes li .muted, .impact-changes p { font-size: 0.9em; }
 .impact .reasons { margin: 0.1rem 0 0.2rem 1.6rem; padding-left: 1rem; font-size: 0.9em; }
 .decide .actions { margin-top: 0.25rem; }
 td.detail { color: var(--muted); max-width: 32rem; }
