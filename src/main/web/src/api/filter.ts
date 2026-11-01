@@ -12,7 +12,7 @@ export type TitleSort = Schemas['TitleSort']
 export const FLAGS: readonly Flag[] = ['Ignored', 'Shadowed', 'Gone', 'Possible duplicate', 'Already in catalogue']
 
 /** The filters that are true, false or either. */
-const TRISTATE = ['out_of_date', 'adjusted', 'unmet', 'several_runs'] as const
+const TRISTATE = ['out_of_date', 'adjusted', 'unmet', 'several_runs', 'designed'] as const
 
 const NEEDS: readonly Needs[] = ['attention', 'review', 'extract', 'design', 'publish', 'commit', 'done']
 
@@ -81,11 +81,14 @@ export function describeFilter(filter: TitleFilter): string {
   if (filter.unmet === false) parts.push('with every adjustment honoured')
   if (filter.several_runs === true) parts.push('with earlier design runs')
   if (filter.several_runs === false) parts.push('with one design run')
+  if (filter.designed === true) parts.push('designed')
+  if (filter.designed === false) parts.push('not designed')
   if (filter.ids?.length) parts.push(`${filter.ids.length} chosen`)
   return parts.length ? parts.join(', ') : 'every title'
 }
 
-const SORTS: readonly TitleSort[] = ['title', 'year', 'kind', 'source', 'needs', 'detail', 'confidence', 'candidate_count', 'flags']
+const SORTS: readonly TitleSort[] = ['title', 'year', 'kind', 'source', 'needs', 'detail', 'confidence', 'candidate_count', 'flags',
+  'design_version', 'adjusted', 'unmet']
 
 /** The column the titles table is ordered by, and which way; none is work-list order. */
 export interface Sort { sort: TitleSort | null; descending: boolean }

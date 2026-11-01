@@ -93,8 +93,58 @@ const COLUMNS: { sort: TitleSort; label: string; num?: boolean }[] = [
   { sort: 'title', label: 'Title' }, { sort: 'year', label: 'Year' }, { sort: 'kind', label: 'Kind' },
   { sort: 'source', label: 'Source' }, { sort: 'needs', label: 'Needs' }, { sort: 'detail', label: 'Detail' },
   { sort: 'confidence', label: 'Confidence', num: true }, { sort: 'candidate_count', label: 'Designs', num: true },
-  { sort: 'flags', label: 'Flags' },
+  { sort: 'design_version', label: 'Design version' }, { sort: 'adjusted', label: 'Adjustments' },
+  { sort: 'unmet', label: 'Answers' }, { sort: 'flags', label: 'Flags' },
 ]
+
+/** The Design version column's one filter, over the service's designed, declined and out_of_date. */
+export const DESIGN_CHOICES = [
+  { value: '', label: 'Any', filter: {} },
+  { value: 'designed', label: 'Has a design', filter: { designed: true, declined: false } },
+  { value: 'declined', label: 'Declined', filter: { declined: true } },
+  { value: 'none', label: 'Not designed', filter: { designed: false } },
+  { value: 'stale', label: 'Stale', filter: { out_of_date: true } },
+  { value: 'current', label: 'Current', filter: { designed: true, out_of_date: false } },
+] as const satisfies readonly { value: string; label: string; filter: TitleFilter }[]
+
+const DESIGN_FIELDS = ['designed', 'declined', 'out_of_date'] as const
+
+/** Which of DESIGN_CHOICES `filter` is; 'other' for a mix none of them makes (an old link, say). */
+export function designChoice(filter: TitleFilter): string {
+  const found = DESIGN_CHOICES.find((c) => DESIGN_FIELDS.every((f) =>
+    (filter[f] ?? null) === ((c.filter as TitleFilter)[f] ?? null)))
+  return found ? found.value : 'other'
+}
+
+const DECLINED_DETAIL = 'designer declined:'
+
+/** Its design's version, and whether that is stale: another version than the designer's now and not kept at it. */
+function DesignVersion({ title, current }: { title: Schemas['Title']; current: number | null }) {
+  if (title.design_version === null || title.design_version === undefined) return <>—</>
+  const stale = current !== null && title.design_version !== current
+    && !(title.reviewed_at ?? []).some((r) => r.design_version === current)
+  return (
+    <>
+      v{title.design_version}
+      {title.detail.startsWith(DECLINED_DETAIL) && <> <span className="badge">declined</span></>}
+      {stale && <> <span className="badge warn" title={`the designer now designs with v${current}`}>stale</span></>}
+    </>
+  )
+}
+
+/** A column filter that is true, false or either. */
+function YesNo({ label, value, onChange, yes, no }: {
+  label: string; value: boolean | null | undefined; onChange: (value: boolean | null) => void; yes: string; no: string
+}) {
+  return (
+    <select aria-label={label} value={value === undefined || value === null ? '' : String(value)}
+            onChange={(e) => onChange(e.target.value === '' ? null : e.target.value === 'true')}>
+      <option value="">Any</option>
+      <option value="true">{yes}</option>
+      <option value="false">{no}</option>
+    </select>
+  )
+}
 
 /** A heading that sorts by its column: first click ascending, then descending, then back to work-list order. */
 function SortHeading({ column, order, onSort }: {
@@ -141,6 +191,19 @@ function FilterRow({ filter, sources, onChange }: {
       <td><FilterText label="Filter detail" value={filter.detail ?? ''} onChange={(detail) => set({ detail })} /></td>
       <td />
       <td />
+      <td>
+        <select aria-label="Filter design version" value={designChoice(filter)} onChange={(e) => {
+          const chosen = DESIGN_CHOICES.find((c) => c.value === e.target.value)
+          if (chosen) set({ designed: null, declined: null, out_of_date: null, ...chosen.filter })
+        }}>
+          {DESIGN_CHOICES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+          {designChoice(filter) === 'other' && <option value="other" disabled>As in the address</option>}
+        </select>
+      </td>
+      <td><YesNo label="Filter adjustments" value={filter.adjusted} onChange={(adjusted) => set({ adjusted })}
+                 yes="Asked for some" no="None asked" /></td>
+      <td><YesNo label="Filter answers" value={filter.unmet} onChange={(unmet) => set({ unmet })}
+                 yes="Some not honoured" no="All honoured" /></td>
       <td>
         <select aria-label="Filter flags" value={filter.flags?.[0] ?? ''}
                 onChange={(e) => set({ flags: e.target.value ? [e.target.value as Flag] : [] })}>
@@ -202,23 +265,6 @@ function Repositories({ filter }: { filter: TitleFilter }) {
   )
 }
 
-/** A filter that is true, false or either, as a drop-down. */
-function Tristate({ label, value, onChange, yes, no }: {
-  label: string; value: boolean | null | undefined; onChange: (value: boolean | null) => void; yes: string; no: string
-}) {
-  return (
-    <label className="inline">
-      {label}
-      <select aria-label={label} value={value === undefined || value === null ? '' : String(value)}
-              onChange={(e) => onChange(e.target.value === '' ? null : e.target.value === 'true')}>
-        <option value="">Any</option>
-        <option value="true">{yes}</option>
-        <option value="false">{no}</option>
-      </select>
-    </label>
-  )
-}
-
 /** Sends every title the list shows back for redesign, by design version: one job, the whole designer pool at once. */
 function RedesignOutOfDate({ filter, total }: { filter: TitleFilter, total: number }) {
   const run = useSubmitRun()
@@ -268,6 +314,7 @@ export function TitlesPage() {
     setRevising(false)
   }
   const sources = status.data?.index?.sources.map((s) => s.name) ?? []
+  const designVersion = status.data?.designer?.design_version ?? null
   const link = (id: string) => `/titles/${encodeURIComponent(id)}${query ? `?${query}` : ''}`
 
   async function reviewNext() {
@@ -313,7 +360,7 @@ export function TitlesPage() {
         <h1>Titles</h1>
         <div className="actions">
           {status.data && <ScanSources scanned={!!status.data.index} />}
-          <button type="button" onClick={reviewNext}>Review next waiting</button>
+          <button type="button" onClick={reviewNext}>Review next</button>
         </div>
       </div>
       {nothing && <p role="status" className="muted">{nothing}</p>}
@@ -327,28 +374,6 @@ export function TitlesPage() {
           <input type="checkbox" checked={includeDone} onChange={(e) => update(filter, e.target.checked)} />
           Include titles that need nothing
         </label>
-        <label className="inline">
-          Designer
-          <select aria-label="Designer" value={filter.declined === undefined || filter.declined === null ? '' : String(filter.declined)}
-                  onChange={(e) => update((f) => ({ ...f, declined: e.target.value === '' ? null : e.target.value === 'true' }))}>
-            <option value="">Any</option>
-            <option value="true">Declined</option>
-            <option value="false">Not declined</option>
-          </select>
-        </label>
-        <label className="inline">
-          Design version
-          <select aria-label="Design version" value={filter.out_of_date === undefined || filter.out_of_date === null ? '' : String(filter.out_of_date)}
-                  onChange={(e) => update((f) => ({ ...f, out_of_date: e.target.value === '' ? null : e.target.value === 'true' }))}>
-            <option value="">Any</option>
-            <option value="true">Out of date</option>
-            <option value="false">Not out of date</option>
-          </select>
-        </label>
-        <Tristate label="Adjustments" value={filter.adjusted} onChange={(adjusted) => update((f) => ({ ...f, adjusted }))}
-                  yes="Asked for some" no="None asked" />
-        <Tristate label="Answers" value={filter.unmet} onChange={(unmet) => update((f) => ({ ...f, unmet }))}
-                  yes="Some not honoured" no="All honoured" />
       </div>
       {filter.out_of_date === true && page && page.total > 0 && <>
         <RedesignOutOfDate filter={filter} total={page.total} />
@@ -393,9 +418,7 @@ export function TitlesPage() {
               <tr key={t.id} className={`tier-${t.tier}`}>
                 <td><input type="checkbox" aria-label={`Select ${t.title || t.display_name || t.id}`} checked={selected.has(t.id)}
                            onChange={(e) => select([t.id], e.target.checked)} /></td>
-                <td><Link to={link(t.id)}>{t.title || t.display_name || t.id}</Link>{t.is_new && <span className="badge">new</span>}
-                  {t.adjusted && <span className={`badge${t.unmet_adjustments ? ' warn' : ''}`}>
-                    adjusted{t.unmet_adjustments ? `, ${t.unmet_adjustments} not honoured` : ''}</span>}</td>
+                <td><Link to={link(t.id)}>{t.title || t.display_name || t.id}</Link>{t.is_new && <span className="badge">new</span>}</td>
                 <td>{t.year}</td>
                 <td>{t.kind === 'tv' ? 'TV' : 'Movie'}</td>
                 <td>{t.source}</td>
@@ -403,6 +426,10 @@ export function TitlesPage() {
                 <td className="detail">{t.detail}</td>
                 <td className="num">{t.confidence === null ? '—' : t.confidence.toFixed(2)}</td>
                 <td className="num">{(t.design_choices || t.candidate_count) || '—'}</td>
+                <td><DesignVersion title={t} current={designVersion} /></td>
+                <td>{t.adjusted ? 'Asked' : '—'}</td>
+                <td className={t.unmet_adjustments ? 'problem' : undefined}>
+                  {!t.adjusted ? '—' : t.unmet_adjustments ? `${t.unmet_adjustments} not honoured` : 'All honoured'}</td>
                 <td>{t.flags.join(', ')}</td>
               </tr>
             ))}

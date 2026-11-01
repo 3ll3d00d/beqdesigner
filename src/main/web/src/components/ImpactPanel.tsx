@@ -97,14 +97,14 @@ export function ImpactPanel({ link }: { link: (id: string) => string }) {
           setSelected(new Set())
           setSaid('')
           start.mutate([])
-        }}>{running ? 'Checking…' : answer ? 'Check again' : 'Check what a redesign would move'}</button>
+        }}>{running ? 'Assessing…' : 'Assess Impact'}</button>
         {running && check && <span className="muted" role="status">
           Asked about {check.done.toLocaleString()} of {count(check.total, 'title')}…</span>}
       </div>
       {start.error && <p role="alert" className="problem">{start.error.message}</p>}
       {check?.state === 'failed' && <p role="alert" className="problem">The check failed: {check.error}</p>}
       {stale && <p className="problem">This answer is for design version {answer.design_version}; the designer now
-        designs with {current}. Check again.</p>}
+        designs with {current}. Assess Impact again.</p>}
       {answer && !stale && (
         <>
           <p className="muted">

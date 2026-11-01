@@ -119,17 +119,22 @@ message. Tests: `test_pipeline_library_decide.py`.
     opens the job's page. Publish and commit are
     disabled, with the reason, until `/v1/status` says `repository_writes` and `repositories_configured`. Bulk accept is
     not offered: the app decides titles one at a time.
-  - *Titles*: a table of 100 a page (title, year, kind, source, needs, detail, confidence, designs, flags) linked to
+  - *Titles*: a table of 100 a page (title, year, kind, source, needs, detail, confidence, designs, design version,
+    adjustments, answers, flags) linked to
     each review with the filter and sort kept. Each heading sorts by its column (ascending, descending, then back to
-    work-list order) and the row under the headings filters it (text, year, kind, source, needs, detail, flag; typed
+    work-list order) and the row under the headings filters it (text, year, kind, source, needs, detail, design
+    version, adjustments, answers, flag; typed
     text is sent once typing pauses); both are the service's (`sort`/`descending`, the filter), so they hold across pages,
     and both live in the address bar (`filterToQuery`/`sortToQuery`, so a list can be linked to). *New since the last
-    scan*, *Include titles that need nothing*, *Designer* (any, declined, not declined), *Design version* (any, out of
-    date, not out of date), *Adjustments* and *Answers* (contract 1.5's asks: `adjusted`,
-    `unmet`, read from the index's entry summary; a badge marks a title adjusted, with how many asks were not honoured) sit
-    above it; how many design runs a title keeps is the review page's to show, and the *Designs* column counts the designs
-    to choose from in all of them (`design_choices`), *Review next waiting*, *Redesign out of date…* (shown with *Out of date*: one
-    redesign job by version after an inline confirmation) with, under it, *Check what a redesign would move*
+    scan* and *Include titles that need nothing* sit above it. The *Design version* column shows the version of the
+    title's design, badged *declined* and *stale* (another version than the designer's now, not kept at it); its one
+    filter folds the service's `designed`, `declined` and `out_of_date` together (*Has a design*: designed and not
+    declined; *Declined*; *Not designed*; *Stale*: out of date; *Current*: designed and not out of date; a mix none of
+    them makes, from an old link, shows as *As in the address*). *Adjustments* (asked or not) and *Answers* (all
+    honoured, or how many were not) are contract 1.5's asks (`adjusted`, `unmet`, read from the index's entry summary),
+    each a column with its own filter; how many design runs a title keeps is the review page's to show, and the *Designs* column counts the designs
+    to choose from in all of them (`design_choices`), *Review next*, *Redesign out of date…* (shown with *Stale*: one
+    redesign job by version after an inline confirmation) with, under it, *Assess Impact*
     (`components/ImpactPanel.tsx`, contract 1.6, [redesign scope](redesign-scope.md)): the designer's answer as a table
     (`components/ImpactTable.tsx`), most likely to move first -- title, year, tier (will move, unknown read as will move,
     likely, might, unaffected), probability, the version designed at, reasons -- with a filter at the top of each column

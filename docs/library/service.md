@@ -293,7 +293,7 @@ otherwise it lasts until the tab is closed. The token is checked with the servic
 * **Executions:** the log of what has run and is running, and each job's next start; each execution's result (its
   failures link to the titles) and its log, live while it runs, with *Cancel*.
 * **Titles:** the work list's table and filters. The filters are kept in the address bar, so a list can be bookmarked
-  or shared. *Review next waiting* opens the first title waiting for a decision. *Publish accepted…* and *Commit
+  or shared. *Review next* opens the first title waiting for a decision. *Publish accepted…* and *Commit
   published…* say how many titles they would take and ask before starting.
 * **Review:** a title's designs (the ones the designer rejected listed apart, with its reasons), the chart of the one
   highlighted, its commentary and metadata. Above the chart: *Bass*, *Sub* and *Full* ranges, frequency and level limits

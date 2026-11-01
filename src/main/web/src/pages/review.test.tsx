@@ -4,6 +4,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw/http'
 
+import type { Schemas } from '../api/client'
 import { saveToken } from '../api/token'
 import { chartData, FREQUENCY_RANGE, resample } from '../components/MagnitudeChart'
 import { candidate, chart, index, METADATA_FIELDS, review, runJob, title } from '../test/fixtures'
@@ -158,25 +159,45 @@ describe('titles', () => {
     await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument(), typing)
   }, 30_000)   // types a great deal and waits for five pauses: past vitest's 5 s default under a loaded run
 
-  it('filters on whether the designer declined', async () => {
+  it('shows each design version with whether it is declined or stale, and filters the column in one drop-down', async () => {
     const asked: URLSearchParams[] = []
-    server.use(statusRoute(status({ index: index() })),
+    const designer = { name: 'beqforge', reachable: true, detail: '', design_version: 9 } as Schemas['DesignerStatus']
+    server.use(statusRoute(status({ index: index(), designer })),
                http.get('/v1/titles', ({ request }) => {
                  asked.push(new URL(request.url).searchParams)
-                 return json({ total: 1, offset: 0, limit: 100, titles: [title('a')] })
+                 return json({ total: 4, offset: 0, limit: 100, titles: [
+                   title('a', { design_version: 9 }),
+                   title('b', { design_version: 8, detail: 'designer declined: no qualifying loud events' }),
+                   title('c', { design_version: 8, reviewed_at: [{ design_version: 9, design_settings: 's' }] }),
+                   title('d', { design_version: null })] })
                }))
     const router = renderApp('/titles')
+    const table = await screen.findByRole('table')
+    const versions = () => within(table).getAllByRole('row').slice(2).map((r) => r.querySelectorAll('td')[9]?.textContent)
+    await waitFor(() => expect(versions()).toEqual(['v9', 'v8 declined stale', 'v8', '—']))   // c was kept at v9
 
-    await userEvent.selectOptions(await screen.findByLabelText('Designer'), 'Declined')
-    await waitFor(() => expect(router.state.location.search).toBe('?declined=true'))
-    await waitFor(() => expect(asked.at(-1)?.get('declined')).toBe('true'))
+    const choose = async (label: string, search: string, sent: Record<string, string>) => {
+      await userEvent.selectOptions(screen.getByLabelText('Filter design version'), label)
+      await waitFor(() => expect(router.state.location.search).toBe(search))
+      await waitFor(() => expect(Object.fromEntries(['designed', 'declined', 'out_of_date']
+        .filter((k) => asked.at(-1)?.has(k)).map((k) => [k, asked.at(-1)!.get(k)]))).toEqual(sent))
+    }
+    await choose('Has a design', '?declined=false&designed=true', { designed: 'true', declined: 'false' })
+    await choose('Declined', '?declined=true', { declined: 'true' })
     expect(screen.getByText(/declined by the designer/)).toBeInTheDocument()
+    await choose('Not designed', '?designed=false', { designed: 'false' })
+    await choose('Current', '?out_of_date=false&designed=true', { designed: 'true', out_of_date: 'false' })
+    await choose('Stale', '?out_of_date=true', { out_of_date: 'true' })
+    await choose('Any', '', {})
+    expect(screen.queryByLabelText('Designer')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Design version')).not.toBeInTheDocument()
+  })
 
-    await userEvent.selectOptions(screen.getByLabelText('Designer'), 'Not declined')
-    await waitFor(() => expect(asked.at(-1)?.get('declined')).toBe('false'))
-    await userEvent.selectOptions(screen.getByLabelText('Designer'), 'Any')
-    await waitFor(() => expect(router.state.location.search).toBe(''))
-    await waitFor(() => expect(asked.at(-1)?.has('declined')).toBe(false))
+  it('says a mix of filters no choice makes, from an old link, as it is', async () => {
+    server.use(statusRoute(status({ index: index() })),
+               http.get('/v1/titles', () => json({ total: 0, offset: 0, limit: 100, titles: [] })))
+    renderApp('/titles?declined=false')
+    expect(await screen.findByLabelText('Filter design version')).toHaveDisplayValue('As in the address')
   })
 
   it('filters on the design version, and redesigns what is out of date in one job', async () => {
@@ -194,9 +215,9 @@ describe('titles', () => {
                http.get('/v1/jobs/j1', () => json(runJob({ id: 'j1' }))))
     const router = renderApp('/titles')
 
-    await screen.findByLabelText('Design version')
+    await screen.findByLabelText('Filter design version')
     expect(screen.queryByRole('button', { name: 'Redesign out of date…' })).not.toBeInTheDocument()
-    await userEvent.selectOptions(screen.getByLabelText('Design version'), 'Out of date')
+    await userEvent.selectOptions(screen.getByLabelText('Filter design version'), 'Stale')
     await waitFor(() => expect(router.state.location.search).toBe('?out_of_date=true'))
     await waitFor(() => expect(asked.at(-1)?.get('out_of_date')).toBe('true'))
     expect(screen.getByText(/designed out of date/)).toBeInTheDocument()
@@ -218,13 +239,13 @@ describe('titles', () => {
                http.get('/v1/titles/a/review', () => json(review())),
                http.get('/v1/titles/a/chart', () => json(chart(0))))
     const router = renderApp('/titles?needs=review')
-    await userEvent.click(await screen.findByRole('button', { name: 'Review next waiting' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Review next' }))
     await waitFor(() => expect(router.state.location.pathname).toBe('/titles/a'))
     expect(router.state.location.search).toBe('?needs=review')
 
     none = true
     const again = renderApp('/titles')
-    await userEvent.click((await screen.findAllByRole('button', { name: 'Review next waiting' })).at(-1)!)
+    await userEvent.click((await screen.findAllByRole('button', { name: 'Review next' })).at(-1)!)
     expect(await screen.findByText('No title in this list is waiting for a decision.')).toBeInTheDocument()
     expect(again.state.location.pathname).toBe('/titles')
   })
@@ -592,13 +613,14 @@ describe('filtering on adjustments and design runs', () => {
                    title('a', { adjusted: true, unmet_adjustments: 1, design_runs: 3, design_choices: 5 })] })
                }))
     const router = renderApp('/titles')
-    expect(await screen.findByText('adjusted, 1 not honoured')).toBeInTheDocument()
+    expect(await screen.findByRole('cell', { name: '1 not honoured' })).toBeInTheDocument()
+    expect(screen.getByRole('cell', { name: 'Asked' })).toBeInTheDocument()
     // how many runs is the review page's to say: the list counts the designs to choose from in all of them
     expect(screen.queryByText('3 runs')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Design runs')).not.toBeInTheDocument()
     expect(screen.getByRole('cell', { name: '5' })).toBeInTheDocument()
-    await userEvent.selectOptions(screen.getByLabelText('Adjustments'), 'Asked for some')
-    await userEvent.selectOptions(screen.getByLabelText('Answers'), 'Some not honoured')
+    await userEvent.selectOptions(screen.getByLabelText('Filter adjustments'), 'Asked for some')
+    await userEvent.selectOptions(screen.getByLabelText('Filter answers'), 'Some not honoured')
     await waitFor(() => expect(router.state.location.search).toBe('?adjusted=true&unmet=true'))
     await waitFor(() => expect(asked.at(-1)?.get('unmet')).toBe('true'))
     expect(asked.at(-1)?.get('adjusted')).toBe('true')

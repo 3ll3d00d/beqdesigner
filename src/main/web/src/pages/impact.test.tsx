@@ -67,7 +67,7 @@ describe('Which out-of-date designs to redesign', () => {
     routes(() => answer, sent)
     renderApp('/titles?out_of_date=true')
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Check what a redesign would move' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Assess Impact' }))
     expect(sent.impact).toEqual([{ ids: [] }])
     answer = check()
 
@@ -175,6 +175,6 @@ describe('Which out-of-date designs to redesign', () => {
     routes(() => check({ state: 'running', done: 500, total: 1287, titles: [] }), sent)
     renderApp('/titles?out_of_date=true')
     expect(await screen.findByText('Asked about 500 of 1,287 titles…')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Checking…' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Assessing…' })).toBeDisabled()
   })
 })

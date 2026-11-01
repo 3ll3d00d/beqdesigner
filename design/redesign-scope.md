@@ -35,8 +35,8 @@ are then stamped *reviewed at* the new identity and stop showing as out of date.
    reviewed at the current identity, each refused with its reason (not out of date, in a run's hands, the designers
    disagree). Redesigning goes through the existing `/v1/revise` with the chosen ids. `Title.reviewed_at` shows a
    title's reviews.
-5. **The web app** (built; `components/ImpactPanel.tsx`). On Titles, with *Out of date*: *Check what a redesign would
-   move*, then the titles grouped by tier (unknown with will move), highest score first, each with its reasons; select
+5. **The web app** (built; `components/ImpactPanel.tsx`). On Titles, with the *Design version* column on *Stale*: *Assess
+   Impact*, then the titles in a filterable table by tier (unknown with will move), highest score first, each with its reasons; select
    and *Redesign selected* or *Keep selected*. An answer for another design version than the designer's now is marked
    stale. A title's reviews are on `/v1/titles` (`reviewed_at`); the review page does not show them yet.
 6. **Scores are probabilities** (agreed with beqforge 2026-10-25, still 1.6, additive): a score is the designer's
