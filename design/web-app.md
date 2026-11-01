@@ -145,7 +145,8 @@ message. Tests: `test_pipeline_library_decide.py`.
     folded under *What changed*, newest first, one per line with what each was measured on ("moved means" said once when
     they share it), an answer
     for another design version than the designer's now marked stale; *Select those likely to move* / *the rest*, then
-    *Redesign selected* (`/v1/revise` to design, in one run) or *Keep selected* (`/v1/reviewed`, each refusal named), and *Publish accepted…* / *Commit published…*:
+    *Redesign selected* (a redesign job of the chosen ids, `redesign: true`, one run, any number up to 10,000, with a
+    link to follow it) or *Keep selected* (`/v1/reviewed`, 500 a request one after another, each refusal named), and *Publish accepted…* / *Commit published…*:
     a plan of the filter with `needs` publish (or commit) says how many, an inline confirmation names the repositories,
     and a run job through publish (or commit) is submitted and followed. Disabled with the reason as on New job.
   - *Review*: the title, its status, what it needs; the designs (rejected ones listed apart, with how many reasons),

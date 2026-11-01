@@ -2,9 +2,10 @@
 // redesign now would move, read its answer most likely to move first with the reasons, then redesign the titles chosen
 // and keep the rest, which then stop showing as out of date. Nothing is redesigned or kept on the answer alone.
 import { useState } from 'react'
+import { Link } from 'react-router'
 
 import type { Schemas } from '../api/client'
-import { MAX_REVISED, useImpact, useKeepReviewed, useRevise, useStartImpact, useStatus } from '../api/hooks'
+import { MAX_REDESIGNED, useImpact, useKeepReviewed, useStartImpact, useStatus, useSubmitRun } from '../api/hooks'
 import { count } from '../format'
 import { ImpactTable, TIER_WORDS, type Tier } from './ImpactTable'
 
@@ -60,11 +61,12 @@ export function ImpactPanel({ link }: { link: (id: string) => string }) {
   const impact = useImpact()
   const start = useStartImpact()
   const keep = useKeepReviewed()
-  const revise = useRevise()
+  const redesign = useSubmitRun()
   const status = useStatus()
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [done, setDone] = useState<Map<string, Done>>(new Map())
   const [said, setSaid] = useState('')
+  const [job, setJob] = useState<string | null>(null)
 
   const check = impact.data
   const running = check?.state === 'running' || start.isPending
@@ -82,12 +84,13 @@ export function ImpactPanel({ link }: { link: (id: string) => string }) {
     return next
   })
   const finish = (ids: string[], what: Done, text: string) => {
+    if (what === 'kept') setJob(null)
     setDone((d) => new Map([...d, ...ids.map((id) => [id, what] as const)]))
     setSelected(new Set())
     setSaid(text)
   }
   const ids = [...selected]
-  const tooMany = ids.length > MAX_REVISED
+  const tooMany = ids.length > MAX_REDESIGNED
 
   return (
     <section className="impact" aria-label="What a redesign would move">
@@ -121,9 +124,13 @@ export function ImpactPanel({ link }: { link: (id: string) => string }) {
             <button type="button" className="link" onClick={() => pick(['possible', 'unaffected'])}>Select the rest</button>
             {selected.size > 0 && <>
               <span>{count(selected.size, 'title')} selected, {about(expectedMovers(open.filter((t) => selected.has(t.id))))} expected to move</span>
-              <button type="button" disabled={revise.isPending || tooMany} onClick={() => revise.mutate(
-                { ids, to: 'design', reason: 'a redesign now could move its design', run: true },
-                { onSuccess: () => finish(ids, 'sent back', `Sent ${count(ids.length, 'title')} back to the designer in one run.`) })}>
+              <button type="button" disabled={redesign.isPending || tooMany} onClick={() => redesign.mutate(
+                { filter: { ids, new_since_scan: false }, through: 'design', redesign: true, revise_to: 'design',
+                  scan_first: false, retry_failed: false, name: `Redesign ${count(ids.length, 'title')} by impact` },
+                { onSuccess: (started) => {
+                  setJob(started.id)
+                  finish(ids, 'sent back', `Started a job to redesign ${count(ids.length, 'title')} in one run.`)
+                } })}>
                 Redesign selected</button>
               <button type="button" className="secondary" disabled={keep.isPending || tooMany} onClick={() => keep.mutate(ids, {
                 onSuccess: (outcome) => {
@@ -136,10 +143,10 @@ export function ImpactPanel({ link }: { link: (id: string) => string }) {
               <button type="button" className="link" onClick={() => setSelected(new Set())}>Clear selection</button>
             </>}
           </div>
-          {tooMany && <p className="problem">Choose at most {MAX_REVISED} at a time.</p>}
-          {revise.error && <p role="alert" className="problem">{revise.error.message}</p>}
+          {tooMany && <p className="problem">Choose at most {MAX_REDESIGNED.toLocaleString()} at a time.</p>}
+          {redesign.error && <p role="alert" className="problem">{redesign.error.message}</p>}
           {keep.error && <p role="alert" className="problem">{keep.error.message}</p>}
-          {said && <p role="status">{said}</p>}
+          {said && <p role="status">{said}{job && <> <Link to={`/jobs/${job}`}>Follow the job</Link></>}</p>}
           <ImpactTable titles={answer.titles} selected={selected} done={done} onSelect={choose} link={link} />
         </>
       )}

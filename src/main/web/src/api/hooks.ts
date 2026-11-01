@@ -458,7 +458,15 @@ export function useKeepReviewed() {
   const queries = useQueryClient()
   const refresh = useRefreshWork()
   return useMutation({
-    mutationFn: async (ids: string[]) => unwrap(await client.POST('/v1/reviewed', { body: { ids } })),
+    mutationFn: async (ids: string[]): Promise<Schemas['ReviewedOutcome']> => {
+      // MAX_REVISED at a time, one after another: each request writes its titles before it answers
+      let outcome: Schemas['ReviewedOutcome'] | null = null
+      for (let at = 0; at < ids.length; at += MAX_REVISED) {
+        const part = unwrap(await client.POST('/v1/reviewed', { body: { ids: ids.slice(at, at + MAX_REVISED) } }))
+        outcome = outcome ? { ...part, titles: [...outcome.titles, ...part.titles] } : part
+      }
+      return outcome!
+    },
     onSuccess: () => {
       refresh()
       void queries.invalidateQueries({ queryKey: ['titles'] })
@@ -633,8 +641,10 @@ export function useSaveEdited(id: string) {
   })
 }
 
-/** How many titles one revise may send back at once (the service's MAX_REDESIGN_IDS). */
+/** How many titles one revise or keep may take at once (the service's MAX_REVISE_IDS: it writes inside the request). */
 export const MAX_REVISED = 500
+/** How many titles one redesign job may take (the service's MAX_REDESIGN_IDS: it sends them back in the background). */
+export const MAX_REDESIGNED = 10_000
 
 /** Every title id the filter matches, page by page, up to MAX_REVISED: for selecting a whole list, not one page. */
 export function useMatchingIds() {

@@ -541,10 +541,10 @@ def test_the_published_event_schema_is_one_shape_per_type():
 
 
 @pytest.mark.parametrize('body', [
-    {}, {'filter': {'ids': [f't{i}' for i in range(501)]}}, {'filter': {'ids': ['a'], 'needs': ['review']}},
+    {}, {'filter': {'ids': [f't{i}' for i in range(10_001)]}}, {'filter': {'ids': ['a'], 'needs': ['review']}},
     {'filter': {'ids': ['a']}, 'through': 'publish'},
 ])
-def test_redesign_takes_1_to_500_ids_and_design_only(service, body):
+def test_redesign_takes_1_to_10000_ids_and_design_only(service, body):
     client, _, calls = service
     response = make_job(client, AUTH, 'run', {**body, 'redesign': True})
     assert response.status_code == 422
@@ -575,3 +575,14 @@ def test_redesign_by_version_takes_out_of_date_true_without_ids(service, body):
     client, _, calls = service
     assert make_job(client, AUTH, 'run', {**body, 'redesign': True}).status_code == 422
     assert calls == []
+
+
+def test_a_redesign_job_takes_more_titles_than_a_revise_or_a_keep_which_write_inside_the_request():
+    import pydantic
+    from pipeline.service.models import ReviewedAsk, ReviseRequest, RunJobRequest
+    ids = [f't{i}' for i in range(1_035)]
+    assert len(RunJobRequest(filter={'ids': ids}, redesign=True).filter.ids) == 1_035
+    with pytest.raises(pydantic.ValidationError):
+        ReviseRequest(ids=ids, to='design')
+    with pytest.raises(pydantic.ValidationError):
+        ReviewedAsk(ids=ids)

@@ -6,7 +6,7 @@ import { http, HttpResponse } from 'msw/http'
 
 import type { Schemas } from '../api/client'
 import { saveToken } from '../api/token'
-import { index, title } from '../test/fixtures'
+import { index, runJob, title } from '../test/fixtures'
 import { renderApp } from '../test/render'
 import { server, status, statusRoute, TOKEN } from '../test/server'
 
@@ -46,9 +46,9 @@ function routes(answer: () => Schemas['ImpactCheck'], sent: ReturnType<typeof se
                sent.impact.push(await request.json())
                return json(check({ state: 'running', done: 0, titles: [] }), 202)
              }),
-             http.post('/v1/revise', async ({ request }) => {
-               sent.revise.push(await request.json())
-               return json({ revised: [], failed: [], job: null })
+             http.post('/v1/jobs', async ({ request }) => {
+               sent.jobs.push(await request.json())
+               return json(runJob({ id: 'j1' }), 201)
              }),
              http.post('/v1/reviewed', async ({ request }) => {
                const body = await request.json() as { ids: string[] }
@@ -58,7 +58,7 @@ function routes(answer: () => Schemas['ImpactCheck'], sent: ReturnType<typeof se
              }))
 }
 
-const sentTo = () => ({ impact: [] as unknown[], revise: [] as unknown[], reviewed: [] as unknown[] })
+const sentTo = () => ({ impact: [] as unknown[], jobs: [] as unknown[], reviewed: [] as unknown[] })
 
 describe('Which out-of-date designs to redesign', () => {
   it('asks the designer, and shows its answer by tier, most likely to move first, with the reasons', async () => {
@@ -97,9 +97,11 @@ describe('Which out-of-date designs to redesign', () => {
     await userEvent.click(within(panel).getByRole('checkbox', { name: 'Choose Blade' }))   // a person decides otherwise
     expect(within(panel).getByText('2 titles selected, about 2 expected to move')).toBeInTheDocument()
     await userEvent.click(within(panel).getByRole('button', { name: 'Redesign selected' }))
-    await waitFor(() => expect(sent.revise).toHaveLength(1))
-    expect(sent.revise[0]).toMatchObject({ ids: ['a', 'h'], to: 'design', run: true })
-    expect(await within(panel).findByText('Sent 2 titles back to the designer in one run.')).toBeInTheDocument()
+    await waitFor(() => expect(sent.jobs).toHaveLength(1))
+    expect(sent.jobs[0]).toMatchObject({ kind: 'run', name: 'Redesign 2 titles by impact', request: {
+      filter: { ids: ['a', 'h'] }, through: 'design', redesign: true, revise_to: 'design', scan_first: false } })
+    expect(await within(panel).findByText('Started a job to redesign 2 titles in one run.')).toBeInTheDocument()
+    expect(within(panel).getByRole('link', { name: 'Follow the job' })).toHaveAttribute('href', '/jobs/j1')
     expect(within(panel).getByRole('checkbox', { name: 'Choose Alien' })).toBeDisabled()
 
     await userEvent.click(within(panel).getByRole('button', { name: 'Select the rest' }))
@@ -153,8 +155,34 @@ describe('Which out-of-date designs to redesign', () => {
     expect(within(table).getByText('No title matches these filters.')).toBeInTheDocument()
 
     await userEvent.click(within(panel).getByRole('button', { name: 'Redesign selected' }))
-    await waitFor(() => expect(sent.revise).toHaveLength(1))
-    expect(sent.revise[0]).toMatchObject({ ids: ['a', 'd'], to: 'design', run: true })
+    await waitFor(() => expect(sent.jobs).toHaveLength(1))
+    expect(sent.jobs[0]).toMatchObject({ request: { filter: { ids: ['a', 'd'] }, redesign: true } })
+  })
+
+  const many = Array.from({ length: 520 }, (_, i) => ({ id: `t${i}`, title: `T${i}`, year: '2000', tier: 'likely' as const,
+                                                         score: 0.6, from_design_version: 8, reasons: [] }))
+
+  it('keeps more titles than one request takes, in batches the service takes', async () => {
+    const sent = sentTo()
+    routes(() => check({ titles: many }), sent)
+    renderApp('/titles?out_of_date=true')
+    const panel = await screen.findByRole('region', { name: 'What a redesign would move' })
+    await userEvent.click(await within(panel).findByRole('button', { name: 'Select all 520 shown' }))
+    await userEvent.click(within(panel).getByRole('button', { name: 'Keep selected' }))
+    await waitFor(() => expect(sent.reviewed.map((b) => (b as { ids: string[] }).ids.length)).toEqual([500, 20]))
+    expect(await within(panel).findByText(/Kept 520 designs/)).toBeInTheDocument()
+  })
+
+  it('redesigns more titles than a revise takes, as one job', async () => {
+    const sent = sentTo()
+    routes(() => check({ titles: many }), sent)
+    renderApp('/titles?out_of_date=true')
+    const panel = await screen.findByRole('region', { name: 'What a redesign would move' })
+    await userEvent.click(await within(panel).findByRole('button', { name: 'Select all 520 shown' }))
+    expect(within(panel).queryByText(/at most/)).not.toBeInTheDocument()
+    await userEvent.click(within(panel).getByRole('button', { name: 'Redesign selected' }))
+    await waitFor(() => expect(sent.jobs).toHaveLength(1))
+    expect((sent.jobs[0] as { request: { filter: { ids: string[] } } }).request.filter.ids).toHaveLength(520)
   })
 
   it('says a check made at another design version is stale', async () => {

@@ -2673,7 +2673,7 @@ export interface components {
             retry_failed: boolean;
             /**
              * Redesign
-             * @description Invalidate the existing designs before running, then design them in one run (the whole designer pool at once). Requires through=design and either 1 to 500 ids and no other filter, or out_of_date=true (with any other filter but ids): every designed title it selects that is not accepted or published. The titles must be reviewed again.
+             * @description Invalidate the existing designs before running, then design them in one run (the whole designer pool at once). Requires through=design and either 1 to 10000 ids and no other filter, or out_of_date=true (with any other filter but ids): every designed title it selects that is not accepted or published. The titles must be reviewed again.
              * @default false
              */
             redesign: boolean;

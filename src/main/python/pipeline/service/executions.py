@@ -62,7 +62,8 @@ class ScanRequest:
 
 
 # how many titles one redesign job may send back: enough for a whole retry phase, few enough to read in its log
-MAX_REDESIGN_IDS = 500
+MAX_REDESIGN_IDS = 10_000   # a redesign job: it checks and sends its titles back in the background, so only nonsense is refused
+MAX_REVISE_IDS = 500        # a revise or a keep, whose writes happen inside the request (500 took over 120 s on the share)
 
 
 def redesign_problem(selection: Selection, through: str, *, raise_it: bool = False) -> str:

@@ -13,7 +13,7 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field, RootModel, mo
 
 from pipeline.library.bulk import DEFAULT_ACCEPT_THRESHOLD
 from pipeline.library.selection import Selection
-from pipeline.service.executions import MAX_REDESIGN_IDS, redesign_problem
+from pipeline.service.executions import MAX_REDESIGN_IDS, MAX_REVISE_IDS, redesign_problem
 from pipeline.service.window import window_problem
 from pipeline.library.state import NEEDS, FLAG_DUPLICATE, FLAG_GONE, FLAG_IGNORED, FLAG_IN_CATALOGUE, FLAG_SHADOWED
 from pipeline.library.year import YEAR_PATTERN, YearRange, numeric_year
@@ -594,7 +594,7 @@ class AdjustmentAsk(Input):
 
 class ReviseRequest(Windowed):
     ''' Send titles back: to review (decide again), design (designed again) or extract (extracted and designed again). '''
-    ids: List[str] = Field(min_length=1, max_length=MAX_REDESIGN_IDS)
+    ids: List[str] = Field(min_length=1, max_length=MAX_REVISE_IDS)
     to: Literal['review', 'design', 'extract']
     reason: str = Field('', description='Kept in the reviewer note.')
     run: bool = Field(False, description='With design or extract: do it now, in one run job (refused for review). '
@@ -1167,7 +1167,7 @@ class ImpactCheck(BaseModel):
 
 class ReviewedAsk(Input):
     ''' Keep these titles' designs at the identity a redesign now would use, rather than redesign them. '''
-    ids: List[str] = Field(min_length=1, max_length=MAX_REDESIGN_IDS)
+    ids: List[str] = Field(min_length=1, max_length=MAX_REVISE_IDS)
 
 
 class ReviewedTitle(BaseModel):

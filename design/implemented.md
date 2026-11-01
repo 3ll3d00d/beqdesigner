@@ -435,7 +435,7 @@ scan is more than 12 hours old.
   says the same; it measures the match to the target, not the target.
 - Redesigning pending work resets its selected candidate, while preserving
   reviewer metadata, art, and note.
-- A service redesign job takes 1-500 titles (a retry phase after a designer
+- A service redesign job takes 1-10,000 titles (a retry phase after a designer
   fix): every id is checked first (known, designed, not published unless
   repository writes are allowed), so one bad id changes nothing; then each is
   sent back and they are designed in one run, so the whole designer pool works
