@@ -166,15 +166,19 @@ h3 { font-size: 0.95rem; margin: 0.9rem 0 0.4rem; color: var(--muted); }
 .confirm { border: 1px solid var(--line); border-radius: 8px; padding: 0.6rem 0.9rem; margin: 0.5rem 0; }
 .confirm.problem { border-color: var(--problem); }
 .impact { border: 1px solid var(--line); border-radius: 8px; padding: 0.6rem 0.9rem; margin: 0.5rem 0; }
-.impact-tier h3 { font-size: 1rem; margin: 0.8rem 0 0.3rem; }
-.impact-tier > ul { list-style: none; padding-left: 0; margin: 0; }
-.impact-tier > ul > li { padding: 0.15rem 0; }
 .impact-changes { margin: 0.3rem 0; }
 .impact-changes summary { cursor: pointer; }
 .impact-changes ul { margin: 0.3rem 0; padding-left: 1.2rem; }
 .impact-changes li { margin: 0.3rem 0; }
 .impact-changes li .muted, .impact-changes p { font-size: 0.9em; }
-.impact .reasons { margin: 0.1rem 0 0.2rem 1.6rem; padding-left: 1rem; font-size: 0.9em; }
+.impact-table { max-height: 70vh; overflow: auto; border: 1px solid var(--line); border-radius: 6px; margin-top: 0.4rem; }
+.impact-table thead th { position: sticky; background: var(--bg); z-index: 1; }
+.impact-table thead tr:first-child th { top: 0; }
+.impact-table thead tr.filters th { top: 2.1rem; font-weight: normal; }
+.impact-table tr.filters input:not([type]), .impact-table tr.filters select { width: 100%; min-width: 4rem; }
+.impact-table tr.filters input[type=number] { width: 4.5rem; }
+.impact-table tr.chosen td { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.impact-table td.detail div + div { margin-top: 0.15rem; }
 .decide .actions { margin-top: 0.25rem; }
 td.detail { color: var(--muted); max-width: 32rem; }
 tr.tier-attention td:first-child { box-shadow: inset 3px 0 var(--problem); }

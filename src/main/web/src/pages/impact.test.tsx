@@ -72,9 +72,11 @@ describe('Which out-of-date designs to redesign', () => {
     answer = check()
 
     const panel = await screen.findByRole('region', { name: 'What a redesign would move' })
-    await within(panel).findByRole('heading', { name: 'Will move (1)' })
-    expect(within(panel).getAllByRole('heading').map((h) => h.textContent)).toEqual(
-      ['Will move (1)', 'Unknown: read as will move (1)', 'Likely to move (1)', 'Unaffected (1)'])
+    const table = await within(panel).findByRole('table', { name: 'Titles a redesign could move' })
+    const rows = within(table).getAllByRole('row').slice(2)   // under the labels and the filters
+    expect(rows.map((r) => [...r.querySelectorAll('td')].slice(1, 5).map((td) => td.textContent))).toEqual([
+      ['Alien', '1979', 'Will move', '1.00'], ['Heat', '1995', 'Unknown: read as will move', '—'],
+      ['Blade', '1998', 'Likely to move', '0.70'], ['Dune', '2021', 'Unaffected', '0.00']])
     expect(panel).toHaveTextContent('fit.choice: a threshold moved past it')
     expect(panel).toHaveTextContent('the designer named no run record for this design')
     expect(within(panel).getAllByRole('listitem').find((li) => li.textContent?.startsWith('v7'))).toHaveTextContent(
@@ -124,11 +126,42 @@ describe('Which out-of-date designs to redesign', () => {
     expect(within(changes).getAllByText(`Moved means ${moved}`)).toHaveLength(1)
   })
 
+  it('filters each column, selects all shown, and adds or drops titles by hand on top', async () => {
+    const sent = sentTo()
+    routes(() => check(), sent)
+    renderApp('/titles?out_of_date=true')
+    const panel = await screen.findByRole('region', { name: 'What a redesign would move' })
+    const table = await within(panel).findByRole('table', { name: 'Titles a redesign could move' })
+    const names = () => within(table).queryAllByRole('link').map((a) => a.textContent)
+
+    await userEvent.type(within(table).getByRole('spinbutton', { name: 'Minimum probability' }), '0.5')
+    expect(names()).toEqual(['Alien', 'Heat', 'Blade'])   // an unknown is read as will move, so it stays
+    await userEvent.click(within(panel).getByRole('button', { name: 'Select all 3 shown' }))
+    expect(within(panel).getByText('3 titles selected, about 3 expected to move')).toBeInTheDocument()
+
+    await userEvent.click(within(panel).getByRole('button', { name: 'Clear filters' }))
+    await userEvent.click(within(table).getByRole('checkbox', { name: 'Choose Dune' }))      // added by hand
+    await userEvent.click(within(table).getByRole('checkbox', { name: 'Choose Heat' }))      // dropped by hand
+    await userEvent.selectOptions(within(table).getByRole('combobox', { name: 'Filter tier' }), 'likely')
+    expect(names()).toEqual(['Blade'])
+    await userEvent.click(within(panel).getByRole('button', { name: 'Deselect shown' }))
+    await userEvent.selectOptions(within(table).getByRole('combobox', { name: 'Filter tier' }), '')
+    await userEvent.type(within(table).getByRole('textbox', { name: 'Filter reasons' }), 'THRESHOLD')
+    expect(names()).toEqual(['Alien'])
+    await userEvent.clear(within(table).getByRole('textbox', { name: 'Filter reasons' }))
+    await userEvent.type(within(table).getByRole('textbox', { name: 'Filter title' }), 'zzz')
+    expect(within(table).getByText('No title matches these filters.')).toBeInTheDocument()
+
+    await userEvent.click(within(panel).getByRole('button', { name: 'Redesign selected' }))
+    await waitFor(() => expect(sent.revise).toHaveLength(1))
+    expect(sent.revise[0]).toMatchObject({ ids: ['a', 'd'], to: 'design', run: true })
+  })
+
   it('says a check made at another design version is stale', async () => {
     routes(() => check(), sentTo(), 8)
     renderApp('/titles?out_of_date=true')
     expect(await screen.findByText(/This answer is for design version 7; the designer now designs with 8/)).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'Will move (1)' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('table', { name: 'Titles a redesign could move' })).not.toBeInTheDocument()
   })
 
   it('says why a check failed', async () => {

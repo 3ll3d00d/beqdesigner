@@ -2,21 +2,14 @@
 // redesign now would move, read its answer most likely to move first with the reasons, then redesign the titles chosen
 // and keep the rest, which then stop showing as out of date. Nothing is redesigned or kept on the answer alone.
 import { useState } from 'react'
-import { Link } from 'react-router'
 
 import type { Schemas } from '../api/client'
 import { MAX_REVISED, useImpact, useKeepReviewed, useRevise, useStartImpact, useStatus } from '../api/hooks'
 import { count } from '../format'
+import { ImpactTable, TIER_WORDS, type Tier } from './ImpactTable'
 
-type Tier = Schemas['ImpactTitle']['tier']
+export { TIER_WORDS }
 
-export const TIER_WORDS: { tier: Tier; label: string }[] = [
-  { tier: 'will_move', label: 'Will move' },
-  { tier: 'unknown', label: 'Unknown: read as will move' },
-  { tier: 'likely', label: 'Likely to move' },
-  { tier: 'possible', label: 'Might move' },
-  { tier: 'unaffected', label: 'Unaffected' },
-]
 const MOVING: Tier[] = ['will_move', 'unknown', 'likely']
 
 /** The designer's estimate of how many of `titles` a redesign moves: a score is a probability, an unknown counts as one. */
@@ -80,10 +73,12 @@ export function ImpactPanel({ link }: { link: (id: string) => string }) {
   const stale = answer !== null && current !== null && answer.design_version !== current
   const open = (answer?.titles ?? []).filter((t) => !done.has(t.id))
   const pick = (tiers: Tier[]) => setSelected(new Set(open.filter((t) => tiers.includes(t.tier)).map((t) => t.id)))
-  const toggle = (id: string) => setSelected((s) => {
+  const choose = (chosen: string[], on: boolean) => setSelected((s) => {
     const next = new Set(s)
-    if (next.has(id)) next.delete(id)
-    else next.add(id)
+    for (const id of chosen) {
+      if (on) next.add(id)
+      else next.delete(id)
+    }
     return next
   })
   const finish = (ids: string[], what: Done, text: string) => {
@@ -138,39 +133,14 @@ export function ImpactPanel({ link }: { link: (id: string) => string }) {
                     ...(refused.length ? [`Not kept: ${refused.map((t) => `${t.id} (${t.reason})`).join('; ')}.`] : [])].join(' '))
                 },
               })}>Keep selected</button>
+              <button type="button" className="link" onClick={() => setSelected(new Set())}>Clear selection</button>
             </>}
           </div>
           {tooMany && <p className="problem">Choose at most {MAX_REVISED} at a time.</p>}
           {revise.error && <p role="alert" className="problem">{revise.error.message}</p>}
           {keep.error && <p role="alert" className="problem">{keep.error.message}</p>}
           {said && <p role="status">{said}</p>}
-          {TIER_WORDS.map(({ tier, label }) => {
-            const rows = answer.titles.filter((t) => t.tier === tier)
-            if (!rows.length) return null
-            return (
-              <div key={tier} className="impact-tier">
-                <h3>{label} ({rows.length.toLocaleString()})</h3>
-                <ul>
-                  {rows.map((t) => (
-                    <li key={t.id}>
-                      <label className="inline">
-                        <input type="checkbox" aria-label={`Choose ${t.title || t.id}`} disabled={done.has(t.id)}
-                               checked={selected.has(t.id)} onChange={() => toggle(t.id)} />
-                      </label>{' '}
-                      <Link to={link(t.id)}>{t.title || t.id}</Link>{t.year && ` (${t.year})`}
-                      {t.score !== null && <span className="muted"> {t.score.toFixed(2)}</span>}
-                      {done.has(t.id) && <span className="badge">{done.get(t.id)}</span>}
-                      {t.reasons.length > 0 && (
-                        <ul className="muted reasons">
-                          {t.reasons.map((r, i) => <li key={i}>{r.feature ? `${r.feature}: ` : ''}{r.detail}</li>)}
-                        </ul>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )
-          })}
+          <ImpactTable titles={answer.titles} selected={selected} done={done} onSelect={choose} link={link} />
         </>
       )}
     </section>

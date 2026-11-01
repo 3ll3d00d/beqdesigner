@@ -130,8 +130,11 @@ message. Tests: `test_pipeline_library_decide.py`.
     above it; how many design runs a title keeps is the review page's to show, and the *Designs* column counts the designs
     to choose from in all of them (`design_choices`), *Review next waiting*, *Redesign out of date…* (shown with *Out of date*: one
     redesign job by version after an inline confirmation) with, under it, *Check what a redesign would move*
-    (`components/ImpactPanel.tsx`, contract 1.6, [redesign scope](redesign-scope.md)): the designer's answer by tier --
-    will move, unknown (read as will move), likely, might, unaffected -- each title with its score and reasons, the changes
+    (`components/ImpactPanel.tsx`, contract 1.6, [redesign scope](redesign-scope.md)): the designer's answer as a table
+    (`components/ImpactTable.tsx`), most likely to move first -- title, year, tier (will move, unknown read as will move,
+    likely, might, unaffected), probability, the version designed at, reasons -- with a filter at the top of each column
+    (a minimum probability, which an unknown always passes), *Select all N shown* / *Deselect shown* over what the filters
+    leave and a checkbox per row to add or drop any by hand, the changes
     folded under *What changed*, newest first, one per line with what each was measured on ("moved means" said once when
     they share it), an answer
     for another design version than the designer's now marked stale; *Select those likely to move* / *the rest*, then
