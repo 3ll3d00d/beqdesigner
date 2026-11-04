@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.13, <4.0"
 
 [[package]]
@@ -204,6 +204,7 @@ wheels = [
 [[package]]
 name = "beqdesigner"
 source = { virtual = "." }
+default-groups = ["desktop", "dev"]
 dependencies = [
     { name = "awesomeversion" },
     { name = "beqforge", extra = ["optimiser"] },
@@ -2203,11 +2204,11 @@ wheels = [
 
 [[package]]
 name = "sanitize-filename"
-version = "1.2.0"
+version = "1.2.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/a3/1c/2757fe1d119304407c501236de0fa7482975f4fbef3d955abc3f7d88c986/sanitize_filename-1.2.0.tar.gz", hash = "sha256:e75933e96d426e306eef8c270cc24c3e1971d8715288c9776d801d3d8e7b941a", size = 3770, upload-time = "2020-04-24T09:39:39.403Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/08/3f/77c5838a8c6c89f55c63c3d398a8669a3e72ea9f281be8829ed6d2f3916d/sanitize_filename-1.2.1.tar.gz", hash = "sha256:e91e6ed73a2a9be8cf9dbf664b47e3e8de7160519fc274f4f42f5d4a5413fdc2", size = 4754, upload-time = "2026-10-29T16:19:42.001Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/1e/f3/fd41487943812aedce909d5630c2bcac1b72a8e9e68308195c758f895269/sanitize_filename-1.2.0-py3-none-any.whl", hash = "sha256:a5be41a4371c84cb4a666a9c3baa70e1b2086a3e50b86c7ba5dd579f5ad2f330", size = 3934, upload-time = "2020-04-24T09:39:38.361Z" },
+    { url = "https://files.pythonhosted.org/packages/53/ec/214fb9ce5cbdb823d660fbd64d80cbba94b7aa00f709fd6bf3cade9bb949/sanitize_filename-1.2.1-py3-none-any.whl", hash = "sha256:087cc15696133682e98fb62b25053973e90f1dfd02725e7637e5019c982d2fa7", size = 4329, upload-time = "2026-10-29T16:19:40.932Z" },
 ]
 
 [[package]]
