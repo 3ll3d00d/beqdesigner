@@ -53,6 +53,7 @@ jobs:
           uv sync --locked
           if [[ "$RUNNER_OS" == "Linux" ]]
           then
+            sudo apt-get update
             sudo apt install -y libegl1 libpulse0   # Qt's platform and multimedia libraries, as test.yaml installs
           fi
       # As test.yaml runs the suite, except that ffmpeg is deliberately not installed: the app treats it as optional, and
